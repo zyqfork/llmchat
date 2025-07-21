@@ -633,47 +633,6 @@ export function ChatActions(props: {
           }}
         />
 
-        <ChatAction
-          onClick={() => setShowModelSelector(true)}
-          text={currentModelName}
-          icon={<RobotIcon />}
-        />
-
-        {showModelSelector && (
-          <Selector
-            defaultSelectedValue={`${currentModel}@${currentProviderName}`}
-            items={models.map((m) => ({
-              title: `${m.displayName}${
-                m?.provider?.providerName
-                  ? " (" + m?.provider?.providerName + ")"
-                  : ""
-              }`,
-              value: `${m.name}@${m?.provider?.providerName}`,
-            }))}
-            onClose={() => setShowModelSelector(false)}
-            onSelection={(s) => {
-              if (s.length === 0) return;
-              const [model, providerName] = getModelProvider(s[0]);
-              chatStore.updateTargetSession(session, (session) => {
-                session.mask.modelConfig.model = model as ModelType;
-                session.mask.modelConfig.providerName =
-                  providerName as ServiceProvider;
-                session.mask.syncGlobalConfig = false;
-              });
-              if (providerName == "ByteDance") {
-                const selectedModel = models.find(
-                  (m) =>
-                    m.name == model &&
-                    m?.provider?.providerName == providerName,
-                );
-                showToast(selectedModel?.displayName ?? "");
-              } else {
-                showToast(model);
-              }
-            }}
-          />
-        )}
-
         {supportsCustomSize(currentModel) && (
           <ChatAction
             onClick={() => setShowSizeSelector(true)}
@@ -802,6 +761,52 @@ export function ChatActions(props: {
             icon={<HeadphoneIcon />}
           />
         )}
+
+        {/* 模型选择器 - 固定在右侧 */}
+        <div className={styles["model-selector-container"]}>
+          <button
+            className={styles["model-selector-button"]}
+            onClick={() => setShowModelSelector(true)}
+          >
+            <RobotIcon className={styles["model-icon"]} />
+            <span className={styles["model-name"]}>{currentModelName}</span>
+          </button>
+
+          {showModelSelector && (
+            <Selector
+              defaultSelectedValue={`${currentModel}@${currentProviderName}`}
+              items={models.map((m) => ({
+                title: `${m.displayName}${
+                  m?.provider?.providerName
+                    ? " (" + m?.provider?.providerName + ")"
+                    : ""
+                }`,
+                value: `${m.name}@${m?.provider?.providerName}`,
+              }))}
+              onClose={() => setShowModelSelector(false)}
+              onSelection={(s) => {
+                if (s.length === 0) return;
+                const [model, providerName] = getModelProvider(s[0]);
+                chatStore.updateTargetSession(session, (session) => {
+                  session.mask.modelConfig.model = model as ModelType;
+                  session.mask.modelConfig.providerName =
+                    providerName as ServiceProvider;
+                  session.mask.syncGlobalConfig = false;
+                });
+                if (providerName == "ByteDance") {
+                  const selectedModel = models.find(
+                    (m) =>
+                      m.name == model &&
+                      m?.provider?.providerName == providerName,
+                  );
+                  showToast(selectedModel?.displayName ?? "");
+                } else {
+                  showToast(model);
+                }
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
