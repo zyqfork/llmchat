@@ -669,6 +669,9 @@ const en: LocaleType = {
   Discovery: {
     Name: "Discovery",
   },
+  ChatSettings: {
+    Name: "Chat Settings",
+  },
   Mcp: {
     Name: "MCP",
   },

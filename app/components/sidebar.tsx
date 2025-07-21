@@ -12,6 +12,7 @@ import MaskIcon from "../icons/mask.svg";
 import McpIcon from "../icons/mcp.svg";
 import DragIcon from "../icons/drag.svg";
 import DiscoveryIcon from "../icons/discovery.svg";
+import ChatSettingsIcon from "../icons/chat-settings.svg";
 
 import Locale from "../locales";
 
@@ -32,7 +33,7 @@ import { isIOS, useMobileScreen } from "../utils";
 import dynamic from "next/dynamic";
 import { Selector, showConfirm } from "./ui-lib";
 import clsx from "clsx";
-import { isMcpEnabled } from "../mcp/actions";
+import { SessionConfigModel } from "./chat";
 
 const DISCOVERY = [
   { name: Locale.Plugin.Name, path: Path.Plugins },
@@ -237,20 +238,9 @@ export function SideBar(props: { className?: string }) {
   const { onDragStart, shouldNarrow } = useDragSideBar();
   const [showDiscoverySelector, setshowDiscoverySelector] = useState(false);
   const [showMaskList, setShowMaskList] = useState(false);
+  const [showChatSettings, setShowChatSettings] = useState(false);
   const navigate = useNavigate();
-  const config = useAppConfig();
   const chatStore = useChatStore();
-  const [mcpEnabled, setMcpEnabled] = useState(false);
-
-  useEffect(() => {
-    // 检查 MCP 是否启用
-    const checkMcpStatus = async () => {
-      const enabled = await isMcpEnabled();
-      setMcpEnabled(enabled);
-      console.log("[SideBar] MCP enabled:", enabled);
-    };
-    checkMcpStatus();
-  }, []);
 
   return (
     <SideBarContainer
@@ -272,17 +262,24 @@ export function SideBar(props: { className?: string }) {
             onClick={() => setShowMaskList(true)}
             shadow
           />
-          {mcpEnabled && (
-            <IconButton
-              icon={<McpIcon />}
-              text={shouldNarrow ? undefined : Locale.Mcp.Name}
-              className={styles["sidebar-bar-button"]}
-              onClick={() => {
-                navigate(Path.McpMarket, { state: { fromHome: true } });
-              }}
-              shadow
-            />
-          )}
+          <IconButton
+            icon={<ChatSettingsIcon />}
+            text={shouldNarrow ? undefined : Locale.ChatSettings.Name}
+            className={styles["sidebar-bar-button"]}
+            onClick={() => setShowChatSettings(true)}
+            shadow
+          />
+        </div>
+        <div className={styles["sidebar-header-bar"]}>
+          <IconButton
+            icon={<McpIcon />}
+            text={shouldNarrow ? undefined : Locale.Mcp.Name}
+            className={styles["sidebar-bar-button"]}
+            onClick={() => {
+              navigate(Path.McpMarket, { state: { fromHome: true } });
+            }}
+            shadow
+          />
           <IconButton
             icon={<DiscoveryIcon />}
             text={shouldNarrow ? undefined : Locale.Discovery.Name}
@@ -379,6 +376,9 @@ export function SideBar(props: { className?: string }) {
         }
       />
       {showMaskList && <MaskList onClose={() => setShowMaskList(false)} />}
+      {showChatSettings && (
+        <SessionConfigModel onClose={() => setShowChatSettings(false)} />
+      )}
     </SideBarContainer>
   );
 }

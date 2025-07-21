@@ -15,7 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Path } from "../constant";
 import { MaskAvatar } from "./mask";
 import { Mask } from "../store/mask";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useMaskStore } from "../store/mask";
 import { showConfirm } from "./ui-lib";
 import { useMobileScreen } from "../utils";
@@ -117,6 +117,9 @@ export function ChatList(props: { narrow?: boolean }) {
   const navigate = useNavigate();
   const isMobileScreen = useMobileScreen();
 
+  // 用于跟踪面具是否刚刚切换
+  const [lastMaskId, setLastMaskId] = useState(currentMaskId);
+
   // 根据当前面具过滤sessions
   const filteredSessions = currentMaskId
     ? sessions.filter((session) => session.mask.id === currentMaskId)
@@ -124,7 +127,10 @@ export function ChatList(props: { narrow?: boolean }) {
 
   // 监听面具切换，自动切换到对应面具的最新话题或创建新话题
   useEffect(() => {
-    if (currentMaskId) {
+    // 只有当面具真正切换时才执行（不是初始化时）
+    if (currentMaskId && currentMaskId !== lastMaskId) {
+      setLastMaskId(currentMaskId);
+
       if (filteredSessions.length === 0) {
         // 如果没有话题，创建一个新话题
         const selectedMask = maskStore
@@ -144,19 +150,19 @@ export function ChatList(props: { narrow?: boolean }) {
         const sessionIndex = sessions.findIndex(
           (s) => s.id === latestSession.id,
         );
-        if (sessionIndex !== -1 && sessionIndex !== selectedIndex) {
+        if (sessionIndex !== -1) {
           chatStore.selectSession(sessionIndex);
         }
       }
     }
   }, [
     currentMaskId,
-    filteredSessions.length,
+    lastMaskId,
+    filteredSessions,
     maskStore,
     chatStore,
     navigate,
     sessions,
-    selectedIndex,
   ]);
 
   const onDragEnd: OnDragEndResponder = (result) => {

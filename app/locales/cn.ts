@@ -660,6 +660,9 @@ const cn = {
   Discovery: {
     Name: "发现",
   },
+  ChatSettings: {
+    Name: "对话设置",
+  },
   Mcp: {
     Name: "MCP",
   },
