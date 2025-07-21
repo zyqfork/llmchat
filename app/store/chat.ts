@@ -35,7 +35,7 @@ import { estimateTokenLength } from "../utils/token";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
-import { createEmptyMask, Mask } from "./mask";
+import { createDefaultMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "../mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 
@@ -115,7 +115,7 @@ function createEmptySession(): ChatSession {
     lastUpdate: Date.now(),
     lastSummarizeIndex: 0,
 
-    mask: createEmptyMask(),
+    mask: createDefaultMask(), // 使用默认面具
   };
 }
 
@@ -227,6 +227,7 @@ const DEFAULT_CHAT_STATE = {
   sessions: [createEmptySession()],
   currentSessionIndex: 0,
   lastInput: "",
+  currentMaskId: "default-mask", // 默认选中默认面具
 };
 
 export const useChatStore = createPersistStore(
@@ -271,6 +272,24 @@ export const useChatStore = createPersistStore(
           sessions: [createEmptySession()],
           currentSessionIndex: 0,
         }));
+      },
+
+      // 面具分组相关方法
+      selectMask(maskId: string) {
+        set({ currentMaskId: maskId });
+      },
+
+      getSessionsByMask(maskId: string) {
+        const state = get();
+        return state.sessions.filter((session) => session.mask.id === maskId);
+      },
+
+      getCurrentMaskSessions() {
+        const state = get();
+        if (!state.currentMaskId) return state.sessions;
+        return state.sessions.filter(
+          (session) => session.mask.id === state.currentMaskId,
+        );
       },
 
       selectSession(index: number) {

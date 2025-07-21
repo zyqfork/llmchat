@@ -16,6 +16,7 @@ import DiscoveryIcon from "../icons/discovery.svg";
 import Locale from "../locales";
 
 import { useAppConfig, useChatStore } from "../store";
+import { useMaskStore } from "../store/mask";
 
 import {
   DEFAULT_SIDEBAR_WIDTH,
@@ -42,6 +43,13 @@ const DISCOVERY = [
 const ChatList = dynamic(async () => (await import("./chat-list")).ChatList, {
   loading: () => null,
 });
+
+const MaskList = dynamic(
+  async () => (await import("./assistant-list")).MaskList,
+  {
+    loading: () => null,
+  },
+);
 
 export function useHotKey() {
   const chatStore = useChatStore();
@@ -228,6 +236,7 @@ export function SideBar(props: { className?: string }) {
   useHotKey();
   const { onDragStart, shouldNarrow } = useDragSideBar();
   const [showDiscoverySelector, setshowDiscoverySelector] = useState(false);
+  const [showMaskList, setShowMaskList] = useState(false);
   const navigate = useNavigate();
   const config = useAppConfig();
   const chatStore = useChatStore();
@@ -260,13 +269,7 @@ export function SideBar(props: { className?: string }) {
             icon={<MaskIcon />}
             text={shouldNarrow ? undefined : Locale.Mask.Name}
             className={styles["sidebar-bar-button"]}
-            onClick={() => {
-              if (config.dontShowMaskSplashScreen !== true) {
-                navigate(Path.NewChat, { state: { fromHome: true } });
-              } else {
-                navigate(Path.Masks, { state: { fromHome: true } });
-              }
-            }}
+            onClick={() => setShowMaskList(true)}
             shadow
           />
           {mcpEnabled && (
@@ -352,17 +355,30 @@ export function SideBar(props: { className?: string }) {
             icon={<AddIcon />}
             text={shouldNarrow ? undefined : Locale.Home.NewChat}
             onClick={() => {
-              if (config.dontShowMaskSplashScreen) {
-                chatStore.newSession();
-                navigate(Path.Chat);
+              // 在当前选中的面具下创建新话题
+              const currentMaskId = chatStore.currentMaskId;
+              if (currentMaskId) {
+                // 如果有选中的面具，使用该面具创建新session
+                const maskStore = useMaskStore.getState();
+                const currentMask = maskStore
+                  .getAll()
+                  .find((m: any) => m.id === currentMaskId);
+                if (currentMask) {
+                  chatStore.newSession(currentMask);
+                } else {
+                  chatStore.newSession();
+                }
               } else {
-                navigate(Path.NewChat);
+                // 如果没有选中面具，使用默认面具
+                chatStore.newSession();
               }
+              navigate(Path.Chat);
             }}
             shadow
           />
         }
       />
+      {showMaskList && <MaskList onClose={() => setShowMaskList(false)} />}
     </SideBarContainer>
   );
 }

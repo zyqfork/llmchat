@@ -32,6 +32,22 @@ export type MaskState = typeof DEFAULT_MASK_STATE & {
 };
 
 export const DEFAULT_MASK_AVATAR = "gpt-bot";
+export const DEFAULT_MASK_ID = "default-mask";
+
+export const createDefaultMask = () =>
+  ({
+    id: DEFAULT_MASK_ID,
+    avatar: "🤖",
+    name: "默认助手",
+    context: [],
+    syncGlobalConfig: true,
+    modelConfig: { ...useAppConfig.getState().modelConfig },
+    lang: getLang(),
+    builtin: true, // 标记为内置，不可删除
+    createdAt: Date.now(),
+    plugin: [],
+  }) as Mask;
+
 export const createEmptyMask = () =>
   ({
     id: nanoid(),
@@ -76,6 +92,11 @@ export const useMaskStore = createPersistStore(
       get().markUpdate();
     },
     delete(id: string) {
+      // 防止删除默认面具
+      if (id === DEFAULT_MASK_ID) {
+        console.warn("Cannot delete default mask");
+        return;
+      }
       const masks = get().masks;
       delete masks[id];
       set(() => ({ masks }));
@@ -86,7 +107,14 @@ export const useMaskStore = createPersistStore(
       return get().masks[id ?? 1145141919810];
     },
     getAll() {
-      const userMasks = Object.values(get().masks).sort(
+      // 确保默认面具存在
+      const masks = get().masks;
+      if (!masks[DEFAULT_MASK_ID]) {
+        masks[DEFAULT_MASK_ID] = createDefaultMask();
+        set(() => ({ masks }));
+      }
+
+      const userMasks = Object.values(masks).sort(
         (a, b) => b.createdAt - a.createdAt,
       );
       const config = useAppConfig.getState();
@@ -130,6 +158,11 @@ export const useMaskStore = createPersistStore(
           updatedMasks[m.id] = m;
         });
         newState.masks = updatedMasks;
+      }
+
+      // 确保默认面具存在
+      if (!newState.masks[DEFAULT_MASK_ID]) {
+        newState.masks[DEFAULT_MASK_ID] = createDefaultMask();
       }
 
       return newState as any;

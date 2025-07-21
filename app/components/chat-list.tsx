@@ -103,17 +103,22 @@ export function ChatItem(props: {
 }
 
 export function ChatList(props: { narrow?: boolean }) {
-  const [sessions, selectedIndex, selectSession, moveSession] = useChatStore(
-    (state) => [
+  const [sessions, selectedIndex, selectSession, moveSession, currentMaskId] =
+    useChatStore((state) => [
       state.sessions,
       state.currentSessionIndex,
       state.selectSession,
       state.moveSession,
-    ],
-  );
+      state.currentMaskId,
+    ]);
   const chatStore = useChatStore();
   const navigate = useNavigate();
   const isMobileScreen = useMobileScreen();
+
+  // 根据当前面具过滤sessions
+  const filteredSessions = currentMaskId
+    ? sessions.filter((session) => session.mask.id === currentMaskId)
+    : sessions;
 
   const onDragEnd: OnDragEndResponder = (result) => {
     const { destination, source } = result;
@@ -140,31 +145,35 @@ export function ChatList(props: { narrow?: boolean }) {
             ref={provided.innerRef}
             {...provided.droppableProps}
           >
-            {sessions.map((item, i) => (
-              <ChatItem
-                title={item.topic}
-                time={new Date(item.lastUpdate).toLocaleString()}
-                count={item.messages.length}
-                key={item.id}
-                id={item.id}
-                index={i}
-                selected={i === selectedIndex}
-                onClick={() => {
-                  navigate(Path.Chat);
-                  selectSession(i);
-                }}
-                onDelete={async () => {
-                  if (
-                    (!props.narrow && !isMobileScreen) ||
-                    (await showConfirm(Locale.Home.DeleteChat))
-                  ) {
-                    chatStore.deleteSession(i);
-                  }
-                }}
-                narrow={props.narrow}
-                mask={item.mask}
-              />
-            ))}
+            {filteredSessions.map((item, i) => {
+              // 找到该session在原始sessions数组中的索引
+              const originalIndex = sessions.findIndex((s) => s.id === item.id);
+              return (
+                <ChatItem
+                  title={item.topic}
+                  time={new Date(item.lastUpdate).toLocaleString()}
+                  count={item.messages.length}
+                  key={item.id}
+                  id={item.id}
+                  index={i}
+                  selected={originalIndex === selectedIndex}
+                  onClick={() => {
+                    navigate(Path.Chat);
+                    selectSession(originalIndex);
+                  }}
+                  onDelete={async () => {
+                    if (
+                      (!props.narrow && !isMobileScreen) ||
+                      (await showConfirm(Locale.Home.DeleteChat))
+                    ) {
+                      chatStore.deleteSession(originalIndex);
+                    }
+                  }}
+                  narrow={props.narrow}
+                  mask={item.mask}
+                />
+              );
+            })}
             {provided.placeholder}
           </div>
         )}
