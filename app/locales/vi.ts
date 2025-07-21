@@ -495,9 +495,7 @@ const vi: PartialLocaleType = {
     Clear: "Ngữ cảnh đã được xóa",
     Revert: "Khôi phục ngữ cảnh",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Bạn là một trợ lý",
   },

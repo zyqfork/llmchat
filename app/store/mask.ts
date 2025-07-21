@@ -17,7 +17,7 @@ export type Mask = {
   modelConfig: ModelConfig;
   lang: Lang;
   builtin: boolean;
-  plugin?: string[];
+
   enableArtifacts?: boolean;
   enableCodeFold?: boolean;
 };
@@ -45,7 +45,6 @@ export const createDefaultMask = () =>
     lang: getLang(),
     builtin: true, // 标记为内置，不可删除
     createdAt: Date.now(),
-    plugin: [],
   }) as Mask;
 
 export const createEmptyMask = () =>

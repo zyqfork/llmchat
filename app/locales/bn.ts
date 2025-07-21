@@ -495,9 +495,7 @@ const bn: PartialLocaleType = {
     Clear: "কনটেক্সট পরিষ্কার করা হয়েছে",
     Revert: "কনটেক্সট পুনরুদ্ধার করুন",
   },
-  Plugin: {
-    Name: "প্লাগইন",
-  },
+
   FineTuned: {
     Sysmessage: "আপনি একজন সহকারী",
   },

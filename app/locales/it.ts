@@ -511,9 +511,7 @@ const it: PartialLocaleType = {
     Clear: "Contesto cancellato",
     Revert: "Ripristina contesto",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Sei un assistente",
   },

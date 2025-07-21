@@ -11,7 +11,6 @@ import {
   useAccessStore,
   useAppConfig,
   useChatStore,
-  usePluginStore,
   ChatMessageTool,
 } from "@/app/store";
 import { stream } from "@/app/utils/chat";
@@ -206,11 +205,8 @@ export class GeminiProApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools: any[] = [];
+        const funcs: Record<string, Function> = {};
         return stream(
           chatPath,
           requestPayload,

@@ -499,9 +499,7 @@ const tr: PartialLocaleType = {
     Clear: "Bağlam temizlendi",
     Revert: "Bağlamı geri getir",
   },
-  Plugin: {
-    Name: "Eklenti",
-  },
+
   FineTuned: {
     Sysmessage: "Sen bir asistansın",
   },

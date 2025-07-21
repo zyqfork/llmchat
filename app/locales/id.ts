@@ -499,9 +499,7 @@ const id: PartialLocaleType = {
     Clear: "Konteks telah dihapus",
     Revert: "Kembalikan Konteks",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Anda adalah seorang asisten",
   },

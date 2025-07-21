@@ -496,9 +496,7 @@ const cs: PartialLocaleType = {
     Clear: "Kontext byl vymazán",
     Revert: "Obnovit kontext",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Jste asistent",
   },

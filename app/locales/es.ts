@@ -510,9 +510,7 @@ const es: PartialLocaleType = {
     Clear: "Contexto borrado",
     Revert: "Restaurar contexto",
   },
-  Plugin: {
-    Name: "Complemento",
-  },
+
   FineTuned: {
     Sysmessage: "Eres un asistente",
   },

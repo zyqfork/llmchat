@@ -504,9 +504,7 @@ const no: PartialLocaleType = {
     Clear: "Konteksten er tømt",
     Revert: "Gjenopprett konteksten",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Du er en assistent",
   },

@@ -451,9 +451,7 @@ const sk: PartialLocaleType = {
     Clear: "Kontext vyčistený",
     Revert: "Vrátiť späť",
   },
-  Plugin: {
-    Name: "Plugin",
-  },
+
   FineTuned: {
     Sysmessage: "Ste asistent, ktorý",
   },

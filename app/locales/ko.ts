@@ -487,9 +487,7 @@ const ko: PartialLocaleType = {
     Clear: "컨텍스트가 지워졌습니다.",
     Revert: "컨텍스트 복원",
   },
-  Plugin: {
-    Name: "플러그인",
-  },
+
   FineTuned: {
     Sysmessage: "당신은 보조자입니다.",
   },

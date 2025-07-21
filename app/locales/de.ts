@@ -437,7 +437,8 @@ const de: PartialLocaleType = {
       AI302: {
         ApiKey: {
           Title: "Schnittstellenschlüssel",
-          SubTitle: "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
+          SubTitle:
+            "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
           Placeholder: "302.AI API-Schlüssel",
         },
         Endpoint: {
@@ -512,9 +513,7 @@ const de: PartialLocaleType = {
     Clear: "Kontext gelöscht",
     Revert: "Kontext wiederherstellen",
   },
-  Plugin: {
-    Name: "Plugins",
-  },
+
   FineTuned: {
     Sysmessage: "Du bist ein Assistent",
   },

@@ -500,9 +500,7 @@ const ru: PartialLocaleType = {
     Clear: "Контекст очищен",
     Revert: "Восстановить контекст",
   },
-  Plugin: {
-    Name: "Плагины",
-  },
+
   FineTuned: {
     Sysmessage: "Вы - помощник",
   },

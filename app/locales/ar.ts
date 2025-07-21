@@ -487,9 +487,7 @@ const ar: PartialLocaleType = {
     Clear: "تم مسح السياق",
     Revert: "استعادة السياق",
   },
-  Plugin: {
-    Name: "الإضافات",
-  },
+
   FineTuned: {
     Sysmessage: "أنت مساعد",
   },

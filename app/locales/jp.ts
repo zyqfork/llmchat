@@ -492,9 +492,7 @@ const jp: PartialLocaleType = {
     Clear: "コンテキストがクリアされました",
     Revert: "コンテキストを元に戻す",
   },
-  Plugin: {
-    Name: "プラグイン",
-  },
+
   Discovery: {
     Name: "発見",
   },

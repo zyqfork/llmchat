@@ -637,7 +637,7 @@ const da: PartialLocaleType = {
     Revert: "Fortryd",
   },
   Discovery: {
-    Name: "Søgning og plugins",
+    Name: "Søgning",
   },
   Mcp: {
     Name: "MCP",
@@ -659,47 +659,7 @@ const da: PartialLocaleType = {
       View: "Vis",
     },
   },
-  Plugin: {
-    Name: "Plugin",
-    Page: {
-      Title: "Plugins",
-      SubTitle: (count: number) => `${count} plugins`,
-      Search: "Søg plugin",
-      Create: "Opret nyt",
-      Find: "Du kan finde flere plugins på GitHub: ",
-    },
-    Item: {
-      Info: (count: number) => `${count} metode`,
-      View: "Vis",
-      Edit: "Rediger",
-      Delete: "Slet",
-      DeleteConfirm: "Vil du slette?",
-    },
-    Auth: {
-      None: "Ingen",
-      Basic: "Basic",
-      Bearer: "Bearer",
-      Custom: "Tilpasset",
-      CustomHeader: "Parameternavn",
-      Token: "Token",
-      Proxy: "Brug Proxy",
-      ProxyDescription: "Løs CORS-problemer med Proxy",
-      Location: "Sted",
-      LocationHeader: "Header",
-      LocationQuery: "Query",
-      LocationBody: "Body",
-    },
-    EditModal: {
-      Title: (readonly: boolean) =>
-        `Rediger Plugin ${readonly ? "(skrivebeskyttet)" : ""}`,
-      Download: "Download",
-      Auth: "Godkendelsestype",
-      Content: "OpenAPI Schema",
-      Load: "Hent fra URL",
-      Method: "Metode",
-      Error: "Fejl i OpenAPI Schema",
-    },
-  },
+
   Mask: {
     Name: "Persona",
     Page: {

@@ -332,24 +332,6 @@ export function supportsCustomSize(model: string): boolean {
   return getModelSizes(model).length > 0;
 }
 
-export function showPlugins(provider: ServiceProvider, model: string) {
-  if (
-    provider == ServiceProvider.OpenAI ||
-    provider == ServiceProvider.Azure ||
-    provider == ServiceProvider.Moonshot ||
-    provider == ServiceProvider.ChatGLM
-  ) {
-    return true;
-  }
-  if (provider == ServiceProvider.Anthropic && !model.includes("claude-2")) {
-    return true;
-  }
-  if (provider == ServiceProvider.Google && !model.includes("vision")) {
-    return true;
-  }
-  return false;
-}
-
 export function fetch(
   url: string,
   options?: Record<string, unknown>,
