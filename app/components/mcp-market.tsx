@@ -16,7 +16,6 @@ import {
   getClientsStatus,
   getClientTools,
   getMcpConfigFromFile,
-  isMcpEnabled,
   pauseMcpServer,
   restartAllClients,
   resumeMcpServer,
@@ -31,7 +30,6 @@ import {
 import clsx from "clsx";
 import PlayIcon from "../icons/play.svg";
 import StopIcon from "../icons/pause.svg";
-import { Path } from "../constant";
 
 interface ConfigProperty {
   type: string;
@@ -42,7 +40,7 @@ interface ConfigProperty {
 
 export function McpMarketPage() {
   const navigate = useNavigate();
-  const [mcpEnabled, setMcpEnabled] = useState(false);
+
   const [searchText, setSearchText] = useState("");
   const [userConfig, setUserConfig] = useState<Record<string, any>>({});
   const [editingServerId, setEditingServerId] = useState<string | undefined>();
@@ -59,21 +57,9 @@ export function McpMarketPage() {
     {},
   );
 
-  // 检查 MCP 是否启用
-  useEffect(() => {
-    const checkMcpStatus = async () => {
-      const enabled = await isMcpEnabled();
-      setMcpEnabled(enabled);
-      if (!enabled) {
-        navigate(Path.Home);
-      }
-    };
-    checkMcpStatus();
-  }, [navigate]);
-
   // 添加状态轮询
   useEffect(() => {
-    if (!mcpEnabled || !config) return;
+    if (!config) return;
 
     const updateStatuses = async () => {
       const statuses = await getClientsStatus();
@@ -86,12 +72,11 @@ export function McpMarketPage() {
     const timer = setInterval(updateStatuses, 1000);
 
     return () => clearInterval(timer);
-  }, [mcpEnabled, config]);
+  }, [config]);
 
   // 加载预设服务器
   useEffect(() => {
     const loadPresetServers = async () => {
-      if (!mcpEnabled) return;
       try {
         setLoadingPresets(true);
         const response = await fetch("https://nextchat.club/mcp/list");
@@ -108,12 +93,11 @@ export function McpMarketPage() {
       }
     };
     loadPresetServers();
-  }, [mcpEnabled]);
+  }, []);
 
   // 加载初始状态
   useEffect(() => {
     const loadInitialState = async () => {
-      if (!mcpEnabled) return;
       try {
         setIsLoading(true);
         const config = await getMcpConfigFromFile();
@@ -130,7 +114,7 @@ export function McpMarketPage() {
       }
     };
     loadInitialState();
-  }, [mcpEnabled]);
+  }, []);
 
   // 加载当前编辑服务器的配置
   useEffect(() => {
@@ -164,10 +148,6 @@ export function McpMarketPage() {
       setUserConfig({});
     }
   }, [editingServerId, config, presetServers]);
-
-  if (!mcpEnabled) {
-    return null;
-  }
 
   // 检查服务器是否已添加
   const isServerAdded = (id: string) => {

@@ -27,7 +27,6 @@ import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import ReloadIcon from "../icons/reload.svg";
 import BreakIcon from "../icons/break.svg";
-import SettingsIcon from "../icons/chat-settings.svg";
 import DeleteIcon from "../icons/clear.svg";
 import PinIcon from "../icons/pin.svg";
 import ConfirmIcon from "../icons/confirm.svg";
@@ -124,7 +123,7 @@ import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
-import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
+import { getAvailableClientsCount } from "../mcp/actions";
 
 const localStorage = safeLocalStorage();
 
@@ -137,21 +136,14 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
 const MCPAction = () => {
   const navigate = useNavigate();
   const [count, setCount] = useState<number>(0);
-  const [mcpEnabled, setMcpEnabled] = useState(false);
 
   useEffect(() => {
-    const checkMcpStatus = async () => {
-      const enabled = await isMcpEnabled();
-      setMcpEnabled(enabled);
-      if (enabled) {
-        const count = await getAvailableClientsCount();
-        setCount(count);
-      }
+    const updateCount = async () => {
+      const count = await getAvailableClientsCount();
+      setCount(count);
     };
-    checkMcpStatus();
+    updateCount();
   }, []);
-
-  if (!mcpEnabled) return null;
 
   return (
     <ChatAction
@@ -495,7 +487,6 @@ export function ChatActions(props: {
   uploadImage: () => void;
   setAttachImages: (images: string[]) => void;
   setUploading: (uploading: boolean) => void;
-  showPromptModal: () => void;
   scrollToBottom: () => void;
   showPromptHints: () => void;
   hitBottom: boolean;
@@ -611,13 +602,6 @@ export function ChatActions(props: {
             onClick={props.scrollToBottom}
             text={Locale.Chat.InputActions.ToBottom}
             icon={<BottomIcon />}
-          />
-        )}
-        {props.hitBottom && (
-          <ChatAction
-            onClick={props.showPromptModal}
-            text={Locale.Chat.InputActions.Settings}
-            icon={<SettingsIcon />}
           />
         )}
 
@@ -2049,7 +2033,6 @@ function _Chat() {
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
-                showPromptModal={() => setShowPromptModal(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={hitBottom}
                 uploading={uploading}

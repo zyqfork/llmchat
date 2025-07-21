@@ -16,7 +16,6 @@ import {
 } from "./types";
 import fs from "fs/promises";
 import path from "path";
-import { getServerSideConfig } from "../config/server";
 
 const logger = new MCPClientLogger("MCP Actions");
 const CONFIG_PATH = path.join(process.cwd(), "app/mcp/mcp_config.json");
@@ -370,16 +369,5 @@ async function updateMcpConfig(config: McpConfigData): Promise<void> {
     await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
   } catch (error) {
     throw error;
-  }
-}
-
-// 检查 MCP 是否启用
-export async function isMcpEnabled() {
-  try {
-    const serverConfig = getServerSideConfig();
-    return serverConfig.enableMcp;
-  } catch (error) {
-    logger.error(`Failed to check MCP status: ${error}`);
-    return false;
   }
 }
