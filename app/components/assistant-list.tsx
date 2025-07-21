@@ -1,6 +1,7 @@
 import React from "react";
 import styles from "./home.module.scss";
 import { IconButton } from "./button";
+import { Modal } from "./ui-lib";
 import AddIcon from "../icons/add.svg";
 import { useChatStore } from "../store";
 import { useMaskStore } from "../store/mask";
@@ -66,48 +67,55 @@ export function MaskList(props: MaskListProps) {
   };
 
   return (
-    <div className="modal-mask">
-      <div className={styles["mask-list-modal"]}>
-        <div className={styles["mask-list-header"]}>
-          <div className={styles["mask-list-title"]}>{Locale.Mask.Name}</div>
-          <IconButton
-            icon={<AddIcon />}
-            text="新建面具"
-            onClick={handleCreateMask}
-            bordered
-          />
-        </div>
-
-        <div className={styles["mask-list-body"]}>
-          {allMasks.map((mask) => (
-            <div
-              key={mask.id}
-              className={`${styles["mask-item"]} ${
-                currentMaskId === mask.id ? styles["mask-item-selected"] : ""
-              }`}
-              onClick={() => handleSelectMask(mask.id)}
-            >
-              <div className={styles["mask-item-avatar"]}>
-                <MaskAvatar
-                  avatar={mask.avatar}
-                  model={mask.modelConfig.model}
-                />
-              </div>
-              <div className={styles["mask-item-info"]}>
-                <div className={styles["mask-item-name"]}>{mask.name}</div>
-                <div className={styles["mask-item-desc"]}>
-                  {mask.context.length > 0
-                    ? mask.context[0].content.slice(0, 50) + "..."
-                    : "暂无描述"}
+    <div
+      className="modal-mask"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          props.onClose();
+        }
+      }}
+    >
+      <div className={styles["mask-list-modal-container"]}>
+        <Modal
+          title={Locale.Mask.Name}
+          onClose={props.onClose}
+          actions={[
+            <IconButton
+              key="add"
+              icon={<AddIcon />}
+              text="新建面具"
+              onClick={handleCreateMask}
+              bordered
+            />,
+          ]}
+        >
+          <div className={styles["mask-list-content"]}>
+            {allMasks.map((mask) => (
+              <div
+                key={mask.id}
+                className={`${styles["mask-item"]} ${
+                  currentMaskId === mask.id ? styles["mask-item-selected"] : ""
+                }`}
+                onClick={() => handleSelectMask(mask.id)}
+              >
+                <div className={styles["mask-item-avatar"]}>
+                  <MaskAvatar
+                    avatar={mask.avatar}
+                    model={mask.modelConfig.model}
+                  />
+                </div>
+                <div className={styles["mask-item-info"]}>
+                  <div className={styles["mask-item-name"]}>{mask.name}</div>
+                  <div className={styles["mask-item-desc"]}>
+                    {chatStore.getSessionsByMask(mask.id).length > 0
+                      ? `${chatStore.getSessionsByMask(mask.id).length} 个话题`
+                      : "暂无话题"}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        <div className={styles["mask-list-footer"]}>
-          <IconButton text="取消" onClick={props.onClose} bordered />
-        </div>
+            ))}
+          </div>
+        </Modal>
       </div>
     </div>
   );

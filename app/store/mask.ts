@@ -37,7 +37,7 @@ export const DEFAULT_MASK_ID = "default-mask";
 export const createDefaultMask = () =>
   ({
     id: DEFAULT_MASK_ID,
-    avatar: "🤖",
+    avatar: "1f40b",
     name: "默认助手",
     context: [],
     syncGlobalConfig: true,
