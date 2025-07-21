@@ -337,7 +337,8 @@ export const useChatStore = createPersistStore(
               ...mask.modelConfig,
             },
           };
-          session.topic = mask.name;
+          // 移除面具名称作为标题的逻辑，统一使用AI总结生成标题
+          // session.topic = mask.name;
         }
 
         set((state) => ({
