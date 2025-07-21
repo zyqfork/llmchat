@@ -3,6 +3,7 @@ import styles from "./home.module.scss";
 import { IconButton } from "./button";
 import { Modal } from "./ui-lib";
 import AddIcon from "../icons/add.svg";
+import SettingsIcon from "../icons/settings.svg";
 import { useChatStore } from "../store";
 import { useMaskStore } from "../store/mask";
 import { MaskAvatar } from "./mask";
@@ -66,6 +67,12 @@ export function MaskList(props: MaskListProps) {
     props.onClose();
   };
 
+  const handleMaskManagement = () => {
+    // 跳转到面具管理页面
+    navigate(Path.Masks);
+    props.onClose();
+  };
+
   return (
     <div
       className="modal-mask"
@@ -80,6 +87,13 @@ export function MaskList(props: MaskListProps) {
           title={Locale.Mask.Name}
           onClose={props.onClose}
           actions={[
+            <IconButton
+              key="manage"
+              icon={<SettingsIcon />}
+              text="面具管理"
+              onClick={handleMaskManagement}
+              bordered
+            />,
             <IconButton
               key="add"
               icon={<AddIcon />}
