@@ -36,7 +36,6 @@ import clsx from "clsx";
 import { SessionConfigModel } from "./chat";
 
 const DISCOVERY = [
-  { name: "Stable Diffusion", path: Path.Sd },
   { name: Locale.SearchChat.Page.Title, path: Path.SearchChat },
 ];
 
