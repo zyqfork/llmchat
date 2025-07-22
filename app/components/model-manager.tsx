@@ -10,10 +10,16 @@ import MinIcon from "../icons/min.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilities } from "../config/model-capabilities";
+import { collectModels } from "../utils/model";
 
 interface ModelManagerProps {
   provider: ServiceProvider;
   onClose: () => void;
+}
+
+interface CustomModelForm {
+  modelId: string;
+  category: string;
 }
 
 // 自定义Modal组件，不受ui-lib限制
@@ -96,13 +102,66 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   const accessStore = useAccessStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("全部");
+  const [showAddCustomModel, setShowAddCustomModel] = useState(false);
+  const [customModelForm, setCustomModelForm] = useState<CustomModelForm>({
+    modelId: "",
+    category: "",
+  });
 
-  // 获取当前服务商的所有模型
+  // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
-    return DEFAULT_MODELS.filter(
+    // 获取默认模型
+    const defaultModels = DEFAULT_MODELS.filter(
       (model) => model.provider.providerName === provider,
     );
-  }, [provider]);
+
+    // 获取包含自定义模型的完整列表
+    const allModels = collectModels(
+      DEFAULT_MODELS,
+      accessStore.customModels || "",
+    );
+
+    // 过滤出当前服务商的模型（包括自定义模型）
+    const providerCustomModels = allModels.filter((model) => {
+      if (!model.provider) return false;
+      // 对于自定义模型，比较时忽略大小写
+      return (
+        model.provider.providerName.toLowerCase() === provider.toLowerCase()
+      );
+    });
+
+    console.log("[ModelManager] 模型数据:", {
+      provider,
+      customModels: accessStore.customModels,
+      allModelsCount: allModels.length,
+      defaultModelsCount: defaultModels.length,
+      providerCustomModelsCount: providerCustomModels.length,
+      providerCustomModels: providerCustomModels.map((m) => ({
+        name: m.name,
+        provider: m.provider?.providerName,
+      })),
+      // 显示所有自定义模型的详细信息
+      allCustomModels: allModels
+        .filter((m) => m.provider?.providerType === "custom")
+        .map((m) => ({
+          name: m.name,
+          providerName: m.provider?.providerName,
+          providerId: m.provider?.id,
+          displayName: m.displayName,
+        })),
+    });
+
+    // 合并默认模型和自定义模型，去重
+    const modelMap = new Map();
+    [...defaultModels, ...providerCustomModels].forEach((model) => {
+      const key = `${model.name}@${model.provider?.id}`;
+      if (!modelMap.has(key)) {
+        modelMap.set(key, model);
+      }
+    });
+
+    return Array.from(modelMap.values());
+  }, [provider, accessStore.customModels]);
 
   // 获取已启用的模型
   const enabledModels = accessStore.enabledModels?.[provider] || [];
@@ -119,18 +178,29 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     providerModels.forEach((model) => {
       let categorized = false;
 
-      // 根据模型名称匹配分类
-      for (const [category, patterns] of Object.entries(MODEL_CATEGORIES)) {
-        if (category === "其他") continue;
+      // 检查是否是自定义模型，如果有自定义分组则使用自定义分组
+      if (model.displayName && model.displayName !== model.name) {
+        // 这是一个有自定义显示名称的模型，可能是自定义分组
+        const customCategory = model.displayName;
+        if (!categories[customCategory]) {
+          categories[customCategory] = [];
+        }
+        categories[customCategory].push(model);
+        categorized = true;
+      } else {
+        // 根据模型名称匹配分类
+        for (const [category, patterns] of Object.entries(MODEL_CATEGORIES)) {
+          if (category === "其他") continue;
 
-        if (
-          patterns.some((pattern) =>
-            model.name.toLowerCase().includes(pattern.toLowerCase()),
-          )
-        ) {
-          categories[category].push(model);
-          categorized = true;
-          break;
+          if (
+            patterns.some((pattern) =>
+              model.name.toLowerCase().includes(pattern.toLowerCase()),
+            )
+          ) {
+            categories[category].push(model);
+            categorized = true;
+            break;
+          }
         }
       }
 
@@ -190,13 +260,69 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     });
   };
 
+  // 添加自定义模型
+  const addCustomModel = () => {
+    if (!customModelForm.modelId.trim()) {
+      alert("请输入模型ID");
+      return;
+    }
+
+    const modelId = customModelForm.modelId.trim();
+    const category = customModelForm.category.trim();
+
+    // 构建带服务商的模型名称：modelId@provider（保持原始大小写）
+    const modelWithProvider = `${modelId}@${provider}`;
+
+    // 构建自定义模型字符串
+    let customModelString = modelWithProvider;
+    if (category) {
+      customModelString = `${modelWithProvider}=${category}`;
+    }
+
+    accessStore.update((access) => {
+      const currentCustomModels = access.customModels || "";
+      const existingModels = currentCustomModels
+        .split(",")
+        .filter((m) => m.trim().length > 0);
+
+      // 检查是否已存在（检查完整的 modelId@provider 格式）
+      const modelExists = existingModels.some((m) => {
+        const cleanModel =
+          m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+        const [existingModelWithProvider] = cleanModel.split("=");
+        return existingModelWithProvider === modelWithProvider;
+      });
+
+      if (modelExists) {
+        alert("该模型已存在");
+        return;
+      }
+
+      // 添加新模型
+      const newCustomModels = [...existingModels, customModelString].join(",");
+      access.customModels = newCustomModels;
+
+      console.log("[ModelManager] 添加自定义模型:", {
+        modelId,
+        provider,
+        category,
+        customModelString,
+        newCustomModels,
+      });
+    });
+
+    // 重置表单并关闭
+    setCustomModelForm({ modelId: "", category: "" });
+    setShowAddCustomModel(false);
+  };
+
   // 获取分类列表
   const categories = ["全部", ...Object.keys(categorizedModels)];
 
   return (
     <CustomModal title={`${provider} 模型管理`} onClose={onClose}>
       <div className={styles["model-manager"]}>
-        {/* 搜索框 */}
+        {/* 搜索框和添加按钮 */}
         <div className={styles["search-section"]}>
           <input
             type="text"
@@ -205,7 +331,84 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
             onChange={(e) => setSearchTerm(e.target.value)}
             className={styles["search-input"]}
           />
+          <button
+            className={styles["add-custom-button"]}
+            onClick={() => setShowAddCustomModel(true)}
+            title="添加自定义模型"
+          >
+            添加自定义模型
+          </button>
         </div>
+
+        {/* 添加自定义模型表单 */}
+        {showAddCustomModel && (
+          <div className={styles["custom-model-form"]}>
+            <div className={styles["form-header"]}>
+              <h4>添加自定义模型</h4>
+              <button
+                className={styles["form-close"]}
+                onClick={() => {
+                  setShowAddCustomModel(false);
+                  setCustomModelForm({ modelId: "", category: "" });
+                }}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className={styles["form-content"]}>
+              <div className={styles["form-field"]}>
+                <label>模型 ID *</label>
+                <input
+                  type="text"
+                  placeholder="例如: gpt-4-custom"
+                  value={customModelForm.modelId}
+                  onChange={(e) =>
+                    setCustomModelForm((prev) => ({
+                      ...prev,
+                      modelId: e.target.value,
+                    }))
+                  }
+                  className={styles["form-input"]}
+                />
+              </div>
+              <div className={styles["form-field"]}>
+                <label>分组 (可选)</label>
+                <input
+                  type="text"
+                  placeholder="例如: 自定义模型"
+                  value={customModelForm.category}
+                  onChange={(e) =>
+                    setCustomModelForm((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                  className={styles["form-input"]}
+                />
+                <div className={styles["form-hint"]}>
+                  不填写分组时，模型将显示在&ldquo;全部&rdquo;和&ldquo;其他&rdquo;分类中
+                </div>
+              </div>
+              <div className={styles["form-actions"]}>
+                <button
+                  className={styles["form-cancel"]}
+                  onClick={() => {
+                    setShowAddCustomModel(false);
+                    setCustomModelForm({ modelId: "", category: "" });
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  className={styles["form-submit"]}
+                  onClick={addCustomModel}
+                >
+                  添加模型
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 分类标签 */}
         <div className={styles["category-tabs"]}>

@@ -665,7 +665,18 @@ export function Settings() {
     useState<ServiceProvider | null>(null);
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<ServiceProvider, boolean>
-  >({});
+  >({
+    [ServiceProvider.OpenAI]: false,
+    [ServiceProvider.Azure]: false,
+    [ServiceProvider.Google]: false,
+    [ServiceProvider.Anthropic]: false,
+    [ServiceProvider.ByteDance]: false,
+    [ServiceProvider.Alibaba]: false,
+    [ServiceProvider.Moonshot]: false,
+    [ServiceProvider.XAI]: false,
+    [ServiceProvider.DeepSeek]: false,
+    [ServiceProvider.SiliconFlow]: false,
+  });
 
   const showUsage = accessStore.isAuthorized();
   useEffect(() => {
@@ -1659,10 +1670,18 @@ export function Settings() {
                           e.stopPropagation();
                           accessStore.update((access) => {
                             if (!access.enabledProviders) {
-                              access.enabledProviders = {} as Record<
-                                ServiceProvider,
-                                boolean
-                              >;
+                              access.enabledProviders = {
+                                [ServiceProvider.OpenAI]: false,
+                                [ServiceProvider.Azure]: false,
+                                [ServiceProvider.Google]: false,
+                                [ServiceProvider.Anthropic]: false,
+                                [ServiceProvider.ByteDance]: false,
+                                [ServiceProvider.Alibaba]: false,
+                                [ServiceProvider.Moonshot]: false,
+                                [ServiceProvider.XAI]: false,
+                                [ServiceProvider.DeepSeek]: false,
+                                [ServiceProvider.SiliconFlow]: false,
+                              } as Record<ServiceProvider, boolean>;
                             }
                             access.enabledProviders[config.provider] =
                               e.target.checked;
