@@ -400,20 +400,25 @@ export const VISION_MODEL_REGEXES = [
   /vision/,
   /gpt-4o/,
   /gpt-4\.1/,
-  /claude.*[34]/,
-  /gemini-1\.5/,
-  /gemini-exp/,
-  /gemini-2\.[05]/,
-  /learnlm/,
-  /qwen-vl/,
-  /qwen2-vl/,
   /gpt-4-turbo(?!.*preview)/,
-  /^dall-e-3$/,
+  /claude.*[34]/,
+  /claude-3-[57]/,
+  /gemini-1\.5/,
+  /gemini-2\.[05]/,
+  /gemini-exp/,
+  /learnlm/,
+  /qwen.*vl/,
+  /qwen2\.5-vl/,
+  /doubao.*vision/,
+  /deepseek-vl/,
+  /grok.*vision/,
+  /^dall-e/,
   /glm-4v/,
   /vl/i,
+  /o1-2024-12-17/,
   /o3/,
   /o4-mini/,
-  /grok-4/i,
+  /qvq/,
 ];
 
 export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
@@ -424,12 +429,17 @@ const openaiModels = [
   "gpt-3.5-turbo",
   "gpt-3.5-turbo-1106",
   "gpt-3.5-turbo-0125",
+  "gpt-3.5-turbo-instruct",
   "gpt-4",
   "gpt-4-0613",
   "gpt-4-32k",
   "gpt-4-32k-0613",
   "gpt-4-turbo",
   "gpt-4-turbo-preview",
+  "gpt-4-turbo-2024-04-09",
+  "gpt-4-1106-preview",
+  "gpt-4-0125-preview",
+  "gpt-4-vision-preview",
   "gpt-4.1",
   "gpt-4.1-2025-04-14",
   "gpt-4.1-mini",
@@ -442,126 +452,198 @@ const openaiModels = [
   "gpt-4o-2024-05-13",
   "gpt-4o-2024-08-06",
   "gpt-4o-2024-11-20",
-  "chatgpt-4o-latest",
   "gpt-4o-mini",
   "gpt-4o-mini-2024-07-18",
-  "gpt-4-vision-preview",
-  "gpt-4-turbo-2024-04-09",
-  "gpt-4-1106-preview",
-  "dall-e-3",
-  "o1-mini",
+  "gpt-4o-mini-search-preview",
+  "chatgpt-4o-latest",
+  // 推理模型系列
+  "o1-2024-12-17",
   "o1-preview",
-  "o3-mini",
+  "o1-mini",
   "o3",
+  "o3-mini",
+  "o3-mini-high",
   "o4-mini",
+  // 嵌入模型
+  "text-embedding-3-large",
+  "text-embedding-3-small",
+  "text-embedding-ada-002",
+  // 图像生成
+  "dall-e-3",
+  "dall-e-2",
+  "gpt-image-1",
 ];
 
 const googleModels = [
-  "gemini-1.5-pro-latest",
+  // Gemini 2.5 系列
+  "gemini-2.5-pro-exp-03-25",
+  "gemini-2.5-pro-preview-03-25",
+  "gemini-2.5-pro-preview-06-05",
+  "gemini-2.5-pro-preview-05-06",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash-preview-05-20",
+  "gemini-2.5-flash-preview-05-20-nothink",
+  "gemini-2.5-flash",
+  // Gemini 2.0 系列
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-001",
+  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash-exp",
+  // LearnLM 系列
+  "learnlm-1.5-pro-experimental",
+  // Gemini 1.5 系列
   "gemini-1.5-pro",
   "gemini-1.5-pro-002",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-flash-8b-latest",
+  "gemini-1.5-pro-001",
   "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
   "gemini-1.5-flash-002",
-  "learnlm-1.5-pro-experimental",
-  "gemini-exp-1206",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-exp",
-  "gemini-2.0-flash-lite-preview-02-05",
-  "gemini-2.0-flash-thinking-exp",
-  "gemini-2.0-flash-thinking-exp-1219",
-  "gemini-2.0-flash-thinking-exp-01-21",
-  "gemini-2.0-pro-exp",
-  "gemini-2.0-pro-exp-02-05",
-  "gemini-2.5-pro-preview-06-05",
-  "gemini-2.5-pro",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-flash-8b",
+  // Gemini Pro 系列
+  "gemini-pro",
+  // Gemma 系列
+  "gemma-2-27b-it",
+  "gemma-2-9b-it",
+  "gemma-3-27b",
 ];
 
 const anthropicModels = [
-  "claude-instant-1.2",
-  "claude-2.0",
-  "claude-2.1",
-  "claude-3-sonnet-20240229",
-  "claude-3-opus-20240229",
-  "claude-3-opus-latest",
-  "claude-3-haiku-20240307",
-  "claude-3-5-haiku-20241022",
-  "claude-3-5-haiku-latest",
-  "claude-3-5-sonnet-20240620",
-  "claude-3-5-sonnet-20241022",
-  "claude-3-5-sonnet-latest",
-  "claude-3-7-sonnet-20250219",
-  "claude-3-7-sonnet-latest",
+  // Claude 4 系列
   "claude-sonnet-4-20250514",
   "claude-opus-4-20250514",
+  // Claude 3.7 系列
+  "claude-3-7-sonnet-20250219",
+  "claude-3-7-sonnet-20250219-thinking",
+  // Claude 3.5 系列
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-haiku-20241022",
+  "claude-3-5-sonnet-20240620",
+  // Claude 3 系列
+  "claude-3-opus-20240229",
+  "claude-3-haiku-20240307",
 ];
 
 const bytedanceModels = [
-  "Doubao-lite-4k",
-  "Doubao-lite-32k",
-  "Doubao-lite-128k",
-  "Doubao-pro-4k",
-  "Doubao-pro-32k",
-  "Doubao-pro-128k",
+  // Doubao 1.5 系列
+  "doubao-1-5-vision-pro-32k-250115",
+  "doubao-1-5-pro-32k-250115",
+  "doubao-1-5-pro-32k-character-250228",
+  "doubao-1-5-pro-256k-250115",
+  "doubao-1-5-lite-32k-250115",
+  "doubao-1-5-thinking-pro-m",
+  "doubao-1-5-thinking-vision-pro",
+  // Doubao Pro 系列
+  "doubao-pro-32k-241215",
+  "doubao-pro-32k-functioncall-241028",
+  "doubao-pro-32k-character-241215",
+  "doubao-pro-256k-241115",
+  // Doubao Lite 系列
+  "doubao-lite-4k-character-240828",
+  "doubao-lite-32k-240828",
+  "doubao-lite-32k-character-241015",
+  "doubao-lite-128k-240828",
+  // 视觉模型
+  "doubao-vision-lite-32k-241015",
+  // 嵌入模型
+  "doubao-embedding-large-text-240915",
+  "doubao-embedding-text-240715",
+  "doubao-embedding-vision-241215",
+  // DeepSeek 系列 (豆包平台)
+  "deepseek-r1-250120",
+  "deepseek-r1-distill-qwen-32b-250120",
+  "deepseek-r1-distill-qwen-7b-250120",
+  "deepseek-v3-250324",
 ];
 
 const alibabaModes = [
-  "qwen-turbo",
-  "qwen-plus",
-  "qwen-max",
-  "qwen-max-0428",
-  "qwen-max-0403",
-  "qwen-max-0107",
-  "qwen-max-longcontext",
-  "qwen-omni-turbo",
+  // Qwen 3 系列
+  "qwen3-235b-a22b",
+  "qwen3-235b-a22b-fp8",
+  "qwen3-32b-fp8",
+  "qwen3-30b-a3b-fp8",
+  "qwen3-8b",
+  // Qwen 2.5 系列
+  "qwen2.5-72b-instruct",
+  "qwen2.5-32b-instruct",
+  "qwen2.5-14b-instruct",
+  "qwen2.5-7b-instruct",
+  "qwen2.5-coder-32b-instruct",
+  // Qwen 2 系列
+  "qwen2-72b-instruct",
+  "qwen2-vl-72b-instruct",
+  "qwen2-vl-7b-instruct",
+  // 视觉模型
+  "qwen2.5-vl-72b-instruct",
   "qwen-vl-plus",
-  "qwen-vl-max",
+  // 推理模型
+  "qwq-32b-preview",
+  "qwq-32b",
+  "qvq-32b",
+  // 服务版本 (DashScope)
+  "qwen-max",
+  "qwen-plus",
+  "qwen-turbo",
+  "qwen-coder-plus",
+  // 嵌入模型
+  "text-embedding-v2",
+  "qwen3-embedding-8b",
+  "qwen3-reranker-8b",
 ];
 
-const moonshotModes = ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"];
+const moonshotModes = [
+  // Kimi K2 系列
+  "kimi-k2",
+  "kimi-latest",
+  "kimi-thinking-preview",
+  // 经典版本
+  "moonshot-v1-auto",
+];
 
-const deepseekModels = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"];
+const deepseekModels = [
+  // DeepSeek R1 系列
+  "deepseek-r1",
+  "deepseek-r1-0528",
+  "deepseek-r1-turbo",
+  "deepseek-r1-32b",
+  "deepseek-r1-search",
+  "deepseek-r1-distill-qwen-32b",
+  "deepseek-r1-distill-qwen-7b",
+  // DeepSeek V3 系列
+  "deepseek-v3",
+  "deepseek-v3-0324",
+  "deepseek-v3-turbo",
+  "deepseek-v3-tool",
+  "deepseek-v3-search",
+  // 经典版本
+  "deepseek-chat",
+  "deepseek-reasoner",
+  // 视觉模型
+  "deepseek-vl",
+];
 
 const xAIModes = [
-  "grok-beta",
-  "grok-2",
-  "grok-2-1212",
-  "grok-2-latest",
-  "grok-vision-beta",
-  "grok-2-vision-1212",
-  "grok-2-vision",
-  "grok-2-vision-latest",
-  "grok-3-mini-fast-beta",
-  "grok-3-mini-fast",
-  "grok-3-mini-fast-latest",
-  "grok-3-mini-beta",
-  "grok-3-mini",
-  "grok-3-mini-latest",
-  "grok-3-fast-beta",
-  "grok-3-fast",
-  "grok-3-fast-latest",
-  "grok-3-beta",
+  // Grok 3 系列
   "grok-3",
-  "grok-3-latest",
+  "grok-3-fast",
+  "grok-3-mini",
+  "grok-3-mini-fast",
+  // Grok 2 系列
+  "grok-2-vision-1212",
+  "grok-2-1212",
+  "grok-vision-beta",
 ];
 
 const siliconflowModels = [
-  "Qwen/Qwen2.5-7B-Instruct",
-  "Qwen/Qwen2.5-72B-Instruct",
+  // DeepSeek 系列
   "deepseek-ai/DeepSeek-R1",
-  "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-  "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-  "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-  "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-  "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
   "deepseek-ai/DeepSeek-V3",
-  "meta-llama/Llama-3.3-70B-Instruct",
-  "THUDM/glm-4-9b-chat",
-  "Pro/deepseek-ai/DeepSeek-R1",
-  "Pro/deepseek-ai/DeepSeek-V3",
+  // Qwen 系列
+  "Qwen/Qwen2.5-7B-Instruct",
+  "Qwen/Qwen3-8B",
+  // 嵌入模型
+  "BAAI/bge-m3",
+  // 图像生成
+  "Kwai-Kolors/Kolors",
 ];
 
 let seq = 1000; // 内置的模型序号生成器从1000开始

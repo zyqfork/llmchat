@@ -54,32 +54,58 @@ function getModelIconType(
   // 跨服务商模型识别 - 优先级最高（SiliconFlow等聚合服务）
   if (lowerModelName.includes("llama")) return "llama";
   if (lowerModelName.includes("deepseek")) return "deepseek";
-  if (lowerModelName.includes("qwen")) return "qwen";
+  if (
+    lowerModelName.includes("qwen") ||
+    lowerModelName.includes("qwq") ||
+    lowerModelName.includes("qvq")
+  )
+    return "qwen";
   if (lowerModelName.includes("claude")) return "claude";
   if (lowerModelName.includes("gemini")) return "gemini";
   if (lowerModelName.includes("gpt-4") || lowerModelName.includes("chatgpt-4o"))
     return "gpt4";
   if (lowerModelName.includes("gpt-3")) return "gpt3";
-  if (lowerModelName.includes("o1")) return "o1";
+  if (
+    lowerModelName.includes("o1") ||
+    lowerModelName.includes("o3") ||
+    lowerModelName.includes("o4")
+  )
+    return "o1";
+  if (
+    lowerModelName.includes("text-embedding") ||
+    lowerModelName.includes("embedding")
+  )
+    return "gpt4"; // 嵌入模型使用GPT-4图标
   if (lowerModelName.includes("doubao") || lowerModelName.includes("豆包"))
     return "doubao";
   if (lowerModelName.includes("kimi") || lowerModelName.includes("moonshot"))
     return "kimi";
   if (lowerModelName.includes("wenxin") || lowerModelName.includes("文心"))
     return "wenxin";
+  if (lowerModelName.includes("grok")) return "default"; // Grok 暂时使用默认图标
 
   // 服务商特定模型判断 - 作为后备
   if (
     provider === ServiceProvider.OpenAI ||
     provider === ServiceProvider.Azure
   ) {
-    if (lowerModelName.includes("o1")) return "o1";
+    if (
+      lowerModelName.includes("o1") ||
+      lowerModelName.includes("o3") ||
+      lowerModelName.includes("o4")
+    )
+      return "o1";
     if (
       lowerModelName.includes("gpt-4") ||
       lowerModelName.includes("chatgpt-4o")
     )
       return "gpt4";
     if (lowerModelName.includes("gpt-3")) return "gpt3";
+    if (
+      lowerModelName.includes("text-embedding") ||
+      lowerModelName.includes("embedding")
+    )
+      return "gpt4"; // 嵌入模型使用GPT-4图标
   }
 
   if (provider === ServiceProvider.Anthropic) {
@@ -261,7 +287,10 @@ function ModelAvatar({
       lowerModelName.startsWith("dall-e") ||
       lowerModelName.startsWith("dalle") ||
       lowerModelName.startsWith("o1") ||
-      lowerModelName.startsWith("o3")
+      lowerModelName.startsWith("o3") ||
+      lowerModelName.startsWith("o4") ||
+      lowerModelName.startsWith("text-embedding") ||
+      lowerModelName.includes("embedding")
     ) {
       LlmIcon = BotIconOpenAI;
     } else if (lowerModelName.startsWith("gemini")) {
@@ -279,9 +308,16 @@ function ModelAvatar({
       LlmIcon = BotIconMistral;
     } else if (lowerModelName.includes("deepseek")) {
       LlmIcon = BotIconDeepseek;
-    } else if (lowerModelName.startsWith("moonshot")) {
+    } else if (
+      lowerModelName.startsWith("moonshot") ||
+      lowerModelName.startsWith("kimi")
+    ) {
       LlmIcon = BotIconMoonshot;
-    } else if (lowerModelName.startsWith("qwen")) {
+    } else if (
+      lowerModelName.startsWith("qwen") ||
+      lowerModelName.startsWith("qwq") ||
+      lowerModelName.startsWith("qvq")
+    ) {
       LlmIcon = BotIconQwen;
     } else if (lowerModelName.startsWith("grok")) {
       LlmIcon = BotIconGrok;

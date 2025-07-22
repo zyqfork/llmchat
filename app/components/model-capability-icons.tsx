@@ -225,6 +225,50 @@ export function ToolIcon({
   );
 }
 
+// 嵌入能力图标
+function EmbeddingIcon({
+  size = 16,
+  colorful = false,
+}: {
+  size?: number;
+  colorful?: boolean;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <>
+      <div
+        ref={wrapperRef}
+        className={`${styles["capability-icon-wrapper"]} no-dark`}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          className={`${styles["capability-icon"]} ${
+            colorful ? styles["colorful"] : ""
+          }`}
+          data-capability="embedding"
+        >
+          <path
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <CapabilityTooltip
+        show={showTooltip}
+        text="嵌入"
+        targetRef={wrapperRef}
+      />
+    </>
+  );
+}
+
 // 能力图标容器组件
 export function ModelCapabilityIcons({
   capabilities,
@@ -236,6 +280,7 @@ export function ModelCapabilityIcons({
     web?: boolean;
     reasoning?: boolean;
     tools?: boolean;
+    embedding?: boolean;
   };
   size?: number;
   colorful?: boolean;
@@ -248,6 +293,9 @@ export function ModelCapabilityIcons({
         <ReasoningIcon size={size} colorful={colorful} />
       )}
       {capabilities.tools && <ToolIcon size={size} colorful={colorful} />}
+      {capabilities.embedding && (
+        <EmbeddingIcon size={size} colorful={colorful} />
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import DeleteIcon from "../icons/delete.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getModelCapabilities } from "../config/model-capabilities";
+import { getEnhancedModelCapabilities } from "../config/model-capabilities";
 import { collectModels } from "../utils/model";
 
 interface ModelManagerProps {
@@ -100,22 +100,66 @@ function CustomModal({ title, children, onClose }: CustomModalProps) {
   );
 }
 
-// 模型分类映射
-const MODEL_CATEGORIES: Record<string, string[]> = {
-  "GPT-4": ["gpt-4", "gpt-4-turbo", "gpt-4o"],
+// 基于模型名称的分类映射（用于默认分组显示）
+const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
+  "GPT-4o": ["gpt-4o"],
+  "GPT-4.5": ["gpt-4.5"],
+  "GPT-4.1": ["gpt-4.1"],
+  "GPT-4": ["gpt-4", "gpt-4-turbo"],
   "GPT-3.5": ["gpt-3.5-turbo"],
-  O1: ["o1-preview", "o1-mini", "o4-mini"],
-  "Gemini 1.5": ["gemini-1.5-pro", "gemini-1.5-flash"],
-  "Gemini 2.0": ["gemini-2.0-flash"],
-  "Claude 3": ["claude-3-sonnet", "claude-3-opus", "claude-3-haiku"],
-  "Claude 3.5": ["claude-3-5-sonnet", "claude-3-5-haiku"],
-  "Claude 4": ["claude-opus-4"],
-  豆包: ["Doubao-lite", "Doubao-pro"],
-  通义千问: ["qwen-turbo", "qwen-plus", "qwen-max", "qwen-vl"],
-  月之暗面: ["moonshot-v1"],
-  DeepSeek: ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
-  Grok: ["grok-beta", "grok-2", "grok-vision", "grok-3"],
+  O系列: ["o1-preview", "o1-mini", "o1-2024-12-17", "o3", "o4-mini"],
+  "Gemini 2.5": ["gemini-2.5"],
+  "Gemini 2.0": ["gemini-2.0"],
+  "Gemini 1.5": ["gemini-1.5"],
+  "Gemini Pro": ["gemini-pro"],
+  "Claude 4": ["claude-sonnet-4", "claude-opus-4"],
+  "Claude 3.7": ["claude-3-7"],
+  "Claude 3.5": ["claude-3-5"],
+  "Claude 3": ["claude-3"],
+  "DeepSeek R1": ["deepseek-r1"],
+  "DeepSeek V3": ["deepseek-v3"],
+  DeepSeek: ["deepseek-chat", "deepseek-reasoner"],
+  "Doubao 1.5": ["doubao-1-5"],
+  "Doubao Pro": ["doubao-pro"],
+  "Doubao Lite": ["doubao-lite"],
+  "Doubao Vision": ["doubao-vision"],
+  "Qwen 3": ["qwen3"],
+  "Qwen 2.5": ["qwen2.5"],
+  "Qwen 2": ["qwen2"],
+  Qwen: ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-coder", "qwen-vl"],
+  QwQ: ["qwq"],
+  QvQ: ["qvq"],
+  Kimi: ["kimi"],
+  Moonshot: ["moonshot"],
+  "Grok 3": ["grok-3"],
+  "Grok 2": ["grok-2", "grok-vision"],
+  Grok: ["grok-beta"],
+  嵌入模型: ["embedding", "embed"],
   其他: [],
+};
+
+// 基于能力的模型过滤器
+const CAPABILITY_FILTERS: Record<string, (model: any) => boolean> = {
+  推理: (model: any) => {
+    const capabilities = getEnhancedModelCapabilities(model.name);
+    return capabilities.reasoning === true;
+  },
+  视觉: (model: any) => {
+    const capabilities = getEnhancedModelCapabilities(model.name);
+    return capabilities.vision === true;
+  },
+  联网: (model: any) => {
+    const capabilities = getEnhancedModelCapabilities(model.name);
+    return capabilities.web === true;
+  },
+  工具: (model: any) => {
+    const capabilities = getEnhancedModelCapabilities(model.name);
+    return capabilities.tools === true;
+  },
+  嵌入: (model: any) => {
+    const capabilities = getEnhancedModelCapabilities(model.name);
+    return capabilities.embedding === true;
+  },
 };
 
 export function ModelManager({ provider, onClose }: ModelManagerProps) {
@@ -207,7 +251,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const categories: Record<string, LLMModel[]> = {};
 
     // 初始化分类
-    Object.keys(MODEL_CATEGORIES).forEach((category) => {
+    Object.keys(MODEL_NAME_CATEGORIES).forEach((category) => {
       categories[category] = [];
     });
 
@@ -225,7 +269,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         categorized = true;
       } else {
         // 根据模型名称匹配分类
-        for (const [category, patterns] of Object.entries(MODEL_CATEGORIES)) {
+        for (const [category, patterns] of Object.entries(
+          MODEL_NAME_CATEGORIES,
+        )) {
           if (category === "其他") continue;
 
           if (
@@ -242,6 +288,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
       // 未分类的放入"其他"
       if (!categorized) {
+        if (!categories["其他"]) {
+          categories["其他"] = [];
+        }
         categories["其他"].push(model);
       }
     });
@@ -256,24 +305,38 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     return categories;
   }, [providerModels]);
 
-  // 过滤模型
-  const filteredModels = useMemo(() => {
-    let models = providerModels;
-
-    // 按分类过滤
-    if (selectedCategory !== "全部") {
-      models = categorizedModels[selectedCategory] || [];
+  // 过滤后的分类模型（用于分组显示）
+  const filteredCategorizedModels = useMemo(() => {
+    if (selectedCategory !== "全部" && CAPABILITY_FILTERS[selectedCategory]) {
+      // 如果选择了能力过滤，对每个分类中的模型进行过滤
+      const filtered: Record<string, LLMModel[]> = {};
+      Object.entries(categorizedModels).forEach(([category, models]) => {
+        const filteredCategoryModels = models.filter(
+          CAPABILITY_FILTERS[selectedCategory],
+        );
+        if (filteredCategoryModels.length > 0) {
+          filtered[category] = filteredCategoryModels;
+        }
+      });
+      return filtered;
     }
 
-    // 按搜索词过滤
+    // 按搜索词过滤分类模型
     if (searchTerm) {
-      models = models.filter((model) =>
-        model.name.toLowerCase().includes(searchTerm.toLowerCase()),
-      );
+      const filtered: Record<string, LLMModel[]> = {};
+      Object.entries(categorizedModels).forEach(([category, models]) => {
+        const filteredCategoryModels = models.filter((model) =>
+          model.name.toLowerCase().includes(searchTerm.toLowerCase()),
+        );
+        if (filteredCategoryModels.length > 0) {
+          filtered[category] = filteredCategoryModels;
+        }
+      });
+      return filtered;
     }
 
-    return models;
-  }, [providerModels, categorizedModels, selectedCategory, searchTerm]);
+    return categorizedModels;
+  }, [categorizedModels, selectedCategory, searchTerm]);
 
   // 切换模型启用状态
   const toggleModel = (modelName: string) => {
@@ -353,9 +416,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   };
 
   // 获取模型能力（包含自定义配置）
-  const getEnhancedModelCapabilities = (modelName: string) => {
+  const getLocalModelCapabilities = (modelName: string) => {
     // 先获取默认能力
-    const defaultCapabilities = getModelCapabilities(modelName);
+    const defaultCapabilities = getEnhancedModelCapabilities(modelName);
 
     // 尝试从本地存储获取自定义配置
     const capabilitiesKey = `model_capabilities_${modelName}`;
@@ -374,7 +437,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
   // 打开模型配置
   const openModelConfig = (model: any) => {
-    const currentCapabilities = getEnhancedModelCapabilities(model.name);
+    const currentCapabilities = getLocalModelCapabilities(model.name);
 
     // 获取当前分组信息
     let currentCategory = "";
@@ -629,8 +692,8 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     setShowModelConfig(null);
   };
 
-  // 获取分类列表
-  const categories = ["全部", ...Object.keys(categorizedModels)];
+  // 能力分类标签（移除免费和重排）
+  const categories = ["全部", "推理", "视觉", "联网", "嵌入", "工具"];
 
   return (
     <CustomModal title={`${provider} 模型管理`} onClose={onClose}>
@@ -740,187 +803,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
         {/* 模型列表 */}
         <div className={styles["model-list"]}>
-          {selectedCategory !== "全部" ? (
-            // 分类视图
-            <div className={styles["category-section"]}>
-              <div className={styles["category-header"]}>
-                <h3>{selectedCategory}</h3>
-              </div>
-              <div className={styles["model-items"]}>
-                {filteredModels.map((model) => (
-                  <div key={model.name} className={styles["model-item"]}>
-                    <div className={styles["model-info"]}>
-                      <div className={styles["model-icon"]}>
-                        <ModelProviderIcon
-                          provider={provider}
-                          size={20}
-                          modelName={model.name}
-                        />
-                      </div>
-                      <div className={styles["model-details"]}>
-                        <div className={styles["model-name"]}>
-                          {model.name}
-                          <ModelCapabilityIcons
-                            capabilities={getEnhancedModelCapabilities(
-                              model.name,
-                            )}
-                            size={14}
-                            colorful={true}
-                          />
-                        </div>
-                        <div className={styles["model-id"]}>{model.name}</div>
-                      </div>
-                    </div>
-                    <div className={styles["model-actions"]}>
-                      {/* 测试结果显示 */}
-                      {(() => {
-                        const modelKey = `${model.name}@${provider}`;
-                        const testResult = modelTestResults[modelKey];
-
-                        if (
-                          testResult?.status === "success" &&
-                          testResult.responseTime
-                        ) {
-                          return (
-                            <span className={styles["response-time"]}>
-                              {testResult.responseTime}ms
-                            </span>
-                          );
-                        }
-
-                        if (
-                          testResult?.status === "error" &&
-                          testResult.error
-                        ) {
-                          // 提取错误代码和生成友好提示
-                          const errorStr = testResult.error.toString();
-                          let errorCode = "ERROR";
-                          let friendlyMessage =
-                            "测试失败，请查看控制台获取详细错误信息";
-
-                          if (
-                            errorStr.includes("401") ||
-                            errorStr.includes("Unauthorized")
-                          ) {
-                            errorCode = "401";
-                            friendlyMessage = "认证失败，请检查API密钥配置";
-                          } else if (
-                            errorStr.includes("403") ||
-                            errorStr.includes("Forbidden")
-                          ) {
-                            errorCode = "403";
-                            friendlyMessage = "API密钥权限不足或模型访问受限";
-                          } else if (
-                            errorStr.includes("404") ||
-                            errorStr.includes("Not Found")
-                          ) {
-                            errorCode = "404";
-                            friendlyMessage = "模型不存在或API端点错误";
-                          } else if (
-                            errorStr.includes("429") ||
-                            errorStr.includes("Rate limit")
-                          ) {
-                            errorCode = "429";
-                            friendlyMessage = "请求频率过高，请稍后重试";
-                          } else if (
-                            errorStr.includes("500") ||
-                            errorStr.includes("Internal Server Error")
-                          ) {
-                            errorCode = "500";
-                            friendlyMessage = "服务器内部错误，请稍后重试";
-                          } else if (errorStr.includes("timeout")) {
-                            errorCode = "TIMEOUT";
-                            friendlyMessage = "请求超时，请检查网络连接";
-                          } else {
-                            // 尝试提取HTTP状态码
-                            const httpCode =
-                              errorStr.match(/\b[4-5]\d{2}\b/)?.[0];
-                            if (httpCode) {
-                              errorCode = httpCode;
-                            }
-                          }
-
-                          return (
-                            <div className={styles["error-display"]}>
-                              <span
-                                className={styles["error-info"]}
-                                title={`${friendlyMessage}\n\n完整错误: ${testResult.error}\n\n💡 按F12打开控制台查看详细信息`}
-                              >
-                                {errorCode}
-                              </span>
-                              <span className={styles["console-tip"]}>
-                                查看控制台获取详细报错
-                              </span>
-                            </div>
-                          );
-                        }
-
-                        return null;
-                      })()}
-
-                      <button
-                        className={`${styles["test-button"]} ${(() => {
-                          const modelKey = `${model.name}@${provider}`;
-                          const testResult = modelTestResults[modelKey];
-                          if (testResult?.status === "testing")
-                            return styles["testing"];
-                          if (testResult?.status === "success")
-                            return styles["success"];
-                          if (testResult?.status === "error")
-                            return styles["error"];
-                          return "";
-                        })()}`}
-                        onClick={() => testModel(model.name)}
-                        title="测试模型连通性"
-                        disabled={
-                          modelTestResults[`${model.name}@${provider}`]
-                            ?.status === "testing"
-                        }
-                      >
-                        {modelTestResults[`${model.name}@${provider}`]
-                          ?.status === "testing" ? (
-                          <LoadingIcon />
-                        ) : (
-                          "测试"
-                        )}
-                      </button>
-
-                      <button
-                        className={styles["manage-button"]}
-                        onClick={() => openModelConfig(model)}
-                        title="模型配置"
-                      >
-                        <ConfigIcon />
-                      </button>
-                      <button
-                        className={`${styles["toggle-button"]} ${
-                          enabledModels.includes(model.name)
-                            ? styles["enabled"]
-                            : ""
-                        }`}
-                        onClick={() => toggleModel(model.name)}
-                      >
-                        {enabledModels.includes(model.name) ? "−" : "+"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            // 全部视图 - 按分类分组
-            Object.entries(categorizedModels).map(([category, models]) => {
-              const categoryModels = models.filter(
-                (model) =>
-                  !searchTerm ||
-                  model.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (model.displayName &&
-                    model.displayName
-                      .toLowerCase()
-                      .includes(searchTerm.toLowerCase())),
-              );
-
-              if (categoryModels.length === 0) return null;
+          {/* 始终按模型名称分组显示 */}
+          {Object.entries(filteredCategorizedModels).map(
+            ([category, models]) => {
+              if (models.length === 0) return null;
 
               return (
                 <div key={category} className={styles["category-section"]}>
@@ -928,7 +814,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                     <h3>{category}</h3>
                   </div>
                   <div className={styles["model-items"]}>
-                    {categoryModels.map((model) => (
+                    {models.map((model) => (
                       <div key={model.name} className={styles["model-item"]}>
                         <div className={styles["model-info"]}>
                           <div className={styles["model-icon"]}>
@@ -1092,11 +978,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                   </div>
                 </div>
               );
-            })
+            },
           )}
         </div>
 
-        {filteredModels.length === 0 && (
+        {Object.keys(filteredCategorizedModels).length === 0 && (
           <div className={styles["empty-state"]}>
             <p>未找到匹配的模型</p>
           </div>

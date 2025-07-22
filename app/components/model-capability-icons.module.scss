@@ -41,6 +41,10 @@
     &[data-capability="tools"] {
       color: #f59e0b; // 橙色
     }
+
+    &[data-capability="embedding"] {
+      color: #ec4899; // 粉色
+    }
   }
 }
 
@@ -101,6 +105,10 @@
 
       &[data-capability="tools"] {
         color: #f59e0b;
+      }
+
+      &[data-capability="embedding"] {
+        color: #ec4899;
       }
     }
   }

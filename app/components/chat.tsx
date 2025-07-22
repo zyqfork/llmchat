@@ -123,7 +123,7 @@ import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount } from "../mcp/actions";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getModelCapabilities } from "../config/model-capabilities";
+import { getEnhancedModelCapabilities } from "../config/model-capabilities";
 import { ProviderIcon } from "./provider-icon";
 
 const localStorage = safeLocalStorage();
@@ -549,7 +549,7 @@ export function ChatActions(props: {
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span>{model.displayName}</span>
               <ModelCapabilityIcons
-                capabilities={getModelCapabilities(model.name)}
+                capabilities={getEnhancedModelCapabilities(model.name)}
                 size={14}
                 colorful={true}
               />

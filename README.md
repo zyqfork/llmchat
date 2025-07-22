@@ -82,7 +82,7 @@ For enterprise inquiries, please contact: **business@nextchat.dev**
 - **Deploy for free with one-click** on Vercel in under 1 minute
 - Compact client (~5MB) on Linux/Windows/MacOS, [download it now](https://github.com/Yidadaa/ChatGPT-Next-Web/releases)
 - Fully compatible with self-deployed LLMs, recommended for use with [RWKV-Runner](https://github.com/josStorer/RWKV-Runner) or [LocalAI](https://github.com/go-skynet/LocalAI)
-- **Custom Model Management**: Add and organize custom models with optional grouping for each provider
+- **Enhanced Model Management**: Intelligent model categorization by series (GPT-4o, DeepSeek R1, etc.) with capability-based filtering (reasoning, vision, tools, etc.)
 - Privacy first, all data is stored locally in the browser
 - Markdown support: LaTex, mermaid, code highlight, etc.
 - Responsive design, dark mode and PWA
@@ -113,6 +113,7 @@ For enterprise inquiries, please contact: **business@nextchat.dev**
 
 ## What's New
 
+- 🎯 v2.15.9 Enhanced Model Manager with intelligent categorization and capability-based filtering
 - 🚀 v2.15.8 Now supports Realtime Chat [#5672](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/issues/5672)
 - 🚀 v2.15.4 The Application supports using Tauri fetch LLM API, MORE SECURITY! [#5379](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/issues/5379)
 - 🚀 v2.15.0 Plugin functionality has been removed in favor of MCP (Model Context Protocol) for better tool integration
