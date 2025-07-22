@@ -38,7 +38,7 @@ import DarkIcon from "../icons/dark.svg";
 import AutoIcon from "../icons/auto.svg";
 import BottomIcon from "../icons/bottom.svg";
 import StopIcon from "../icons/pause.svg";
-import RobotIcon from "../icons/robot.svg";
+
 import SizeIcon from "../icons/size.svg";
 import QualityIcon from "../icons/hd.svg";
 import StyleIcon from "../icons/palette.svg";
@@ -122,6 +122,9 @@ import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount } from "../mcp/actions";
+import { ModelCapabilityIcons } from "./model-capability-icons";
+import { getModelCapabilities } from "../config/model-capabilities";
+import { ProviderIcon } from "./provider-icon";
 
 const localStorage = safeLocalStorage();
 
@@ -542,7 +545,17 @@ export function ChatActions(props: {
           groupedModels[providerName] = [];
         }
         groupedModels[providerName].push({
-          title: model.displayName,
+          title: (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>{model.displayName}</span>
+              <ModelCapabilityIcons
+                capabilities={getModelCapabilities(model.name)}
+                size={14}
+                colorful={true}
+              />
+            </div>
+          ),
+          searchText: model.displayName,
           value: `${model.name}@${providerName}`,
           icon: <Avatar model={model.name} />,
         });
@@ -764,7 +777,13 @@ export function ChatActions(props: {
             className={styles["model-selector-button"]}
             onClick={() => setShowModelSelector(true)}
           >
-            <RobotIcon className={styles["model-icon"]} />
+            <div className={styles["model-icon"]}>
+              <ProviderIcon
+                provider={currentProviderName}
+                size={16}
+                modelName={currentModel}
+              />
+            </div>
             <span className={styles["model-name"]}>{currentModelName}</span>
           </button>
 

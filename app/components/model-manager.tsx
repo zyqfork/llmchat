@@ -3,11 +3,13 @@ import { ServiceProvider, DEFAULT_MODELS } from "../constant";
 import { useAccessStore } from "../store/access";
 import { LLMModel } from "../client/api";
 import styles from "./model-manager.module.scss";
-import Locale from "../locales";
+
 import CloseIcon from "../icons/close.svg";
 import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import { ModelProviderIcon } from "./provider-icon";
+import { ModelCapabilityIcons } from "./model-capability-icons";
+import { getModelCapabilities } from "../config/model-capabilities";
 
 interface ModelManagerProps {
   provider: ServiceProvider;
@@ -53,12 +55,15 @@ function CustomModal({ title, children, onClose }: CustomModalProps) {
           <h2 className={styles["custom-modal-title"]}>{title}</h2>
           <div className={styles["custom-modal-actions"]}>
             <button
-              className={styles["custom-modal-action"]}
+              className={`${styles["custom-modal-action"]} no-dark`}
               onClick={() => setIsMaximized(!isMaximized)}
             >
               {isMaximized ? <MinIcon /> : <MaxIcon />}
             </button>
-            <button className={styles["custom-modal-action"]} onClick={onClose}>
+            <button
+              className={`${styles["custom-modal-action"]} no-dark`}
+              onClick={onClose}
+            >
               <CloseIcon />
             </button>
           </div>
@@ -237,7 +242,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                         />
                       </div>
                       <div className={styles["model-details"]}>
-                        <div className={styles["model-name"]}>{model.name}</div>
+                        <div className={styles["model-name"]}>
+                          {model.name}
+                          <ModelCapabilityIcons
+                            capabilities={getModelCapabilities(model.name)}
+                            size={14}
+                            colorful={true}
+                          />
+                        </div>
                         <div className={styles["model-id"]}>{model.name}</div>
                       </div>
                     </div>
@@ -289,6 +301,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                           <div className={styles["model-details"]}>
                             <div className={styles["model-name"]}>
                               {model.name}
+                              <ModelCapabilityIcons
+                                capabilities={getModelCapabilities(model.name)}
+                                size={14}
+                                colorful={true}
+                              />
                             </div>
                             <div className={styles["model-id"]}>
                               {model.name}

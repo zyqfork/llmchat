@@ -34,6 +34,8 @@ import {
 } from "./ui-lib";
 import { ModelConfigList } from "./model-config";
 import { ProviderIcon } from "./provider-icon";
+import { ModelCapabilityIcons } from "./model-capability-icons";
+import { getModelCapabilities } from "../config/model-capabilities";
 
 import { IconButton } from "./button";
 import {
@@ -1718,6 +1720,13 @@ export function Settings() {
                                     className={styles["model-tag"]}
                                   >
                                     {modelName}
+                                    <ModelCapabilityIcons
+                                      capabilities={getModelCapabilities(
+                                        modelName,
+                                      )}
+                                      size={12}
+                                      colorful={false}
+                                    />
                                   </span>
                                 ))}
                               </div>

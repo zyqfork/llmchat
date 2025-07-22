@@ -16,6 +16,20 @@ import {
   Ollama,
 } from "@lobehub/icons";
 
+// 导入项目自带的 SVG 图标
+import BotIconDefault from "../icons/llm-icons/default.svg";
+import BotIconOpenAI from "../icons/llm-icons/openai.svg";
+import BotIconGemini from "../icons/llm-icons/gemini.svg";
+import BotIconGemma from "../icons/llm-icons/gemma.svg";
+import BotIconClaude from "../icons/llm-icons/claude.svg";
+import BotIconMeta from "../icons/llm-icons/meta.svg";
+import BotIconMistral from "../icons/llm-icons/mistral.svg";
+import BotIconDeepseek from "../icons/llm-icons/deepseek.svg";
+import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
+import BotIconQwen from "../icons/llm-icons/qwen.svg";
+import BotIconGrok from "../icons/llm-icons/grok.svg";
+import BotIconDoubao from "../icons/llm-icons/doubao.svg";
+
 // 根据模型名称判断应该使用的图标类型
 function getModelIconType(
   provider: ServiceProvider,
@@ -228,6 +242,64 @@ export function ProviderIcon({
   }
 }
 
+// 使用项目自带 SVG 图标的 Avatar 组件（用于模型管理器）
+function ModelAvatar({
+  modelName,
+  size = 32,
+}: {
+  modelName?: string;
+  size?: number;
+}) {
+  let LlmIcon = BotIconDefault;
+
+  if (modelName) {
+    const lowerModelName = modelName.toLowerCase();
+
+    if (
+      lowerModelName.startsWith("gpt") ||
+      lowerModelName.startsWith("chatgpt") ||
+      lowerModelName.startsWith("dall-e") ||
+      lowerModelName.startsWith("dalle") ||
+      lowerModelName.startsWith("o1") ||
+      lowerModelName.startsWith("o3")
+    ) {
+      LlmIcon = BotIconOpenAI;
+    } else if (lowerModelName.startsWith("gemini")) {
+      LlmIcon = BotIconGemini;
+    } else if (lowerModelName.startsWith("gemma")) {
+      LlmIcon = BotIconGemma;
+    } else if (lowerModelName.startsWith("claude")) {
+      LlmIcon = BotIconClaude;
+    } else if (lowerModelName.includes("llama")) {
+      LlmIcon = BotIconMeta;
+    } else if (
+      lowerModelName.startsWith("mixtral") ||
+      lowerModelName.startsWith("codestral")
+    ) {
+      LlmIcon = BotIconMistral;
+    } else if (lowerModelName.includes("deepseek")) {
+      LlmIcon = BotIconDeepseek;
+    } else if (lowerModelName.startsWith("moonshot")) {
+      LlmIcon = BotIconMoonshot;
+    } else if (lowerModelName.startsWith("qwen")) {
+      LlmIcon = BotIconQwen;
+    } else if (lowerModelName.startsWith("grok")) {
+      LlmIcon = BotIconGrok;
+    } else if (
+      lowerModelName.startsWith("doubao") ||
+      lowerModelName.startsWith("ep-")
+    ) {
+      LlmIcon = BotIconDoubao;
+    }
+  }
+
+  return (
+    <div className="no-dark">
+      <LlmIcon width={size} height={size} />
+    </div>
+  );
+}
+
 // 为模型管理页面提供更大的图标，支持传入模型名称
 export function ModelProviderIcon({
   provider,
@@ -238,5 +310,6 @@ export function ModelProviderIcon({
   size?: number;
   modelName?: string;
 }) {
-  return <ProviderIcon provider={provider} size={size} modelName={modelName} />;
+  // 使用项目自带的 SVG 图标
+  return <ModelAvatar modelName={modelName} size={size} />;
 }

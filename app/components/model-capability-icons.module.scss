@@ -1,0 +1,107 @@
+.capability-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.capability-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.capability-icon {
+  // 默认使用偏白色，确保在各种背景下都清晰可见
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.8;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  // 彩色模式下的颜色区分
+  &.colorful {
+    &[data-capability="vision"] {
+      color: #10b981; // 绿色
+    }
+
+    &[data-capability="web"] {
+      color: #3b82f6; // 蓝色
+    }
+
+    &[data-capability="reasoning"] {
+      color: #8b5cf6; // 紫色
+    }
+
+    &[data-capability="tools"] {
+      color: #f59e0b; // 橙色
+    }
+  }
+}
+
+.capability-tooltip {
+  position: fixed; // 改为fixed定位，避免被父容器的overflow裁剪
+  bottom: auto;
+  top: auto;
+  left: auto;
+  right: auto;
+  transform: translateX(-50%) translateY(-100%);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background-color: var(--white);
+  color: var(--black);
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10000; // 提高z-index确保显示在最上层
+  pointer-events: none;
+  box-shadow: var(--card-shadow);
+  border: var(--border-in-light);
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--white);
+  }
+}
+
+// 暗夜模式下的优化
+.dark {
+  .capability-icon {
+    // 在暗夜模式下使用更亮的白色
+    color: rgba(255, 255, 255, 0.95);
+    opacity: 0.9;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    // 彩色模式在暗夜模式下保持原色
+    &.colorful {
+      &[data-capability="vision"] {
+        color: #10b981;
+      }
+
+      &[data-capability="web"] {
+        color: #3b82f6;
+      }
+
+      &[data-capability="reasoning"] {
+        color: #8b5cf6;
+      }
+
+      &[data-capability="tools"] {
+        color: #f59e0b;
+      }
+    }
+  }
+}

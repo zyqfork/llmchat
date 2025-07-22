@@ -57,42 +57,38 @@
 }
 
 .custom-modal-action {
-  // 完全复制IconButton的样式
-  background-color: var(--white);
-  border-radius: 10px;
+  // 参考对话设置modal的按钮样式
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  user-select: none;
-  outline: none;
-  border: var(--border-in-light); // 添加边框
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
   color: var(--black);
 
-  // 复制.clickable的悬停效果
   &:hover {
-    filter: brightness(0.9); // 悬停时变暗，与原Modal一致
-    border-color: var(--primary); // 悬停时边框变色
-  }
-
-  &:focus {
-    filter: brightness(0.95);
-    border-color: var(--primary);
+    filter: brightness(1.2); // 与对话设置modal一致的悬停效果
+    background: var(--hover-color);
   }
 
   svg {
     width: 16px;
     height: 16px;
-    // 在暗夜模式下让关闭按钮更亮一些
-    filter: none;
     opacity: 0.8;
+    transition: all 0.2s ease;
+    filter: none !important; // 确保不受全局暗夜模式影响
   }
 
   &:hover svg {
     opacity: 1;
+  }
+
+  // 确保no-dark类生效
+  &.no-dark svg {
+    filter: none !important;
   }
 }
 
@@ -265,11 +261,21 @@
   font-weight: 500;
   color: var(--black);
   margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  min-width: 0;
   // 确保在暗夜模式下文字清晰可见
   opacity: 1;
+  
+  // 模型名称文本部分
+  > span:first-child,
+  > :first-child:not(.capability-icons) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .model-id {
@@ -413,17 +419,12 @@
   }
 }
 
-/* 暗夜模式特定优化 */
+/* 暗夜模式优化 - 参考对话设置modal的简洁处理 */
 .dark {
-  .custom-modal-action svg {
-    // 在暗夜模式下关闭按钮更亮，覆盖全局的invert(0.5)
-    filter: invert(0.5) brightness(1.8);
-    opacity: 0.9;
-  }
-
-  .custom-modal-action:hover svg {
-    filter: invert(0.5) brightness(2.2);
-    opacity: 1;
+  .custom-modal-action {
+    &:hover {
+      background: rgba(255, 255, 255, 0.1); // 暗夜模式下的悬停背景
+    }
   }
 
   .model-name {
@@ -442,5 +443,29 @@
     // 暗夜模式下标题更清晰
     color: var(--black);
     opacity: 1;
+  }
+}
+
+/* 确保模型管理器中的能力图标不受暗夜模式影响 */
+.custom-modal {
+  // 覆盖全局的 div:not(.no-dark) > svg 规则
+  .no-dark svg {
+    filter: none !important;
+  }
+
+  // 专门针对能力图标的样式
+  .model-name {
+    .no-dark svg {
+      filter: none !important;
+      opacity: 1;
+    }
+  }
+
+  // 在暗夜模式下也确保能力图标正常显示
+  :global(.dark) & {
+    .no-dark svg {
+      filter: none !important;
+      opacity: 1;
+    }
   }
 }

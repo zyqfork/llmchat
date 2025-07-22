@@ -89,9 +89,12 @@
       width: 16px;
       height: 16px;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
-      // 确保模型图标在暗夜模式下正常显示
-      svg {
+      // 确保彩色提供商图标正常显示，不受暗夜模式影响
+      svg, div {
         filter: none !important;
         opacity: 1;
       }
@@ -108,13 +111,15 @@
     }
   }
 
-  // 暗夜模式下的模型选择按钮优化
+  // 暗夜模式下确保彩色图标正常显示
   :global(.dark) & {
     .model-selector-button {
-      .model-icon svg {
-        // 适度提高亮度和对比度，让图标清晰可见但不过亮
-        filter: brightness(1.6) contrast(1.1) !important;
-        opacity: 0.9;
+      .model-icon {
+        // 彩色提供商图标在暗夜模式下保持原色，不需要额外处理
+        svg, div {
+          filter: none !important;
+          opacity: 1;
+        }
       }
     }
   }
@@ -745,8 +750,7 @@
   min-height: 68px;
 }
 
-.chat-input:focus {
-}
+// 输入框焦点样式由父容器处理
 
 .chat-input-send {
   background-color: var(--primary);

@@ -557,7 +557,8 @@ export function ModelSelectorModal<T>(props: {
   groups: Array<{
     groupName: string;
     items: Array<{
-      title: string;
+      title: string | JSX.Element;
+      searchText?: string; // 用于搜索的文本
       subTitle?: string;
       value: T;
       disable?: boolean;
@@ -584,9 +585,11 @@ export function ModelSelectorModal<T>(props: {
   const filteredGroups = props.groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        item.title.toLowerCase().includes(searchInput.toLowerCase()),
-      ),
+      items: group.items.filter((item) => {
+        const searchText =
+          item.searchText || (typeof item.title === "string" ? item.title : "");
+        return searchText.toLowerCase().includes(searchInput.toLowerCase());
+      }),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -600,7 +603,7 @@ export function ModelSelectorModal<T>(props: {
         <div className={styles["model-selector-header"]}>
           <h3 className={styles["model-selector-title"]}>选择模型</h3>
           <button
-            className={styles["model-selector-close"]}
+            className={`${styles["model-selector-close"]} no-dark`}
             onClick={props.onClose}
           >
             <CloseIcon />

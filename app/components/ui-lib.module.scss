@@ -452,25 +452,31 @@
   height: 32px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px; // 与对话设置modal一致
   cursor: pointer;
   color: var(--black);
   transition: all 0.2s ease;
 
   &:hover {
+    filter: brightness(1.2); // 与对话设置modal一致的悬停效果
     background: var(--hover-color);
   }
 
   svg {
     width: 16px;
     height: 16px;
-    // 在暗夜模式下让关闭按钮更亮一些
-    filter: none;
     opacity: 0.8;
+    transition: all 0.2s ease;
+    filter: none !important; // 确保不受全局暗夜模式影响
   }
 
   &:hover svg {
     opacity: 1;
+  }
+
+  // 确保no-dark类生效
+  &.no-dark svg {
+    filter: none !important;
   }
 }
 
@@ -676,80 +682,25 @@
   }
 }
 
-/* 暗夜模式特定优化 - 使用更高优先级的选择器 */
+/* 暗夜模式优化 - 参考对话设置modal的简洁处理 */
 :global(.dark) {
-  .model-selector-close svg {
-    // 在暗夜模式下关闭按钮更亮，覆盖全局的invert(0.5)
-    filter: invert(0.5) brightness(2.0) !important;
-    opacity: 0.9 !important;
-  }
-
-  .model-selector-close:hover svg {
-    filter: invert(0.5) brightness(2.5) !important;
-    opacity: 1 !important;
-  }
-
-  .model-selector-item-title {
-    // 暗夜模式下确保标题文字足够亮
-    opacity: 1 !important;
-    color: var(--black) !important;
-  }
-
-  .model-selector-item-subtitle {
-    // 暗夜模式下副标题也要清晰
-    opacity: 0.8 !important;
-    color: var(--black) !important;
-  }
-
-  .model-selector-group-title {
-    // 暗夜模式下分组标题更清晰
-    opacity: 0.9 !important;
-    color: var(--black) !important;
+  .model-selector-close {
+    &:hover {
+      background: rgba(255, 255, 255, 0.1); // 暗夜模式下的悬停背景
+    }
   }
 }
 
-/* 通用的关闭按钮优化，不依赖暗夜模式类 */
-.model-selector-close {
-  svg {
-    // 基础样式，确保在所有模式下都有合适的显示
-    filter: none !important;
-    opacity: 0.7;
-    transition: all 0.2s ease;
-  }
-
-  &:hover svg {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-}
-
-/* 针对暗夜模式的body类选择器 */
+/* 简化的暗夜模式处理 */
 body.dark {
-  .model-selector-close svg {
-    filter: brightness(1.5) !important;
-    opacity: 0.8 !important;
-  }
-
-  .model-selector-close:hover svg {
-    filter: brightness(1.8) !important;
-    opacity: 1 !important;
-  }
-
-  // 确保模型图标在暗夜模式下有合适的颜色
-  .model-selector-item-icon {
-    svg {
-      filter: none !important;
-      opacity: 0.9;
-    }
-
-    .user-avatar {
-      filter: none !important;
-      opacity: 0.9;
+  .model-selector-close {
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
     }
   }
 }
 
-/* 全局覆盖，确保模型选择器中的图标不受暗夜模式影响 */
+/* 确保模型选择器中的图标正常显示 */
 .model-selector-modal {
   // 覆盖全局的 div:not(.no-dark) > svg 规则
   div > svg {
@@ -763,43 +714,9 @@ body.dark {
 
   // 专门针对模型图标的样式
   .model-selector-item-icon {
-    // 添加no-dark类的效果
     svg, .user-avatar {
       filter: none !important;
       opacity: 1;
     }
   }
-
-  // 在暗夜模式下稍微调整图标的亮度，但不使用invert
-  :global(.dark) & {
-    .model-selector-item-icon {
-      svg, .user-avatar {
-        filter: brightness(1.0) contrast(1.1) !important;
-        opacity: 0.95;
-      }
-    }
-  }
-}
-
-/* 更高优先级的选择器来确保关闭按钮样式生效 */
-.model-selector-overlay .model-selector-modal .model-selector-close svg {
-  filter: none !important;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-}
-
-.model-selector-overlay .model-selector-modal .model-selector-close:hover svg {
-  opacity: 1;
-  transform: scale(1.05);
-}
-
-/* 暗夜模式下的关闭按钮 */
-:global(.dark) .model-selector-overlay .model-selector-modal .model-selector-close svg {
-  filter: brightness(1.6) !important;
-  opacity: 0.8;
-}
-
-:global(.dark) .model-selector-overlay .model-selector-modal .model-selector-close:hover svg {
-  filter: brightness(1.9) !important;
-  opacity: 1;
 }
