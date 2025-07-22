@@ -368,8 +368,127 @@
 .model-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+// 响应时间显示
+.response-time {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+// 错误显示容器
+.error-display {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+}
+
+// 错误信息显示
+.error-info {
+  font-size: 10px;
+  color: #dc2626;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 2px 4px;
+  background: #fee2e2;
+  border-radius: 3px;
+  border: 1px solid #fecaca;
+  cursor: help;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #fecaca;
+    border-color: #f87171;
+    transform: scale(1.05);
+  }
+}
+
+// 控制台提示文字
+.console-tip {
+  font-size: 9px;
+  color: #dc2626;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+    background: #fee2e2;
+    transform: scale(1.05);
+  }
+}
+
+// 测试按钮样式
+.test-button {
+  padding: 4px 8px;
+  border: 1px solid var(--border-in-light);
+  border-radius: 4px;
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  min-width: 36px;
+  height: 24px;
+
+  &:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &.testing {
+    border-color: #f59e0b;
+    background: #fef3c7;
+    color: #d97706;
+
+    svg {
+      width: 12px;
+      height: 12px;
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  &.success {
+    border-color: #10b981;
+    background: #d1fae5;
+    color: #059669;
+  }
+
+  &.error {
+    border-color: #ef4444;
+    background: #fee2e2;
+    color: #dc2626;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // 管理按钮样式
@@ -934,6 +1053,33 @@
     padding: 12px 14px !important;
     font-size: 12px !important;
     min-width: auto !important;
+  }
+
+  .response-time {
+    font-size: 10px !important;
+    margin-right: 1px !important;
+  }
+
+  .error-display {
+    gap: 2px !important;
+    margin-right: 1px !important;
+  }
+
+  .error-info {
+    font-size: 9px !important;
+    padding: 1px 3px !important;
+  }
+
+  .console-tip {
+    font-size: 8px !important;
+    padding: 1px 2px !important;
+  }
+
+  .test-button {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+    min-width: 32px !important;
+    height: 22px !important;
   }
 
   .manage-button {

@@ -9,6 +9,7 @@ import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ConfigIcon from "../icons/config.svg";
 import DeleteIcon from "../icons/delete.svg";
+import LoadingIcon from "../icons/three-dots.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilities } from "../config/model-capabilities";
@@ -33,6 +34,12 @@ interface ModelConfigForm {
     reasoning: boolean;
     tools: boolean;
   };
+}
+
+interface ModelTestResult {
+  status: "idle" | "testing" | "success" | "error";
+  responseTime?: number;
+  error?: string;
 }
 
 // 自定义Modal组件，不受ui-lib限制
@@ -131,6 +138,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       tools: false,
     },
   });
+
+  // 模型测试状态
+  const [modelTestResults, setModelTestResults] = useState<
+    Record<string, ModelTestResult>
+  >({});
 
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
@@ -438,6 +450,147 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     setShowModelConfig(null);
   };
 
+  // 测试模型连通性
+  const testModel = async (modelName: string) => {
+    const modelKey = `${modelName}@${provider}`;
+
+    // 设置测试状态为进行中
+    setModelTestResults((prev) => ({
+      ...prev,
+      [modelKey]: { status: "testing" },
+    }));
+
+    try {
+      const startTime = Date.now();
+
+      // 创建测试用的API客户端
+      const { getClientApi } = await import("../client/api");
+      const api = getClientApi(provider);
+
+      // 使用Promise来正确处理异步结果，添加超时机制
+      const testResult = await new Promise<{ success: boolean; error?: any }>(
+        (resolve) => {
+          let isResolved = false;
+
+          // 设置30秒超时
+          const timeout = setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              resolve({ success: false, error: "Request timeout (30s)" });
+            }
+          }, 30000);
+
+          // 发送测试消息
+          const testMessage = "only answer 1";
+
+          api.llm.chat({
+            messages: [{ role: "user", content: testMessage }],
+            config: {
+              model: modelName,
+              stream: false,
+              providerName: provider,
+            },
+            onFinish: (message: string, response?: any) => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+
+                // 检查响应状态
+                if (response?.status && response.status >= 400) {
+                  resolve({
+                    success: false,
+                    error: `HTTP ${response.status}: ${
+                      response.statusText || "Request failed"
+                    }`,
+                  });
+                } else if (message && message.trim().length > 0) {
+                  resolve({ success: true });
+                } else {
+                  resolve({ success: false, error: "Empty response received" });
+                }
+              }
+            },
+            onError: (error: any) => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve({ success: false, error });
+              }
+            },
+          });
+        },
+      );
+
+      const responseTime = Date.now() - startTime;
+
+      if (testResult.success) {
+        // 测试成功
+        setModelTestResults((prev) => ({
+          ...prev,
+          [modelKey]: {
+            status: "success",
+            responseTime,
+          },
+        }));
+
+        console.log(
+          `[ModelTest] ${modelName} 测试成功，响应时间: ${responseTime}ms`,
+        );
+      } else {
+        // 测试失败
+        throw testResult.error;
+      }
+    } catch (error: any) {
+      // 测试失败
+      const errorMessage = error?.message || error?.toString() || "未知错误";
+
+      setModelTestResults((prev) => ({
+        ...prev,
+        [modelKey]: {
+          status: "error",
+          error: errorMessage,
+        },
+      }));
+
+      console.group(`🔴 [ModelTest] ${modelName} 测试失败`);
+      console.error("错误对象:", error);
+      console.error("错误详情:", errorMessage);
+
+      // 根据错误类型给出具体建议
+      if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("Unauthorized")
+      ) {
+        console.error("💡 解决建议: 请检查API密钥配置是否正确");
+      } else if (
+        errorMessage.includes("403") ||
+        errorMessage.includes("Forbidden")
+      ) {
+        console.error("💡 解决建议: API密钥权限不足或模型访问受限");
+      } else if (
+        errorMessage.includes("404") ||
+        errorMessage.includes("Not Found")
+      ) {
+        console.error("💡 解决建议: 模型不存在或API端点错误");
+      } else if (
+        errorMessage.includes("429") ||
+        errorMessage.includes("Rate limit")
+      ) {
+        console.error("💡 解决建议: 请求频率过高，请稍后重试");
+      } else if (errorMessage.includes("timeout")) {
+        console.error("💡 解决建议: 网络连接超时，请检查网络状况");
+      } else if (
+        errorMessage.includes("500") ||
+        errorMessage.includes("Internal Server Error")
+      ) {
+        console.error("💡 解决建议: 服务器内部错误，请稍后重试");
+      }
+
+      console.error("📋 查看上方错误详情以获取更多信息");
+      console.groupEnd();
+    }
+  };
+
   // 删除自定义模型
   const deleteCustomModel = (modelName: string) => {
     if (!confirm(`确定要删除模型 "${modelName}" 吗？`)) {
@@ -619,6 +772,119 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                       </div>
                     </div>
                     <div className={styles["model-actions"]}>
+                      {/* 测试结果显示 */}
+                      {(() => {
+                        const modelKey = `${model.name}@${provider}`;
+                        const testResult = modelTestResults[modelKey];
+
+                        if (
+                          testResult?.status === "success" &&
+                          testResult.responseTime
+                        ) {
+                          return (
+                            <span className={styles["response-time"]}>
+                              {testResult.responseTime}ms
+                            </span>
+                          );
+                        }
+
+                        if (
+                          testResult?.status === "error" &&
+                          testResult.error
+                        ) {
+                          // 提取错误代码和生成友好提示
+                          const errorStr = testResult.error.toString();
+                          let errorCode = "ERROR";
+                          let friendlyMessage =
+                            "测试失败，请查看控制台获取详细错误信息";
+
+                          if (
+                            errorStr.includes("401") ||
+                            errorStr.includes("Unauthorized")
+                          ) {
+                            errorCode = "401";
+                            friendlyMessage = "认证失败，请检查API密钥配置";
+                          } else if (
+                            errorStr.includes("403") ||
+                            errorStr.includes("Forbidden")
+                          ) {
+                            errorCode = "403";
+                            friendlyMessage = "API密钥权限不足或模型访问受限";
+                          } else if (
+                            errorStr.includes("404") ||
+                            errorStr.includes("Not Found")
+                          ) {
+                            errorCode = "404";
+                            friendlyMessage = "模型不存在或API端点错误";
+                          } else if (
+                            errorStr.includes("429") ||
+                            errorStr.includes("Rate limit")
+                          ) {
+                            errorCode = "429";
+                            friendlyMessage = "请求频率过高，请稍后重试";
+                          } else if (
+                            errorStr.includes("500") ||
+                            errorStr.includes("Internal Server Error")
+                          ) {
+                            errorCode = "500";
+                            friendlyMessage = "服务器内部错误，请稍后重试";
+                          } else if (errorStr.includes("timeout")) {
+                            errorCode = "TIMEOUT";
+                            friendlyMessage = "请求超时，请检查网络连接";
+                          } else {
+                            // 尝试提取HTTP状态码
+                            const httpCode =
+                              errorStr.match(/\b[4-5]\d{2}\b/)?.[0];
+                            if (httpCode) {
+                              errorCode = httpCode;
+                            }
+                          }
+
+                          return (
+                            <div className={styles["error-display"]}>
+                              <span
+                                className={styles["error-info"]}
+                                title={`${friendlyMessage}\n\n完整错误: ${testResult.error}\n\n💡 按F12打开控制台查看详细信息`}
+                              >
+                                {errorCode}
+                              </span>
+                              <span className={styles["console-tip"]}>
+                                查看控制台获取详细报错
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
+
+                      <button
+                        className={`${styles["test-button"]} ${(() => {
+                          const modelKey = `${model.name}@${provider}`;
+                          const testResult = modelTestResults[modelKey];
+                          if (testResult?.status === "testing")
+                            return styles["testing"];
+                          if (testResult?.status === "success")
+                            return styles["success"];
+                          if (testResult?.status === "error")
+                            return styles["error"];
+                          return "";
+                        })()}`}
+                        onClick={() => testModel(model.name)}
+                        title="测试模型连通性"
+                        disabled={
+                          modelTestResults[`${model.name}@${provider}`]
+                            ?.status === "testing"
+                        }
+                      >
+                        {modelTestResults[`${model.name}@${provider}`]
+                          ?.status === "testing" ? (
+                          <LoadingIcon />
+                        ) : (
+                          "测试"
+                        )}
+                      </button>
+
                       <button
                         className={styles["manage-button"]}
                         onClick={() => openModelConfig(model)}
@@ -689,6 +955,120 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                           </div>
                         </div>
                         <div className={styles["model-actions"]}>
+                          {/* 测试结果显示 */}
+                          {(() => {
+                            const modelKey = `${model.name}@${provider}`;
+                            const testResult = modelTestResults[modelKey];
+
+                            if (
+                              testResult?.status === "success" &&
+                              testResult.responseTime
+                            ) {
+                              return (
+                                <span className={styles["response-time"]}>
+                                  {testResult.responseTime}ms
+                                </span>
+                              );
+                            }
+
+                            if (
+                              testResult?.status === "error" &&
+                              testResult.error
+                            ) {
+                              // 提取错误代码和生成友好提示
+                              const errorStr = testResult.error.toString();
+                              let errorCode = "ERROR";
+                              let friendlyMessage =
+                                "测试失败，请查看控制台获取详细错误信息";
+
+                              if (
+                                errorStr.includes("401") ||
+                                errorStr.includes("Unauthorized")
+                              ) {
+                                errorCode = "401";
+                                friendlyMessage = "认证失败，请检查API密钥配置";
+                              } else if (
+                                errorStr.includes("403") ||
+                                errorStr.includes("Forbidden")
+                              ) {
+                                errorCode = "403";
+                                friendlyMessage =
+                                  "API密钥权限不足或模型访问受限";
+                              } else if (
+                                errorStr.includes("404") ||
+                                errorStr.includes("Not Found")
+                              ) {
+                                errorCode = "404";
+                                friendlyMessage = "模型不存在或API端点错误";
+                              } else if (
+                                errorStr.includes("429") ||
+                                errorStr.includes("Rate limit")
+                              ) {
+                                errorCode = "429";
+                                friendlyMessage = "请求频率过高，请稍后重试";
+                              } else if (
+                                errorStr.includes("500") ||
+                                errorStr.includes("Internal Server Error")
+                              ) {
+                                errorCode = "500";
+                                friendlyMessage = "服务器内部错误，请稍后重试";
+                              } else if (errorStr.includes("timeout")) {
+                                errorCode = "TIMEOUT";
+                                friendlyMessage = "请求超时，请检查网络连接";
+                              } else {
+                                // 尝试提取HTTP状态码
+                                const httpCode =
+                                  errorStr.match(/\b[4-5]\d{2}\b/)?.[0];
+                                if (httpCode) {
+                                  errorCode = httpCode;
+                                }
+                              }
+
+                              return (
+                                <div className={styles["error-display"]}>
+                                  <span
+                                    className={styles["error-info"]}
+                                    title={`${friendlyMessage}\n\n完整错误: ${testResult.error}\n\n💡 按F12打开控制台查看详细信息`}
+                                  >
+                                    {errorCode}
+                                  </span>
+                                  <span className={styles["console-tip"]}>
+                                    查看控制台获取详细报错
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })()}
+
+                          <button
+                            className={`${styles["test-button"]} ${(() => {
+                              const modelKey = `${model.name}@${provider}`;
+                              const testResult = modelTestResults[modelKey];
+                              if (testResult?.status === "testing")
+                                return styles["testing"];
+                              if (testResult?.status === "success")
+                                return styles["success"];
+                              if (testResult?.status === "error")
+                                return styles["error"];
+                              return "";
+                            })()}`}
+                            onClick={() => testModel(model.name)}
+                            title="测试模型连通性"
+                            disabled={
+                              modelTestResults[`${model.name}@${provider}`]
+                                ?.status === "testing"
+                            }
+                          >
+                            {modelTestResults[`${model.name}@${provider}`]
+                              ?.status === "testing" ? (
+                              <LoadingIcon />
+                            ) : (
+                              "测试"
+                            )}
+                          </button>
+
                           <button
                             className={styles["manage-button"]}
                             onClick={() => openModelConfig(model)}
