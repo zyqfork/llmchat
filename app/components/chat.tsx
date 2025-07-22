@@ -90,6 +90,7 @@ import {
   ListItem,
   Modal,
   Selector,
+  ModelSelectorModal,
   showConfirm,
   showPrompt,
   showToast,
@@ -471,6 +472,7 @@ export function ChatActions(props: {
   const config = useAppConfig();
   const navigate = useNavigate();
   const chatStore = useChatStore();
+  const accessStore = useAccessStore();
 
   const session = chatStore.currentSession();
 
@@ -518,6 +520,41 @@ export function ChatActions(props: {
   }, [models, currentModel, currentProviderName]);
   const [showModelSelector, setShowModelSelector] = useState(false);
 
+  // 准备分组模型数据
+  const modelGroups = useMemo(() => {
+    const enabledProviders = accessStore.enabledProviders || {};
+    const enabledModels = accessStore.enabledModels || {};
+
+    // 按提供商分组，只显示已启用的提供商和已配置的模型
+    const groupedModels: Record<string, any[]> = {};
+
+    models.forEach((model) => {
+      const providerName = model.provider?.providerName as ServiceProvider;
+      if (!providerName || !enabledProviders[providerName]) return;
+
+      const providerEnabledModels = enabledModels[providerName] || [];
+      // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+      if (
+        providerEnabledModels.length > 0 &&
+        providerEnabledModels.includes(model.name)
+      ) {
+        if (!groupedModels[providerName]) {
+          groupedModels[providerName] = [];
+        }
+        groupedModels[providerName].push({
+          title: model.displayName,
+          value: `${model.name}@${providerName}`,
+          icon: <Avatar model={model.name} />,
+        });
+      }
+    });
+
+    return Object.entries(groupedModels).map(([providerName, models]) => ({
+      groupName: providerName,
+      items: models,
+    }));
+  }, [models, accessStore.enabledProviders, accessStore.enabledModels]);
+
   const [showUploadImage, setShowUploadImage] = useState(false);
 
   const [showSizeSelector, setShowSizeSelector] = useState(false);
@@ -558,7 +595,7 @@ export function ChatActions(props: {
           : nextModel.name,
       );
     }
-  }, [chatStore, currentModel, models, session]);
+  }, [chatStore, currentModel, models, props, session]);
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -732,35 +769,30 @@ export function ChatActions(props: {
           </button>
 
           {showModelSelector && (
-            <Selector
+            <ModelSelectorModal
               defaultSelectedValue={`${currentModel}@${currentProviderName}`}
-              items={models.map((m) => ({
-                title: `${m.displayName}${
-                  m?.provider?.providerName
-                    ? " (" + m?.provider?.providerName + ")"
-                    : ""
-                }`,
-                value: `${m.name}@${m?.provider?.providerName}`,
-              }))}
+              groups={modelGroups}
+              searchPlaceholder="搜索模型..."
               onClose={() => setShowModelSelector(false)}
-              onSelection={(s) => {
-                if (s.length === 0) return;
-                const [model, providerName] = getModelProvider(s[0]);
+              onSelection={(selectedValue) => {
+                const [model, providerName] = getModelProvider(selectedValue);
                 chatStore.updateTargetSession(session, (session) => {
                   session.mask.modelConfig.model = model as ModelType;
                   session.mask.modelConfig.providerName =
                     providerName as ServiceProvider;
                   session.mask.syncGlobalConfig = false;
                 });
+
+                const selectedModel = models.find(
+                  (m) =>
+                    m.name == model &&
+                    m?.provider?.providerName == providerName,
+                );
+
                 if (providerName == "ByteDance") {
-                  const selectedModel = models.find(
-                    (m) =>
-                      m.name == model &&
-                      m?.provider?.providerName == providerName,
-                  );
                   showToast(selectedModel?.displayName ?? "");
                 } else {
-                  showToast(model);
+                  showToast(selectedModel?.displayName || model);
                 }
               }}
             />
@@ -941,7 +973,7 @@ function _Chat() {
       scrollRef.current.getBoundingClientRect().top;
     // leave some space for user question
     return topDistance < 100;
-  }, [scrollRef?.current?.scrollHeight]);
+  }, []);
 
   const isTyping = userInput !== "";
 

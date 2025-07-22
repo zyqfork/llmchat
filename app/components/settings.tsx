@@ -86,6 +86,8 @@ import { ProviderType } from "../utils/cloud";
 import { TTSConfigList } from "./tts-config";
 import { RealtimeConfigList } from "./realtime-chat/realtime-config";
 import { ModelManager } from "./model-manager";
+import { useAllModels } from "../utils/hooks";
+import { getModelProvider } from "../utils/model";
 
 // 设置页面的分类枚举
 enum SettingsTab {
@@ -706,31 +708,6 @@ export function Settings() {
           accessStore.update(
             (access) => (access.accessCode = e.currentTarget.value),
           );
-        }}
-      />
-    </ListItem>
-  );
-
-  const saasStartComponent = (
-    <ListItem
-      className={styles["subtitle-button"]}
-      title={
-        Locale.Settings.Access.SaasStart.Title +
-        `${Locale.Settings.Access.SaasStart.Label}`
-      }
-      subTitle={Locale.Settings.Access.SaasStart.SubTitle}
-    >
-      <IconButton
-        aria={
-          Locale.Settings.Access.SaasStart.Title +
-          Locale.Settings.Access.SaasStart.ChatNow
-        }
-        icon={<FireIcon />}
-        type={"primary"}
-        text={Locale.Settings.Access.SaasStart.ChatNow}
-        onClick={() => {
-          trackSettingsPageGuideToCPaymentClick();
-          window.location.href = SAAS_CHAT_URL;
         }}
       />
     </ListItem>
@@ -1624,10 +1601,7 @@ export function Settings() {
   // 模型服务设置
   const renderModelServiceSettings = () => (
     <>
-      <List id={SlotID.CustomModel}>
-        {saasStartComponent}
-        {accessCodeComponent}
-      </List>
+      <List id={SlotID.CustomModel}>{accessCodeComponent}</List>
 
       {!accessStore.hideUserApiKey && (
         <div className={styles["provider-cards"]}>
@@ -1803,9 +1777,67 @@ export function Settings() {
     </>
   );
 
+  // 准备分组模型数据 - 基于启用的提供商和模型
+  const allModels = useAllModels();
+  const enabledProviders = accessStore.enabledProviders || {};
+  const enabledModels = accessStore.enabledModels || {};
+
+  // 按提供商分组，只显示已启用的提供商和已配置的模型
+  const groupedModels: Record<string, any[]> = {};
+
+  allModels.forEach((model) => {
+    const providerName = model.provider?.providerName as ServiceProvider;
+    if (!providerName || !enabledProviders[providerName]) return;
+
+    const providerEnabledModels = enabledModels[providerName] || [];
+    // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+    if (
+      providerEnabledModels.length > 0 &&
+      providerEnabledModels.includes(model.name)
+    ) {
+      if (!groupedModels[providerName]) {
+        groupedModels[providerName] = [];
+      }
+      groupedModels[providerName].push({
+        name: model.name,
+        displayName: model.displayName,
+        providerName: model.provider?.providerName,
+      });
+    }
+  });
+
   // 模型配置设置
   const renderModelConfigSettings = () => (
     <List>
+      <ListItem title={Locale.Settings.Model}>
+        <Select
+          aria-label={Locale.Settings.Model}
+          value={`${config.modelConfig.model}@${config.modelConfig?.providerName}`}
+          align="left"
+          onChange={(e) => {
+            const [model, providerName] = getModelProvider(
+              e.currentTarget.value,
+            );
+            config.update((config) => {
+              config.modelConfig.model = model as any;
+              config.modelConfig.providerName = providerName as ServiceProvider;
+            });
+          }}
+        >
+          {Object.entries(groupedModels).map(([providerName, models]) => (
+            <optgroup label={providerName} key={providerName}>
+              {models.map((model) => (
+                <option
+                  value={`${model.name}@${model.providerName}`}
+                  key={`${model.name}@${model.providerName}`}
+                >
+                  {model.displayName}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+      </ListItem>
       <ModelConfigList
         modelConfig={config.modelConfig}
         updateConfig={(updater) => {
@@ -1813,6 +1845,7 @@ export function Settings() {
           updater(modelConfig);
           config.update((config) => (config.modelConfig = modelConfig));
         }}
+        showModelSelector={false}
       />
     </List>
   );

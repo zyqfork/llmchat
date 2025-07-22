@@ -12,6 +12,7 @@ import { getModelProvider } from "../utils/model";
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
   updateConfig: (updater: (config: ModelConfig) => void) => void;
+  showModelSelector?: boolean; // 新增参数控制是否显示模型选择器
 }) {
   const allModels = useAllModels();
   const groupModels = groupBy(
@@ -23,32 +24,37 @@ export function ModelConfigList(props: {
 
   return (
     <>
-      <ListItem title={Locale.Settings.Model}>
-        <Select
-          aria-label={Locale.Settings.Model}
-          value={value}
-          align="left"
-          onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
-            props.updateConfig((config) => {
-              config.model = ModalConfigValidator.model(model);
-              config.providerName = providerName as ServiceProvider;
-            });
-          }}
-        >
-          {Object.keys(groupModels).map((providerName, index) => (
-            <optgroup label={providerName} key={index}>
-              {groupModels[providerName].map((v, i) => (
-                <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                  {v.displayName}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </Select>
-      </ListItem>
+      {props.showModelSelector && (
+        <ListItem title={Locale.Settings.Model}>
+          <Select
+            aria-label={Locale.Settings.Model}
+            value={value}
+            align="left"
+            onChange={(e) => {
+              const [model, providerName] = getModelProvider(
+                e.currentTarget.value,
+              );
+              props.updateConfig((config) => {
+                config.model = ModalConfigValidator.model(model);
+                config.providerName = providerName as ServiceProvider;
+              });
+            }}
+          >
+            {Object.keys(groupModels).map((providerName, index) => (
+              <optgroup label={providerName} key={index}>
+                {groupModels[providerName].map((v, i) => (
+                  <option
+                    value={`${v.name}@${v.provider?.providerName}`}
+                    key={i}
+                  >
+                    {v.displayName}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+        </ListItem>
+      )}
       <ListItem
         title={Locale.Settings.Temperature.Title}
         subTitle={Locale.Settings.Temperature.SubTitle}
