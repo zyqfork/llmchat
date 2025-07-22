@@ -647,9 +647,7 @@ const cn = {
     Clear: "上下文已清除",
     Revert: "恢复上下文",
   },
-  Discovery: {
-    Name: "发现",
-  },
+
   ChatSettings: {
     Name: "对话设置",
   },

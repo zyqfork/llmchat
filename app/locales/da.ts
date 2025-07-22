@@ -626,9 +626,7 @@ const da: PartialLocaleType = {
     Clear: "Kontekst ryddet",
     Revert: "Fortryd",
   },
-  Discovery: {
-    Name: "Søgning",
-  },
+
   Mcp: {
     Name: "MCP",
   },
