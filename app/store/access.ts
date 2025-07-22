@@ -61,9 +61,125 @@ const DEFAULT_AI302_URL = isApp ? AI302_BASE_URL : ApiPath["302.AI"];
 
 const DEFAULT_ACCESS_STATE = {
   accessCode: "",
-  useCustomConfig: false,
+  useCustomConfig: true, // 默认启用自定义配置
 
   provider: ServiceProvider.OpenAI,
+
+  // 启用的服务提供商
+  enabledProviders: {
+    [ServiceProvider.OpenAI]: false,
+    [ServiceProvider.Azure]: false,
+    [ServiceProvider.Google]: false,
+    [ServiceProvider.Anthropic]: false,
+    [ServiceProvider.Baidu]: false,
+    [ServiceProvider.ByteDance]: false,
+    [ServiceProvider.Alibaba]: false,
+    [ServiceProvider.Tencent]: false,
+    [ServiceProvider.Moonshot]: false,
+    [ServiceProvider.Iflytek]: false,
+    [ServiceProvider.XAI]: false,
+    [ServiceProvider.ChatGLM]: false,
+    [ServiceProvider.DeepSeek]: false,
+    [ServiceProvider.SiliconFlow]: false,
+    [ServiceProvider["302.AI"]]: false,
+  } as Record<ServiceProvider, boolean>,
+
+  // 每个服务商启用的模型列表
+  providerModels: {
+    [ServiceProvider.OpenAI]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Azure]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Google]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Anthropic]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Baidu]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.ByteDance]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Alibaba]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Tencent]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Moonshot]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.Iflytek]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.XAI]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.ChatGLM]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.DeepSeek]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider.SiliconFlow]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+    [ServiceProvider["302.AI"]]: [] as Array<{
+      id: string;
+      name: string;
+      displayName?: string;
+      group?: string;
+    }>,
+  } as Record<
+    ServiceProvider,
+    Array<{ id: string; name: string; displayName?: string; group?: string }>
+  >,
 
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
@@ -217,6 +333,56 @@ export const useAccessStore = createPersistStore(
 
     isValidSiliconFlow() {
       return ensure(get(), ["siliconflowApiKey"]);
+    },
+
+    // 模型管理方法
+    addProviderModel(
+      provider: ServiceProvider,
+      model: { id: string; name: string; displayName?: string; group?: string },
+    ) {
+      const state = get();
+      const currentModels = state.providerModels[provider] || [];
+      // 检查是否已存在
+      if (!currentModels.find((m) => m.id === model.id)) {
+        set({
+          providerModels: {
+            ...state.providerModels,
+            [provider]: [...currentModels, model],
+          },
+        });
+      }
+    },
+
+    removeProviderModel(provider: ServiceProvider, modelId: string) {
+      const state = get();
+      const currentModels = state.providerModels[provider] || [];
+      set({
+        providerModels: {
+          ...state.providerModels,
+          [provider]: currentModels.filter((m) => m.id !== modelId),
+        },
+      });
+    },
+
+    updateProviderModel(
+      provider: ServiceProvider,
+      modelId: string,
+      updates: Partial<{ name: string; displayName?: string; group?: string }>,
+    ) {
+      const state = get();
+      const currentModels = state.providerModels[provider] || [];
+      set({
+        providerModels: {
+          ...state.providerModels,
+          [provider]: currentModels.map((m) =>
+            m.id === modelId ? { ...m, ...updates } : m,
+          ),
+        },
+      });
+    },
+
+    getProviderModels(provider: ServiceProvider) {
+      return get().providerModels[provider] || [];
     },
 
     isAuthorized() {

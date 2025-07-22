@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 
 import styles from "./settings.module.scss";
 
@@ -75,6 +75,7 @@ import {
   DeepSeek,
   SiliconFlow,
   AI302,
+  DEFAULT_MODELS,
 } from "../constant";
 import { Prompt, SearchService, usePromptStore } from "../store/prompt";
 import { ErrorBoundary } from "./error";
@@ -88,6 +89,17 @@ import { useMaskStore } from "../store/mask";
 import { ProviderType } from "../utils/cloud";
 import { TTSConfigList } from "./tts-config";
 import { RealtimeConfigList } from "./realtime-chat/realtime-config";
+
+// 设置页面的分类枚举
+enum SettingsTab {
+  General = "general",
+  Sync = "sync",
+  Mask = "mask",
+  Prompt = "prompt",
+  ModelService = "model-service",
+  ModelConfig = "model-config",
+  Voice = "voice",
+}
 
 function EditPromptModal(props: { id: string; onClose: () => void }) {
   const promptStore = usePromptStore();
@@ -583,8 +595,20 @@ function SyncItems() {
 export function Settings() {
   const navigate = useNavigate();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [currentTab, setCurrentTab] = useState<SettingsTab>(
+    SettingsTab.General,
+  );
+
+  // 模型管理相关状态
+  const [showManageModelModal, setShowManageModelModal] = useState(false);
+  const [currentProvider, setCurrentProvider] =
+    useState<ServiceProvider | null>(null);
+  const [customModelId, setCustomModelId] = useState("");
+  const [showAddCustomInput, setShowAddCustomInput] = useState(false);
+
   const config = useAppConfig();
   const updateConfig = config.update;
+  const accessStore = useAccessStore();
 
   const updateStore = useUpdateStore();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -603,7 +627,6 @@ export function Settings() {
     console.log("[Update] remote version ", updateStore.remoteVersion);
   }
 
-  const accessStore = useAccessStore();
   const shouldHideBalanceQuery = useMemo(() => {
     const isOpenAiUrl = accessStore.openaiUrl.includes(OPENAI_BASE_URL);
 
@@ -718,6 +741,81 @@ export function Settings() {
     </ListItem>
   );
 
+  // 获取服务商的可用模型列表
+  const getAvailableModels = (provider: ServiceProvider) => {
+    return DEFAULT_MODELS.filter(
+      (model) => model.provider?.providerName === provider,
+    ).map((model) => ({
+      id: `${model.name}@${model.provider?.id}`,
+      name: model.name,
+      displayName: model.name,
+      group: "默认",
+    }));
+  };
+
+  // 模型管理组件
+  const ModelManagement = ({ provider }: { provider: ServiceProvider }) => {
+    const enabledModels = accessStore.getProviderModels(provider);
+
+    const handleAddModel = () => {
+      // 这个功能将在管理模型弹窗中实现
+    };
+
+    const handleManageModels = () => {
+      setCurrentProvider(provider);
+      setShowManageModelModal(true);
+    };
+
+    const handleRemoveModel = (modelId: string) => {
+      accessStore.removeProviderModel(provider, modelId);
+    };
+
+    return (
+      <div className={styles["model-management"]}>
+        <div className={styles["model-list-header"]}>
+          <h4>启用的模型</h4>
+          <div className={styles["model-actions"]}>
+            <button onClick={handleAddModel} className={styles["add-btn"]}>
+              添加
+            </button>
+            <button
+              onClick={handleManageModels}
+              className={styles["manage-btn"]}
+            >
+              管理
+            </button>
+          </div>
+        </div>
+        <div className={styles["model-list"]}>
+          {enabledModels.length > 0 ? (
+            enabledModels.map((model) => (
+              <div key={model.id} className={styles["model-item"]}>
+                <div className={styles["model-info"]}>
+                  <div className={styles["model-name"]}>
+                    {model.displayName || model.name}
+                  </div>
+                  {model.group && (
+                    <div className={styles["model-group"]}>{model.group}</div>
+                  )}
+                </div>
+                <button
+                  className={styles["model-remove"]}
+                  onClick={() => handleRemoveModel(model.id)}
+                >
+                  移除
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className={styles["empty-state"]}>
+              暂无启用的模型，点击添加按钮添加模型
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const useCustomConfigComponent = // Conditionally render the following ListItem based on clientConfig.isApp
     !clientConfig?.isApp && ( // only show if isApp is false
       <ListItem
@@ -737,8 +835,7 @@ export function Settings() {
       </ListItem>
     );
 
-  const openAIConfigComponent = accessStore.provider ===
-    ServiceProvider.OpenAI && (
+  const openAIConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.OpenAI.Endpoint.Title}
@@ -773,11 +870,11 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ModelManagement provider={ServiceProvider.OpenAI} />
     </>
   );
 
-  const azureConfigComponent = accessStore.provider ===
-    ServiceProvider.Azure && (
+  const azureConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Azure.Endpoint.Title}
@@ -832,8 +929,7 @@ export function Settings() {
     </>
   );
 
-  const googleConfigComponent = accessStore.provider ===
-    ServiceProvider.Google && (
+  const googleConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Google.Endpoint.Title}
@@ -908,11 +1004,11 @@ export function Settings() {
           ))}
         </Select>
       </ListItem>
+      <ModelManagement provider={ServiceProvider.Google} />
     </>
   );
 
-  const anthropicConfigComponent = accessStore.provider ===
-    ServiceProvider.Anthropic && (
+  const anthropicConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Anthropic.Endpoint.Title}
@@ -965,11 +1061,11 @@ export function Settings() {
           }
         ></input>
       </ListItem>
+      <ModelManagement provider={ServiceProvider.Anthropic} />
     </>
   );
 
-  const baiduConfigComponent = accessStore.provider ===
-    ServiceProvider.Baidu && (
+  const baiduConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Baidu.Endpoint.Title}
@@ -1022,8 +1118,7 @@ export function Settings() {
     </>
   );
 
-  const tencentConfigComponent = accessStore.provider ===
-    ServiceProvider.Tencent && (
+  const tencentConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Tencent.Endpoint.Title}
@@ -1076,8 +1171,7 @@ export function Settings() {
     </>
   );
 
-  const byteDanceConfigComponent = accessStore.provider ===
-    ServiceProvider.ByteDance && (
+  const byteDanceConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.ByteDance.Endpoint.Title}
@@ -1114,11 +1208,11 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ModelManagement provider={ServiceProvider.ByteDance} />
     </>
   );
 
-  const alibabaConfigComponent = accessStore.provider ===
-    ServiceProvider.Alibaba && (
+  const alibabaConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Alibaba.Endpoint.Title}
@@ -1155,11 +1249,11 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ModelManagement provider={ServiceProvider.Alibaba} />
     </>
   );
 
-  const moonshotConfigComponent = accessStore.provider ===
-    ServiceProvider.Moonshot && (
+  const moonshotConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Moonshot.Endpoint.Title}
@@ -1199,8 +1293,7 @@ export function Settings() {
     </>
   );
 
-  const deepseekConfigComponent = accessStore.provider ===
-    ServiceProvider.DeepSeek && (
+  const deepseekConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.DeepSeek.Endpoint.Title}
@@ -1237,10 +1330,11 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ModelManagement provider={ServiceProvider.DeepSeek} />
     </>
   );
 
-  const XAIConfigComponent = accessStore.provider === ServiceProvider.XAI && (
+  const XAIConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.XAI.Endpoint.Title}
@@ -1279,8 +1373,7 @@ export function Settings() {
     </>
   );
 
-  const chatglmConfigComponent = accessStore.provider ===
-    ServiceProvider.ChatGLM && (
+  const chatglmConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.ChatGLM.Endpoint.Title}
@@ -1319,8 +1412,7 @@ export function Settings() {
       </ListItem>
     </>
   );
-  const siliconflowConfigComponent = accessStore.provider ===
-    ServiceProvider.SiliconFlow && (
+  const siliconflowConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.SiliconFlow.Endpoint.Title}
@@ -1360,8 +1452,7 @@ export function Settings() {
     </>
   );
 
-  const lflytekConfigComponent = accessStore.provider ===
-    ServiceProvider.Iflytek && (
+  const lflytekConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.Iflytek.Endpoint.Title}
@@ -1418,8 +1509,7 @@ export function Settings() {
     </>
   );
 
-  const ai302ConfigComponent = accessStore.provider ===
-    ServiceProvider["302.AI"] && (
+  const ai302ConfigComponent = (
     <>
       <ListItem
         title={Locale.Settings.Access.AI302.Endpoint.Title}
@@ -1458,6 +1548,586 @@ export function Settings() {
     </>
   );
 
+  // 分页标签配置
+  const tabConfig = [
+    { key: SettingsTab.General, label: "通用配置", icon: "⚙️" },
+    { key: SettingsTab.Sync, label: "云同步", icon: "☁️" },
+    { key: SettingsTab.Mask, label: "面具", icon: "🎭" },
+    { key: SettingsTab.Prompt, label: "提示词", icon: "💬" },
+    { key: SettingsTab.ModelService, label: "模型服务", icon: "🔧" },
+    { key: SettingsTab.ModelConfig, label: "模型配置", icon: "🤖" },
+    { key: SettingsTab.Voice, label: "语音", icon: "🔊" },
+  ];
+
+  // 渲染分页内容
+  const renderTabContent = () => {
+    switch (currentTab) {
+      case SettingsTab.General:
+        return renderGeneralSettings();
+      case SettingsTab.Sync:
+        return renderSyncSettings();
+      case SettingsTab.Mask:
+        return renderMaskSettings();
+      case SettingsTab.Prompt:
+        return renderPromptSettings();
+      case SettingsTab.ModelService:
+        return renderModelServiceSettings();
+      case SettingsTab.ModelConfig:
+        return renderModelConfigSettings();
+      case SettingsTab.Voice:
+        return renderVoiceSettings();
+      default:
+        return renderGeneralSettings();
+    }
+  };
+
+  // 通用配置
+  const renderGeneralSettings = () => (
+    <>
+      <List>
+        <ListItem title={Locale.Settings.Avatar}>
+          <Popover
+            onClose={() => setShowEmojiPicker(false)}
+            content={
+              <AvatarPicker
+                onEmojiClick={(avatar: string) => {
+                  updateConfig((config) => (config.avatar = avatar));
+                  setShowEmojiPicker(false);
+                }}
+              />
+            }
+            open={showEmojiPicker}
+          >
+            <div
+              aria-label={Locale.Settings.Avatar}
+              tabIndex={0}
+              className={styles.avatar}
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker);
+              }}
+            >
+              <Avatar avatar={config.avatar} />
+            </div>
+          </Popover>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.Update.Version(currentVersion ?? "unknown")}
+          subTitle={
+            checkingUpdate
+              ? Locale.Settings.Update.IsChecking
+              : hasNewVersion
+              ? Locale.Settings.Update.FoundUpdate(remoteId ?? "ERROR")
+              : Locale.Settings.Update.IsLatest
+          }
+        >
+          {checkingUpdate ? (
+            <LoadingIcon />
+          ) : hasNewVersion ? (
+            clientConfig?.isApp ? (
+              <IconButton
+                icon={<ResetIcon></ResetIcon>}
+                text={Locale.Settings.Update.GoToUpdate}
+                onClick={() => clientUpdate()}
+              />
+            ) : (
+              <Link href={updateUrl} target="_blank" className="link">
+                {Locale.Settings.Update.GoToUpdate}
+              </Link>
+            )
+          ) : (
+            <IconButton
+              icon={<ResetIcon></ResetIcon>}
+              text={Locale.Settings.Update.CheckUpdate}
+              onClick={() => checkUpdate(true)}
+            />
+          )}
+        </ListItem>
+
+        <ListItem title={Locale.Settings.SendKey}>
+          <Select
+            aria-label={Locale.Settings.SendKey}
+            value={config.submitKey}
+            onChange={(e) => {
+              updateConfig(
+                (config) =>
+                  (config.submitKey = e.target.value as any as SubmitKey),
+              );
+            }}
+          >
+            {Object.values(SubmitKey).map((v) => (
+              <option value={v} key={v}>
+                {v}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+
+        <ListItem title={Locale.Settings.Theme}>
+          <Select
+            aria-label={Locale.Settings.Theme}
+            value={config.theme}
+            onChange={(e) => {
+              updateConfig(
+                (config) => (config.theme = e.target.value as any as Theme),
+              );
+            }}
+          >
+            {Object.values(Theme).map((v) => (
+              <option value={v} key={v}>
+                {v}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+
+        <ListItem title={Locale.Settings.Lang.Name}>
+          <Select
+            aria-label={Locale.Settings.Lang.Name}
+            value={getLang()}
+            onChange={(e) => {
+              changeLang(e.target.value as any);
+            }}
+          >
+            {AllLangs.map((lang) => (
+              <option value={lang} key={lang}>
+                {ALL_LANG_OPTIONS[lang]}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.FontSize.Title}
+          subTitle={Locale.Settings.FontSize.SubTitle}
+        >
+          <InputRange
+            aria={Locale.Settings.FontSize.Title}
+            title={`${config.fontSize ?? 14}px`}
+            value={config.fontSize}
+            min="12"
+            max="40"
+            step="1"
+            onChange={(e) =>
+              updateConfig(
+                (config) =>
+                  (config.fontSize = Number.parseInt(e.currentTarget.value)),
+              )
+            }
+          ></InputRange>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.FontFamily.Title}
+          subTitle={Locale.Settings.FontFamily.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.FontFamily.Title}
+            type="text"
+            value={config.fontFamily}
+            placeholder={Locale.Settings.FontFamily.Placeholder}
+            onChange={(e) =>
+              updateConfig(
+                (config) => (config.fontFamily = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.AutoGenerateTitle.Title}
+          subTitle={Locale.Settings.AutoGenerateTitle.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.AutoGenerateTitle.Title}
+            type="checkbox"
+            checked={config.enableAutoGenerateTitle}
+            onChange={(e) =>
+              updateConfig(
+                (config) =>
+                  (config.enableAutoGenerateTitle = e.currentTarget.checked),
+              )
+            }
+          ></input>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.SendPreviewBubble.Title}
+          subTitle={Locale.Settings.SendPreviewBubble.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.SendPreviewBubble.Title}
+            type="checkbox"
+            checked={config.sendPreviewBubble}
+            onChange={(e) =>
+              updateConfig(
+                (config) =>
+                  (config.sendPreviewBubble = e.currentTarget.checked),
+              )
+            }
+          ></input>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Mask.Config.Artifacts.Title}
+          subTitle={Locale.Mask.Config.Artifacts.SubTitle}
+        >
+          <input
+            aria-label={Locale.Mask.Config.Artifacts.Title}
+            type="checkbox"
+            checked={config.enableArtifacts}
+            onChange={(e) =>
+              updateConfig(
+                (config) => (config.enableArtifacts = e.currentTarget.checked),
+              )
+            }
+          ></input>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Mask.Config.CodeFold.Title}
+          subTitle={Locale.Mask.Config.CodeFold.SubTitle}
+        >
+          <input
+            aria-label={Locale.Mask.Config.CodeFold.Title}
+            type="checkbox"
+            checked={config.enableCodeFold}
+            data-testid="enable-code-fold-checkbox"
+            onChange={(e) =>
+              updateConfig(
+                (config) => (config.enableCodeFold = e.currentTarget.checked),
+              )
+            }
+          ></input>
+        </ListItem>
+      </List>
+      <DangerItems />
+    </>
+  );
+
+  // 云同步设置
+  const renderSyncSettings = () => <SyncItems />;
+
+  // 面具设置
+  const renderMaskSettings = () => (
+    <List>
+      <ListItem
+        title={Locale.Settings.Mask.Splash.Title}
+        subTitle={Locale.Settings.Mask.Splash.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Mask.Splash.Title}
+          type="checkbox"
+          checked={!config.dontShowMaskSplashScreen}
+          onChange={(e) =>
+            updateConfig(
+              (config) =>
+                (config.dontShowMaskSplashScreen = !e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+
+      <ListItem
+        title={Locale.Settings.Mask.Builtin.Title}
+        subTitle={Locale.Settings.Mask.Builtin.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Mask.Builtin.Title}
+          type="checkbox"
+          checked={config.hideBuiltinMasks}
+          onChange={(e) =>
+            updateConfig(
+              (config) => (config.hideBuiltinMasks = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+    </List>
+  );
+
+  // 提示词设置
+  const renderPromptSettings = () => (
+    <>
+      <List>
+        <ListItem
+          title={Locale.Settings.Prompt.Disable.Title}
+          subTitle={Locale.Settings.Prompt.Disable.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Prompt.Disable.Title}
+            type="checkbox"
+            checked={config.disablePromptHint}
+            onChange={(e) =>
+              updateConfig(
+                (config) =>
+                  (config.disablePromptHint = e.currentTarget.checked),
+              )
+            }
+          ></input>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.Prompt.List}
+          subTitle={Locale.Settings.Prompt.ListCount(builtinCount, customCount)}
+        >
+          <IconButton
+            aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
+            icon={<EditIcon />}
+            text={Locale.Settings.Prompt.Edit}
+            onClick={() => setShowPromptModal(true)}
+          />
+        </ListItem>
+      </List>
+      {shouldShowPromptModal && (
+        <UserPromptModal onClose={() => setShowPromptModal(false)} />
+      )}
+    </>
+  );
+
+  // 服务提供商配置
+  const providerConfigs = [
+    {
+      provider: ServiceProvider.OpenAI,
+      name: "OpenAI",
+      icon: "🤖",
+      description: "OpenAI GPT 系列模型",
+      configComponent: openAIConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Azure,
+      name: "Azure OpenAI",
+      icon: "☁️",
+      description: "微软 Azure OpenAI 服务",
+      configComponent: azureConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Google,
+      name: "Google",
+      icon: "🔍",
+      description: "Google Gemini 系列模型",
+      configComponent: googleConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Anthropic,
+      name: "Anthropic",
+      icon: "🧠",
+      description: "Anthropic Claude 系列模型",
+      configComponent: anthropicConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Baidu,
+      name: "百度",
+      icon: "🐻",
+      description: "百度文心一言系列模型",
+      configComponent: baiduConfigComponent,
+    },
+    {
+      provider: ServiceProvider.ByteDance,
+      name: "字节跳动",
+      icon: "🎵",
+      description: "字节跳动豆包系列模型",
+      configComponent: byteDanceConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Alibaba,
+      name: "阿里云",
+      icon: "☁️",
+      description: "阿里云通义千问系列模型",
+      configComponent: alibabaConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Tencent,
+      name: "腾讯",
+      icon: "🐧",
+      description: "腾讯混元系列模型",
+      configComponent: tencentConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Moonshot,
+      name: "月之暗面",
+      icon: "🌙",
+      description: "Moonshot Kimi 系列模型",
+      configComponent: moonshotConfigComponent,
+    },
+    {
+      provider: ServiceProvider.DeepSeek,
+      name: "DeepSeek",
+      icon: "🔬",
+      description: "DeepSeek 系列模型",
+      configComponent: deepseekConfigComponent,
+    },
+    {
+      provider: ServiceProvider.Iflytek,
+      name: "科大讯飞",
+      icon: "🎤",
+      description: "科大讯飞星火系列模型",
+      configComponent: lflytekConfigComponent,
+    },
+    {
+      provider: ServiceProvider.XAI,
+      name: "xAI",
+      icon: "❌",
+      description: "xAI Grok 系列模型",
+      configComponent: XAIConfigComponent,
+    },
+    {
+      provider: ServiceProvider.ChatGLM,
+      name: "智谱AI",
+      icon: "🤖",
+      description: "智谱AI ChatGLM 系列模型",
+      configComponent: chatglmConfigComponent,
+    },
+    {
+      provider: ServiceProvider.SiliconFlow,
+      name: "SiliconFlow",
+      icon: "💎",
+      description: "SiliconFlow 硅基流动",
+      configComponent: siliconflowConfigComponent,
+    },
+    {
+      provider: ServiceProvider["302.AI"],
+      name: "302.AI",
+      icon: "🚀",
+      description: "302.AI 聚合服务",
+      configComponent: ai302ConfigComponent,
+    },
+  ];
+
+  // 模型服务设置
+  const renderModelServiceSettings = () => (
+    <>
+      <List id={SlotID.CustomModel}>
+        {saasStartComponent}
+        {accessCodeComponent}
+      </List>
+
+      {!accessStore.hideUserApiKey && (
+        <div className={styles["provider-cards"]}>
+          {providerConfigs.map((config) => {
+            const isEnabled =
+              accessStore.enabledProviders?.[config.provider] || false;
+            return (
+              <div
+                key={config.provider}
+                className={`${styles["provider-card"]} ${
+                  isEnabled ? styles["provider-card-active"] : ""
+                }`}
+              >
+                <div className={styles["provider-card-header"]}>
+                  <div className={styles["provider-info"]}>
+                    <span className={styles["provider-icon"]}>
+                      {config.icon}
+                    </span>
+                    <div>
+                      <h3 className={styles["provider-name"]}>{config.name}</h3>
+                      <p className={styles["provider-description"]}>
+                        {config.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles["provider-toggle"]}>
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={(e) => {
+                        accessStore.update((access) => {
+                          if (!access.enabledProviders) {
+                            access.enabledProviders = {} as Record<
+                              ServiceProvider,
+                              boolean
+                            >;
+                          }
+                          access.enabledProviders[config.provider] =
+                            e.target.checked;
+                        });
+                      }}
+                      className={styles["provider-checkbox"]}
+                    />
+                  </div>
+                </div>
+
+                {isEnabled && (
+                  <div className={styles["provider-config"]}>
+                    <List>{config.configComponent}</List>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <List>
+        {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
+          <ListItem
+            title={Locale.Settings.Usage.Title}
+            subTitle={
+              showUsage
+                ? loadingUsage
+                  ? Locale.Settings.Usage.IsChecking
+                  : Locale.Settings.Usage.SubTitle(
+                      usage?.used ?? "[?]",
+                      usage?.subscription ?? "[?]",
+                    )
+                : Locale.Settings.Usage.NoAccess
+            }
+          >
+            {!showUsage || loadingUsage ? (
+              <div />
+            ) : (
+              <IconButton
+                icon={<ResetIcon></ResetIcon>}
+                text={Locale.Settings.Usage.Check}
+                onClick={() => checkUsage(true)}
+              />
+            )}
+          </ListItem>
+        ) : null}
+      </List>
+    </>
+  );
+
+  // 模型配置设置
+  const renderModelConfigSettings = () => (
+    <List>
+      <ModelConfigList
+        modelConfig={config.modelConfig}
+        updateConfig={(updater) => {
+          const modelConfig = { ...config.modelConfig };
+          updater(modelConfig);
+          config.update((config) => (config.modelConfig = modelConfig));
+        }}
+      />
+    </List>
+  );
+
+  // 语音设置
+  const renderVoiceSettings = () => (
+    <>
+      <List>
+        <RealtimeConfigList
+          realtimeConfig={config.realtimeConfig}
+          updateConfig={(updater) => {
+            const realtimeConfig = { ...config.realtimeConfig };
+            updater(realtimeConfig);
+            config.update((config) => (config.realtimeConfig = realtimeConfig));
+          }}
+        />
+      </List>
+      <List>
+        <TTSConfigList
+          ttsConfig={config.ttsConfig}
+          updateConfig={(updater) => {
+            const ttsConfig = { ...config.ttsConfig };
+            updater(ttsConfig);
+            config.update((config) => (config.ttsConfig = ttsConfig));
+          }}
+        />
+      </List>
+    </>
+  );
+
   return (
     <ErrorBoundary>
       <div className="window-header" data-tauri-drag-region>
@@ -1483,436 +2153,157 @@ export function Settings() {
         </div>
       </div>
       <div className={styles["settings"]}>
-        <List>
-          <ListItem title={Locale.Settings.Avatar}>
-            <Popover
-              onClose={() => setShowEmojiPicker(false)}
-              content={
-                <AvatarPicker
-                  onEmojiClick={(avatar: string) => {
-                    updateConfig((config) => (config.avatar = avatar));
-                    setShowEmojiPicker(false);
-                  }}
-                />
-              }
-              open={showEmojiPicker}
+        {/* 分页导航 */}
+        <div className={styles["settings-tabs"]}>
+          {tabConfig.map((tab) => (
+            <button
+              key={tab.key}
+              className={`${styles["settings-tab"]} ${
+                currentTab === tab.key ? styles["settings-tab-active"] : ""
+              }`}
+              onClick={() => setCurrentTab(tab.key)}
             >
-              <div
-                aria-label={Locale.Settings.Avatar}
-                tabIndex={0}
-                className={styles.avatar}
-                onClick={() => {
-                  setShowEmojiPicker(!showEmojiPicker);
-                }}
-              >
-                <Avatar avatar={config.avatar} />
-              </div>
-            </Popover>
-          </ListItem>
+              <span className={styles["tab-icon"]}>{tab.icon}</span>
+              <span className={styles["tab-label"]}>{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-          <ListItem
-            title={Locale.Settings.Update.Version(currentVersion ?? "unknown")}
-            subTitle={
-              checkingUpdate
-                ? Locale.Settings.Update.IsChecking
-                : hasNewVersion
-                ? Locale.Settings.Update.FoundUpdate(remoteId ?? "ERROR")
-                : Locale.Settings.Update.IsLatest
-            }
-          >
-            {checkingUpdate ? (
-              <LoadingIcon />
-            ) : hasNewVersion ? (
-              clientConfig?.isApp ? (
-                <IconButton
-                  icon={<ResetIcon></ResetIcon>}
-                  text={Locale.Settings.Update.GoToUpdate}
-                  onClick={() => clientUpdate()}
-                />
-              ) : (
-                <Link href={updateUrl} target="_blank" className="link">
-                  {Locale.Settings.Update.GoToUpdate}
-                </Link>
-              )
-            ) : (
-              <IconButton
-                icon={<ResetIcon></ResetIcon>}
-                text={Locale.Settings.Update.CheckUpdate}
-                onClick={() => checkUpdate(true)}
-              />
-            )}
-          </ListItem>
-
-          <ListItem title={Locale.Settings.SendKey}>
-            <Select
-              aria-label={Locale.Settings.SendKey}
-              value={config.submitKey}
-              onChange={(e) => {
-                updateConfig(
-                  (config) =>
-                    (config.submitKey = e.target.value as any as SubmitKey),
-                );
-              }}
-            >
-              {Object.values(SubmitKey).map((v) => (
-                <option value={v} key={v}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem title={Locale.Settings.Theme}>
-            <Select
-              aria-label={Locale.Settings.Theme}
-              value={config.theme}
-              onChange={(e) => {
-                updateConfig(
-                  (config) => (config.theme = e.target.value as any as Theme),
-                );
-              }}
-            >
-              {Object.values(Theme).map((v) => (
-                <option value={v} key={v}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem title={Locale.Settings.Lang.Name}>
-            <Select
-              aria-label={Locale.Settings.Lang.Name}
-              value={getLang()}
-              onChange={(e) => {
-                changeLang(e.target.value as any);
-              }}
-            >
-              {AllLangs.map((lang) => (
-                <option value={lang} key={lang}>
-                  {ALL_LANG_OPTIONS[lang]}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.FontSize.Title}
-            subTitle={Locale.Settings.FontSize.SubTitle}
-          >
-            <InputRange
-              aria={Locale.Settings.FontSize.Title}
-              title={`${config.fontSize ?? 14}px`}
-              value={config.fontSize}
-              min="12"
-              max="40"
-              step="1"
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.fontSize = Number.parseInt(e.currentTarget.value)),
-                )
-              }
-            ></InputRange>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.FontFamily.Title}
-            subTitle={Locale.Settings.FontFamily.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.FontFamily.Title}
-              type="text"
-              value={config.fontFamily}
-              placeholder={Locale.Settings.FontFamily.Placeholder}
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.fontFamily = e.currentTarget.value),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.AutoGenerateTitle.Title}
-            subTitle={Locale.Settings.AutoGenerateTitle.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.AutoGenerateTitle.Title}
-              type="checkbox"
-              checked={config.enableAutoGenerateTitle}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableAutoGenerateTitle = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.SendPreviewBubble.Title}
-            subTitle={Locale.Settings.SendPreviewBubble.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.SendPreviewBubble.Title}
-              type="checkbox"
-              checked={config.sendPreviewBubble}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.sendPreviewBubble = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Mask.Config.Artifacts.Title}
-            subTitle={Locale.Mask.Config.Artifacts.SubTitle}
-          >
-            <input
-              aria-label={Locale.Mask.Config.Artifacts.Title}
-              type="checkbox"
-              checked={config.enableArtifacts}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableArtifacts = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-          <ListItem
-            title={Locale.Mask.Config.CodeFold.Title}
-            subTitle={Locale.Mask.Config.CodeFold.SubTitle}
-          >
-            <input
-              aria-label={Locale.Mask.Config.CodeFold.Title}
-              type="checkbox"
-              checked={config.enableCodeFold}
-              data-testid="enable-code-fold-checkbox"
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.enableCodeFold = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-
-        <SyncItems />
-
-        <List>
-          <ListItem
-            title={Locale.Settings.Mask.Splash.Title}
-            subTitle={Locale.Settings.Mask.Splash.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Mask.Splash.Title}
-              type="checkbox"
-              checked={!config.dontShowMaskSplashScreen}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.dontShowMaskSplashScreen =
-                      !e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.Mask.Builtin.Title}
-            subTitle={Locale.Settings.Mask.Builtin.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Mask.Builtin.Title}
-              type="checkbox"
-              checked={config.hideBuiltinMasks}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.hideBuiltinMasks = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-
-        <List>
-          <ListItem
-            title={Locale.Settings.Prompt.Disable.Title}
-            subTitle={Locale.Settings.Prompt.Disable.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Prompt.Disable.Title}
-              type="checkbox"
-              checked={config.disablePromptHint}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.disablePromptHint = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.Prompt.List}
-            subTitle={Locale.Settings.Prompt.ListCount(
-              builtinCount,
-              customCount,
-            )}
-          >
-            <IconButton
-              aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
-              icon={<EditIcon />}
-              text={Locale.Settings.Prompt.Edit}
-              onClick={() => setShowPromptModal(true)}
-            />
-          </ListItem>
-        </List>
-
-        <List id={SlotID.CustomModel}>
-          {saasStartComponent}
-          {accessCodeComponent}
-
-          {!accessStore.hideUserApiKey && (
-            <>
-              {useCustomConfigComponent}
-
-              {accessStore.useCustomConfig && (
-                <>
-                  <ListItem
-                    title={Locale.Settings.Access.Provider.Title}
-                    subTitle={Locale.Settings.Access.Provider.SubTitle}
-                  >
-                    <Select
-                      aria-label={Locale.Settings.Access.Provider.Title}
-                      value={accessStore.provider}
-                      onChange={(e) => {
-                        accessStore.update(
-                          (access) =>
-                            (access.provider = e.target
-                              .value as ServiceProvider),
-                        );
-                      }}
-                    >
-                      {Object.entries(ServiceProvider).map(([k, v]) => (
-                        <option value={v} key={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </Select>
-                  </ListItem>
-
-                  {openAIConfigComponent}
-                  {azureConfigComponent}
-                  {googleConfigComponent}
-                  {anthropicConfigComponent}
-                  {baiduConfigComponent}
-                  {byteDanceConfigComponent}
-                  {alibabaConfigComponent}
-                  {tencentConfigComponent}
-                  {moonshotConfigComponent}
-                  {deepseekConfigComponent}
-
-                  {lflytekConfigComponent}
-                  {XAIConfigComponent}
-                  {chatglmConfigComponent}
-                  {siliconflowConfigComponent}
-                  {ai302ConfigComponent}
-                </>
-              )}
-            </>
-          )}
-
-          {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
-            <ListItem
-              title={Locale.Settings.Usage.Title}
-              subTitle={
-                showUsage
-                  ? loadingUsage
-                    ? Locale.Settings.Usage.IsChecking
-                    : Locale.Settings.Usage.SubTitle(
-                        usage?.used ?? "[?]",
-                        usage?.subscription ?? "[?]",
-                      )
-                  : Locale.Settings.Usage.NoAccess
-              }
-            >
-              {!showUsage || loadingUsage ? (
-                <div />
-              ) : (
-                <IconButton
-                  icon={<ResetIcon></ResetIcon>}
-                  text={Locale.Settings.Usage.Check}
-                  onClick={() => checkUsage(true)}
-                />
-              )}
-            </ListItem>
-          ) : null}
-
-          <ListItem
-            title={Locale.Settings.Access.CustomModel.Title}
-            subTitle={Locale.Settings.Access.CustomModel.SubTitle}
-            vertical={true}
-          >
-            <input
-              aria-label={Locale.Settings.Access.CustomModel.Title}
-              style={{ width: "100%", maxWidth: "unset", textAlign: "left" }}
-              type="text"
-              value={config.customModels}
-              placeholder="model1,model2,model3"
-              onChange={(e) =>
-                config.update(
-                  (config) => (config.customModels = e.currentTarget.value),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-
-        <List>
-          <ModelConfigList
-            modelConfig={config.modelConfig}
-            updateConfig={(updater) => {
-              const modelConfig = { ...config.modelConfig };
-              updater(modelConfig);
-              config.update((config) => (config.modelConfig = modelConfig));
-            }}
-          />
-        </List>
-
-        {shouldShowPromptModal && (
-          <UserPromptModal onClose={() => setShowPromptModal(false)} />
-        )}
-        <List>
-          <RealtimeConfigList
-            realtimeConfig={config.realtimeConfig}
-            updateConfig={(updater) => {
-              const realtimeConfig = { ...config.realtimeConfig };
-              updater(realtimeConfig);
-              config.update(
-                (config) => (config.realtimeConfig = realtimeConfig),
-              );
-            }}
-          />
-        </List>
-        <List>
-          <TTSConfigList
-            ttsConfig={config.ttsConfig}
-            updateConfig={(updater) => {
-              const ttsConfig = { ...config.ttsConfig };
-              updater(ttsConfig);
-              config.update((config) => (config.ttsConfig = ttsConfig));
-            }}
-          />
-        </List>
-
-        <DangerItems />
+        {/* 分页内容 */}
+        <div className={styles["settings-content"]}>{renderTabContent()}</div>
       </div>
+
+      {/* 模型管理弹窗 */}
+      {showManageModelModal && currentProvider && (
+        <div className="modal-mask">
+          <Modal
+            title={`${currentProvider} 模型管理`}
+            onClose={() => {
+              setShowManageModelModal(false);
+              setCurrentProvider(null);
+              setShowAddCustomInput(false);
+              setCustomModelId("");
+            }}
+          >
+            <div className={styles["manage-model-content"]}>
+              <div className={styles["section-header"]}>
+                <h4>可用模型</h4>
+                {!showAddCustomInput ? (
+                  <button
+                    onClick={() => setShowAddCustomInput(true)}
+                    className={styles["add-custom-btn"]}
+                  >
+                    添加自定义模型
+                  </button>
+                ) : null}
+              </div>
+
+              {/* 添加自定义模型输入框 - 条件显示 */}
+              {showAddCustomInput && (
+                <div className={styles["add-custom-model"]}>
+                  <input
+                    type="text"
+                    placeholder="输入模型ID，例如：gpt-4-turbo"
+                    value={customModelId}
+                    onChange={(e) => setCustomModelId(e.target.value)}
+                    className={styles["custom-model-input"]}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (!customModelId.trim()) return;
+
+                        accessStore.addProviderModel(currentProvider, {
+                          id: customModelId.trim(),
+                          name: customModelId.trim(),
+                          displayName: customModelId.trim(),
+                          group: "自定义",
+                        });
+
+                        setCustomModelId("");
+                        setShowAddCustomInput(false);
+                      } else if (e.key === "Escape") {
+                        setCustomModelId("");
+                        setShowAddCustomInput(false);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <div className={styles["custom-model-actions"]}>
+                    <button
+                      onClick={() => {
+                        setCustomModelId("");
+                        setShowAddCustomInput(false);
+                      }}
+                      className={styles["cancel-btn"]}
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!customModelId.trim()) return;
+
+                        accessStore.addProviderModel(currentProvider, {
+                          id: customModelId.trim(),
+                          name: customModelId.trim(),
+                          displayName: customModelId.trim(),
+                          group: "自定义",
+                        });
+
+                        setCustomModelId("");
+                        setShowAddCustomInput(false);
+                      }}
+                      disabled={!customModelId.trim()}
+                      className={styles["confirm-btn"]}
+                    >
+                      添加
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className={styles["available-model-list"]}>
+                {getAvailableModels(currentProvider).map((model) => {
+                  const enabledModels =
+                    accessStore.getProviderModels(currentProvider);
+                  const isModelEnabled = enabledModels.some(
+                    (m) => m.id === model.id,
+                  );
+
+                  return (
+                    <div
+                      key={model.id}
+                      className={styles["available-model-item"]}
+                    >
+                      <div className={styles["model-info"]}>
+                        <div className={styles["model-name"]}>{model.name}</div>
+                      </div>
+                      <button
+                        className={`${styles["model-action-btn"]} ${
+                          isModelEnabled ? styles["model-action-btn-added"] : ""
+                        }`}
+                        onClick={() => {
+                          if (isModelEnabled) {
+                            accessStore.removeProviderModel(
+                              currentProvider,
+                              model.id,
+                            );
+                          } else {
+                            accessStore.addProviderModel(
+                              currentProvider,
+                              model,
+                            );
+                          }
+                        }}
+                      >
+                        {isModelEnabled ? "取消添加" : "添加"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Modal>
+        </div>
+      )}
     </ErrorBoundary>
   );
 }
