@@ -153,18 +153,6 @@ anthropic claude Api version.
 
 anthropic claude Api Url.
 
-### `BAIDU_API_KEY` (可选)
-
-Baidu Api Key.
-
-### `BAIDU_SECRET_KEY` (可选)
-
-Baidu Secret Key.
-
-### `BAIDU_URL` (可选)
-
-Baidu Api Url.
-
 ### `BYTEDANCE_API_KEY` (可选)
 
 ByteDance Api Key.
@@ -181,25 +169,7 @@ ByteDance Api Url.
 
 阿里云（千问）Api Url.
 
-### `IFLYTEK_URL` (可选)
 
-讯飞星火Api Url.
-
-### `IFLYTEK_API_KEY` (可选)
-
-讯飞星火Api Key.
-
-### `IFLYTEK_API_SECRET` (可选)
-
-讯飞星火Api Secret.
-
-### `CHATGLM_API_KEY` (可选)
-
-ChatGLM Api Key.
-
-### `CHATGLM_URL` (可选)
-
-ChatGLM Api Url.
 
 ### `DEEPSEEK_API_KEY` (可选)
 

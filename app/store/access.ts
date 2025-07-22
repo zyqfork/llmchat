@@ -6,17 +6,12 @@ import {
   OPENAI_BASE_URL,
   ANTHROPIC_BASE_URL,
   GEMINI_BASE_URL,
-  BAIDU_BASE_URL,
   BYTEDANCE_BASE_URL,
   ALIBABA_BASE_URL,
-  TENCENT_BASE_URL,
   MOONSHOT_BASE_URL,
-  IFLYTEK_BASE_URL,
   DEEPSEEK_BASE_URL,
   XAI_BASE_URL,
-  CHATGLM_BASE_URL,
   SILICONFLOW_BASE_URL,
-  AI302_BASE_URL,
 } from "../constant";
 import { getHeaders } from "../client/api";
 import { getClientConfig } from "../config/client";
@@ -35,29 +30,19 @@ const DEFAULT_GOOGLE_URL = isApp ? GEMINI_BASE_URL : ApiPath.Google;
 
 const DEFAULT_ANTHROPIC_URL = isApp ? ANTHROPIC_BASE_URL : ApiPath.Anthropic;
 
-const DEFAULT_BAIDU_URL = isApp ? BAIDU_BASE_URL : ApiPath.Baidu;
-
 const DEFAULT_BYTEDANCE_URL = isApp ? BYTEDANCE_BASE_URL : ApiPath.ByteDance;
 
 const DEFAULT_ALIBABA_URL = isApp ? ALIBABA_BASE_URL : ApiPath.Alibaba;
 
-const DEFAULT_TENCENT_URL = isApp ? TENCENT_BASE_URL : ApiPath.Tencent;
-
 const DEFAULT_MOONSHOT_URL = isApp ? MOONSHOT_BASE_URL : ApiPath.Moonshot;
-
-const DEFAULT_IFLYTEK_URL = isApp ? IFLYTEK_BASE_URL : ApiPath.Iflytek;
 
 const DEFAULT_DEEPSEEK_URL = isApp ? DEEPSEEK_BASE_URL : ApiPath.DeepSeek;
 
 const DEFAULT_XAI_URL = isApp ? XAI_BASE_URL : ApiPath.XAI;
 
-const DEFAULT_CHATGLM_URL = isApp ? CHATGLM_BASE_URL : ApiPath.ChatGLM;
-
 const DEFAULT_SILICONFLOW_URL = isApp
   ? SILICONFLOW_BASE_URL
   : ApiPath.SiliconFlow;
-
-const DEFAULT_AI302_URL = isApp ? AI302_BASE_URL : ApiPath["302.AI"];
 
 const DEFAULT_ACCESS_STATE = {
   accessCode: "",
@@ -71,115 +56,27 @@ const DEFAULT_ACCESS_STATE = {
     [ServiceProvider.Azure]: false,
     [ServiceProvider.Google]: false,
     [ServiceProvider.Anthropic]: false,
-    [ServiceProvider.Baidu]: false,
     [ServiceProvider.ByteDance]: false,
     [ServiceProvider.Alibaba]: false,
-    [ServiceProvider.Tencent]: false,
     [ServiceProvider.Moonshot]: false,
-    [ServiceProvider.Iflytek]: false,
     [ServiceProvider.XAI]: false,
-    [ServiceProvider.ChatGLM]: false,
     [ServiceProvider.DeepSeek]: false,
     [ServiceProvider.SiliconFlow]: false,
-    [ServiceProvider["302.AI"]]: false,
   } as Record<ServiceProvider, boolean>,
 
   // 每个服务商启用的模型列表
-  providerModels: {
-    [ServiceProvider.OpenAI]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Azure]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Google]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Anthropic]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Baidu]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.ByteDance]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Alibaba]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Tencent]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Moonshot]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.Iflytek]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.XAI]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.ChatGLM]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.DeepSeek]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider.SiliconFlow]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-    [ServiceProvider["302.AI"]]: [] as Array<{
-      id: string;
-      name: string;
-      displayName?: string;
-      group?: string;
-    }>,
-  } as Record<
-    ServiceProvider,
-    Array<{ id: string; name: string; displayName?: string; group?: string }>
-  >,
+  enabledModels: {
+    [ServiceProvider.OpenAI]: [] as string[],
+    [ServiceProvider.Azure]: [] as string[],
+    [ServiceProvider.Google]: [] as string[],
+    [ServiceProvider.Anthropic]: [] as string[],
+    [ServiceProvider.ByteDance]: [] as string[],
+    [ServiceProvider.Alibaba]: [] as string[],
+    [ServiceProvider.Moonshot]: [] as string[],
+    [ServiceProvider.XAI]: [] as string[],
+    [ServiceProvider.DeepSeek]: [] as string[],
+    [ServiceProvider.SiliconFlow]: [] as string[],
+  } as Record<ServiceProvider, string[]>,
 
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
@@ -201,11 +98,6 @@ const DEFAULT_ACCESS_STATE = {
   anthropicApiKey: "",
   anthropicApiVersion: "2023-06-01",
 
-  // baidu
-  baiduUrl: DEFAULT_BAIDU_URL,
-  baiduApiKey: "",
-  baiduSecretKey: "",
-
   // bytedance
   bytedanceUrl: DEFAULT_BYTEDANCE_URL,
   bytedanceApiKey: "",
@@ -218,16 +110,6 @@ const DEFAULT_ACCESS_STATE = {
   moonshotUrl: DEFAULT_MOONSHOT_URL,
   moonshotApiKey: "",
 
-  // tencent
-  tencentUrl: DEFAULT_TENCENT_URL,
-  tencentSecretKey: "",
-  tencentSecretId: "",
-
-  // iflytek
-  iflytekUrl: DEFAULT_IFLYTEK_URL,
-  iflytekApiKey: "",
-  iflytekApiSecret: "",
-
   // deepseek
   deepseekUrl: DEFAULT_DEEPSEEK_URL,
   deepseekApiKey: "",
@@ -236,17 +118,9 @@ const DEFAULT_ACCESS_STATE = {
   xaiUrl: DEFAULT_XAI_URL,
   xaiApiKey: "",
 
-  // chatglm
-  chatglmUrl: DEFAULT_CHATGLM_URL,
-  chatglmApiKey: "",
-
   // siliconflow
   siliconflowUrl: DEFAULT_SILICONFLOW_URL,
   siliconflowApiKey: "",
-
-  // 302.AI
-  ai302Url: DEFAULT_AI302_URL,
-  ai302ApiKey: "",
 
   // server config
   needCode: true,
@@ -297,10 +171,6 @@ export const useAccessStore = createPersistStore(
       return ensure(get(), ["anthropicApiKey"]);
     },
 
-    isValidBaidu() {
-      return ensure(get(), ["baiduApiKey", "baiduSecretKey"]);
-    },
-
     isValidByteDance() {
       return ensure(get(), ["bytedanceApiKey"]);
     },
@@ -309,15 +179,8 @@ export const useAccessStore = createPersistStore(
       return ensure(get(), ["alibabaApiKey"]);
     },
 
-    isValidTencent() {
-      return ensure(get(), ["tencentSecretKey", "tencentSecretId"]);
-    },
-
     isValidMoonshot() {
       return ensure(get(), ["moonshotApiKey"]);
-    },
-    isValidIflytek() {
-      return ensure(get(), ["iflytekApiKey"]);
     },
     isValidDeepSeek() {
       return ensure(get(), ["deepseekApiKey"]);
@@ -327,62 +190,8 @@ export const useAccessStore = createPersistStore(
       return ensure(get(), ["xaiApiKey"]);
     },
 
-    isValidChatGLM() {
-      return ensure(get(), ["chatglmApiKey"]);
-    },
-
     isValidSiliconFlow() {
       return ensure(get(), ["siliconflowApiKey"]);
-    },
-
-    // 模型管理方法
-    addProviderModel(
-      provider: ServiceProvider,
-      model: { id: string; name: string; displayName?: string; group?: string },
-    ) {
-      const state = get();
-      const currentModels = state.providerModels[provider] || [];
-      // 检查是否已存在
-      if (!currentModels.find((m) => m.id === model.id)) {
-        set({
-          providerModels: {
-            ...state.providerModels,
-            [provider]: [...currentModels, model],
-          },
-        });
-      }
-    },
-
-    removeProviderModel(provider: ServiceProvider, modelId: string) {
-      const state = get();
-      const currentModels = state.providerModels[provider] || [];
-      set({
-        providerModels: {
-          ...state.providerModels,
-          [provider]: currentModels.filter((m) => m.id !== modelId),
-        },
-      });
-    },
-
-    updateProviderModel(
-      provider: ServiceProvider,
-      modelId: string,
-      updates: Partial<{ name: string; displayName?: string; group?: string }>,
-    ) {
-      const state = get();
-      const currentModels = state.providerModels[provider] || [];
-      set({
-        providerModels: {
-          ...state.providerModels,
-          [provider]: currentModels.map((m) =>
-            m.id === modelId ? { ...m, ...updates } : m,
-          ),
-        },
-      });
-    },
-
-    getProviderModels(provider: ServiceProvider) {
-      return get().providerModels[provider] || [];
     },
 
     isAuthorized() {
@@ -394,15 +203,11 @@ export const useAccessStore = createPersistStore(
         this.isValidAzure() ||
         this.isValidGoogle() ||
         this.isValidAnthropic() ||
-        this.isValidBaidu() ||
         this.isValidByteDance() ||
         this.isValidAlibaba() ||
-        this.isValidTencent() ||
         this.isValidMoonshot() ||
-        this.isValidIflytek() ||
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
-        this.isValidChatGLM() ||
         this.isValidSiliconFlow() ||
         !this.enabledAccessControl() ||
         (this.enabledAccessControl() && ensure(get(), ["accessCode"]))

@@ -384,22 +384,7 @@ const vi: PartialLocaleType = {
           SubTitle: "Cài đặt mức độ lọc nội dung",
         },
       },
-      Baidu: {
-        ApiKey: {
-          Title: "API Key",
-          SubTitle: "Sử dụng khóa Baidu API tùy chỉnh",
-          Placeholder: "Khóa API Baidu",
-        },
-        SecretKey: {
-          Title: "Secret Key",
-          SubTitle: "Sử dụng khóa bí mật Baidu tùy chỉnh",
-          Placeholder: "Khóa bí mật Baidu",
-        },
-        Endpoint: {
-          Title: "Địa chỉ giao diện",
-          SubTitle: "Không hỗ trợ tùy chỉnh, hãy cấu hình trong .env",
-        },
-      },
+
       ByteDance: {
         ApiKey: {
           Title: "Khóa giao diện",

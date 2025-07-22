@@ -76,28 +76,21 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
       case ModelProvider.Doubao:
         systemApiKey = serverConfig.bytedanceApiKey;
         break;
-      case ModelProvider.Ernie:
-        systemApiKey = serverConfig.baiduApiKey;
-        break;
+
       case ModelProvider.Qwen:
         systemApiKey = serverConfig.alibabaApiKey;
         break;
       case ModelProvider.Moonshot:
         systemApiKey = serverConfig.moonshotApiKey;
         break;
-      case ModelProvider.Iflytek:
-        systemApiKey =
-          serverConfig.iflytekApiKey + ":" + serverConfig.iflytekApiSecret;
-        break;
+
       case ModelProvider.DeepSeek:
         systemApiKey = serverConfig.deepseekApiKey;
         break;
       case ModelProvider.XAI:
         systemApiKey = serverConfig.xaiApiKey;
         break;
-      case ModelProvider.ChatGLM:
-        systemApiKey = serverConfig.chatglmApiKey;
-        break;
+
       case ModelProvider.SiliconFlow:
         systemApiKey = serverConfig.siliconFlowApiKey;
         break;

@@ -225,18 +225,6 @@ anthropic claude Api version.
 
 anthropic claude Api Url.
 
-### `BAIDU_API_KEY` (optional)
-
-Baidu Api Key.
-
-### `BAIDU_SECRET_KEY` (optional)
-
-Baidu Secret Key.
-
-### `BAIDU_URL` (optional)
-
-Baidu Api Url.
-
 ### `BYTEDANCE_API_KEY` (optional)
 
 ByteDance Api Key.
@@ -252,26 +240,6 @@ Alibaba Cloud Api Key.
 ### `ALIBABA_URL` (optional)
 
 Alibaba Cloud Api Url.
-
-### `IFLYTEK_URL` (Optional)
-
-iflytek Api Url.
-
-### `IFLYTEK_API_KEY` (Optional)
-
-iflytek Api Key.
-
-### `IFLYTEK_API_SECRET` (Optional)
-
-iflytek Api Secret.
-
-### `CHATGLM_API_KEY` (optional)
-
-ChatGLM Api Key.
-
-### `CHATGLM_URL` (optional)
-
-ChatGLM Api Url.
 
 ### `DEEPSEEK_API_KEY` (optional)
 

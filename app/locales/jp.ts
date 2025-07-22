@@ -382,22 +382,7 @@ const jp: PartialLocaleType = {
           SubTitle: "コンテンツフィルタリングレベルを設定",
         },
       },
-      Baidu: {
-        ApiKey: {
-          Title: "APIキー",
-          SubTitle: "カスタムBaidu APIキーを使用",
-          Placeholder: "Baidu APIキー",
-        },
-        SecretKey: {
-          Title: "シークレットキー",
-          SubTitle: "カスタムBaiduシークレットキーを使用",
-          Placeholder: "Baiduシークレットキー",
-        },
-        Endpoint: {
-          Title: "エンドポイント",
-          SubTitle: "カスタムはサポートしていません、.env設定に進んでください",
-        },
-      },
+
       ByteDance: {
         ApiKey: {
           Title: "APIキー",

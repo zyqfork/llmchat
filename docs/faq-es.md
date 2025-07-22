@@ -2,7 +2,7 @@
 
 ## ¿Cómo puedo obtener ayuda rápidamente?
 
-1.  Pregunte a ChatGPT / Bing / Baidu / Google, etc.
+1.  Pregunte a ChatGPT / Bing / Google, etc.
 2.  Pregunte a los internautas. Sírvase proporcionar información general sobre el problema y una descripción detallada del problema encontrado. Las preguntas de alta calidad facilitan la obtención de respuestas útiles.
 
 # Problemas relacionados con la implementación
@@ -123,7 +123,7 @@ Vercel es una plataforma global en la nube diseñada para ayudar a los desarroll
 
 *   Ejemplos de proveedores de servidores extranjeros: Amazon Cloud, Google Cloud, Vultr, Bandwagon, Hostdare, etc.
     Asuntos de servidores extranjeros: Las líneas de servidor afectan las velocidades de acceso nacional, se recomiendan los servidores de línea CN2 GIA y CN2. Si el servidor es de difícil acceso en China (pérdida grave de paquetes, etc.), puede intentar configurar un CDN (Cloudflare y otros proveedores).
-*   Proveedores de servidores nacionales: Alibaba Cloud, Tencent, etc.;
+*   Proveedores de servidores nacionales: Alibaba Cloud, etc.;
     Asuntos de servidores nacionales: La resolución de nombres de dominio requiere la presentación de ICP; El ancho de banda del servidor doméstico es más caro; El acceso a sitios web extranjeros (Github, openAI, etc.) requiere un proxy.
 
 ## ¿En qué circunstancias debe grabarse el servidor?

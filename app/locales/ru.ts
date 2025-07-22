@@ -387,23 +387,7 @@ const ru: PartialLocaleType = {
           SubTitle: "Настроить уровень фильтрации контента",
         },
       },
-      Baidu: {
-        ApiKey: {
-          Title: "API-ключ",
-          SubTitle: "Использовать пользовательский Baidu API-ключ",
-          Placeholder: "Baidu API-ключ",
-        },
-        SecretKey: {
-          Title: "Секретный ключ",
-          SubTitle: "Использовать пользовательский Baidu Secret Key",
-          Placeholder: "Baidu Secret Key",
-        },
-        Endpoint: {
-          Title: "Адрес интерфейса",
-          SubTitle:
-            "Не поддерживает пользовательскую настройку, перейдите в .env",
-        },
-      },
+
       ByteDance: {
         ApiKey: {
           Title: "Ключ интерфейса",

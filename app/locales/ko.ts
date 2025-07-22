@@ -379,22 +379,7 @@ const ko: PartialLocaleType = {
           SubTitle: "콘텐츠 필터링 수준 설정",
         },
       },
-      Baidu: {
-        ApiKey: {
-          Title: "API 키",
-          SubTitle: "커스텀 Baidu API 키 사용",
-          Placeholder: "Baidu API 키",
-        },
-        SecretKey: {
-          Title: "Secret 키",
-          SubTitle: "커스텀 Baidu Secret 키 사용",
-          Placeholder: "Baidu Secret 키",
-        },
-        Endpoint: {
-          Title: "엔드포인트 주소",
-          SubTitle: "커스터마이즈는 .env에서 설정",
-        },
-      },
+
       ByteDance: {
         ApiKey: {
           Title: "엔드포인트 키",

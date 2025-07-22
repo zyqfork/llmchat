@@ -2,7 +2,7 @@
 
 ## How to get help quickly?
 
-1. Ask ChatGPT / Bing / Baidu / Google, etc.
+1. Ask ChatGPT / Bing / Google, etc.
 2. Ask online friends. Please provide background information and a detailed description of the problem. High-quality questions are more likely to get useful answers.
 
 # Deployment Related Questions
@@ -139,7 +139,7 @@ Vercel is a global cloud platform designed to help developers build and deploy m
 
 - Examples of international server providers: Amazon Web Services, Google Cloud, Vultr, Bandwagon, Hostdare, etc.
   International server considerations: Server lines affect access speed in China; CN2 GIA and CN2 lines are recommended. If the server has difficulty accessing in China (serious packet loss, etc.), you can try using a CDN (from providers like Cloudflare).
-- Domestic server providers: Alibaba Cloud, Tencent, etc.
+- Domestic server providers: Alibaba Cloud, etc.
   Domestic server considerations: Domain name resolution requires filing; domestic server bandwidth is relatively expensive; accessing foreign websites (Github, OpenAI, etc.) requires a proxy.
 
 # OpenAI-related Questions

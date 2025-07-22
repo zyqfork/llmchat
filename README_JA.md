@@ -150,18 +150,6 @@ Anthropic Claude API バージョン。
 
 Anthropic Claude API の URL。
 
-### `BAIDU_API_KEY` (オプション)
-
-Baidu API キー。
-
-### `BAIDU_SECRET_KEY` (オプション)
-
-Baidu シークレットキー。
-
-### `BAIDU_URL` (オプション)
-
-Baidu API の URL。
-
 ### `BYTEDANCE_API_KEY` (オプション)
 
 ByteDance API キー。
