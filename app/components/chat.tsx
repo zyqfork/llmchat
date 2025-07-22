@@ -590,25 +590,42 @@ export function ChatActions(props: {
       props.setAttachImages([]);
       props.setUploading(false);
     }
+  }, [currentModel, props.setAttachImages, props.setUploading]);
 
-    // if current model is not available
-    // switch to first available model
+  // 分离模型可用性检查到单独的 useEffect
+  // 使用 ref 来避免依赖 session 对象
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  // 使用 useMemo 来稳定化模型可用性检查的结果
+  const modelAvailability = useMemo(() => {
     const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
-      // show next model to default model if exist
-      let nextModel = models.find((model) => model.isDefault) || models[0];
-      chatStore.updateTargetSession(session, (session) => {
-        session.mask.modelConfig.model = nextModel.name;
-        session.mask.modelConfig.providerName = nextModel?.provider
-          ?.providerName as ServiceProvider;
-      });
-      showToast(
-        nextModel?.provider?.providerName == "ByteDance"
-          ? nextModel.displayName
-          : nextModel.name,
-      );
+    const nextModel =
+      isUnavailableModel && models.length > 0
+        ? models.find((model) => model.isDefault) || models[0]
+        : null;
+    return { isUnavailableModel, nextModel };
+  }, [models, currentModel]);
+
+  // 使用 useCallback 来稳定化更新函数，并添加防抖
+  const updateSessionModel = useDebouncedCallback((nextModel: any) => {
+    chatStore.updateTargetSession(sessionRef.current, (session) => {
+      session.mask.modelConfig.model = nextModel.name;
+      session.mask.modelConfig.providerName = nextModel?.provider
+        ?.providerName as ServiceProvider;
+    });
+    showToast(
+      nextModel?.provider?.providerName == "ByteDance"
+        ? nextModel.displayName
+        : nextModel.name,
+    );
+  }, 100); // 100ms 防抖
+
+  useEffect(() => {
+    if (modelAvailability.nextModel) {
+      updateSessionModel(modelAvailability.nextModel);
     }
-  }, [chatStore, currentModel, models, props, session]);
+  }, [modelAvailability.nextModel, updateSessionModel]);
 
   return (
     <div className={styles["chat-input-actions"]}>

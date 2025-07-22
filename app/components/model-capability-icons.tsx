@@ -75,7 +75,7 @@ export function VisionIcon({
       </div>
       <CapabilityTooltip
         show={showTooltip}
-        text="视觉能力"
+        text="视觉"
         targetRef={wrapperRef}
       />
     </>
@@ -119,7 +119,7 @@ export function WebIcon({
       </div>
       <CapabilityTooltip
         show={showTooltip}
-        text="联网能力"
+        text="联网"
         targetRef={wrapperRef}
       />
     </>
@@ -174,7 +174,7 @@ export function ReasoningIcon({
       </div>
       <CapabilityTooltip
         show={showTooltip}
-        text="推理能力"
+        text="推理"
         targetRef={wrapperRef}
       />
     </>
@@ -218,7 +218,7 @@ export function ToolIcon({
       </div>
       <CapabilityTooltip
         show={showTooltip}
-        text="工具能力"
+        text="工具"
         targetRef={wrapperRef}
       />
     </>

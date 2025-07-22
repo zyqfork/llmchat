@@ -7,6 +7,8 @@ import styles from "./model-manager.module.scss";
 import CloseIcon from "../icons/close.svg";
 import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
+import ConfigIcon from "../icons/config.svg";
+import DeleteIcon from "../icons/delete.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilities } from "../config/model-capabilities";
@@ -20,6 +22,17 @@ interface ModelManagerProps {
 interface CustomModelForm {
   modelId: string;
   category: string;
+}
+
+interface ModelConfigForm {
+  modelId: string;
+  category: string;
+  capabilities: {
+    vision: boolean;
+    web: boolean;
+    reasoning: boolean;
+    tools: boolean;
+  };
 }
 
 // 自定义Modal组件，不受ui-lib限制
@@ -106,6 +119,17 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   const [customModelForm, setCustomModelForm] = useState<CustomModelForm>({
     modelId: "",
     category: "",
+  });
+  const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
+  const [modelConfigForm, setModelConfigForm] = useState<ModelConfigForm>({
+    modelId: "",
+    category: "",
+    capabilities: {
+      vision: false,
+      web: false,
+      reasoning: false,
+      tools: false,
+    },
   });
 
   // 获取当前服务商的所有模型（包含自定义模型）
@@ -316,6 +340,142 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     setShowAddCustomModel(false);
   };
 
+  // 获取模型能力（包含自定义配置）
+  const getEnhancedModelCapabilities = (modelName: string) => {
+    // 先获取默认能力
+    const defaultCapabilities = getModelCapabilities(modelName);
+
+    // 尝试从本地存储获取自定义配置
+    const capabilitiesKey = `model_capabilities_${modelName}`;
+    const customCapabilities = localStorage.getItem(capabilitiesKey);
+
+    if (customCapabilities) {
+      try {
+        return JSON.parse(customCapabilities);
+      } catch (e) {
+        console.warn("[ModelManager] 解析自定义能力配置失败:", e);
+      }
+    }
+
+    return defaultCapabilities;
+  };
+
+  // 打开模型配置
+  const openModelConfig = (model: any) => {
+    const currentCapabilities = getEnhancedModelCapabilities(model.name);
+
+    // 获取当前分组信息
+    let currentCategory = "";
+    if (model.displayName && model.displayName !== model.name) {
+      currentCategory = model.displayName;
+    }
+
+    setModelConfigForm({
+      modelId: model.name,
+      category: currentCategory || "",
+      capabilities: {
+        vision: currentCapabilities.vision || false,
+        web: currentCapabilities.web || false,
+        reasoning: currentCapabilities.reasoning || false,
+        tools: currentCapabilities.tools || false,
+      },
+    });
+    setShowModelConfig(model.name);
+  };
+
+  // 保存模型配置
+  const saveModelConfig = () => {
+    const modelName = modelConfigForm.modelId;
+    const newCategory = (modelConfigForm.category || "").trim();
+
+    // 保存能力配置到本地存储
+    const capabilitiesKey = `model_capabilities_${modelName}`;
+    localStorage.setItem(
+      capabilitiesKey,
+      JSON.stringify(modelConfigForm.capabilities),
+    );
+
+    // 如果是自定义模型且分组发生变化，更新 customModels
+    const isCustomModel =
+      providerModels.find((m) => m.name === modelName)?.provider
+        ?.providerType === "custom";
+    if (isCustomModel) {
+      accessStore.update((access) => {
+        const currentCustomModels = access.customModels || "";
+        const existingModels = currentCustomModels
+          .split(",")
+          .filter((m) => m.trim().length > 0);
+
+        const modelWithProvider = `${modelName}@${provider}`;
+
+        // 找到并更新现有模型
+        const updatedModels = existingModels.map((m) => {
+          const cleanModel =
+            m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+          const [existingModelWithProvider] = cleanModel.split("=");
+
+          if (existingModelWithProvider === modelWithProvider) {
+            // 更新分组
+            return newCategory
+              ? `${modelWithProvider}=${newCategory}`
+              : modelWithProvider;
+          }
+          return m;
+        });
+
+        access.customModels = updatedModels.join(",");
+      });
+    }
+
+    console.log("[ModelManager] 保存模型配置:", {
+      modelName,
+      capabilities: modelConfigForm.capabilities,
+      category: newCategory,
+      isCustomModel,
+    });
+
+    // 关闭配置面板
+    setShowModelConfig(null);
+  };
+
+  // 删除自定义模型
+  const deleteCustomModel = (modelName: string) => {
+    if (!confirm(`确定要删除模型 "${modelName}" 吗？`)) {
+      return;
+    }
+
+    accessStore.update((access) => {
+      const currentCustomModels = access.customModels || "";
+      const existingModels = currentCustomModels
+        .split(",")
+        .filter((m) => m.trim().length > 0);
+
+      // 构建要删除的模型标识
+      const modelWithProvider = `${modelName}@${provider}`;
+
+      // 过滤掉要删除的模型
+      const updatedModels = existingModels.filter((m) => {
+        const cleanModel =
+          m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+        const [existingModelWithProvider] = cleanModel.split("=");
+        return existingModelWithProvider !== modelWithProvider;
+      });
+
+      access.customModels = updatedModels.join(",");
+
+      // 同时从启用列表中移除
+      if (access.enabledModels?.[provider]) {
+        const enabledIndex = access.enabledModels[provider].indexOf(modelName);
+        if (enabledIndex > -1) {
+          access.enabledModels[provider].splice(enabledIndex, 1);
+        }
+      }
+    });
+
+    // 关闭配置面板
+    setShowModelConfig(null);
+  };
+
   // 获取分类列表
   const categories = ["全部", ...Object.keys(categorizedModels)];
 
@@ -448,7 +608,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                         <div className={styles["model-name"]}>
                           {model.name}
                           <ModelCapabilityIcons
-                            capabilities={getModelCapabilities(model.name)}
+                            capabilities={getEnhancedModelCapabilities(
+                              model.name,
+                            )}
                             size={14}
                             colorful={true}
                           />
@@ -456,16 +618,25 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                         <div className={styles["model-id"]}>{model.name}</div>
                       </div>
                     </div>
-                    <button
-                      className={`${styles["toggle-button"]} ${
-                        enabledModels.includes(model.name)
-                          ? styles["enabled"]
-                          : ""
-                      }`}
-                      onClick={() => toggleModel(model.name)}
-                    >
-                      {enabledModels.includes(model.name) ? "−" : "+"}
-                    </button>
+                    <div className={styles["model-actions"]}>
+                      <button
+                        className={styles["manage-button"]}
+                        onClick={() => openModelConfig(model)}
+                        title="模型配置"
+                      >
+                        <ConfigIcon />
+                      </button>
+                      <button
+                        className={`${styles["toggle-button"]} ${
+                          enabledModels.includes(model.name)
+                            ? styles["enabled"]
+                            : ""
+                        }`}
+                        onClick={() => toggleModel(model.name)}
+                      >
+                        {enabledModels.includes(model.name) ? "−" : "+"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -505,7 +676,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                             <div className={styles["model-name"]}>
                               {model.name}
                               <ModelCapabilityIcons
-                                capabilities={getModelCapabilities(model.name)}
+                                capabilities={getEnhancedModelCapabilities(
+                                  model.name,
+                                )}
                                 size={14}
                                 colorful={true}
                               />
@@ -515,16 +688,25 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                             </div>
                           </div>
                         </div>
-                        <button
-                          className={`${styles["toggle-button"]} ${
-                            enabledModels.includes(model.name)
-                              ? styles["enabled"]
-                              : ""
-                          }`}
-                          onClick={() => toggleModel(model.name)}
-                        >
-                          {enabledModels.includes(model.name) ? "−" : "+"}
-                        </button>
+                        <div className={styles["model-actions"]}>
+                          <button
+                            className={styles["manage-button"]}
+                            onClick={() => openModelConfig(model)}
+                            title="模型配置"
+                          >
+                            <ConfigIcon />
+                          </button>
+                          <button
+                            className={`${styles["toggle-button"]} ${
+                              enabledModels.includes(model.name)
+                                ? styles["enabled"]
+                                : ""
+                            }`}
+                            onClick={() => toggleModel(model.name)}
+                          >
+                            {enabledModels.includes(model.name) ? "−" : "+"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -537,6 +719,194 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         {filteredModels.length === 0 && (
           <div className={styles["empty-state"]}>
             <p>未找到匹配的模型</p>
+          </div>
+        )}
+
+        {/* 模型配置弹窗 */}
+        {showModelConfig && (
+          <div className={styles["model-config-modal"]}>
+            <div className={styles["config-modal-content"]}>
+              <div className={styles["config-header"]}>
+                <h4>模型配置 - {modelConfigForm.modelId}</h4>
+                <button
+                  className={styles["config-close"]}
+                  onClick={() => setShowModelConfig(null)}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+
+              <div className={styles["config-content"]}>
+                {/* 基本信息 */}
+                <div className={styles["config-section"]}>
+                  <h5>基本信息</h5>
+                  <div className={styles["config-field"]}>
+                    <label>模型 ID</label>
+                    <input
+                      type="text"
+                      value={modelConfigForm.modelId}
+                      onChange={(e) =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          modelId: e.target.value,
+                        }))
+                      }
+                      className={styles["config-input"]}
+                      disabled
+                    />
+                  </div>
+                  <div className={styles["config-field"]}>
+                    <label>分组 (可选)</label>
+                    <input
+                      type="text"
+                      placeholder="例如: 自定义模型"
+                      value={modelConfigForm.category}
+                      onChange={(e) =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
+                      className={styles["config-input"]}
+                    />
+                  </div>
+                </div>
+
+                {/* 模型能力 */}
+                <div className={styles["config-section"]}>
+                  <h5>模型能力</h5>
+                  <div className={styles["capabilities-grid"]}>
+                    <div
+                      className={styles["capability-item"]}
+                      onClick={() =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          capabilities: {
+                            ...prev.capabilities,
+                            vision: !prev.capabilities.vision,
+                          },
+                        }))
+                      }
+                    >
+                      <div
+                        className={`${styles["capability-dot"]} ${
+                          modelConfigForm.capabilities.vision
+                            ? styles["active"]
+                            : ""
+                        }`}
+                      />
+                      <span className={styles["capability-text"]}>
+                        <span className={styles["capability-icon"]}>👁️</span>
+                        视觉
+                      </span>
+                    </div>
+
+                    <div
+                      className={styles["capability-item"]}
+                      onClick={() =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          capabilities: {
+                            ...prev.capabilities,
+                            web: !prev.capabilities.web,
+                          },
+                        }))
+                      }
+                    >
+                      <div
+                        className={`${styles["capability-dot"]} ${
+                          modelConfigForm.capabilities.web
+                            ? styles["active"]
+                            : ""
+                        }`}
+                      />
+                      <span className={styles["capability-text"]}>
+                        <span className={styles["capability-icon"]}>🌐</span>
+                        联网
+                      </span>
+                    </div>
+
+                    <div
+                      className={styles["capability-item"]}
+                      onClick={() =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          capabilities: {
+                            ...prev.capabilities,
+                            reasoning: !prev.capabilities.reasoning,
+                          },
+                        }))
+                      }
+                    >
+                      <div
+                        className={`${styles["capability-dot"]} ${
+                          modelConfigForm.capabilities.reasoning
+                            ? styles["active"]
+                            : ""
+                        }`}
+                      />
+                      <span className={styles["capability-text"]}>
+                        <span className={styles["capability-icon"]}>🧠</span>
+                        推理
+                      </span>
+                    </div>
+
+                    <div
+                      className={styles["capability-item"]}
+                      onClick={() =>
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          capabilities: {
+                            ...prev.capabilities,
+                            tools: !prev.capabilities.tools,
+                          },
+                        }))
+                      }
+                    >
+                      <div
+                        className={`${styles["capability-dot"]} ${
+                          modelConfigForm.capabilities.tools
+                            ? styles["active"]
+                            : ""
+                        }`}
+                      />
+                      <span className={styles["capability-text"]}>
+                        <span className={styles["capability-icon"]}>🔧</span>
+                        工具
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles["config-actions"]}>
+                {/* 检查是否是自定义模型，显示删除按钮 */}
+                {providerModels.find((m) => m.name === modelConfigForm.modelId)
+                  ?.provider?.providerType === "custom" && (
+                  <button
+                    className={styles["config-delete"]}
+                    onClick={() => deleteCustomModel(modelConfigForm.modelId)}
+                  >
+                    <DeleteIcon />
+                    删除模型
+                  </button>
+                )}
+                <div className={styles["config-buttons"]}>
+                  <button
+                    className={styles["config-cancel"]}
+                    onClick={() => setShowModelConfig(null)}
+                  >
+                    取消
+                  </button>
+                  <button
+                    className={styles["config-save"]}
+                    onClick={saveModelConfig}
+                  >
+                    保存配置
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
