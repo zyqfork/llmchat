@@ -280,6 +280,31 @@ export function MaskConfig(props: {
       </List>
 
       <List>
+        {/* 默认模型配置 */}
+        <ListItem title="默认模型" subTitle="新建对话时使用的默认模型">
+          <Select
+            aria-label="默认模型"
+            value={props.mask.defaultModel || ""}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              props.updateMask((mask) => {
+                mask.defaultModel = value || undefined;
+              });
+            }}
+          >
+            <option value="">使用全局默认模型</option>
+            {Object.entries(groupedModels).map(([providerName, models]) => (
+              <optgroup label={providerName} key={providerName}>
+                {models.map((model) => (
+                  <option value={model.name} key={model.name}>
+                    {model.displayName}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+        </ListItem>
+
         <ModelConfigList
           modelConfig={{ ...props.mask.modelConfig }}
           updateConfig={updateConfig}
@@ -626,7 +651,7 @@ export function MaskPage() {
                     <div className={clsx(styles["mask-info"], "one-line")}>
                       {`${Locale.Mask.Item.Info(m.context.length)} / ${
                         ALL_LANG_OPTIONS[m.lang]
-                      } / ${m.modelConfig.model}`}
+                      } / ${m.defaultModel || m.modelConfig.model}`}
                     </div>
                   </div>
                 </div>

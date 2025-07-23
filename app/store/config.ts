@@ -199,7 +199,17 @@ export const useAppConfig = createPersistStore(
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
-      if (!state) return { ...currentState };
+      console.log("=== 配置合并调试信息 ===");
+      console.log("持久化状态:", persistedState);
+      console.log("当前状态:", currentState);
+      console.log(`持久化模型: ${state?.modelConfig?.model || "未设置"}`);
+      console.log(`当前模型: ${currentState.modelConfig.model}`);
+
+      if (!state) {
+        console.log("没有持久化状态，使用当前状态");
+        return { ...currentState };
+      }
+
       const models = currentState.models.slice();
       state.models.forEach((pModel) => {
         const idx = models.findIndex(
@@ -208,7 +218,12 @@ export const useAppConfig = createPersistStore(
         if (idx !== -1) models[idx] = pModel;
         else models.push(pModel);
       });
-      return { ...currentState, ...state, models: models };
+
+      const mergedState = { ...currentState, ...state, models: models };
+      console.log(`合并后模型: ${mergedState.modelConfig.model}`);
+      console.log("合并后状态:", mergedState);
+
+      return mergedState;
     },
 
     migrate(persistedState, version) {

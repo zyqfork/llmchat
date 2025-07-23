@@ -15,6 +15,7 @@ export type Mask = {
   context: ChatMessage[];
   syncGlobalConfig?: boolean;
   modelConfig: ModelConfig;
+  defaultModel?: string; // 添加默认模型配置
   lang: Lang;
   builtin: boolean;
 
@@ -34,18 +35,29 @@ export type MaskState = typeof DEFAULT_MASK_STATE & {
 export const DEFAULT_MASK_AVATAR = "gpt-bot";
 export const DEFAULT_MASK_ID = "default-mask";
 
-export const createDefaultMask = () =>
-  ({
+export const createDefaultMask = () => {
+  const globalConfig = useAppConfig.getState().modelConfig;
+  console.log("=== createDefaultMask 调试信息 ===");
+  console.log("全局模型配置:", globalConfig);
+  console.log(`全局默认模型: ${globalConfig.model}`);
+
+  const defaultMask = {
     id: DEFAULT_MASK_ID,
     avatar: "1f40b",
     name: "默认助手",
     context: [],
     syncGlobalConfig: true,
-    modelConfig: { ...useAppConfig.getState().modelConfig },
+    modelConfig: { ...globalConfig },
+    defaultModel: undefined, // 初始化默认模型为 undefined
     lang: getLang(),
     builtin: true, // 标记为内置，不可删除
     createdAt: Date.now(),
-  }) as Mask;
+  } as Mask;
+
+  console.log("创建的默认面具:", defaultMask);
+  console.log(`默认面具的modelConfig.model: ${defaultMask.modelConfig.model}`);
+  return defaultMask;
+};
 
 export const createEmptyMask = () =>
   ({
@@ -55,6 +67,7 @@ export const createEmptyMask = () =>
     context: [],
     syncGlobalConfig: true, // use global config as default
     modelConfig: { ...useAppConfig.getState().modelConfig },
+    defaultModel: undefined, // 初始化默认模型为 undefined
     lang: getLang(),
     builtin: false,
     createdAt: Date.now(),
@@ -109,25 +122,54 @@ export const useMaskStore = createPersistStore(
       // 确保默认面具存在
       const masks = get().masks;
       if (!masks[DEFAULT_MASK_ID]) {
-        masks[DEFAULT_MASK_ID] = createDefaultMask();
+        const defaultMask = createDefaultMask();
+        console.log("=== 创建默认面具调试信息 ===");
+        console.log("新创建的默认面具:", defaultMask);
+        masks[DEFAULT_MASK_ID] = defaultMask;
         set(() => ({ masks }));
       }
 
       const userMasks = Object.values(masks).sort(
         (a, b) => b.createdAt - a.createdAt,
       );
+
+      console.log("=== 用户面具调试信息 ===");
+      userMasks.forEach((mask, index) => {
+        console.log(`用户面具 ${index + 1}: ${mask.name}`);
+        console.log(`  - defaultModel: ${mask.defaultModel || "未设置"}`);
+        console.log(`  - modelConfig.model: ${mask.modelConfig.model}`);
+        console.log(`  - syncGlobalConfig: ${mask.syncGlobalConfig}`);
+      });
+
       const config = useAppConfig.getState();
+      console.log("=== 全局配置调试信息 ===");
+      console.log("全局配置:", config);
+      console.log("全局模型配置:", config.modelConfig);
+      console.log(`全局默认模型: ${config.modelConfig.model}`);
+
       if (config.hideBuiltinMasks) return userMasks;
-      const buildinMasks = BUILTIN_MASKS.map(
-        (m) =>
-          ({
-            ...m,
-            modelConfig: {
-              ...config.modelConfig,
-              ...m.modelConfig,
-            },
-          }) as Mask,
-      );
+
+      const buildinMasks = BUILTIN_MASKS.map((m) => {
+        const processedMask = {
+          ...m,
+          modelConfig: {
+            ...config.modelConfig,
+            ...m.modelConfig,
+          },
+        } as Mask;
+
+        console.log(`=== 内置面具处理: ${m.name} ===`);
+        console.log("原始面具:", m);
+        console.log("处理后面具:", processedMask);
+        console.log(`原始 modelConfig.model: ${m.modelConfig.model}`);
+        console.log(`全局 modelConfig.model: ${config.modelConfig.model}`);
+        console.log(
+          `最终 modelConfig.model: ${processedMask.modelConfig.model}`,
+        );
+
+        return processedMask;
+      });
+
       return userMasks.concat(buildinMasks);
     },
     search(text: string) {

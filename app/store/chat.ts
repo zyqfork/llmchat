@@ -330,13 +330,45 @@ export const useChatStore = createPersistStore(
           const config = useAppConfig.getState();
           const globalModelConfig = config.modelConfig;
 
-          session.mask = {
-            ...mask,
-            modelConfig: {
+          // 创建一个新的面具对象，确保不会修改原始面具
+          const newMask = { ...mask };
+
+          // 禁用全局同步，防止后续操作覆盖我们的模型配置
+          newMask.syncGlobalConfig = false;
+
+          // 如果面具配置了默认模型，则使用该模型
+          if (mask.defaultModel) {
+            // 需要找到该模型对应的提供商
+            const allModels = config.models;
+            const defaultModelObj = allModels.find(
+              (m) => m.name === mask.defaultModel,
+            );
+
+            if (defaultModelObj) {
+              // 直接修改新面具的 modelConfig，确保设置生效
+              newMask.modelConfig = {
+                ...globalModelConfig,
+                ...mask.modelConfig,
+                model: mask.defaultModel,
+                providerName: defaultModelObj.provider?.providerName as any,
+              };
+            } else {
+              // 如果找不到默认模型对象，仍然使用合并的配置
+              newMask.modelConfig = {
+                ...globalModelConfig,
+                ...mask.modelConfig,
+              };
+            }
+          } else {
+            // 没有配置默认模型，使用原有的合并逻辑
+            newMask.modelConfig = {
               ...globalModelConfig,
               ...mask.modelConfig,
-            },
-          };
+            };
+          }
+
+          // 确保使用新创建的面具对象
+          session.mask = newMask;
           // 移除面具名称作为标题的逻辑，统一使用AI总结生成标题
           // session.topic = mask.name;
         }
