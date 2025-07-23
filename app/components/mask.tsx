@@ -34,6 +34,7 @@ import {
 } from "./ui-lib";
 import { Avatar, AvatarPicker } from "./emoji";
 import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useNavigate } from "react-router-dom";
 
 import chatStyle from "./chat.module.scss";
@@ -167,7 +168,7 @@ export function MaskConfig(props: {
             >
               <MaskAvatar
                 avatar={props.mask.avatar}
-                model={props.mask.modelConfig.model}
+                model={getMaskEffectiveModel(props.mask) as any}
               />
             </div>
           </Popover>
@@ -644,14 +645,17 @@ export function MaskPage() {
               <div className={styles["mask-item"]} key={m.id}>
                 <div className={styles["mask-header"]}>
                   <div className={styles["mask-icon"]}>
-                    <MaskAvatar avatar={m.avatar} model={m.modelConfig.model} />
+                    <MaskAvatar
+                      avatar={m.avatar}
+                      model={getMaskEffectiveModel(m) as any}
+                    />
                   </div>
                   <div className={styles["mask-title"]}>
                     <div className={styles["mask-name"]}>{m.name}</div>
                     <div className={clsx(styles["mask-info"], "one-line")}>
                       {`${Locale.Mask.Item.Info(m.context.length)} / ${
                         ALL_LANG_OPTIONS[m.lang]
-                      } / ${m.defaultModel || m.modelConfig.model}`}
+                      } / ${getMaskEffectiveModel(m)}`}
                     </div>
                   </div>
                 </div>

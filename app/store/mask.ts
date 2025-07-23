@@ -133,7 +133,7 @@ export const useMaskStore = createPersistStore(
         (a, b) => b.createdAt - a.createdAt,
       );
 
-      console.log("=== 用户面具调试信息 ===");
+      console.log("=== 用户面具调试信息（新系统）===");
       userMasks.forEach((mask, index) => {
         console.log(`用户面具 ${index + 1}: ${mask.name}`);
         console.log(`  - defaultModel: ${mask.defaultModel || "未设置"}`);
@@ -143,26 +143,29 @@ export const useMaskStore = createPersistStore(
 
       const config = useAppConfig.getState();
       console.log("=== 全局配置调试信息 ===");
-      console.log("全局配置:", config);
-      console.log("全局模型配置:", config.modelConfig);
       console.log(`全局默认模型: ${config.modelConfig.model}`);
 
       if (config.hideBuiltinMasks) return userMasks;
 
+      // 内置面具：只使用全局配置，不保留原有的模型设置
       const buildinMasks = BUILTIN_MASKS.map((m) => {
         const processedMask = {
           ...m,
           modelConfig: {
             ...config.modelConfig,
-            ...m.modelConfig,
+            // 保留内置面具的特殊配置
+            temperature: m.modelConfig.temperature,
+            max_tokens: m.modelConfig.max_tokens,
+            presence_penalty: m.modelConfig.presence_penalty,
+            frequency_penalty: m.modelConfig.frequency_penalty,
+            sendMemory: m.modelConfig.sendMemory,
+            historyMessageCount: m.modelConfig.historyMessageCount,
+            compressMessageLengthThreshold:
+              m.modelConfig.compressMessageLengthThreshold,
           },
         } as Mask;
 
-        console.log(`=== 内置面具处理: ${m.name} ===`);
-        console.log("原始面具:", m);
-        console.log("处理后面具:", processedMask);
-        console.log(`原始 modelConfig.model: ${m.modelConfig.model}`);
-        console.log(`全局 modelConfig.model: ${config.modelConfig.model}`);
+        console.log(`=== 内置面具处理（新系统）: ${m.name} ===`);
         console.log(
           `最终 modelConfig.model: ${processedMask.modelConfig.model}`,
         );

@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Path } from "../constant";
 import { MaskAvatar } from "./mask";
 import { Mask } from "../store/mask";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useRef, useEffect, useState } from "react";
 import { useMaskStore } from "../store/mask";
 import { showConfirm } from "./ui-lib";
@@ -68,7 +69,7 @@ export function ChatItem(props: {
               <div className={clsx(styles["chat-item-avatar"], "no-dark")}>
                 <MaskAvatar
                   avatar={props.mask.avatar}
-                  model={props.mask.modelConfig.model}
+                  model={getMaskEffectiveModel(props.mask) as any}
                 />
               </div>
               <div className={styles["chat-item-narrow-count"]}>

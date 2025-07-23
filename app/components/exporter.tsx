@@ -39,6 +39,7 @@ import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
 import { getMessageTextContent } from "../utils";
 import { MaskAvatar } from "./mask";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import clsx from "clsx";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
@@ -533,13 +534,13 @@ export function ImagePreviewer(props: {
               <span className={styles["icon-space"]}>&</span>
               <MaskAvatar
                 avatar={mask.avatar}
-                model={session.mask.modelConfig.model}
+                model={getMaskEffectiveModel(session.mask) as any}
               />
             </div>
           </div>
           <div>
             <div className={styles["chat-info-item"]}>
-              {Locale.Exporter.Model}: {mask.modelConfig.model}
+              {Locale.Exporter.Model}: {getMaskEffectiveModel(mask)}
             </div>
             <div className={styles["chat-info-item"]}>
               {Locale.Exporter.Messages}: {props.messages.length}
@@ -567,7 +568,9 @@ export function ImagePreviewer(props: {
                 ) : (
                   <MaskAvatar
                     avatar={session.mask.avatar}
-                    model={m.model || session.mask.modelConfig.model}
+                    model={
+                      m.model || (getMaskEffectiveModel(session.mask) as any)
+                    }
                   />
                 )}
               </div>

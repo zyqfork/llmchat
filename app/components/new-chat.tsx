@@ -13,6 +13,7 @@ import { Mask, useMaskStore } from "../store/mask";
 import Locale from "../locales";
 import { useAppConfig, useChatStore } from "../store";
 import { MaskAvatar } from "./mask";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useCommand } from "../command";
 import { showConfirm } from "./ui-lib";
 import { BUILTIN_MASK_STORE } from "../masks";
@@ -23,7 +24,7 @@ function MaskItem(props: { mask: Mask; onClick?: () => void }) {
     <div className={styles["mask"]} onClick={props.onClick}>
       <MaskAvatar
         avatar={props.mask.avatar}
-        model={props.mask.modelConfig.model}
+        model={getMaskEffectiveModel(props.mask) as any}
       />
       <div className={clsx(styles["mask-name"], "one-line")}>
         {props.mask.name}

@@ -4,6 +4,7 @@ import { Updater } from "../typing";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
 import { MaskAvatar } from "./mask";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import Locale from "../locales";
 
 import styles from "./message-selector.module.scss";
@@ -213,7 +214,9 @@ export function MessageSelector(props: {
                 ) : (
                   <MaskAvatar
                     avatar={session.mask.avatar}
-                    model={m.model || session.mask.modelConfig.model}
+                    model={
+                      m.model || (getMaskEffectiveModel(session.mask) as any)
+                    }
                   />
                 )}
               </div>

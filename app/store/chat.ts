@@ -33,6 +33,7 @@ import { prettyObject } from "../utils/format";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
+import { getSessionModelConfig } from "../utils/model-resolver";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
@@ -327,8 +328,12 @@ export const useChatStore = createPersistStore(
         const session = createEmptySession();
 
         if (mask) {
-          const config = useAppConfig.getState();
-          const globalModelConfig = config.modelConfig;
+          console.log("=== newSession 调试信息（新模型决策系统）===");
+          console.log("传入的面具:", mask);
+
+          // 使用新的模型决策系统获取模型配置
+          const sessionModelConfig = getSessionModelConfig(mask);
+          console.log("会话模型配置:", sessionModelConfig);
 
           // 创建一个新的面具对象，确保不会修改原始面具
           const newMask = { ...mask };
@@ -336,41 +341,14 @@ export const useChatStore = createPersistStore(
           // 禁用全局同步，防止后续操作覆盖我们的模型配置
           newMask.syncGlobalConfig = false;
 
-          // 如果面具配置了默认模型，则使用该模型
-          if (mask.defaultModel) {
-            // 需要找到该模型对应的提供商
-            const allModels = config.models;
-            const defaultModelObj = allModels.find(
-              (m) => m.name === mask.defaultModel,
-            );
+          // 使用决策系统的模型配置
+          newMask.modelConfig = sessionModelConfig;
 
-            if (defaultModelObj) {
-              // 直接修改新面具的 modelConfig，确保设置生效
-              newMask.modelConfig = {
-                ...globalModelConfig,
-                ...mask.modelConfig,
-                model: mask.defaultModel,
-                providerName: defaultModelObj.provider?.providerName as any,
-              };
-            } else {
-              // 如果找不到默认模型对象，仍然使用合并的配置
-              newMask.modelConfig = {
-                ...globalModelConfig,
-                ...mask.modelConfig,
-              };
-            }
-          } else {
-            // 没有配置默认模型，使用原有的合并逻辑
-            newMask.modelConfig = {
-              ...globalModelConfig,
-              ...mask.modelConfig,
-            };
-          }
+          console.log("最终创建的面具:", newMask);
+          console.log(`最终使用的模型: ${newMask.modelConfig.model}`);
 
           // 确保使用新创建的面具对象
           session.mask = newMask;
-          // 移除面具名称作为标题的逻辑，统一使用AI总结生成标题
-          // session.topic = mask.name;
         }
 
         set((state) => ({
