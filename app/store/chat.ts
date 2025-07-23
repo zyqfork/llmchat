@@ -94,6 +94,8 @@ export interface ChatSession {
   clearContextIndex?: number;
 
   mask: Mask;
+  // MCP 在当前对话中的启用状态
+  mcpEnabledClients?: Record<string, boolean>;
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -117,6 +119,7 @@ function createEmptySession(): ChatSession {
     lastSummarizeIndex: 0,
 
     mask: createDefaultMask(), // 使用默认面具
+    mcpEnabledClients: {}, // 初始化 MCP 启用状态
   };
 }
 
@@ -203,7 +206,9 @@ function fillTemplateWith(input: string, modelConfig: ModelConfig) {
   return output;
 }
 
-async function getMcpSystemPrompt(): Promise<string> {
+async function getMcpSystemPrompt(
+  enabledClients?: Record<string, boolean>,
+): Promise<string> {
   const tools = await getAllTools();
 
   let toolsStr = "";
@@ -211,6 +216,11 @@ async function getMcpSystemPrompt(): Promise<string> {
   tools.forEach((i) => {
     // error client has no tools
     if (!i.tools) return;
+
+    // 如果提供了启用状态配置，则检查该客户端是否启用
+    if (enabledClients && enabledClients[i.clientId] === false) {
+      return;
+    }
 
     toolsStr += MCP_TOOLS_TEMPLATE.replace(
       "{{ clientId }}",
@@ -578,7 +588,9 @@ export const useChatStore = createPersistStore(
           (session.mask.modelConfig.model.startsWith("gpt-") ||
             session.mask.modelConfig.model.startsWith("chatgpt-"));
 
-        const mcpSystemPrompt = await getMcpSystemPrompt();
+        const mcpSystemPrompt = await getMcpSystemPrompt(
+          session.mcpEnabledClients,
+        );
 
         var systemPrompts: ChatMessage[] = [];
 
@@ -874,13 +886,36 @@ export const useChatStore = createPersistStore(
           }
         }
       },
+
+      /** 更新当前对话的 MCP 客户端启用状态 */
+      updateSessionMcpClient(clientId: string, enabled: boolean) {
+        const session = get().currentSession();
+        get().updateTargetSession(session, (session) => {
+          if (!session.mcpEnabledClients) {
+            session.mcpEnabledClients = {};
+          }
+          session.mcpEnabledClients[clientId] = enabled;
+        });
+      },
+
+      /** 获取当前对话的 MCP 客户端启用状态 */
+      getSessionMcpClientStatus(clientId: string): boolean {
+        const session = get().currentSession();
+        return session.mcpEnabledClients?.[clientId] ?? true; // 默认启用
+      },
+
+      /** 获取当前对话中所有 MCP 客户端的启用状态 */
+      getSessionMcpClients(): Record<string, boolean> {
+        const session = get().currentSession();
+        return session.mcpEnabledClients ?? {};
+      },
     };
 
     return methods;
   },
   {
     name: StoreKey.Chat,
-    version: 3.3,
+    version: 3.4,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -942,6 +977,15 @@ export const useChatStore = createPersistStore(
           const config = useAppConfig.getState();
           s.mask.modelConfig.compressModel = "";
           s.mask.modelConfig.compressProviderName = "";
+        });
+      }
+
+      // add MCP enabled clients for every session
+      if (version < 3.4) {
+        newState.sessions.forEach((s) => {
+          if (!s.mcpEnabledClients) {
+            s.mcpEnabledClients = {};
+          }
         });
       }
 

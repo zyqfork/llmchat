@@ -121,7 +121,7 @@ import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
-import { getAvailableClientsCount } from "../mcp/actions";
+import { getAvailableClientsCount, getAllTools } from "../mcp/actions";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getEnhancedModelCapabilities } from "../config/model-capabilities";
 import { ProviderIcon } from "./provider-icon";
@@ -134,8 +134,7 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-const MCPAction = () => {
-  const navigate = useNavigate();
+const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
   const [count, setCount] = useState<number>(0);
 
   useEffect(() => {
@@ -148,12 +147,141 @@ const MCPAction = () => {
 
   return (
     <ChatAction
-      onClick={() => navigate(Path.McpMarket)}
+      onClick={onTogglePanel}
       text={`MCP${count ? ` (${count})` : ""}`}
       icon={<McpToolIcon />}
+      dataAttribute="data-mcp-button"
     />
   );
 };
+
+interface MCPClient {
+  clientId: string;
+  tools: any;
+}
+
+function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
+  const { showPanel, onClose } = props;
+  const chatStore = useChatStore();
+  const [mcpClients, setMcpClients] = useState<MCPClient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadMcpClients = async () => {
+      try {
+        setLoading(true);
+        const tools = await getAllTools();
+        setMcpClients(
+          tools.filter(
+            (client) => client.tools && client.tools.tools?.length > 0,
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to load MCP clients:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (showPanel) {
+      loadMcpClients();
+    }
+  }, [showPanel]);
+
+  // 点击外部关闭面板
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // 检查是否点击了 MCP 按钮或其子元素
+      const mcpButton = document.querySelector("[data-mcp-button]");
+      if (mcpButton && mcpButton.contains(target)) {
+        return; // 如果点击的是 MCP 按钮，不关闭面板
+      }
+
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        onClose();
+      }
+    };
+
+    if (showPanel) {
+      // 使用 setTimeout 延迟添加事件监听器，避免立即触发
+      const timer = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showPanel, onClose]);
+
+  const handleToggleClient = (clientId: string, enabled: boolean) => {
+    chatStore.updateSessionMcpClient(clientId, enabled);
+  };
+
+  if (!showPanel) return null;
+
+  return (
+    <div ref={panelRef} className={styles["mcp-panel"]}>
+      <div className={styles["mcp-panel-header"]}>
+        <span className={styles["mcp-panel-title"]}>MCP 工具控制</span>
+        <button className={styles["mcp-panel-close"]} onClick={onClose}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className={styles["mcp-panel-content"]}>
+        {loading ? (
+          <div className={styles["mcp-panel-loading"]}>
+            <LoadingIcon />
+            <span>加载中...</span>
+          </div>
+        ) : mcpClients.length === 0 ? (
+          <div className={styles["mcp-panel-empty"]}>
+            <span>暂无可用的 MCP 工具</span>
+          </div>
+        ) : (
+          <div className={styles["mcp-client-list"]}>
+            {mcpClients.map((client) => {
+              const isEnabled = chatStore.getSessionMcpClientStatus(
+                client.clientId,
+              );
+              const toolCount = client.tools?.tools?.length || 0;
+
+              return (
+                <div
+                  key={client.clientId}
+                  className={styles["mcp-client-item"]}
+                >
+                  <div className={styles["mcp-client-info"]}>
+                    <div className={styles["mcp-client-name"]}>
+                      {client.clientId}
+                    </div>
+                    <div className={styles["mcp-client-tools"]}>
+                      {toolCount} 个工具
+                    </div>
+                  </div>
+                  <label className={styles["mcp-client-toggle"]}>
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={(e) =>
+                        handleToggleClient(client.clientId, e.target.checked)
+                      }
+                    />
+                    <span className={styles["toggle-slider"]}></span>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function SessionConfigModel(props: { onClose: () => void }) {
   const chatStore = useChatStore();
@@ -398,6 +526,7 @@ export function ChatAction(props: {
   text: string;
   icon: JSX.Element;
   onClick: () => void;
+  dataAttribute?: string;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -409,6 +538,7 @@ export function ChatAction(props: {
         type="button"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        {...(props.dataAttribute && { [props.dataAttribute]: true })}
       >
         <div className={styles["icon"]}>{props.icon}</div>
       </button>
@@ -471,6 +601,8 @@ export function ChatActions(props: {
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
+  showMcpPanel: boolean;
+  setShowMcpPanel: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -777,7 +909,11 @@ export function ChatActions(props: {
             icon={<ShortcutkeyIcon />}
           />
         )}
-        {!isMobileScreen && <MCPAction />}
+        {!isMobileScreen && (
+          <MCPAction
+            onTogglePanel={() => props.setShowMcpPanel(!props.showMcpPanel)}
+          />
+        )}
       </>
       <div className={styles["chat-input-actions-end"]}>
         {config.realtimeConfig.enable && (
@@ -1592,6 +1728,9 @@ function _Chat() {
   // 快捷键 shortcut keys
   const [showShortcutKeyModal, setShowShortcutKeyModal] = useState(false);
 
+  // MCP 面板
+  const [showMcpPanel, setShowMcpPanel] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // 打开新聊天 command + shift + o
@@ -2037,6 +2176,11 @@ function _Chat() {
                 onPromptSelect={onPromptSelect}
               />
 
+              <MCPPanel
+                showPanel={showMcpPanel}
+                onClose={() => setShowMcpPanel(false)}
+              />
+
               <ChatActions
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
@@ -2058,6 +2202,8 @@ function _Chat() {
                 setShowShortcutKeyModal={setShowShortcutKeyModal}
                 setUserInput={setUserInput}
                 setShowChatSidePanel={setShowChatSidePanel}
+                showMcpPanel={showMcpPanel}
+                setShowMcpPanel={setShowMcpPanel}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
