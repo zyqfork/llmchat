@@ -57,9 +57,6 @@ export const DEFAULT_CONFIG = {
 
   disablePromptHint: false,
 
-  dontShowMaskSplashScreen: false, // dont show splash screen when create chat
-  hideBuiltinMasks: false, // dont add builtin masks
-
   useModelIconAsAvatar: false, // use model icon as AI avatar instead of emoji
 
   customModels: "",
@@ -201,14 +198,8 @@ export const useAppConfig = createPersistStore(
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
-      console.log("=== 配置合并调试信息 ===");
-      console.log("持久化状态:", persistedState);
-      console.log("当前状态:", currentState);
-      console.log(`持久化模型: ${state?.modelConfig?.model || "未设置"}`);
-      console.log(`当前模型: ${currentState.modelConfig.model}`);
 
       if (!state) {
-        console.log("没有持久化状态，使用当前状态");
         return { ...currentState };
       }
 
@@ -222,8 +213,6 @@ export const useAppConfig = createPersistStore(
       });
 
       const mergedState = { ...currentState, ...state, models: models };
-      console.log(`合并后模型: ${mergedState.modelConfig.model}`);
-      console.log("合并后状态:", mergedState);
 
       return mergedState;
     },
@@ -238,8 +227,6 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.frequency_penalty = 0;
         state.modelConfig.top_p = 1;
         state.modelConfig.template = DEFAULT_INPUT_TEMPLATE;
-        state.dontShowMaskSplashScreen = false;
-        state.hideBuiltinMasks = false;
       }
 
       if (version < 3.5) {

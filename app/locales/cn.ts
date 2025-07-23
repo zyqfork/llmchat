@@ -264,14 +264,6 @@ const cn = {
       ImportFailed: "导入失败",
     },
     Mask: {
-      Splash: {
-        Title: "面具启动页",
-        SubTitle: "新建聊天时，展示面具启动页",
-      },
-      Builtin: {
-        Title: "隐藏内置面具",
-        SubTitle: "在所有面具列表中隐藏内置面具",
-      },
       ModelIcon: {
         Title: "使用模型图标作为AI头像",
         SubTitle: "启用后，对话中的AI头像将使用当前模型的图标，而不是表情符号",
@@ -694,8 +686,7 @@ const cn = {
       DeleteConfirm: "确认删除？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `编辑预设面具 ${readonly ? "（只读）" : ""}`,
+      Title: "编辑面具",
       Download: "下载预设",
       Clone: "克隆预设",
     },
@@ -729,8 +720,6 @@ const cn = {
   NewChat: {
     Return: "返回",
     Skip: "直接开始",
-    NotShow: "不再展示",
-    ConfirmNoShow: "确认禁用？禁用后可以随时在设置中重新启用。",
     Title: "挑选一个面具",
     SubTitle: "现在开始，与面具背后的灵魂思维碰撞",
     More: "查看全部",

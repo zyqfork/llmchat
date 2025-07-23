@@ -1474,39 +1474,6 @@ export function Settings() {
   const renderMaskSettings = () => (
     <List>
       <ListItem
-        title={Locale.Settings.Mask.Splash.Title}
-        subTitle={Locale.Settings.Mask.Splash.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Mask.Splash.Title}
-          type="checkbox"
-          checked={!config.dontShowMaskSplashScreen}
-          onChange={(e) =>
-            updateConfig(
-              (config) =>
-                (config.dontShowMaskSplashScreen = !e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-
-      <ListItem
-        title={Locale.Settings.Mask.Builtin.Title}
-        subTitle={Locale.Settings.Mask.Builtin.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Mask.Builtin.Title}
-          type="checkbox"
-          checked={config.hideBuiltinMasks}
-          onChange={(e) =>
-            updateConfig(
-              (config) => (config.hideBuiltinMasks = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-
-      <ListItem
         title={Locale.Settings.Mask.ModelIcon.Title}
         subTitle={Locale.Settings.Mask.ModelIcon.SubTitle}
       >

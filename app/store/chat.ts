@@ -328,12 +328,8 @@ export const useChatStore = createPersistStore(
         const session = createEmptySession();
 
         if (mask) {
-          console.log("=== newSession 调试信息（新模型决策系统）===");
-          console.log("传入的面具:", mask);
-
           // 使用新的模型决策系统获取模型配置
           const sessionModelConfig = getSessionModelConfig(mask);
-          console.log("会话模型配置:", sessionModelConfig);
 
           // 创建一个新的面具对象，确保不会修改原始面具
           const newMask = { ...mask };
@@ -343,9 +339,6 @@ export const useChatStore = createPersistStore(
 
           // 使用决策系统的模型配置
           newMask.modelConfig = sessionModelConfig;
-
-          console.log("最终创建的面具:", newMask);
-          console.log(`最终使用的模型: ${newMask.modelConfig.model}`);
 
           // 确保使用新创建的面具对象
           session.mask = newMask;

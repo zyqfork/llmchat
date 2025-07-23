@@ -35,25 +35,6 @@ export function MaskList(props: MaskListProps) {
 
   const currentMaskId = chatStore.currentMaskId;
 
-  // 调试日志：输出面具列表信息
-  console.log("=== 面具列表调试信息（新模型决策系统）===");
-  console.log(`全局默认模型: ${appConfig.modelConfig.model}`);
-
-  allMasks.forEach((mask, index) => {
-    const decision = getMaskDisplayModel(mask);
-    const effectiveModel = getMaskEffectiveModel(mask);
-
-    console.log(`面具 ${index + 1}: ${mask.name} (ID: ${mask.id})`);
-    console.log(`  - defaultModel: ${mask.defaultModel || "未设置"}`);
-    console.log(`  - modelConfig.model: ${mask.modelConfig.model}`);
-    console.log(`  - 模型决策: ${JSON.stringify(decision)}`);
-    console.log(`  - 有效模型: ${effectiveModel}`);
-    console.log(`  - 语言: ${mask.lang}`);
-    console.log(`  - 预设对话数: ${mask.context.length}`);
-    console.log(`  - 是否内置: ${mask.builtin}`);
-    console.log("---");
-  });
-
   const handleSelectMask = (maskId: string) => {
     // 选择面具
     chatStore.selectMask(maskId);
@@ -64,12 +45,6 @@ export function MaskList(props: MaskListProps) {
       // 如果没有话题，创建一个新话题
       const selectedMask = allMasks.find((m) => m.id === maskId);
       if (selectedMask) {
-        const decision = getMaskDisplayModel(selectedMask);
-        console.log("=== 创建新对话调试信息（新系统）===");
-        console.log(`选中面具: ${selectedMask.name} (ID: ${selectedMask.id})`);
-        console.log(`模型决策: ${JSON.stringify(decision)}`);
-        console.log(`将要使用的模型: ${decision.model}`);
-
         // 使用该面具创建新session
         chatStore.newSession(selectedMask);
         // 导航到聊天页面

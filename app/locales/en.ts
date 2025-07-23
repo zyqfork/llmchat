@@ -267,14 +267,6 @@ const en: LocaleType = {
       ImportFailed: "Failed to import from file",
     },
     Mask: {
-      Splash: {
-        Title: "Mask Splash Screen",
-        SubTitle: "Show a mask splash screen before starting new chat",
-      },
-      Builtin: {
-        Title: "Hide Builtin Masks",
-        SubTitle: "Hide builtin masks in mask list",
-      },
       ModelIcon: {
         Title: "Use Model Icon as AI Avatar",
         SubTitle:
@@ -634,8 +626,7 @@ const en: LocaleType = {
       DeleteConfirm: "Confirm to delete?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Prompt Template ${readonly ? "(readonly)" : ""}`,
+      Title: "Edit Mask",
       Download: "Download",
       Clone: "Clone",
     },
@@ -673,8 +664,6 @@ const en: LocaleType = {
     Title: "Pick a Mask",
     SubTitle: "Chat with the Soul behind the Mask",
     More: "Find More",
-    NotShow: "Never Show Again",
-    ConfirmNoShow: "Confirm to disable？You can enable it in settings later.",
   },
 
   UI: {

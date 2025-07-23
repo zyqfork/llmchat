@@ -53,7 +53,7 @@ import {
 import { Updater } from "../typing";
 import { ModelConfigList } from "./model-config";
 import { FileName, Path, ServiceProvider } from "../constant";
-import { BUILTIN_MASK_STORE } from "../masks";
+
 import {
   DragDropContext,
   Droppable,
@@ -542,12 +542,11 @@ export function MaskPage() {
   };
 
   const [editingMaskId, setEditingMaskId] = useState<string | undefined>();
-  const editingMask =
-    maskStore.get(editingMaskId) ?? BUILTIN_MASK_STORE.get(editingMaskId);
+  const editingMask = maskStore.get(editingMaskId);
   const closeMaskModal = () => setEditingMaskId(undefined);
 
   const downloadAll = () => {
-    downloadAs(JSON.stringify(masks.filter((v) => !v.builtin)), FileName.Masks);
+    downloadAs(JSON.stringify(masks), FileName.Masks);
   };
 
   const importFromFile = () => {
@@ -683,20 +682,12 @@ export function MaskPage() {
                       navigate(Path.Chat);
                     }}
                   />
-                  {m.builtin && m.id !== DEFAULT_MASK_ID ? (
-                    <IconButton
-                      icon={<EyeIcon />}
-                      text={Locale.Mask.Item.View}
-                      onClick={() => setEditingMaskId(m.id)}
-                    />
-                  ) : (
-                    <IconButton
-                      icon={<EditIcon />}
-                      text={Locale.Mask.Item.Edit}
-                      onClick={() => setEditingMaskId(m.id)}
-                    />
-                  )}
-                  {!m.builtin && m.id !== DEFAULT_MASK_ID && (
+                  <IconButton
+                    icon={<EditIcon />}
+                    text={Locale.Mask.Item.Edit}
+                    onClick={() => setEditingMaskId(m.id)}
+                  />
+                  {m.id !== DEFAULT_MASK_ID && (
                     <IconButton
                       icon={<DeleteIcon />}
                       text={Locale.Mask.Item.Delete}
@@ -717,7 +708,7 @@ export function MaskPage() {
       {editingMask && (
         <div className="modal-mask">
           <Modal
-            title={Locale.Mask.EditModal.Title(editingMask?.builtin)}
+            title={Locale.Mask.EditModal.Title}
             onClose={closeMaskModal}
             actions={[
               <IconButton
@@ -750,9 +741,7 @@ export function MaskPage() {
               updateMask={(updater) =>
                 maskStore.updateMask(editingMaskId!, updater)
               }
-              readonly={
-                editingMask.builtin && editingMask.id !== DEFAULT_MASK_ID
-              }
+              readonly={false}
             />
           </Modal>
         </div>
