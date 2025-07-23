@@ -8,6 +8,7 @@ import { useAllModels } from "../utils/hooks";
 import { groupBy } from "lodash-es";
 import styles from "./model-config.module.scss";
 import { getModelProvider } from "../utils/model";
+import { useAccessStore } from "../store/access";
 
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
@@ -15,12 +16,41 @@ export function ModelConfigList(props: {
   showModelSelector?: boolean; // 新增参数控制是否显示模型选择器
 }) {
   const allModels = useAllModels();
+  const accessStore = useAccessStore();
   const groupModels = groupBy(
     allModels.filter((v) => v.available),
     "provider.providerName",
   );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
   const compressModelValue = `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`;
+
+  // 准备分组模型数据 - 基于启用的提供商和模型
+  const enabledProviders = accessStore.enabledProviders || {};
+  const enabledModels = accessStore.enabledModels || {};
+
+  // 按提供商分组，只显示已启用的提供商和已配置的模型
+  const groupedModels: Record<string, any[]> = {};
+
+  allModels.forEach((model) => {
+    const providerName = model.provider?.providerName as ServiceProvider;
+    if (!providerName || !enabledProviders[providerName]) return;
+
+    const providerEnabledModels = enabledModels[providerName] || [];
+    // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+    if (
+      providerEnabledModels.length > 0 &&
+      providerEnabledModels.includes(model.name)
+    ) {
+      if (!groupedModels[providerName]) {
+        groupedModels[providerName] = [];
+      }
+      groupedModels[providerName].push({
+        name: model.name,
+        displayName: model.displayName,
+        providerName: model.provider?.providerName,
+      });
+    }
+  });
 
   return (
     <>
@@ -265,13 +295,18 @@ export function ModelConfigList(props: {
             });
           }}
         >
-          {allModels
-            .filter((v) => v.available)
-            .map((v, i) => (
-              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                {v.displayName}({v.provider?.providerName})
-              </option>
-            ))}
+          {Object.entries(groupedModels).map(([providerName, models]) => (
+            <optgroup label={providerName} key={providerName}>
+              {models.map((model) => (
+                <option
+                  value={`${model.name}@${model.providerName}`}
+                  key={`${model.name}@${model.providerName}`}
+                >
+                  {model.displayName}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </Select>
       </ListItem>
     </>
