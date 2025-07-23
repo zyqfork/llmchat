@@ -46,7 +46,7 @@ import {
 } from "../utils";
 import { Updater } from "../typing";
 import { ModelConfigList } from "./model-config";
-import { FileName, Path } from "../constant";
+import { FileName, Path, ServiceProvider } from "../constant";
 import { BUILTIN_MASK_STORE } from "../masks";
 import {
   DragDropContext,
@@ -56,6 +56,9 @@ import {
 } from "@hello-pangea/dnd";
 import { getMessageTextContent } from "../utils";
 import clsx from "clsx";
+import { useAllModels } from "../utils/hooks";
+import { getModelProvider } from "../utils/model";
+import { useAccessStore } from "../store/access";
 
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -81,6 +84,36 @@ export function MaskConfig(props: {
   shouldSyncFromGlobal?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const allModels = useAllModels();
+  const accessStore = useAccessStore();
+
+  // 准备分组模型数据 - 基于启用的提供商和模型
+  const enabledProviders = accessStore.enabledProviders || {};
+  const enabledModels = accessStore.enabledModels || {};
+
+  // 按提供商分组，只显示已启用的提供商和已配置的模型
+  const groupedModels: Record<string, any[]> = {};
+
+  allModels.forEach((model) => {
+    const providerName = model.provider?.providerName as ServiceProvider;
+    if (!providerName || !enabledProviders[providerName]) return;
+
+    const providerEnabledModels = enabledModels[providerName] || [];
+    // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+    if (
+      providerEnabledModels.length > 0 &&
+      providerEnabledModels.includes(model.name)
+    ) {
+      if (!groupedModels[providerName]) {
+        groupedModels[providerName] = [];
+      }
+      groupedModels[providerName].push({
+        name: model.name,
+        displayName: model.displayName,
+        providerName: model.provider?.providerName,
+      });
+    }
+  });
 
   const updateConfig = (updater: (config: ModelConfig) => void) => {
     if (props.readonly) return;
