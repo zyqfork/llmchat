@@ -1505,6 +1505,23 @@ export function Settings() {
           }
         ></input>
       </ListItem>
+
+      <ListItem
+        title={Locale.Settings.Mask.ModelIcon.Title}
+        subTitle={Locale.Settings.Mask.ModelIcon.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Mask.ModelIcon.Title}
+          type="checkbox"
+          checked={config.useModelIconAsAvatar}
+          onChange={(e) =>
+            updateConfig(
+              (config) =>
+                (config.useModelIconAsAvatar = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
     </List>
   );
 

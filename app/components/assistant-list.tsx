@@ -155,7 +155,9 @@ export function MaskList(props: MaskListProps) {
                   <div className={styles["mask-item-desc"]}>
                     {`${Locale.Mask.Item.Info(mask.context.length)} / ${
                       ALL_LANG_OPTIONS[mask.lang]
-                    } / ${getMaskEffectiveModel(mask)}`}
+                    } / ${getMaskEffectiveModel(mask)} / ${
+                      chatStore.getSessionsByMask(mask.id).length
+                    } 个对话`}
                   </div>
                 </div>
               </div>

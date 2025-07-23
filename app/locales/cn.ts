@@ -272,6 +272,10 @@ const cn = {
         Title: "隐藏内置面具",
         SubTitle: "在所有面具列表中隐藏内置面具",
       },
+      ModelIcon: {
+        Title: "使用模型图标作为AI头像",
+        SubTitle: "启用后，对话中的AI头像将使用当前模型的图标，而不是表情符号",
+      },
     },
     Prompt: {
       Disable: {

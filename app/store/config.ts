@@ -60,6 +60,8 @@ export const DEFAULT_CONFIG = {
   dontShowMaskSplashScreen: false, // dont show splash screen when create chat
   hideBuiltinMasks: false, // dont add builtin masks
 
+  useModelIconAsAvatar: false, // use model icon as AI avatar instead of emoji
+
   customModels: "",
   models: DEFAULT_MODELS as any as LLMModel[],
 
@@ -195,7 +197,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.1,
+    version: 4.2,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -268,6 +270,10 @@ export const useAppConfig = createPersistStore(
           DEFAULT_CONFIG.modelConfig.compressModel;
         state.modelConfig.compressProviderName =
           DEFAULT_CONFIG.modelConfig.compressProviderName;
+      }
+
+      if (version < 4.2) {
+        state.useModelIconAsAvatar = DEFAULT_CONFIG.useModelIconAsAvatar;
       }
 
       return state as any;

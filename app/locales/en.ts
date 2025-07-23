@@ -275,6 +275,11 @@ const en: LocaleType = {
         Title: "Hide Builtin Masks",
         SubTitle: "Hide builtin masks in mask list",
       },
+      ModelIcon: {
+        Title: "Use Model Icon as AI Avatar",
+        SubTitle:
+          "When enabled, AI avatar in conversations will use the current model's icon instead of emoji",
+      },
     },
     Prompt: {
       Disable: {
