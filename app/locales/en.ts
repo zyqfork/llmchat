@@ -62,7 +62,7 @@ const en: LocaleType = {
     },
     Commands: {
       new: "Start a new chat",
-      newm: "Start a new chat with mask",
+      newm: "Start a new chat with assistant",
       next: "Next Chat",
       prev: "Previous Chat",
       clear: "Clear Context",
@@ -78,7 +78,7 @@ const en: LocaleType = {
         dark: "Dark Theme",
       },
       Prompt: "Prompts",
-      Masks: "Masks",
+      Masks: "Assistants",
       Clear: "Clear Context",
       Settings: "Settings",
       UploadImage: "Upload Images",
@@ -97,7 +97,7 @@ const en: LocaleType = {
     StopSpeak: "Stop Speak",
     Config: {
       Reset: "Reset to Default",
-      SaveAs: "Save as Mask",
+      SaveAs: "Save as Assistant",
     },
     IsContext: "Contextual Prompt",
     ShortcutKey: {
@@ -123,7 +123,7 @@ const en: LocaleType = {
     },
     IncludeContext: {
       Title: "Including Context",
-      SubTitle: "Export context prompts in mask or not",
+      SubTitle: "Export context prompts in assistant or not",
     },
     Steps: {
       Select: "Select",
@@ -262,7 +262,7 @@ const en: LocaleType = {
 
       LocalState: "Local Data",
       Overview: (overview: any) => {
-        return `${overview.chat} chats，${overview.message} messages，${overview.prompt} prompts，${overview.mask} masks`;
+        return `${overview.chat} chats，${overview.message} messages，${overview.prompt} prompts，${overview.mask} assistants`;
       },
       ImportFailed: "Failed to import from file",
     },
@@ -610,7 +610,7 @@ const en: LocaleType = {
   },
 
   Mask: {
-    Name: "Mask",
+    Name: "Assistant",
     Page: {
       Title: "Prompt Template",
       SubTitle: (count: number) => `${count} prompt templates`,
@@ -626,7 +626,7 @@ const en: LocaleType = {
       DeleteConfirm: "Confirm to delete?",
     },
     EditModal: {
-      Title: "Edit Mask",
+      Title: "Edit Assistant",
       Download: "Download",
       Clone: "Clone",
     },
@@ -652,8 +652,8 @@ const en: LocaleType = {
           "Automatically collapse/expand overly long code blocks when CodeFold is enabled",
       },
       Share: {
-        Title: "Share This Mask",
-        SubTitle: "Generate a link to this mask",
+        Title: "Share This Assistant",
+        SubTitle: "Generate a link to this assistant",
         Action: "Copy Link",
       },
     },
@@ -661,8 +661,8 @@ const en: LocaleType = {
   NewChat: {
     Return: "Return",
     Skip: "Just Start",
-    Title: "Pick a Mask",
-    SubTitle: "Chat with the Soul behind the Mask",
+    Title: "Pick an Assistant",
+    SubTitle: "Chat with the Soul behind the Assistant",
     More: "Find More",
   },
 

@@ -348,9 +348,9 @@
   direction: rtl;
 }
 
-// 面具列表样式
+// 助手列表样式
 .mask-list-modal-container {
-  // 自定义面具列表 Modal 的样式
+  // 自定义助手列表 Modal 的样式
   .modal-content {
     max-height: 70vh !important; // 增加高度限制，避免双滚动条
     min-height: 400px; // 确保有足够的最小高度

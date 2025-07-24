@@ -15,13 +15,13 @@ export interface ModelDecision {
 }
 
 /**
- * 获取面具应该显示的模型
- * 优先级：面具默认模型 > 全局默认模型
+ * 获取助手应该显示的模型
+ * 优先级：助手默认模型 > 全局默认模型
  */
 export function getMaskDisplayModel(mask: Mask): ModelDecision {
   const globalConfig = useAppConfig.getState().modelConfig;
 
-  // 如果面具设置了默认模型，使用面具默认模型
+  // 如果助手设置了默认模型，使用助手默认模型
   if (mask.defaultModel) {
     // 需要找到对应的提供商信息，使用包含自定义模型的完整列表
     const configStore = useAppConfig.getState();
@@ -50,8 +50,8 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
 }
 
 /**
- * 获取面具的模型和提供商决策
- * 优先级：面具默认模型 > 全局默认模型
+ * 获取助手的模型和提供商决策
+ * 优先级：助手默认模型 > 全局默认模型
  * 注意：这个函数只返回模型和提供商信息，不包含其他配置项
  */
 export function getSessionModelConfig(mask: Mask) {
@@ -67,27 +67,27 @@ export function getSessionModelConfig(mask: Mask) {
 }
 
 /**
- * 获取面具的有效模型名称（用于显示）
+ * 获取助手的有效模型名称（用于显示）
  */
 export function getMaskEffectiveModel(mask: Mask): string {
   return getMaskDisplayModel(mask).model;
 }
 
 /**
- * 检查面具是否使用全局默认模型
+ * 检查助手是否使用全局默认模型
  */
 export function isMaskUsingGlobalModel(mask: Mask): boolean {
   return !mask.defaultModel || mask.defaultModel === "";
 }
 
 /**
- * 获取面具应该使用的摘要模型
- * 优先级：面具摘要模型配置 > 全局摘要模型配置 > 智能选择
+ * 获取助手应该使用的摘要模型
+ * 优先级：助手摘要模型配置 > 全局摘要模型配置 > 智能选择
  */
 export function getMaskCompressModel(mask: Mask): ModelDecision {
   const globalConfig = useAppConfig.getState().modelConfig;
 
-  // 如果面具设置了摘要模型，使用面具摘要模型
+  // 如果助手设置了摘要模型，使用助手摘要模型
   if (mask.modelConfig.compressModel) {
     return {
       model: mask.modelConfig.compressModel,
@@ -97,7 +97,7 @@ export function getMaskCompressModel(mask: Mask): ModelDecision {
     };
   }
 
-  // 如果面具没有设置摘要模型，使用全局摘要模型配置
+  // 如果助手没有设置摘要模型，使用全局摘要模型配置
   if (globalConfig.compressModel) {
     return {
       model: globalConfig.compressModel,
@@ -116,7 +116,7 @@ export function getMaskCompressModel(mask: Mask): ModelDecision {
 }
 
 /**
- * 检查面具是否使用全局摘要模型配置
+ * 检查助手是否使用全局摘要模型配置
  */
 export function isMaskUsingGlobalCompressModel(mask: Mask): boolean {
   return (

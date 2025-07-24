@@ -121,7 +121,7 @@ function createEmptySession(): ChatSession {
     lastUpdate: Date.now(),
     lastSummarizeIndex: 0,
 
-    mask: createDefaultMask(), // 使用默认面具
+    mask: createDefaultMask(), // 使用默认助手
     mcpEnabledClients: {}, // 初始化 MCP 启用状态
   };
 }
@@ -255,7 +255,7 @@ const DEFAULT_CHAT_STATE = {
   sessions: [createEmptySession()],
   currentSessionIndex: 0,
   lastInput: "",
-  currentMaskId: "default-mask", // 默认选中默认面具
+  currentMaskId: "default-mask", // 默认选中默认助手
 };
 
 export const useChatStore = createPersistStore(
@@ -302,7 +302,7 @@ export const useChatStore = createPersistStore(
         }));
       },
 
-      // 面具分组相关方法
+      // 助手分组相关方法
       selectMask(maskId: string) {
         set({ currentMaskId: maskId });
       },
@@ -355,23 +355,23 @@ export const useChatStore = createPersistStore(
         const session = createEmptySession();
 
         if (mask) {
-          // 创建一个新的面具对象，确保不会修改原始面具
+          // 创建一个新的助手对象，确保不会修改原始助手
           const newMask = { ...mask };
 
-          // 深拷贝面具的模型配置，确保使用面具的完整配置
+          // 深拷贝助手的模型配置，确保使用助手的完整配置
           newMask.modelConfig = { ...mask.modelConfig };
 
-          // 如果面具有默认模型设置，需要确保模型配置中的模型和提供商是正确的
+          // 如果助手有默认模型设置，需要确保模型配置中的模型和提供商是正确的
           if (mask.defaultModel) {
             const sessionModelConfig = getSessionModelConfig(mask);
             newMask.modelConfig.model = sessionModelConfig.model;
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
           }
 
-          // 禁用全局同步，防止后续操作覆盖我们的面具配置
+          // 禁用全局同步，防止后续操作覆盖我们的助手配置
           newMask.syncGlobalConfig = false;
 
-          // 确保使用新创建的面具对象
+          // 确保使用新创建的助手对象
           session.mask = newMask;
         }
 

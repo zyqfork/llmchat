@@ -332,10 +332,10 @@ export function SideBar(props: { className?: string }) {
             icon={<AddIcon />}
             text={shouldNarrow ? undefined : Locale.Home.NewChat}
             onClick={() => {
-              // 在当前选中的面具下创建新话题
+              // 在当前选中的助手下创建新话题
               const currentMaskId = chatStore.currentMaskId;
               if (currentMaskId) {
-                // 如果有选中的面具，使用该面具创建新session
+                // 如果有选中的助手，使用该助手创建新session
                 const maskStore = useMaskStore.getState();
                 const currentMask = maskStore
                   .getAll()
@@ -346,7 +346,7 @@ export function SideBar(props: { className?: string }) {
                   chatStore.newSession();
                 }
               } else {
-                // 如果没有选中面具，使用默认面具
+                // 如果没有选中助手，使用默认助手
                 chatStore.newSession();
               }
               navigate(Path.Chat);

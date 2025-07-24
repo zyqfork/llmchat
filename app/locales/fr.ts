@@ -59,7 +59,7 @@ const fr: PartialLocaleType = {
     },
     Commands: {
       new: "Nouvelle discussion",
-      newm: "Créer une discussion à partir du masque",
+      newm: "Créer une discussion à partir de l'assistant",
       next: "Discussion suivante",
       prev: "Discussion précédente",
       clear: "Effacer le contexte",

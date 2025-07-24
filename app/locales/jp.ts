@@ -500,11 +500,11 @@ const jp: PartialLocaleType = {
     },
   },
   Mask: {
-    Name: "マスク",
+    Name: "アシスタント",
     Page: {
-      Title: "プリセットキャラクターマスク",
+      Title: "プリセットキャラクターアシスタント",
       SubTitle: (count: number) => `${count} 件のプリセットキャラクター定義`,
-      Search: "キャラクターマスクを検索",
+      Search: "キャラクターアシスタントを検索",
       Create: "新規作成",
     },
     Item: {
@@ -517,7 +517,7 @@ const jp: PartialLocaleType = {
     },
     EditModal: {
       Title: (readonly: boolean) =>
-        `プリセットマスクの編集 ${readonly ? "（読み取り専用）" : ""}`,
+        `プリセットアシスタントの編集 ${readonly ? "（読み取り専用）" : ""}`,
       Download: "プリセットをダウンロード",
       Clone: "プリセットをクローン",
     },

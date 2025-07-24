@@ -26,7 +26,7 @@ export function MaskList(props: MaskListProps) {
   const appConfig = useAppConfig();
   const navigate = useNavigate();
 
-  // 获取所有可用的面具，默认面具排在最前面
+  // 获取所有可用的助手，默认助手排在最前面
   const allMasks = maskStore.getAll().sort((a, b) => {
     if (a.id === "default-mask") return -1;
     if (b.id === "default-mask") return 1;
@@ -36,16 +36,16 @@ export function MaskList(props: MaskListProps) {
   const currentMaskId = chatStore.currentMaskId;
 
   const handleSelectMask = (maskId: string) => {
-    // 选择面具
+    // 选择助手
     chatStore.selectMask(maskId);
 
-    // 检查该面具下是否有话题
+    // 检查该助手下是否有话题
     const maskSessions = chatStore.getSessionsByMask(maskId);
     if (maskSessions.length === 0) {
       // 如果没有话题，创建一个新话题
       const selectedMask = allMasks.find((m) => m.id === maskId);
       if (selectedMask) {
-        // 使用该面具创建新session
+        // 使用该助手创建新session
         chatStore.newSession(selectedMask);
         // 导航到聊天页面
         navigate("/chat");
@@ -69,13 +69,13 @@ export function MaskList(props: MaskListProps) {
   };
 
   const handleCreateMask = () => {
-    // 跳转到面具创建页面
+    // 跳转到助手创建页面
     navigate(Path.Masks);
     props.onClose();
   };
 
   const handleMaskManagement = () => {
-    // 跳转到面具管理页面
+    // 跳转到助手管理页面
     navigate(Path.Masks);
     props.onClose();
   };
@@ -97,14 +97,14 @@ export function MaskList(props: MaskListProps) {
             <IconButton
               key="manage"
               icon={<SettingsIcon />}
-              text="面具管理"
+              text="助手管理"
               onClick={handleMaskManagement}
               bordered
             />,
             <IconButton
               key="add"
               icon={<AddIcon />}
-              text="新建面具"
+              text="新建助手"
               onClick={handleCreateMask}
               bordered
             />,

@@ -58,7 +58,7 @@ const tw = {
     },
     Commands: {
       new: "新建聊天",
-      newm: "從角色範本新建聊天",
+      newm: "從角色助手新建聊天",
       next: "下一個聊天",
       prev: "上一個聊天",
       clear: "清除上下文",
@@ -73,7 +73,7 @@ const tw = {
         dark: "深色模式",
       },
       Prompt: "快捷指令",
-      Masks: "所有角色範本",
+      Masks: "所有角色助手",
       Clear: "清除聊天",
       Settings: "對話設定",
       UploadImage: "上傳圖片",
@@ -252,12 +252,12 @@ const tw = {
     },
     Mask: {
       Splash: {
-        Title: "角色範本啟動頁面",
-        SubTitle: "新增聊天時，呈現角色範本啟動頁面",
+        Title: "角色助手啟動頁面",
+        SubTitle: "新增聊天時，呈現角色助手啟動頁面",
       },
       Builtin: {
-        Title: "隱藏內建角色範本",
-        SubTitle: "在所有角色範本列表中隱藏內建角色範本",
+        Title: "隱藏內建角色助手",
+        SubTitle: "在所有角色助手列表中隱藏內建角色助手",
       },
     },
     Prompt: {
@@ -456,11 +456,11 @@ const tw = {
 
   FineTuned: { Sysmessage: "你是一個助手" },
   Mask: {
-    Name: "角色範本",
+    Name: "角色助手",
     Page: {
-      Title: "預設角色角色範本",
+      Title: "預設角色助手",
       SubTitle: (count: number) => `${count} 個預設角色定義`,
-      Search: "搜尋角色角色範本",
+      Search: "搜尋角色助手",
       Create: "新增",
     },
     Item: {
@@ -473,7 +473,7 @@ const tw = {
     },
     EditModal: {
       Title: (readonly: boolean) =>
-        `編輯預設角色範本 ${readonly ? "（唯讀）" : ""}`,
+        `編輯預設角色助手 ${readonly ? "（唯讀）" : ""}`,
       Download: "下載預設值",
       Clone: "以此預設值建立副本",
     },
@@ -490,8 +490,8 @@ const tw = {
         SubTitle: "隱藏後預設對話不會出現在聊天介面",
       },
       Share: {
-        Title: "分享此角色範本",
-        SubTitle: "產生此角色範本的直達連結",
+        Title: "分享此角色助手",
+        SubTitle: "產生此角色助手的直達連結",
         Action: "複製連結",
       },
     },
@@ -516,8 +516,8 @@ const tw = {
     Skip: "跳過",
     NotShow: "不再顯示",
     ConfirmNoShow: "確認停用？停用後可以隨時在設定中重新啟用。",
-    Title: "挑選一個角色範本",
-    SubTitle: "現在開始，與角色範本背後的靈魂思維碰撞",
+    Title: "挑選一個角色助手",
+    SubTitle: "現在開始，與角色助手背後的靈魂思維碰撞",
     More: "搜尋更多",
   },
   URLCommand: {

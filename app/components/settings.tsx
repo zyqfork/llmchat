@@ -1214,7 +1214,7 @@ export function Settings() {
   const tabConfig = [
     { key: SettingsTab.General, label: "通用配置", icon: "⚙️" },
     { key: SettingsTab.Sync, label: "云同步", icon: "☁️" },
-    { key: SettingsTab.Mask, label: "面具", icon: "🎭" },
+    { key: SettingsTab.Mask, label: "助手", icon: "🎭" },
     { key: SettingsTab.Prompt, label: "提示词", icon: "💬" },
     { key: SettingsTab.ModelService, label: "模型服务", icon: "🔧" },
     { key: SettingsTab.ModelConfig, label: "模型配置", icon: "🤖" },
@@ -1470,7 +1470,7 @@ export function Settings() {
   // 云同步设置
   const renderSyncSettings = () => <SyncItems />;
 
-  // 面具设置
+  // 助手设置
   const renderMaskSettings = () => (
     <List>
       <ListItem

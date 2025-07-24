@@ -100,7 +100,7 @@ export const useMaskStore = createPersistStore(
       get().markUpdate();
     },
     delete(id: string) {
-      // 防止删除默认面具
+      // 防止删除默认助手
       if (id === DEFAULT_MASK_ID) {
         return;
       }
@@ -114,7 +114,7 @@ export const useMaskStore = createPersistStore(
       return get().masks[id ?? 1145141919810];
     },
     getAll() {
-      // 确保默认面具存在
+      // 确保默认助手存在
       const masks = get().masks;
       if (!masks[DEFAULT_MASK_ID]) {
         const defaultMask = createDefaultMask();
@@ -167,7 +167,7 @@ export const useMaskStore = createPersistStore(
         });
       }
 
-      // 确保默认面具存在
+      // 确保默认助手存在
       if (!newState.masks[DEFAULT_MASK_ID]) {
         newState.masks[DEFAULT_MASK_ID] = createDefaultMask();
       }

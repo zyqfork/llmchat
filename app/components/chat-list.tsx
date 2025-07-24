@@ -118,17 +118,17 @@ export function ChatList(props: { narrow?: boolean }) {
   const navigate = useNavigate();
   const isMobileScreen = useMobileScreen();
 
-  // 用于跟踪面具是否刚刚切换
+  // 用于跟踪助手是否刚刚切换
   const [lastMaskId, setLastMaskId] = useState(currentMaskId);
 
-  // 根据当前面具过滤sessions
+  // 根据当前助手过滤sessions
   const filteredSessions = currentMaskId
     ? sessions.filter((session) => session.mask.id === currentMaskId)
     : sessions;
 
-  // 监听面具切换，自动切换到对应面具的最新话题或创建新话题
+  // 监听助手切换，自动切换到对应助手的最新话题或创建新话题
   useEffect(() => {
-    // 只有当面具真正切换时才执行（不是初始化时）
+    // 只有当助手真正切换时才执行（不是初始化时）
     if (currentMaskId && currentMaskId !== lastMaskId) {
       setLastMaskId(currentMaskId);
 
@@ -138,7 +138,7 @@ export function ChatList(props: { narrow?: boolean }) {
           .getAll()
           .find((m) => m.id === currentMaskId);
         if (selectedMask) {
-          // 使用该面具创建新session
+          // 使用该助手创建新session
           chatStore.newSession(selectedMask);
           // 导航到聊天页面
           navigate(Path.Chat);
