@@ -597,6 +597,12 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     reasoning: false,
     tools: true,
   },
+  "qwen3-coder-plus": {
+    vision: true,
+    web: false,
+    reasoning: false,
+    tools: true,
+  },
 
   // 嵌入模型
   "text-embedding-v2": {
@@ -641,73 +647,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   },
 
   // DeepSeek 模型
-  // DeepSeek R1 系列
-  "deepseek-r1": { vision: false, web: false, reasoning: true, tools: false },
-  "deepseek-r1-0528": {
-    vision: false,
-    web: false,
-    reasoning: true,
-    tools: false,
-  },
-  "deepseek-r1-turbo": {
-    vision: false,
-    web: false,
-    reasoning: true,
-    tools: false,
-  },
-  "deepseek-r1-32b": {
-    vision: false,
-    web: false,
-    reasoning: true,
-    tools: false,
-  },
-  "deepseek-r1-search": {
-    vision: false,
-    web: true,
-    reasoning: true,
-    tools: false,
-  },
-  "deepseek-r1-distill-qwen-32b": {
-    vision: false,
-    web: false,
-    reasoning: true,
-    tools: false,
-  },
-  "deepseek-r1-distill-qwen-7b": {
-    vision: false,
-    web: false,
-    reasoning: true,
-    tools: false,
-  },
-
-  // DeepSeek V3 系列
-  "deepseek-v3": { vision: false, web: false, reasoning: false, tools: true },
-  "deepseek-v3-0324": {
-    vision: false,
-    web: false,
-    reasoning: false,
-    tools: true,
-  },
-  "deepseek-v3-turbo": {
-    vision: false,
-    web: false,
-    reasoning: false,
-    tools: true,
-  },
-  "deepseek-v3-tool": {
-    vision: false,
-    web: false,
-    reasoning: false,
-    tools: true,
-  },
-  "deepseek-v3-search": {
-    vision: false,
-    web: true,
-    reasoning: false,
-    tools: true,
-  },
-
-  // 经典版本
+  // 官方模型
   "deepseek-chat": { vision: false, web: false, reasoning: false, tools: true },
   "deepseek-reasoner": {
     vision: false,
@@ -715,9 +655,6 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     reasoning: true,
     tools: false,
   },
-
-  // 视觉模型
-  "deepseek-vl": { vision: true, web: false, reasoning: false, tools: true },
 
   // XAI Grok 模型
   // Grok 3 系列

@@ -734,7 +734,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                   className={styles["form-input"]}
                 />
                 <div className={styles["form-hint"]}>
-                  不填写分组时，模型将显示在&ldquo;全部&rdquo;和&ldquo;其他&rdquo;分类中
+                  不填写分组时，模型将根据名称自动分类
                 </div>
               </div>
               <div className={styles["form-actions"]}>

@@ -611,6 +611,7 @@ const alibabaModes = [
   "qwen-plus",
   "qwen-turbo",
   "qwen-coder-plus",
+  "qwen3-coder-plus",
   // 嵌入模型
   "text-embedding-v2",
   "qwen3-embedding-8b",
@@ -627,25 +628,9 @@ const moonshotModes = [
 ];
 
 const deepseekModels = [
-  // DeepSeek R1 系列
-  "deepseek-r1",
-  "deepseek-r1-0528",
-  "deepseek-r1-turbo",
-  "deepseek-r1-32b",
-  "deepseek-r1-search",
-  "deepseek-r1-distill-qwen-32b",
-  "deepseek-r1-distill-qwen-7b",
-  // DeepSeek V3 系列
-  "deepseek-v3",
-  "deepseek-v3-0324",
-  "deepseek-v3-turbo",
-  "deepseek-v3-tool",
-  "deepseek-v3-search",
-  // 经典版本
+  // 官方模型
   "deepseek-chat",
   "deepseek-reasoner",
-  // 视觉模型
-  "deepseek-vl",
 ];
 
 const xAIModes = [
