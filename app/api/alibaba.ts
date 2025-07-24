@@ -70,6 +70,9 @@ async function request(req: NextRequest) {
       "Content-Type": "application/json",
       Authorization: req.headers.get("Authorization") ?? "",
       "X-DashScope-SSE": req.headers.get("X-DashScope-SSE") ?? "disable",
+      ...(req.headers.get("x-api-key") && {
+        "x-api-key": req.headers.get("x-api-key"),
+      }), // Include x-api-key if present
     },
     method: req.method,
     body: req.body,

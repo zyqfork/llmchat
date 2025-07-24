@@ -488,58 +488,62 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       const api = getClientApi(provider);
 
       // 使用Promise来正确处理异步结果，添加超时机制
-      const testResult = await new Promise<{ success: boolean; error?: any }>(
-        (resolve) => {
-          let isResolved = false;
+      const testResult = await new Promise<{
+        success: boolean;
+        error?: any;
+        response?: Response;
+      }>((resolve) => {
+        let isResolved = false;
 
-          // 设置30秒超时
-          const timeout = setTimeout(() => {
+        // 设置30秒超时
+        const timeout = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            resolve({ success: false, error: "Request timeout (30s)" });
+          }
+        }, 30000);
+
+        // 发送测试消息 - 使用更标准的测试消息
+        const testMessage = "Hello";
+
+        api.llm.chat({
+          messages: [{ role: "user", content: testMessage }],
+          config: {
+            model: modelName,
+            stream: false,
+            providerName: provider,
+            temperature: 0.5,
+          },
+          onFinish: (message: string, response?: Response) => {
             if (!isResolved) {
               isResolved = true;
-              resolve({ success: false, error: "Request timeout (30s)" });
+              clearTimeout(timeout);
+
+              // 检查响应状态
+              if (response?.status && response.status >= 400) {
+                resolve({
+                  success: false,
+                  error: `HTTP ${response.status}: ${
+                    response.statusText || "Request failed"
+                  }`,
+                  response,
+                });
+              } else if (message && message.trim().length > 0) {
+                resolve({ success: true, response });
+              } else {
+                resolve({ success: false, error: "Empty response received" });
+              }
             }
-          }, 30000);
-
-          // 发送测试消息
-          const testMessage = "only answer 1";
-
-          api.llm.chat({
-            messages: [{ role: "user", content: testMessage }],
-            config: {
-              model: modelName,
-              stream: false,
-              providerName: provider,
-            },
-            onFinish: (message: string, response?: any) => {
-              if (!isResolved) {
-                isResolved = true;
-                clearTimeout(timeout);
-
-                // 检查响应状态
-                if (response?.status && response.status >= 400) {
-                  resolve({
-                    success: false,
-                    error: `HTTP ${response.status}: ${
-                      response.statusText || "Request failed"
-                    }`,
-                  });
-                } else if (message && message.trim().length > 0) {
-                  resolve({ success: true });
-                } else {
-                  resolve({ success: false, error: "Empty response received" });
-                }
-              }
-            },
-            onError: (error: any) => {
-              if (!isResolved) {
-                isResolved = true;
-                clearTimeout(timeout);
-                resolve({ success: false, error });
-              }
-            },
-          });
-        },
-      );
+          },
+          onError: (error: any) => {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              resolve({ success: false, error });
+            }
+          },
+        });
+      });
 
       const responseTime = Date.now() - startTime;
 
@@ -558,11 +562,17 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         );
       } else {
         // 测试失败
-        throw testResult.error;
+        throw testResult;
       }
     } catch (error: any) {
       // 测试失败
-      const errorMessage = error?.message || error?.toString() || "未知错误";
+      const errorMessage =
+        error?.error?.message ||
+        error?.error?.toString() ||
+        error?.message ||
+        error?.toString() ||
+        "未知错误";
+      const response = error?.response;
 
       setModelTestResults((prev) => ({
         ...prev,
@@ -579,29 +589,34 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       // 根据错误类型给出具体建议
       if (
         errorMessage.includes("401") ||
-        errorMessage.includes("Unauthorized")
+        errorMessage.includes("Unauthorized") ||
+        response?.status === 401
       ) {
         console.error("💡 解决建议: 请检查API密钥配置是否正确");
       } else if (
         errorMessage.includes("403") ||
-        errorMessage.includes("Forbidden")
+        errorMessage.includes("Forbidden") ||
+        response?.status === 403
       ) {
         console.error("💡 解决建议: API密钥权限不足或模型访问受限");
       } else if (
         errorMessage.includes("404") ||
-        errorMessage.includes("Not Found")
+        errorMessage.includes("Not Found") ||
+        response?.status === 404
       ) {
         console.error("💡 解决建议: 模型不存在或API端点错误");
       } else if (
         errorMessage.includes("429") ||
-        errorMessage.includes("Rate limit")
+        errorMessage.includes("Rate limit") ||
+        response?.status === 429
       ) {
         console.error("💡 解决建议: 请求频率过高，请稍后重试");
       } else if (errorMessage.includes("timeout")) {
         console.error("💡 解决建议: 网络连接超时，请检查网络状况");
       } else if (
         errorMessage.includes("500") ||
-        errorMessage.includes("Internal Server Error")
+        errorMessage.includes("Internal Server Error") ||
+        response?.status >= 500
       ) {
         console.error("💡 解决建议: 服务器内部错误，请稍后重试");
       }

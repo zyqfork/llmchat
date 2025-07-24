@@ -194,7 +194,10 @@ export class GeminiProApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(false, {
+          model: options.config.model,
+          providerName: options.config.providerName,
+        }),
       };
 
       const isThinking = options.config.model.includes("-thinking");
@@ -210,7 +213,10 @@ export class GeminiProApi implements LLMApi {
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(false, {
+            model: options.config.model,
+            providerName: options.config.providerName,
+          }),
           // @ts-ignore
           tools.length > 0
             ? // @ts-ignore

@@ -98,6 +98,7 @@ export class DoubaoApi implements LLMApi {
       ...useChatStore.getState().currentSession().mask.modelConfig,
       ...{
         model: options.config.model,
+        providerName: options.config.providerName,
       },
     };
 
@@ -121,7 +122,10 @@ export class DoubaoApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(false, {
+          model: options.config.model,
+          providerName: options.config.providerName,
+        }),
       };
 
       // make a fetch request
@@ -136,7 +140,10 @@ export class DoubaoApi implements LLMApi {
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(false, {
+            model: options.config.model,
+            providerName: options.config.providerName,
+          }),
           tools as any,
           funcs,
           controller,

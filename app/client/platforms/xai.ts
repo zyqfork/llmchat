@@ -97,7 +97,10 @@ export class XAIApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(false, {
+          model: options.config.model,
+          providerName: options.config.providerName,
+        }),
       };
 
       // make a fetch request
@@ -109,10 +112,13 @@ export class XAIApi implements LLMApi {
       if (shouldStream) {
         const tools: any[] = [];
         const funcs: Record<string, Function> = {};
-        return stream(
+        streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(false, {
+            model: options.config.model,
+            providerName: options.config.providerName,
+          }),
           tools as any,
           funcs,
           controller,

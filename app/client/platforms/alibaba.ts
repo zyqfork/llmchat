@@ -98,6 +98,7 @@ export class QwenApi implements LLMApi {
       ...useChatStore.getState().currentSession().mask.modelConfig,
       ...{
         model: options.config.model,
+        providerName: options.config.providerName,
       },
     };
 
@@ -135,10 +136,22 @@ export class QwenApi implements LLMApi {
     options.onController?.(controller);
 
     try {
-      const headers = {
-        ...getHeaders(),
+      // Get base headers with the correct provider configuration for testing
+      const baseHeaders = getHeaders(false, {
+        model: options.config.model,
+        providerName: options.config.providerName,
+      });
+
+      // For Alibaba/DashScope, we need to ensure we're using the right authorization header
+      const headers: Record<string, string> = {
+        ...baseHeaders,
         "X-DashScope-SSE": shouldStream ? "enable" : "disable",
       };
+
+      // Explicitly ensure Authorization header is set correctly for Alibaba
+      if (baseHeaders["Authorization"] && !headers["Authorization"]) {
+        headers["Authorization"] = baseHeaders["Authorization"];
+      }
 
       const chatPath = this.path(Alibaba.ChatPath(modelConfig.model));
       const chatPayload = {

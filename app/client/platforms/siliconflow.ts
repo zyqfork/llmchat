@@ -128,7 +128,10 @@ export class SiliconflowApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(false, {
+          model: options.config.model,
+          providerName: options.config.providerName,
+        }),
       };
 
       // console.log(chatPayload);
@@ -145,7 +148,10 @@ export class SiliconflowApi implements LLMApi {
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(false, {
+            model: options.config.model,
+            providerName: options.config.providerName,
+          }),
           tools as any,
           funcs,
           controller,
@@ -255,7 +261,9 @@ export class SiliconflowApi implements LLMApi {
     const res = await fetch(this.path(SiliconFlow.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(),
+        ...getHeaders(false, {
+          providerName: "SiliconFlow",
+        }),
       },
     });
 
