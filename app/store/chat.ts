@@ -636,10 +636,13 @@ export const useChatStore = createPersistStore(
         }
 
         if (shouldInjectSystemPrompts || mcpSystemPrompt) {
-          console.log(
-            "[Global System Prompt] ",
-            systemPrompts.at(0)?.content ?? "empty",
-          );
+          // 只在开发环境输出系统提示词日志，避免生产环境控制台污染
+          if (process.env.NODE_ENV === "development") {
+            console.log(
+              "[Global System Prompt] ",
+              systemPrompts.at(0)?.content ?? "empty",
+            );
+          }
         }
         const memoryPrompt = get().getMemoryPrompt();
         // long term memory

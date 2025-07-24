@@ -633,18 +633,17 @@ const deepseekModels = [
   "deepseek-reasoner",
 ];
 
-// XAI 模型暂时禁用
-// const xAIModes = [
-//   // Grok 3 系列
-//   "grok-3",
-//   "grok-3-fast",
-//   "grok-3-mini",
-//   "grok-3-mini-fast",
-//   // Grok 2 系列
-//   "grok-2-vision-1212",
-//   "grok-2-1212",
-//   "grok-vision-beta",
-// ];
+const xAIModes = [
+  // Grok 3 系列
+  "grok-3",
+  "grok-3-fast",
+  "grok-3-mini",
+  "grok-3-mini-fast",
+  // Grok 2 系列
+  "grok-2-vision-1212",
+  "grok-2-1212",
+  "grok-vision-beta",
+];
 
 const siliconflowModels = [
   // DeepSeek 系列
@@ -738,18 +737,17 @@ export const DEFAULT_MODELS = [
       sorted: 7,
     },
   })),
-  // XAI 模型暂时禁用
-  // ...xAIModes.map((name) => ({
-  //   name,
-  //   available: true,
-  //   sorted: seq++,
-  //   provider: {
-  //     id: "xai",
-  //     providerName: "XAI",
-  //     providerType: "xai",
-  //     sorted: 8,
-  //   },
-  // })),
+  ...xAIModes.map((name) => ({
+    name,
+    available: true,
+    sorted: seq++,
+    provider: {
+      id: "xai",
+      providerName: "XAI",
+      providerType: "xai",
+      sorted: 8,
+    },
+  })),
   ...deepseekModels.map((name) => ({
     name,
     available: true,
