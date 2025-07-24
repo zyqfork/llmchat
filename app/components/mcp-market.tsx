@@ -122,14 +122,13 @@ export function McpMarketPage() {
       // 对于HTTP服务器，配置相对简单
       const preset = presetServers.find((s) => s.id === editingServerId);
       if (preset?.configSchema) {
-        // 从OAuth配置中提取用户配置
+        // 从服务器配置中提取用户配置
         const userConfig: Record<string, any> = {};
-        if (currentConfig.authProvider) {
-          Object.keys(preset.configSchema.properties).forEach((key) => {
-            // 简化的配置提取逻辑
-            userConfig[key] = (currentConfig.authProvider as any)?.[key] || "";
-          });
-        }
+        // 注意：authProvider 已被移除，这里可以从其他配置源获取
+        // 目前内置服务器都不需要额外配置，所以保持空配置
+        Object.keys(preset.configSchema.properties).forEach((key) => {
+          userConfig[key] = "";
+        });
         setUserConfig(userConfig);
       }
     } else {
@@ -154,15 +153,7 @@ export function McpMarketPage() {
       updateLoadingState(savingServerId, "Updating configuration...");
 
       // 构建SSE服务器配置
-      const authProvider: any = {};
-
-      // 从用户配置中构建OAuth配置
-      Object.entries(userConfig).forEach(([key, value]) => {
-        if (typeof value === "string" && value.trim()) {
-          authProvider[key] = value;
-        }
-      });
-
+      // 注意：authProvider 已被移除，现在直接构建服务器配置
       const serverConfig: ServerConfig = {
         type: "sse",
         baseUrl: preset.baseUrl,
@@ -172,7 +163,6 @@ export function McpMarketPage() {
         description: preset.description,
         provider: preset.repo,
         tags: preset.tags,
-        ...(Object.keys(authProvider).length > 0 ? { authProvider } : {}),
       };
 
       const newConfig = await addMcpServer(savingServerId, serverConfig);
@@ -227,7 +217,6 @@ export function McpMarketPage() {
           baseUrl: preset.baseUrl,
           headers: preset.headers,
           timeout: preset.timeout,
-          authProvider: preset.authProvider,
           name: preset.name,
           description: preset.description,
           provider: preset.repo,
