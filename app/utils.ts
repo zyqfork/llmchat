@@ -11,6 +11,7 @@ import {
 import { fetch as tauriStreamFetch } from "./utils/stream";
 import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
+import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 import { ModelSize } from "./typing";
 
 export function trimTopic(topic: string) {
@@ -281,11 +282,21 @@ export function getMessageImages(message: RequestMessage): string[] {
 }
 
 export function isVisionModel(model: string) {
+  // 首先检查环境变量中的自定义视觉模型列表
   const visionModels = useAccessStore.getState().visionModels;
   const envVisionModels = visionModels?.split(",").map((m) => m.trim());
   if (envVisionModels?.includes(model)) {
     return true;
   }
+
+  // 使用新的模型能力系统检查视觉能力
+  const capabilities = getModelCapabilitiesWithCustomConfig(model);
+  if (capabilities.vision === true) {
+    return true;
+  }
+
+  // 如果模型能力系统没有明确配置，回退到旧的正则表达式检查
+  // 这确保了向后兼容性
   return (
     !EXCLUDE_VISION_MODEL_REGEXES.some((regex) => regex.test(model)) &&
     VISION_MODEL_REGEXES.some((regex) => regex.test(model))

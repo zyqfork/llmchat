@@ -12,7 +12,10 @@ import DeleteIcon from "../icons/delete.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getEnhancedModelCapabilities } from "../config/model-capabilities";
+import {
+  getEnhancedModelCapabilities,
+  getModelCapabilitiesWithCustomConfig,
+} from "../config/model-capabilities";
 import { collectModels } from "../utils/model";
 
 interface ModelManagerProps {
@@ -141,23 +144,23 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
 // 基于能力的模型过滤器
 const CAPABILITY_FILTERS: Record<string, (model: any) => boolean> = {
   推理: (model: any) => {
-    const capabilities = getEnhancedModelCapabilities(model.name);
+    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
     return capabilities.reasoning === true;
   },
   视觉: (model: any) => {
-    const capabilities = getEnhancedModelCapabilities(model.name);
+    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
     return capabilities.vision === true;
   },
   联网: (model: any) => {
-    const capabilities = getEnhancedModelCapabilities(model.name);
+    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
     return capabilities.web === true;
   },
   工具: (model: any) => {
-    const capabilities = getEnhancedModelCapabilities(model.name);
+    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
     return capabilities.tools === true;
   },
   嵌入: (model: any) => {
-    const capabilities = getEnhancedModelCapabilities(model.name);
+    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
     return capabilities.embedding === true;
   },
 };
@@ -387,24 +390,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   };
 
   // 获取模型能力（包含自定义配置）
-  const getLocalModelCapabilities = (modelName: string) => {
-    // 先获取默认能力
-    const defaultCapabilities = getEnhancedModelCapabilities(modelName);
-
-    // 尝试从本地存储获取自定义配置
-    const capabilitiesKey = `model_capabilities_${modelName}`;
-    const customCapabilities = localStorage.getItem(capabilitiesKey);
-
-    if (customCapabilities) {
-      try {
-        return JSON.parse(customCapabilities);
-      } catch (e) {
-        console.warn("[ModelManager] 解析自定义能力配置失败:", e);
-      }
-    }
-
-    return defaultCapabilities;
-  };
+  const getLocalModelCapabilities = getModelCapabilitiesWithCustomConfig;
 
   // 打开模型配置
   const openModelConfig = (model: any) => {
@@ -799,7 +785,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                             <div className={styles["model-name"]}>
                               {model.name}
                               <ModelCapabilityIcons
-                                capabilities={getEnhancedModelCapabilities(
+                                capabilities={getModelCapabilitiesWithCustomConfig(
                                   model.name,
                                 )}
                                 size={14}

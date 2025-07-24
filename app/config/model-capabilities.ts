@@ -843,3 +843,29 @@ export function getEnhancedModelCapabilities(
 
   return capabilities;
 }
+
+// 获取模型能力（包含自定义配置）
+export function getModelCapabilitiesWithCustomConfig(
+  modelName: string,
+): ModelCapabilities {
+  // 先获取默认能力
+  const defaultCapabilities = getEnhancedModelCapabilities(modelName);
+
+  // 尝试从本地存储获取自定义配置
+  const capabilitiesKey = `model_capabilities_${modelName}`;
+
+  // 检查是否在浏览器环境中
+  if (typeof window !== "undefined" && window.localStorage) {
+    const customCapabilities = localStorage.getItem(capabilitiesKey);
+
+    if (customCapabilities) {
+      try {
+        return JSON.parse(customCapabilities);
+      } catch (e) {
+        console.warn("[ModelCapabilities] 解析自定义能力配置失败:", e);
+      }
+    }
+  }
+
+  return defaultCapabilities;
+}

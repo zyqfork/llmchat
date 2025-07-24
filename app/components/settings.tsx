@@ -35,7 +35,7 @@ import {
 import { ModelConfigList } from "./model-config";
 import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getEnhancedModelCapabilities } from "../config/model-capabilities";
+import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 
 import { IconButton } from "./button";
 import {
@@ -1724,7 +1724,7 @@ export function Settings() {
                                   >
                                     {modelName}
                                     <ModelCapabilityIcons
-                                      capabilities={getEnhancedModelCapabilities(
+                                      capabilities={getModelCapabilitiesWithCustomConfig(
                                         modelName,
                                       )}
                                       size={12}
