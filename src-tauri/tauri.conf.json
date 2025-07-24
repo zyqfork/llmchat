@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "NextChat",
-    "version": "2.15.8"
+    "version": "2.17.0"
   },
   "tauri": {
     "allowlist": {
@@ -97,7 +97,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/releases/latest/download/latest.json"
+        "https://github.com/syferie/qadchat/releases/latest/download/latest.json"
       ],
       "dialog": true,
       "windows": {
