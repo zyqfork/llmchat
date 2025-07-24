@@ -61,7 +61,7 @@ import {
   ByteDance,
   Alibaba,
   Moonshot,
-  XAI,
+  // XAI, // 暂时禁用
   Google,
   GoogleSafetySettingsThreshold,
   OPENAI_BASE_URL,
@@ -1131,44 +1131,45 @@ export function Settings() {
     </>
   );
 
-  const XAIConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.XAI.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.XAI.Endpoint.Title}
-          type="text"
-          value={accessStore.xaiUrl}
-          placeholder={XAI.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.xaiUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.XAI.ApiKey.Title}
-        subTitle={Locale.Settings.Access.XAI.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.XAI.ApiKey.Title}
-          value={accessStore.xaiApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.XAI.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.xaiApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-    </>
-  );
+  // XAI 配置组件暂时禁用
+  // const XAIConfigComponent = (
+  //   <>
+  //     <ListItem
+  //       title={Locale.Settings.Access.XAI.Endpoint.Title}
+  //       subTitle={
+  //         Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint
+  //       }
+  //     >
+  //       <input
+  //         aria-label={Locale.Settings.Access.XAI.Endpoint.Title}
+  //         type="text"
+  //         value={accessStore.xaiUrl}
+  //         placeholder={XAI.ExampleEndpoint}
+  //         onChange={(e) =>
+  //           accessStore.update(
+  //             (access) => (access.xaiUrl = e.currentTarget.value),
+  //           )
+  //         }
+  //       ></input>
+  //     </ListItem>
+  //     <ListItem
+  //       title={Locale.Settings.Access.XAI.ApiKey.Title}
+  //       subTitle={Locale.Settings.Access.XAI.ApiKey.SubTitle}
+  //     >
+  //       <PasswordInput
+  //         aria-label={Locale.Settings.Access.XAI.ApiKey.Title}
+  //         value={accessStore.xaiApiKey}
+  //         type="text"
+  //         placeholder={Locale.Settings.Access.XAI.ApiKey.Placeholder}
+  //         onChange={(e) => {
+  //           accessStore.update(
+  //             (access) => (access.xaiApiKey = e.currentTarget.value),
+  //           );
+  //         }}
+  //       />
+  //     </ListItem>
+  //   </>
+  // );
 
   const siliconflowConfigComponent = (
     <>
@@ -1581,12 +1582,13 @@ export function Settings() {
       description: "DeepSeek 系列模型",
       configComponent: deepseekConfigComponent,
     },
-    {
-      provider: ServiceProvider.XAI,
-      name: "xAI",
-      description: "xAI Grok 系列模型",
-      configComponent: XAIConfigComponent,
-    },
+    // XAI 暂时禁用
+    // {
+    //   provider: ServiceProvider.XAI,
+    //   name: "xAI",
+    //   description: "xAI Grok 系列模型",
+    //   configComponent: XAIConfigComponent,
+    // },
     {
       provider: ServiceProvider.SiliconFlow,
       name: "SiliconFlow",

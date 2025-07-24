@@ -75,12 +75,12 @@ export class XAIApi implements LLMApi {
       },
     };
 
-    const requestPayload: RequestPayload = {
+    // XAI 不支持 presence_penalty 参数，所以创建一个不包含该参数的 payload
+    const requestPayload = {
       messages,
       stream: options.config.stream,
       model: modelConfig.model,
       temperature: modelConfig.temperature,
-      presence_penalty: modelConfig.presence_penalty,
       frequency_penalty: modelConfig.frequency_penalty,
       top_p: modelConfig.top_p,
     };

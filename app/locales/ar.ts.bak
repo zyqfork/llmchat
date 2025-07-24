@@ -243,13 +243,9 @@ const ar: PartialLocaleType = {
       ImportFailed: "فشل الاستيراد",
     },
     Mask: {
-      Splash: {
-        Title: "صفحة بدء القناع",
-        SubTitle: "عرض صفحة بدء القناع عند بدء دردشة جديدة",
-      },
-      Builtin: {
-        Title: "إخفاء الأقنعة المدمجة",
-        SubTitle: "إخفاء الأقنعة المدمجة في قائمة الأقنعة",
+      ModelIcon: {
+        Title: "استخدام أيقونة النموذج كصورة رمزية للذكاء الاصطناعي",
+        SubTitle: "عند التمكين، ستستخدم الصورة الرمزية للذكاء الاصطناعي في المحادثات أيقونة النموذج الحالي بدلاً من الرموز التعبيرية",
       },
     },
     Prompt: {
@@ -523,10 +519,9 @@ const ar: PartialLocaleType = {
       DeleteConfirm: "تأكيد الحذف؟",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `تحرير القناع المخصص ${readonly ? " (للقراءة فقط)" : ""}`,
-      Download: "تنزيل القناع المخصص",
-      Clone: "استنساخ القناع",
+      Title: "تحرير المساعد",
+      Download: "تنزيل",
+      Clone: "استنساخ",
     },
     Config: {
       Avatar: "صورة الدور",

@@ -471,6 +471,76 @@ const en: LocaleType = {
           SubTitle: "Select a safety filtering level",
         },
       },
+      Baidu: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Use custom Baidu API Key",
+          Placeholder: "Baidu API Key",
+        },
+        SecretKey: {
+          Title: "Secret Key",
+          SubTitle: "Use custom Baidu Secret Key",
+          Placeholder: "Baidu Secret Key",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Not supported for custom configuration, go to .env",
+        },
+      },
+      Tencent: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Use custom Tencent API Key",
+          Placeholder: "Tencent API Key",
+        },
+        SecretKey: {
+          Title: "Secret Key",
+          SubTitle: "Use custom Tencent Secret Key",
+          Placeholder: "Tencent Secret Key",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Not supported for custom configuration, go to .env",
+        },
+      },
+      ChatGLM: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Use custom ChatGLM API Key",
+          Placeholder: "ChatGLM API Key",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Example: ",
+        },
+      },
+      Iflytek: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Get APIKey from iFlytek Spark console",
+          Placeholder: "API Key",
+        },
+        ApiSecret: {
+          Title: "API Secret",
+          SubTitle: "Get APISecret from iFlytek Spark console",
+          Placeholder: "API Secret",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Example: ",
+        },
+      },
+      AI302: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Use custom 302.AI API Key",
+          Placeholder: "302.AI API Key",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Example: ",
+        },
+      },
     },
 
     Model: "Model",
