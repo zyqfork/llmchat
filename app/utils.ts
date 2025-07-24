@@ -464,6 +464,13 @@ export function clientUpdate() {
 
 // https://gist.github.com/iwill/a83038623ba4fef6abb9efca87ae9ccb
 export function semverCompare(a: string, b: string) {
+  // 添加空值检查，防止 startsWith 方法调用失败
+  if (!a || !b) {
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+  }
+
   if (a.startsWith(b + "-")) return -1;
   if (b.startsWith(a + "-")) return 1;
   return a.localeCompare(b, undefined, {

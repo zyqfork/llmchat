@@ -15,7 +15,21 @@ const ONE_MINUTE = 60 * 1000;
 const isApp = !!getClientConfig()?.isApp;
 
 function formatVersionDate(t: string) {
-  const d = new Date(+t);
+  // 添加输入验证
+  if (!t || typeof t !== "string") {
+    return "unknown";
+  }
+
+  const timestamp = +t;
+  if (isNaN(timestamp)) {
+    return "unknown";
+  }
+
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) {
+    return "unknown";
+  }
+
   const year = d.getUTCFullYear();
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
@@ -30,23 +44,44 @@ function formatVersionDate(t: string) {
 type VersionType = "date" | "tag";
 
 async function getVersion(type: VersionType) {
-  if (type === "date") {
-    const data = (await (await fetch(FETCH_COMMIT_URL)).json()) as {
-      commit: {
-        author: { name: string; date: string };
-      };
-      sha: string;
-    }[];
-    const remoteCommitTime = data[0].commit.author.date;
-    const remoteId = new Date(remoteCommitTime).getTime().toString();
-    return remoteId;
-  } else if (type === "tag") {
-    const data = (await (await fetch(FETCH_TAG_URL)).json()) as {
-      commit: { sha: string; url: string };
-      name: string;
-    }[];
-    return data.at(0)?.name;
+  try {
+    if (type === "date") {
+      const data = (await (await fetch(FETCH_COMMIT_URL)).json()) as {
+        commit: {
+          author: { name: string; date: string };
+        };
+        sha: string;
+      }[];
+
+      if (!data || !data[0] || !data[0].commit || !data[0].commit.author) {
+        return "unknown";
+      }
+
+      const remoteCommitTime = data[0].commit.author.date;
+      if (!remoteCommitTime) {
+        return "unknown";
+      }
+
+      const remoteId = new Date(remoteCommitTime).getTime().toString();
+      return remoteId;
+    } else if (type === "tag") {
+      const data = (await (await fetch(FETCH_TAG_URL)).json()) as {
+        commit: { sha: string; url: string };
+        name: string;
+      }[];
+
+      if (!data || !data[0] || !data[0].name) {
+        return "unknown";
+      }
+
+      return data.at(0)?.name || "unknown";
+    }
+  } catch (error) {
+    console.error("[Update] Failed to fetch version:", error);
+    return "unknown";
   }
+
+  return "unknown";
 }
 
 export const useUpdateStore = createPersistStore(
@@ -62,6 +97,11 @@ export const useUpdateStore = createPersistStore(
   },
   (set, get) => ({
     formatVersion(version: string) {
+      // 确保 version 是有效的字符串
+      if (!version || typeof version !== "string") {
+        return "unknown";
+      }
+
       if (get().versionType === "date") {
         version = formatVersionDate(version);
       }
@@ -70,10 +110,16 @@ export const useUpdateStore = createPersistStore(
 
     async getLatestVersion(force = false) {
       const versionType = get().versionType;
+      const clientConfig = getClientConfig();
       let version =
         versionType === "date"
-          ? getClientConfig()?.commitDate
-          : getClientConfig()?.version;
+          ? clientConfig?.commitDate
+          : clientConfig?.version;
+
+      // 确保 version 是有效的字符串
+      if (!version || typeof version !== "string") {
+        version = "unknown";
+      }
 
       set(() => ({ version }));
 
@@ -86,8 +132,10 @@ export const useUpdateStore = createPersistStore(
 
       try {
         const remoteId = await getVersion(versionType);
+        // 确保 remoteId 是有效的字符串
+        const validRemoteId = remoteId && typeof remoteId === "string" ? remoteId : "unknown";
         set(() => ({
-          remoteVersion: remoteId,
+          remoteVersion: validRemoteId,
         }));
         if (window.__TAURI__?.notification && isApp) {
           // Check if notification permission is granted
