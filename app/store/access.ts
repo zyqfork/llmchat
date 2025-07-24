@@ -236,7 +236,18 @@ export const useAccessStore = createPersistStore(
         })
         .then((res: DangerConfig) => {
           console.log("[Config] got config from server", res);
-          set(() => ({ ...res }));
+
+          // 保存当前的用户自定义配置
+          const currentState = get();
+          const userCustomModels = currentState.customModels;
+
+          // 只更新服务器相关的配置，保留用户的自定义模型
+          set((state) => ({
+            ...state,
+            ...res,
+            // 保留用户的自定义模型，除非服务器明确提供了非空的自定义模型
+            customModels: res.customModels || userCustomModels || "",
+          }));
         })
         .catch(() => {
           console.error("[Config] failed to fetch config");

@@ -210,27 +210,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       );
     });
 
-    console.log("[ModelManager] 模型数据:", {
-      provider,
-      customModels: accessStore.customModels,
-      allModelsCount: allModels.length,
-      defaultModelsCount: defaultModels.length,
-      providerCustomModelsCount: providerCustomModels.length,
-      providerCustomModels: providerCustomModels.map((m) => ({
-        name: m.name,
-        provider: m.provider?.providerName,
-      })),
-      // 显示所有自定义模型的详细信息
-      allCustomModels: allModels
-        .filter((m) => m.provider?.providerType === "custom")
-        .map((m) => ({
-          name: m.name,
-          providerName: m.provider?.providerName,
-          providerId: m.provider?.id,
-          displayName: m.displayName,
-        })),
-    });
-
     // 合并默认模型和自定义模型，去重
     const modelMap = new Map();
     [...defaultModels, ...providerCustomModels].forEach((model) => {
@@ -400,14 +379,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       // 添加新模型
       const newCustomModels = [...existingModels, customModelString].join(",");
       access.customModels = newCustomModels;
-
-      console.log("[ModelManager] 添加自定义模型:", {
-        modelId,
-        provider,
-        category,
-        customModelString,
-        newCustomModels,
-      });
     });
 
     // 重置表单并关闭

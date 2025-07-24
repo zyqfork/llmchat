@@ -14,6 +14,7 @@ export function ModelConfigList(props: {
   modelConfig: ModelConfig;
   updateConfig: (updater: (config: ModelConfig) => void) => void;
   showModelSelector?: boolean; // 新增参数控制是否显示模型选择器
+  showGlobalOption?: boolean; // 新增参数控制是否显示"使用全局配置"选项
 }) {
   const allModels = useAllModels();
   const accessStore = useAccessStore();
@@ -22,7 +23,9 @@ export function ModelConfigList(props: {
     "provider.providerName",
   );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
-  const compressModelValue = `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`;
+  const compressModelValue = props.modelConfig.compressModel
+    ? `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`
+    : "";
 
   // 准备分组模型数据 - 基于启用的提供商和模型
   const enabledProviders = accessStore.enabledProviders || {};
@@ -286,15 +289,25 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
-            props.updateConfig((config) => {
-              config.compressModel = ModalConfigValidator.model(model);
-              config.compressProviderName = providerName as ServiceProvider;
-            });
+            const value = e.currentTarget.value;
+            if (value === "") {
+              // 使用全局摘要模型配置
+              props.updateConfig((config) => {
+                config.compressModel = "";
+                config.compressProviderName = "";
+              });
+            } else {
+              const [model, providerName] = getModelProvider(value);
+              props.updateConfig((config) => {
+                config.compressModel = ModalConfigValidator.model(model);
+                config.compressProviderName = providerName as ServiceProvider;
+              });
+            }
           }}
         >
+          {props.showGlobalOption && (
+            <option value="">使用全局摘要模型配置</option>
+          )}
           {Object.entries(groupedModels).map(([providerName, models]) => (
             <optgroup label={providerName} key={providerName}>
               {models.map((model) => (
