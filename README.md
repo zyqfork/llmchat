@@ -6,9 +6,15 @@
 
 ## 开始使用
 
-当前处于快速开发时期，暂不提供 docker 镜像等部署方式，可自行clone后通过源代码部署
+### 部署
+
+当前处于快速开发时期，暂不提供 docker 镜像等部署方式，可自行 clone 后通过源代码部署
 
 由于重构了模型选择模块逻辑，故通过环境变量配置服务商的 API KEY功能可能存在问题，当前版本不保障可用性，推荐前端部署后，直接于设置中配置使用
+
+### Demo站点
+
+点击[https://qaduck.com](https://qaduck.com)
 
 ### 架构重构
 
@@ -16,7 +22,7 @@
   即原先整体架构为，话题-消息。该版本重构为助手-话题-消息。
   此重构有助于区分不同助手下的话题，避免所有话题均无条件展示，不便于浏览。同时增强了系统对于助手的依赖程度，能够更有效的利用助手提高效率。
 
-## 用户体验升级
+### 用户体验升级
 
 - 全局设置界面重构，清晰的设置分组，快速定位所需配置
 
@@ -33,9 +39,11 @@
   ![MCP Server 管理](docs/images/readme/mcp-server-management.png)
 
 - 模型选择器 UI 与逻辑重构
+
   ![模型选择器重构](docs/images/readme/model-selector-refactor.png)
 
 - 助手选择界面重构
+
   ![助手选择界面重构](docs/images/readme/assistant-selector-refactor.png)
 - 可配置的模型能力（视觉、联网、嵌入、工具、思考），通过小图标进行显示，快速浏览模型功能
 - 支持模型连通性/可用性测试
@@ -69,7 +77,7 @@
 
 ### Support
 
-请通过 Issue 来获取支持
+请通过 [Issue](https://github.com/Syferie/qadchat/issues) 来获取支持
 
 ## 致谢
 
