@@ -42,9 +42,10 @@ export const createDefaultMask = () => {
     avatar: "1f40b",
     name: "默认助手",
     context: [],
-    syncGlobalConfig: true,
+    syncGlobalConfig: false, // 修改为 false，让默认助手也保持自己的配置
     modelConfig: { ...globalConfig },
     defaultModel: undefined, // 初始化默认模型为 undefined
+
     lang: getLang(),
     builtin: true, // 标记为内置，不可删除
     createdAt: Date.now(),
@@ -62,6 +63,7 @@ export const createEmptyMask = () =>
     syncGlobalConfig: true, // use global config as default
     modelConfig: { ...useAppConfig.getState().modelConfig },
     defaultModel: undefined, // 初始化默认模型为 undefined
+
     lang: getLang(),
     builtin: false,
     createdAt: Date.now(),
@@ -137,7 +139,7 @@ export const useMaskStore = createPersistStore(
   }),
   {
     name: StoreKey.Mask,
-    version: 3.1,
+    version: 3.2,
 
     migrate(state, version) {
       const newState = JSON.parse(JSON.stringify(state)) as MaskState;
@@ -153,6 +155,16 @@ export const useMaskStore = createPersistStore(
           updatedMasks[m.id] = m;
         });
         newState.masks = updatedMasks;
+      }
+
+      // 修复默认助手的同步配置
+      if (version < 3.2) {
+        Object.values(newState.masks).forEach((m) => {
+          // 修复默认助手的同步配置
+          if (m.id === DEFAULT_MASK_ID && m.syncGlobalConfig === true) {
+            m.syncGlobalConfig = false;
+          }
+        });
       }
 
       // 确保默认面具存在

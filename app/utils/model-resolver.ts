@@ -42,8 +42,9 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
 }
 
 /**
- * 获取创建新对话时应该使用的模型配置
+ * 获取面具的模型和提供商决策
  * 优先级：面具默认模型 > 全局默认模型
+ * 注意：这个函数只返回模型和提供商信息，不包含其他配置项
  */
 export function getSessionModelConfig(mask: Mask) {
   const globalConfig = useAppConfig.getState().modelConfig;
@@ -69,4 +70,48 @@ export function getMaskEffectiveModel(mask: Mask): string {
  */
 export function isMaskUsingGlobalModel(mask: Mask): boolean {
   return !mask.defaultModel || mask.defaultModel === "";
+}
+
+/**
+ * 获取面具应该使用的摘要模型
+ * 优先级：面具摘要模型配置 > 全局摘要模型配置 > 智能选择
+ */
+export function getMaskCompressModel(mask: Mask): ModelDecision {
+  const globalConfig = useAppConfig.getState().modelConfig;
+
+  // 如果面具设置了摘要模型，使用面具摘要模型
+  if (mask.modelConfig.compressModel) {
+    return {
+      model: mask.modelConfig.compressModel,
+      providerName:
+        mask.modelConfig.compressProviderName || globalConfig.providerName,
+      source: "mask-config",
+    };
+  }
+
+  // 如果面具没有设置摘要模型，使用全局摘要模型配置
+  if (globalConfig.compressModel) {
+    return {
+      model: globalConfig.compressModel,
+      providerName:
+        globalConfig.compressProviderName || globalConfig.providerName,
+      source: "global-default",
+    };
+  }
+
+  // 如果全局也没有配置摘要模型，返回空，让系统使用智能选择
+  return {
+    model: "",
+    providerName: "",
+    source: "global-default", // 使用现有的source类型
+  };
+}
+
+/**
+ * 检查面具是否使用全局摘要模型配置
+ */
+export function isMaskUsingGlobalCompressModel(mask: Mask): boolean {
+  return (
+    !mask.modelConfig.compressModel || mask.modelConfig.compressModel === ""
+  );
 }

@@ -33,7 +33,10 @@ import { prettyObject } from "../utils/format";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
-import { getSessionModelConfig } from "../utils/model-resolver";
+import {
+  getSessionModelConfig,
+  getMaskCompressModel,
+} from "../utils/model-resolver";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
@@ -352,17 +355,21 @@ export const useChatStore = createPersistStore(
         const session = createEmptySession();
 
         if (mask) {
-          // 使用新的模型决策系统获取模型配置
-          const sessionModelConfig = getSessionModelConfig(mask);
-
           // 创建一个新的面具对象，确保不会修改原始面具
           const newMask = { ...mask };
 
-          // 禁用全局同步，防止后续操作覆盖我们的模型配置
-          newMask.syncGlobalConfig = false;
+          // 深拷贝面具的模型配置，确保使用面具的完整配置
+          newMask.modelConfig = { ...mask.modelConfig };
 
-          // 使用决策系统的模型配置
-          newMask.modelConfig = sessionModelConfig;
+          // 如果面具有默认模型设置，需要确保模型配置中的模型和提供商是正确的
+          if (mask.defaultModel) {
+            const sessionModelConfig = getSessionModelConfig(mask);
+            newMask.modelConfig.model = sessionModelConfig.model;
+            newMask.modelConfig.providerName = sessionModelConfig.providerName;
+          }
+
+          // 禁用全局同步，防止后续操作覆盖我们的面具配置
+          newMask.syncGlobalConfig = false;
 
           // 确保使用新创建的面具对象
           session.mask = newMask;
@@ -718,9 +725,10 @@ export const useChatStore = createPersistStore(
           return;
         }
 
-        // if not config compressModel, then using getSummarizeModel
-        const [model, providerName] = modelConfig.compressModel
-          ? [modelConfig.compressModel, modelConfig.compressProviderName]
+        // 使用摘要模型决策系统
+        const compressDecision = getMaskCompressModel(session.mask);
+        const [model, providerName] = compressDecision.model
+          ? [compressDecision.model, compressDecision.providerName]
           : getSummarizeModel(
               session.mask.modelConfig.model,
               session.mask.modelConfig.providerName,
