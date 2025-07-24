@@ -65,15 +65,19 @@ async function request(req: NextRequest) {
   );
 
   const fetchUrl = `${baseUrl}${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: req.headers.get("Authorization") ?? "",
+    "X-DashScope-SSE": req.headers.get("X-DashScope-SSE") ?? "disable",
+  };
+
+  const apiKey = req.headers.get("x-api-key");
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
+  }
+
   const fetchOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: req.headers.get("Authorization") ?? "",
-      "X-DashScope-SSE": req.headers.get("X-DashScope-SSE") ?? "disable",
-      ...(req.headers.get("x-api-key") && {
-        "x-api-key": req.headers.get("x-api-key"),
-      }), // Include x-api-key if present
-    },
+    headers,
     method: req.method,
     body: req.body,
     redirect: "manual",
