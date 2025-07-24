@@ -160,6 +160,100 @@ interface MCPClient {
   tools: any;
 }
 
+function ShortcutKeyPanel(props: { showPanel: boolean; onClose: () => void }) {
+  const { showPanel, onClose } = props;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
+  const shortcuts = [
+    {
+      title: Locale.Chat.ShortcutKey.newChat,
+      keys: isMac ? ["⌘", "Shift", "O"] : ["Ctrl", "Shift", "O"],
+    },
+    { title: Locale.Chat.ShortcutKey.focusInput, keys: ["Shift", "Esc"] },
+    {
+      title: Locale.Chat.ShortcutKey.copyLastCode,
+      keys: isMac ? ["⌘", "Shift", ";"] : ["Ctrl", "Shift", ";"],
+    },
+    {
+      title: Locale.Chat.ShortcutKey.copyLastMessage,
+      keys: isMac ? ["⌘", "Shift", "C"] : ["Ctrl", "Shift", "C"],
+    },
+    {
+      title: Locale.Chat.ShortcutKey.showShortcutKey,
+      keys: isMac ? ["⌘", "/"] : ["Ctrl", "/"],
+    },
+    {
+      title: Locale.Chat.ShortcutKey.clearContext,
+      keys: isMac ? ["⌘", "Shift", "L"] : ["Ctrl", "Shift", "L"],
+    },
+  ];
+
+  // 点击外部关闭面板
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // 检查是否点击了快捷键按钮或其子元素
+      const shortcutButton = document.querySelector("[data-shortcut-button]");
+      if (shortcutButton && shortcutButton.contains(target)) {
+        return; // 如果点击的是快捷键按钮，不关闭面板
+      }
+
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        onClose();
+      }
+    };
+
+    if (showPanel) {
+      // 使用 setTimeout 延迟添加事件监听器，避免立即触发
+      const timer = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showPanel, onClose]);
+
+  if (!showPanel) {
+    return null;
+  }
+
+  return (
+    <div ref={panelRef} className={styles["shortcut-panel"]}>
+      <div className={styles["shortcut-panel-header"]}>
+        <span className={styles["shortcut-panel-title"]}>
+          {Locale.Chat.ShortcutKey.Title}
+        </span>
+        <button className={styles["shortcut-panel-close"]} onClick={onClose}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className={styles["shortcut-panel-content"]}>
+        <div className={styles["shortcut-key-list"]}>
+          {shortcuts.map((shortcut, index) => (
+            <div key={index} className={styles["shortcut-key-item"]}>
+              <div className={styles["shortcut-key-title"]}>
+                {shortcut.title}
+              </div>
+              <div className={styles["shortcut-key-keys"]}>
+                {shortcut.keys.map((key, i) => (
+                  <div key={i} className={styles["shortcut-key"]}>
+                    <span>{key}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
   const { showPanel, onClose } = props;
   const chatStore = useChatStore();
@@ -603,6 +697,8 @@ export function ChatActions(props: {
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
   showMcpPanel: boolean;
   setShowMcpPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  showShortcutKeyPanel: boolean;
+  setShowShortcutKeyPanel: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -904,9 +1000,12 @@ export function ChatActions(props: {
 
         {!isMobileScreen && (
           <ChatAction
-            onClick={() => props.setShowShortcutKeyModal(true)}
+            onClick={() =>
+              props.setShowShortcutKeyPanel(!props.showShortcutKeyPanel)
+            }
             text={Locale.Chat.ShortcutKey.Title}
             icon={<ShortcutkeyIcon />}
+            dataAttribute="data-shortcut-button"
           />
         )}
         {!isMobileScreen && (
@@ -1727,6 +1826,7 @@ function _Chat() {
 
   // 快捷键 shortcut keys
   const [showShortcutKeyModal, setShowShortcutKeyModal] = useState(false);
+  const [showShortcutKeyPanel, setShowShortcutKeyPanel] = useState(false);
 
   // MCP 面板
   const [showMcpPanel, setShowMcpPanel] = useState(false);
@@ -1781,7 +1881,7 @@ function _Chat() {
       // 展示快捷键 command + /
       else if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
-        setShowShortcutKeyModal(true);
+        setShowShortcutKeyPanel(!showShortcutKeyPanel);
       }
       // 清除上下文 command + shift + backspace
       else if (
@@ -2181,6 +2281,11 @@ function _Chat() {
                 onClose={() => setShowMcpPanel(false)}
               />
 
+              <ShortcutKeyPanel
+                showPanel={showShortcutKeyPanel}
+                onClose={() => setShowShortcutKeyPanel(false)}
+              />
+
               <ChatActions
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
@@ -2204,6 +2309,8 @@ function _Chat() {
                 setShowChatSidePanel={setShowChatSidePanel}
                 showMcpPanel={showMcpPanel}
                 setShowMcpPanel={setShowMcpPanel}
+                showShortcutKeyPanel={showShortcutKeyPanel}
+                setShowShortcutKeyPanel={setShowShortcutKeyPanel}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
