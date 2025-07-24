@@ -7,7 +7,7 @@ import {
   useChatStore,
   ChatMessageTool,
 } from "@/app/store";
-import { stream } from "@/app/utils/chat";
+import { stream, streamWithThink } from "@/app/utils/chat";
 import {
   ChatOptions,
   getHeaders,
@@ -151,7 +151,10 @@ export class XAIApi implements LLMApi {
                 runTools[index]["function"]["arguments"] += args;
               }
             }
-            return choices[0]?.delta?.content;
+            return {
+              isThinking: false,
+              content: choices[0]?.delta?.content,
+            };
           },
           // processToolMessage, include tool_calls message and tool call results
           (
