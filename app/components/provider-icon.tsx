@@ -71,11 +71,28 @@ function getModelIconType(
     lowerModelName.includes("o4")
   )
     return "o1";
-  if (
-    lowerModelName.includes("text-embedding") ||
-    lowerModelName.includes("embedding")
-  )
-    return "gpt4"; // 嵌入模型使用GPT-4图标
+  // 嵌入模型的特殊处理 - 根据具体模型名称识别提供商
+  if (lowerModelName.includes("embedding")) {
+    // 豆包嵌入模型
+    if (lowerModelName.includes("doubao")) return "doubao";
+    // 阿里云Qwen嵌入模型
+    if (
+      lowerModelName.includes("qwen") ||
+      lowerModelName.includes("text-embedding-v2")
+    )
+      return "qwen";
+    // SiliconFlow平台的嵌入模型
+    if (lowerModelName.includes("baai") || lowerModelName.includes("bge"))
+      return "default";
+    // OpenAI嵌入模型（默认）
+    if (
+      lowerModelName.includes("text-embedding") ||
+      lowerModelName.includes("ada")
+    )
+      return "gpt4";
+    // 其他嵌入模型使用默认图标
+    return "default";
+  }
   if (lowerModelName.includes("doubao") || lowerModelName.includes("豆包"))
     return "doubao";
   if (lowerModelName.includes("kimi") || lowerModelName.includes("moonshot"))
@@ -281,16 +298,47 @@ function ModelAvatar({
   if (modelName) {
     const lowerModelName = modelName.toLowerCase();
 
-    if (
+    // 嵌入模型的特殊处理
+    if (lowerModelName.includes("embedding")) {
+      // 豆包嵌入模型
+      if (lowerModelName.includes("doubao")) {
+        LlmIcon = BotIconDoubao;
+      }
+      // 阿里云Qwen嵌入模型
+      else if (
+        lowerModelName.includes("qwen") ||
+        lowerModelName.includes("text-embedding-v2")
+      ) {
+        LlmIcon = BotIconQwen;
+      }
+      // SiliconFlow平台的嵌入模型
+      else if (
+        lowerModelName.includes("baai") ||
+        lowerModelName.includes("bge")
+      ) {
+        LlmIcon = BotIconDefault; // 使用默认图标
+      }
+      // OpenAI嵌入模型
+      else if (
+        lowerModelName.includes("text-embedding") ||
+        lowerModelName.includes("ada")
+      ) {
+        LlmIcon = BotIconOpenAI;
+      }
+      // 其他嵌入模型使用默认图标
+      else {
+        LlmIcon = BotIconDefault;
+      }
+    }
+    // 其他模型的识别逻辑
+    else if (
       lowerModelName.startsWith("gpt") ||
       lowerModelName.startsWith("chatgpt") ||
       lowerModelName.startsWith("dall-e") ||
       lowerModelName.startsWith("dalle") ||
       lowerModelName.startsWith("o1") ||
       lowerModelName.startsWith("o3") ||
-      lowerModelName.startsWith("o4") ||
-      lowerModelName.startsWith("text-embedding") ||
-      lowerModelName.includes("embedding")
+      lowerModelName.startsWith("o4")
     ) {
       LlmIcon = BotIconOpenAI;
     } else if (lowerModelName.startsWith("gemini")) {
