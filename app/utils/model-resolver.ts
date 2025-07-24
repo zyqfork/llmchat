@@ -4,7 +4,9 @@
  */
 
 import { useAppConfig } from "../store/config";
+import { useAccessStore } from "../store/access";
 import { Mask } from "../store/mask";
+import { collectModelsWithDefaultModel } from "./model";
 
 export interface ModelDecision {
   model: string;
@@ -21,8 +23,14 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
 
   // 如果面具设置了默认模型，使用面具默认模型
   if (mask.defaultModel) {
-    // 需要找到对应的提供商信息
-    const allModels = useAppConfig.getState().models;
+    // 需要找到对应的提供商信息，使用包含自定义模型的完整列表
+    const configStore = useAppConfig.getState();
+    const accessStore = useAccessStore.getState();
+    const allModels = collectModelsWithDefaultModel(
+      configStore.models,
+      [configStore.customModels, accessStore.customModels].join(","),
+      accessStore.defaultModel,
+    );
     const modelObj = allModels.find((m) => m.name === mask.defaultModel);
 
     return {
