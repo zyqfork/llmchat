@@ -56,6 +56,11 @@ export class MCPClientLogger {
    * Print formatted message to console
    */
   private print(color: string, message: any) {
+    // 在生产环境中禁用 MCP 日志输出
+    if (process.env.NODE_ENV === "production" && !this.debugMode) {
+      return;
+    }
+
     const formattedMessage = this.formatMessage(message);
     const logMessage = `${color}${colors.bright}[${this.prefix}]${colors.reset} ${formattedMessage}`;
 

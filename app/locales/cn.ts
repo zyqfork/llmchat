@@ -1,6 +1,5 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
-import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 
 const isApp = !!getClientConfig()?.isApp;
 
@@ -305,11 +304,11 @@ const cn = {
 
     Access: {
       SaasStart: {
-        Title: "使用 NextChat AI",
-        Label: "（性价比最高的方案）",
+        Title: "",
+        Label: "",
         SubTitle:
-          "由 NextChat 官方维护, 零配置开箱即用，支持 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
-        ChatNow: "立刻对话",
+          "",
+        ChatNow: "",
       },
       AccessCode: {
         Title: "访问密码",

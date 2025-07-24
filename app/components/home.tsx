@@ -235,11 +235,9 @@ export function Home() {
 
     const initMcp = async () => {
       try {
-        console.log("[MCP] initializing...");
         await initializeMcpSystem();
-        console.log("[MCP] initialized");
       } catch (err) {
-        console.error("[MCP] failed to initialize:", err);
+        // MCP 初始化失败，静默处理
       }
     };
     initMcp();

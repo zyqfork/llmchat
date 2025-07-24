@@ -272,7 +272,7 @@ function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
           ),
         );
       } catch (error) {
-        console.error("Failed to load MCP clients:", error);
+        // MCP 客户端加载失败，静默处理
       } finally {
         setLoading(false);
       }

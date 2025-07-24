@@ -84,7 +84,6 @@ export function McpMarketPage() {
         const builtinServers = getAllBuiltinServers();
         setPresetServers(builtinServers);
       } catch (error) {
-        console.error("Failed to load builtin servers:", error);
         showToast("Failed to load builtin servers");
       } finally {
         setLoadingPresets(false);
@@ -105,7 +104,6 @@ export function McpMarketPage() {
         const statuses = await getClientsStatus();
         setClientStatuses(statuses);
       } catch (error) {
-        console.error("Failed to load initial state:", error);
         showToast("Failed to load initial state");
       } finally {
         setIsLoading(false);
@@ -188,7 +186,6 @@ export function McpMarketPage() {
       }
     } catch (error) {
       showToast("Failed to load tools");
-      console.error(error);
       setTools(null);
     }
   };
@@ -248,7 +245,6 @@ export function McpMarketPage() {
       showToast("Server stopped successfully");
     } catch (error) {
       showToast("Failed to stop server");
-      console.error(error);
     } finally {
       updateLoadingState(id, null);
     }
@@ -265,7 +261,6 @@ export function McpMarketPage() {
           ? error.message
           : "Failed to start server, please check logs",
       );
-      console.error(error);
     } finally {
       updateLoadingState(id, null);
     }
@@ -280,7 +275,6 @@ export function McpMarketPage() {
       showToast("Restarting all clients");
     } catch (error) {
       showToast("Failed to restart clients");
-      console.error(error);
     } finally {
       updateLoadingState("all", null);
     }

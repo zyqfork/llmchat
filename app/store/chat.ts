@@ -886,11 +886,8 @@ export const useChatStore = createPersistStore(
           try {
             const mcpRequest = extractMcpJson(content);
             if (mcpRequest) {
-              console.debug("[MCP Request]", mcpRequest);
-
               executeMcpAction(mcpRequest.clientId, mcpRequest.mcp)
                 .then((result: any) => {
-                  console.log("[MCP Response]", result);
                   const mcpResponse =
                     typeof result === "object"
                       ? JSON.stringify(result)
@@ -906,7 +903,7 @@ export const useChatStore = createPersistStore(
                 );
             }
           } catch (error) {
-            console.error("[Check MCP JSON]", error);
+            // MCP JSON 检查失败，静默处理
           }
         }
       },
