@@ -212,6 +212,7 @@ async function getMcpSystemPrompt(
   const tools = await getAllTools();
 
   let toolsStr = "";
+  let totalToolCount = 0;
 
   tools.forEach((i) => {
     // error client has no tools
@@ -222,8 +223,11 @@ async function getMcpSystemPrompt(
       return;
     }
 
+    // 统计工具数量
+    totalToolCount += i.tools.tools.length;
+
     toolsStr += MCP_TOOLS_TEMPLATE.replace(
-      "{{ clientId }}",
+      /\{\{ clientId \}\}/g,
       i.clientId,
     ).replace(
       "{{ tools }}",
@@ -231,7 +235,17 @@ async function getMcpSystemPrompt(
     );
   });
 
-  return MCP_SYSTEM_TEMPLATE.replace("{{ MCP_TOOLS }}", toolsStr);
+  // 根据工具数量决定是否使用强化模式
+  let systemTemplate = MCP_SYSTEM_TEMPLATE;
+  if (totalToolCount > 0) {
+    // 对于少量工具，使用更强化的提示词
+    systemTemplate = systemTemplate.replace(
+      "## Tool Use Rules",
+      `## Tool Use Rules (${totalToolCount} tools available)\n**IMPORTANT: You have ${totalToolCount} powerful tools available. Use them actively to help users!**`,
+    );
+  }
+
+  return systemTemplate.replace("{{ MCP_TOOLS }}", toolsStr);
 }
 
 const DEFAULT_CHAT_STATE = {
@@ -867,7 +881,7 @@ export const useChatStore = createPersistStore(
               console.debug("[MCP Request]", mcpRequest);
 
               executeMcpAction(mcpRequest.clientId, mcpRequest.mcp)
-                .then((result) => {
+                .then((result: any) => {
                   console.log("[MCP Response]", result);
                   const mcpResponse =
                     typeof result === "object"
@@ -879,7 +893,9 @@ export const useChatStore = createPersistStore(
                     true,
                   );
                 })
-                .catch((error) => showToast("MCP execution failed", error));
+                .catch((error: any) =>
+                  showToast("MCP execution failed", error),
+                );
             }
           } catch (error) {
             console.error("[Check MCP JSON]", error);
@@ -974,7 +990,6 @@ export const useChatStore = createPersistStore(
       // revert default summarize model for every session
       if (version < 3.3) {
         newState.sessions.forEach((s) => {
-          const config = useAppConfig.getState();
           s.mask.modelConfig.compressModel = "";
           s.mask.modelConfig.compressProviderName = "";
         });

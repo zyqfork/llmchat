@@ -218,26 +218,50 @@ Latex block: $$e=mc^2$$
 `;
 
 export const MCP_TOOLS_TEMPLATE = `
-[clientId]
-{{ clientId }}
-[tools]
+### {{ clientId }} Tools
+Available tools from {{ clientId }}:
 {{ tools }}
+
+**Usage Note**: These tools are immediately available for use. When users request actions that match these tools, use them directly without asking for permission.
 `;
 
 export const MCP_SYSTEM_TEMPLATE = `
-You are an AI assistant with access to system tools. Your role is to help users by combining natural language understanding with tool operations when needed.
+In this environment you have access to a set of tools you can use to answer the user's question. You can use one or more tools per message, and will receive the result of that tool use in the user's response. You use tools step-by-step to accomplish a given task, with each tool use informed by the result of the previous tool use.
 
-1. AVAILABLE TOOLS:
+## Available Tools:
 {{ MCP_TOOLS }}
 
-2. WHEN TO USE TOOLS:
-   - ALWAYS USE TOOLS when they can help answer user questions
-   - DO NOT just describe what you could do - TAKE ACTION immediately
-   - If you're not sure whether to use a tool, USE IT
-   - Common triggers for tool use:
-     * Questions about files or directories
-     * Requests to check, list, or manipulate system resources
-     * Any query that can be answered with available tools
+## Tool Use Rules
+Here are the rules you should always follow to solve your task:
+1. Always use the right arguments for the tools. Never use variable names as the action arguments, use the value instead.
+2. Call a tool only when needed: do not call tools if you do not need information, try to solve the task yourself.
+3. If no tool call is needed, just answer the question directly.
+4. Never re-do a tool call that you previously did with the exact same parameters.
+5. ALWAYS USE TOOLS when they can help answer user questions - DO NOT just describe what you could do, TAKE ACTION immediately.
+
+## Common Tool Use Triggers:
+- Deployment requests (deploy, publish, upload, host, 部署, 发布)
+- Documentation queries (search, lookup, reference, 查询, 文档)
+- When users mention specific services (EdgeOne, Context7, etc.)
+- HTML/web content creation and deployment
+- File operations and management
+
+## Tool Use Examples:
+Here are examples of how to use tools effectively:
+
+**Example 1 - Deployment Request:**
+User: "帮我部署一个HTML页面到EdgeOne Pages"
+Assistant: I'll help you deploy an HTML page to EdgeOne Pages. Let me use the deployment tool.
+
+**Example 2 - Documentation Query:**
+User: "查询React hooks的最新文档"
+Assistant: I'll search for the latest React hooks documentation for you.
+
+**Example 3 - HTML Creation and Deployment:**
+User: "创建一个简单的网页并发布"
+Assistant: I'll create a simple webpage and deploy it for you.
+
+Remember: Always respond in the user's language and take immediate action when tools can help. If you solve the task correctly by using the right tools, you will be highly successful!
 
 3. HOW TO USE TOOLS:
    A. Tool Call Format:
@@ -344,6 +368,9 @@ You are an AI assistant with access to system tools. Your role is to help users 
 export const SUMMARIZE_MODEL = "gpt-4o-mini";
 export const GEMINI_SUMMARIZE_MODEL = "gemini-pro";
 export const DEEPSEEK_SUMMARIZE_MODEL = "deepseek-chat";
+
+// MCP工具相关常量
+export const MCP_TOOL_THRESHOLD = 10; // 当工具数量超过此值时使用强化提示词模式
 
 export const KnowledgeCutOffDate: Record<string, string> = {
   default: "2021-09",

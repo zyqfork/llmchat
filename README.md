@@ -55,6 +55,14 @@ English / [简体中文](./README_CN.md)
 
 > Before build, please set env ENABLE_MCP=true
 
+NextChat now supports **Model Context Protocol (MCP)** optimized for web environments:
+
+- **SSE Transport Protocol**: Server-Sent Events for real-time communication (web-optimized)
+- **OAuth 2.0 Authentication**: Secure authentication for HTTP-based MCP servers
+- **Builtin HTTP Servers**: Context7 (documentation), EdgeOne Pages (edge computing)
+- **Web-First Architecture**: Designed specifically for static web applications
+- **No Node.js Required**: Pure browser-based MCP client implementation
+
 <img src="https://github.com/user-attachments/assets/d8851f40-4e36-4335-b1a4-ec1e11488c7e"/>
 
 ## Enterprise Edition
@@ -107,7 +115,7 @@ For enterprise inquiries, please contact: **business@nextchat.dev**
 - [x] Desktop App with tauri
 - [x] Self-host Model: Fully compatible with [RWKV-Runner](https://github.com/josStorer/RWKV-Runner), as well as server deployment of [LocalAI](https://github.com/go-skynet/LocalAI): llama/gpt4all/rwkv/vicuna/koala/gpt4all-j/cerebras/falcon/dolly etc.
 - [x] Artifacts: Easily preview, copy and share generated content/webpages through a separate window [#5092](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/pull/5092)
-- [x] MCP (Model Context Protocol): Modern tool calling interface for extensible functionality
+- [x] MCP (Model Context Protocol): Modern tool calling interface with multiple transport protocols (stdio, SSE, StreamableHTTP) and OAuth authentication
 - [x] Supports Realtime Chat [#5672](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/issues/5672)
 - [ ] local knowledge base
 
@@ -116,7 +124,7 @@ For enterprise inquiries, please contact: **business@nextchat.dev**
 - 🎯 v2.15.9 Enhanced Model Manager with intelligent categorization and capability-based filtering
 - 🚀 v2.15.8 Now supports Realtime Chat [#5672](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/issues/5672)
 - 🚀 v2.15.4 The Application supports using Tauri fetch LLM API, MORE SECURITY! [#5379](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/issues/5379)
-- 🚀 v2.15.0 Plugin functionality has been removed in favor of MCP (Model Context Protocol) for better tool integration
+- 🚀 v2.15.0 Plugin functionality has been removed in favor of enhanced MCP (Model Context Protocol) with multi-transport support
 - 🚀 v2.14.0 Stable Diffusion functionality has been removed to focus on chat experience. Now supports Artifacts
 - 🚀 v2.10.1 support Google Gemini Pro model.
 - 🚀 v2.9.11 you can use azure endpoint now.
@@ -320,7 +328,16 @@ Customize the default template used to initialize the User Input Preprocessing c
 
 ### `ENABLE_MCP` (optional)
 
-Enable MCP（Model Context Protocol）Feature
+Enable MCP (Model Context Protocol) feature optimized for web environments:
+- **sse**: Server-Sent Events for real-time communication (web-optimized)
+
+⚠️ **Web Environment Limitations**:
+- Only HTTP-based MCP servers are supported (no local command execution)
+- stdio/command-line MCP servers cannot run in browser environments
+
+Includes builtin HTTP-based MCP servers:
+- **Context7**: Documentation and API reference queries via SSE
+- **EdgeOne Pages**: Tencent Cloud edge computing services via SSE
 
 ### `SILICONFLOW_API_KEY` (optional)
 

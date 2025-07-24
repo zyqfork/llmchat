@@ -1,8 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { MCPClientLogger } from "./logger";
 import { ListToolsResponse, McpRequestMessage, ServerConfig } from "./types";
 import { z } from "zod";
+import { createMCPClient } from "./transport-factory";
 
 const logger = new MCPClientLogger();
 
@@ -12,30 +12,8 @@ export async function createClient(
 ): Promise<Client> {
   logger.info(`Creating client for ${id}...`);
 
-  const transport = new StdioClientTransport({
-    command: config.command,
-    args: config.args,
-    env: {
-      ...Object.fromEntries(
-        Object.entries(process.env)
-          .filter(([_, v]) => v !== undefined)
-          .map(([k, v]) => [k, v as string]),
-      ),
-      ...(config.env || {}),
-    },
-  });
-
-  const client = new Client(
-    {
-      name: `nextchat-mcp-client-${id}`,
-      version: "1.0.0",
-    },
-    {
-      capabilities: {},
-    },
-  );
-  await client.connect(transport);
-  return client;
+  // 使用新的传输工厂创建客户端
+  return await createMCPClient(id, config);
 }
 
 export async function removeClient(client: Client) {
@@ -50,6 +28,7 @@ export async function listTools(client: Client): Promise<ListToolsResponse> {
 export async function executeRequest(
   client: Client,
   request: McpRequestMessage,
-) {
-  return client.request(request, z.any());
+): Promise<any> {
+  // 使用类型断言避免复杂的类型推断
+  return (client as any).request(request, z.object({}).passthrough());
 }

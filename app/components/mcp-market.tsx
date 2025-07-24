@@ -27,6 +27,7 @@ import {
   ServerConfig,
   ServerStatusResponse,
 } from "../mcp/types";
+import { getAllBuiltinServers, searchServers } from "../mcp/builtin-servers";
 import clsx from "clsx";
 import PlayIcon from "../icons/play.svg";
 import StopIcon from "../icons/pause.svg";
@@ -74,20 +75,17 @@ export function McpMarketPage() {
     return () => clearInterval(timer);
   }, [config]);
 
-  // 加载预设服务器
+  // 加载内置预设服务器
   useEffect(() => {
     const loadPresetServers = async () => {
       try {
         setLoadingPresets(true);
-        const response = await fetch("https://nextchat.club/mcp/list");
-        if (!response.ok) {
-          throw new Error("Failed to load preset servers");
-        }
-        const data = await response.json();
-        setPresetServers(data?.data ?? []);
+        // 使用内置服务器配置，不再从远程获取
+        const builtinServers = getAllBuiltinServers();
+        setPresetServers(builtinServers);
       } catch (error) {
-        console.error("Failed to load preset servers:", error);
-        showToast("Failed to load preset servers");
+        console.error("Failed to load builtin servers:", error);
+        showToast("Failed to load builtin servers");
       } finally {
         setLoadingPresets(false);
       }
@@ -116,32 +114,22 @@ export function McpMarketPage() {
     loadInitialState();
   }, []);
 
-  // 加载当前编辑服务器的配置
+  // 加载当前编辑服务器的配置 (简化版 - 当前内置服务器都不需要配置)
   useEffect(() => {
     if (!editingServerId || !config) return;
     const currentConfig = config.mcpServers[editingServerId];
     if (currentConfig) {
-      // 从当前配置中提取用户配置
+      // 对于HTTP服务器，配置相对简单
       const preset = presetServers.find((s) => s.id === editingServerId);
       if (preset?.configSchema) {
+        // 从OAuth配置中提取用户配置
         const userConfig: Record<string, any> = {};
-        Object.entries(preset.argsMapping || {}).forEach(([key, mapping]) => {
-          if (mapping.type === "spread") {
-            // For spread types, extract the array from args.
-            const startPos = mapping.position ?? 0;
-            userConfig[key] = currentConfig.args.slice(startPos);
-          } else if (mapping.type === "single") {
-            // For single types, get a single value
-            userConfig[key] = currentConfig.args[mapping.position ?? 0];
-          } else if (
-            mapping.type === "env" &&
-            mapping.key &&
-            currentConfig.env
-          ) {
-            // For env types, get values from environment variables
-            userConfig[key] = currentConfig.env[mapping.key];
-          }
-        });
+        if (currentConfig.authProvider) {
+          Object.keys(preset.configSchema.properties).forEach((key) => {
+            // 简化的配置提取逻辑
+            userConfig[key] = (currentConfig.authProvider as any)?.[key] || "";
+          });
+        }
         setUserConfig(userConfig);
       }
     } else {
@@ -154,7 +142,7 @@ export function McpMarketPage() {
     return id in (config?.mcpServers ?? {});
   };
 
-  // 保存服务器配置
+  // 保存服务器配置 (SSE专用 - 简化版)
   const saveServerConfig = async () => {
     const preset = presetServers.find((s) => s.id === editingServerId);
     if (!preset || !preset.configSchema || !editingServerId) return;
@@ -164,33 +152,27 @@ export function McpMarketPage() {
 
     try {
       updateLoadingState(savingServerId, "Updating configuration...");
-      // 构建服务器配置
-      const args = [...preset.baseArgs];
-      const env: Record<string, string> = {};
 
-      Object.entries(preset.argsMapping || {}).forEach(([key, mapping]) => {
-        const value = userConfig[key];
-        if (mapping.type === "spread" && Array.isArray(value)) {
-          const pos = mapping.position ?? 0;
-          args.splice(pos, 0, ...value);
-        } else if (
-          mapping.type === "single" &&
-          mapping.position !== undefined
-        ) {
-          args[mapping.position] = value;
-        } else if (
-          mapping.type === "env" &&
-          mapping.key &&
-          typeof value === "string"
-        ) {
-          env[mapping.key] = value;
+      // 构建SSE服务器配置
+      const authProvider: any = {};
+
+      // 从用户配置中构建OAuth配置
+      Object.entries(userConfig).forEach(([key, value]) => {
+        if (typeof value === "string" && value.trim()) {
+          authProvider[key] = value;
         }
       });
 
       const serverConfig: ServerConfig = {
-        command: preset.command,
-        args,
-        ...(Object.keys(env).length > 0 ? { env } : {}),
+        type: "sse",
+        baseUrl: preset.baseUrl,
+        headers: preset.headers,
+        timeout: preset.timeout,
+        name: preset.name,
+        description: preset.description,
+        provider: preset.repo,
+        tags: preset.tags,
+        ...(Object.keys(authProvider).length > 0 ? { authProvider } : {}),
       };
 
       const newConfig = await addMcpServer(savingServerId, serverConfig);
@@ -239,10 +221,19 @@ export function McpMarketPage() {
         const serverId = preset.id;
         updateLoadingState(serverId, "Creating MCP client...");
 
+        // 构建HTTP服务器配置 (网页端专用)
         const serverConfig: ServerConfig = {
-          command: preset.command,
-          args: [...preset.baseArgs],
+          type: preset.transportType,
+          baseUrl: preset.baseUrl,
+          headers: preset.headers,
+          timeout: preset.timeout,
+          authProvider: preset.authProvider,
+          name: preset.name,
+          description: preset.description,
+          provider: preset.repo,
+          tags: preset.tags,
         };
+
         const newConfig = await addMcpServer(preset.id, serverConfig);
         setConfig(newConfig);
 
@@ -446,16 +437,11 @@ export function McpMarketPage() {
       );
     }
 
-    return presetServers
-      .filter((server) => {
-        if (searchText.length === 0) return true;
-        const searchLower = searchText.toLowerCase();
-        return (
-          server.name.toLowerCase().includes(searchLower) ||
-          server.description.toLowerCase().includes(searchLower) ||
-          server.tags.some((tag) => tag.toLowerCase().includes(searchLower))
-        );
-      })
+    // 使用优化的搜索功能
+    const filteredServers =
+      searchText.length === 0 ? presetServers : searchServers(searchText);
+
+    return filteredServers
       .sort((a, b) => {
         const aStatus = checkServerStatus(a.id).status;
         const bStatus = checkServerStatus(b.id).status;

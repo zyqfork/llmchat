@@ -109,12 +109,36 @@ export interface ServerStatusResponse {
   errorMsg: string | null;
 }
 
-// MCP 服务器配置相关类型
+// MCP 传输协议类型 (网页端支持HTTP-based协议)
+export type MCPTransportType = "sse" | "streamableHttp";
+
+// MCP 服务器配置相关类型 (网页端专用 - 支持HTTP-based协议)
 export interface ServerConfig {
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-  status?: "active" | "paused" | "error";
+  // 传输协议类型
+  type: MCPTransportType;
+
+  // SSE 协议配置
+  baseUrl: string;
+  headers?: Record<string, string>;
+  timeout?: number; // 超时时间（秒）
+
+  // 认证配置（预留）
+  // authProvider?: AuthConfig;
+
+  // 服务器状态
+  status?: "active" | "paused" | "error" | "initializing";
+
+  // 服务器元信息
+  name?: string;
+  description?: string;
+  provider?: string;
+  providerUrl?: string;
+  logoUrl?: string;
+  tags?: string[];
+
+  // 禁用的工具列表
+  disabledTools?: string[];
+  disabledAutoApproveTools?: string[];
 }
 
 export interface McpConfigData {
@@ -126,16 +150,19 @@ export const DEFAULT_MCP_CONFIG: McpConfigData = {
   mcpServers: {},
 };
 
-export interface ArgsMapping {
-  // 参数映射的类型
-  type: "spread" | "single" | "env";
-
-  // 参数映射的位置
-  position?: number;
-
-  // 参数映射的 key
-  key?: string;
+// SSE传输协议配置类型 (网页端专用)
+export interface SSETransportConfig {
+  type: "sse";
+  baseUrl: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+  // authProvider?: AuthConfig;
 }
+
+export type AnyTransportConfig = SSETransportConfig;
+
+// 向后兼容的类型别名
+export type TransportType = MCPTransportType;
 
 export interface PresetServer {
   // MCP Server 的唯一标识，作为最终配置文件 Json 的 key
@@ -153,16 +180,21 @@ export interface PresetServer {
   // MCP Server 的标签
   tags: string[];
 
-  // MCP Server 的命令
-  command: string;
+  // 传输协议类型
+  transportType: MCPTransportType;
 
-  // MCP Server 的参数
-  baseArgs: string[];
+  // HTTP传输协议配置 (网页端专用)
+  baseUrl: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+
+  // 认证配置（预留）
+  // authProvider?: AuthConfig;
 
   // MCP Server 是否需要配置
   configurable: boolean;
 
-  // MCP Server 的配置 schema
+  // MCP Server 的配置 schema (预留)
   configSchema?: {
     properties: Record<
       string,
@@ -174,7 +206,4 @@ export interface PresetServer {
       }
     >;
   };
-
-  // MCP Server 的参数映射
-  argsMapping?: Record<string, ArgsMapping>;
 }
