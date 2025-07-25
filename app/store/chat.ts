@@ -366,6 +366,11 @@ export const useChatStore = createPersistStore(
             const sessionModelConfig = getSessionModelConfig(mask);
             newMask.modelConfig.model = sessionModelConfig.model;
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
+          } else {
+            // 即使没有设置默认模型，也要确保使用全局配置
+            const sessionModelConfig = getSessionModelConfig(mask);
+            newMask.modelConfig.model = sessionModelConfig.model;
+            newMask.modelConfig.providerName = sessionModelConfig.providerName;
           }
 
           // 禁用全局同步，防止后续操作覆盖我们的助手配置
