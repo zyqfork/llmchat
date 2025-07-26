@@ -605,6 +605,17 @@
   line-height: 1.4;
 }
 
+.chat-assistant-name {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: var(--primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
 .chat-message-container {
   max-width: var(--message-max-width);
   display: flex;

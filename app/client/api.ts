@@ -199,7 +199,7 @@ export class ClientApi {
     });
 
     const resJson = await res.json();
-    console.log("[Share]", resJson);
+
     if (resJson.id) {
       return `https://shareg.pt/${resJson.id}`;
     }
@@ -245,12 +245,6 @@ export function getHeaders(
       modelConfig.providerName as string,
     );
 
-    console.log("[getHeaders.getConfig] 🔍 Provider matching:", {
-      original: modelConfig.providerName,
-      normalized: normalizedProviderName,
-      model: modelConfig.model,
-    });
-
     const isGoogle = normalizedProviderName === ServiceProvider.Google;
     const isAzure = normalizedProviderName === ServiceProvider.Azure;
     const isAnthropic = normalizedProviderName === ServiceProvider.Anthropic;
@@ -295,20 +289,6 @@ export function getHeaders(
         ? accessStore.siliconflowApiKey
         : accessStore.openaiApiKey;
 
-    console.log("[getHeaders.getConfig] 🔑 API Key selection:", {
-      isGoogle,
-      isAlibaba,
-      isByteDance,
-      isAnthropic,
-      isCustomProvider,
-      selectedApiKey: apiKey ? `${apiKey.substring(0, 10)}...` : "null",
-      googleApiKey: accessStore.googleApiKey
-        ? `${accessStore.googleApiKey.substring(0, 10)}...`
-        : "null",
-      alibabaApiKey: accessStore.alibabaApiKey
-        ? `${accessStore.alibabaApiKey.substring(0, 10)}...`
-        : "null",
-    });
     return {
       isGoogle,
       isAzure,
@@ -382,76 +362,45 @@ export function getHeaders(
 }
 
 export function getClientApi(provider: ServiceProvider | string): ClientApi {
-  console.log(
-    "[getClientApi] 🔍 Input provider:",
-    provider,
-    "Type:",
-    typeof provider,
-  );
-
   // 标准化provider名称，支持provider.id、provider.providerName和自定义服务商
   const normalizedProvider = normalizeProviderName(provider as string);
-  console.log(
-    "[getClientApi] 🔄 Normalized provider:",
-    provider,
-    "->",
-    normalizedProvider,
-  );
 
   let selectedApi: ClientApi;
   switch (normalizedProvider) {
     case ServiceProvider.Google:
-      console.log("[getClientApi] ✅ Selected Google/GeminiPro API");
       selectedApi = new ClientApi(ModelProvider.GeminiPro);
       break;
     case ServiceProvider.Anthropic:
-      console.log("[getClientApi] ✅ Selected Anthropic/Claude API");
       selectedApi = new ClientApi(ModelProvider.Claude);
       break;
     case ServiceProvider.ByteDance:
-      console.log("[getClientApi] ✅ Selected ByteDance/Doubao API");
       selectedApi = new ClientApi(ModelProvider.Doubao);
       break;
     case ServiceProvider.Alibaba:
-      console.log("[getClientApi] ✅ Selected Alibaba/Qwen API");
       selectedApi = new ClientApi(ModelProvider.Qwen);
       break;
     case ServiceProvider.Moonshot:
-      console.log("[getClientApi] ✅ Selected Moonshot API");
       selectedApi = new ClientApi(ModelProvider.Moonshot);
       break;
     case ServiceProvider.DeepSeek:
-      console.log("[getClientApi] ✅ Selected DeepSeek API");
       selectedApi = new ClientApi(ModelProvider.DeepSeek);
       break;
     case ServiceProvider.XAI:
-      console.log("[getClientApi] ✅ Selected XAI API");
       selectedApi = new ClientApi(ModelProvider.XAI);
       break;
     case ServiceProvider.SiliconFlow:
-      console.log("[getClientApi] ✅ Selected SiliconFlow API");
       selectedApi = new ClientApi(ModelProvider.SiliconFlow);
       break;
     default:
-      console.log(
-        "[getClientApi] ⚠️ Using default OpenAI/GPT API for provider:",
-        provider,
-      );
       selectedApi = new ClientApi(ModelProvider.GPT);
       break;
   }
 
-  console.log(
-    "[getClientApi] 🎯 Final API type:",
-    selectedApi.llm.constructor.name,
-  );
   return selectedApi;
 }
 
 // 标准化provider名称，将provider.id转换为ServiceProvider枚举值
 function normalizeProviderName(provider: string): ServiceProvider {
-  console.log("[normalizeProviderName] 🔍 Input:", provider);
-
   // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
   if (provider.startsWith("custom_")) {
     const { useAccessStore } = require("../store");
@@ -461,27 +410,14 @@ function normalizeProviderName(provider: string): ServiceProvider {
     );
 
     if (customProvider) {
-      console.log(
-        "[normalizeProviderName] 🎯 Custom provider found, type:",
-        customProvider.type,
-      );
       // 根据自定义服务商类型返回对应的ServiceProvider
       switch (customProvider.type) {
         case "google":
-          console.log(
-            "[normalizeProviderName] ✅ Custom Google provider -> Google",
-          );
           return ServiceProvider.Google;
         case "anthropic":
-          console.log(
-            "[normalizeProviderName] ✅ Custom Anthropic provider -> Anthropic",
-          );
           return ServiceProvider.Anthropic;
         case "openai":
         default:
-          console.log(
-            "[normalizeProviderName] ✅ Custom OpenAI provider -> OpenAI",
-          );
           return ServiceProvider.OpenAI;
       }
     }
@@ -501,48 +437,20 @@ function normalizeProviderName(provider: string): ServiceProvider {
     siliconflow: ServiceProvider.SiliconFlow,
   };
 
-  console.log(
-    "[normalizeProviderName] 📋 Available ServiceProvider values:",
-    Object.values(ServiceProvider),
-  );
-  console.log(
-    "[normalizeProviderName] 🔍 Checking if provider is already ServiceProvider enum:",
-    provider,
-    "->",
-    Object.values(ServiceProvider).includes(provider as ServiceProvider),
-  );
-
   // 如果provider已经是ServiceProvider枚举值，直接返回
   if (Object.values(ServiceProvider).includes(provider as ServiceProvider)) {
-    console.log(
-      "[normalizeProviderName] ✅ Already ServiceProvider enum, returning:",
-      provider,
-    );
     return provider as ServiceProvider;
   }
 
   // 如果provider是provider.id格式，转换为ServiceProvider枚举值
   const lowerProvider = provider.toLowerCase();
   const normalizedProvider = providerIdMap[lowerProvider];
-  console.log(
-    "[normalizeProviderName] 🔄 Mapping lookup:",
-    lowerProvider,
-    "->",
-    normalizedProvider,
-  );
 
   if (normalizedProvider) {
-    console.log(
-      "[normalizeProviderName] ✅ Found mapping, returning:",
-      normalizedProvider,
-    );
     return normalizedProvider;
   }
 
   // 默认返回OpenAI
-  console.log(
-    "[normalizeProviderName] ⚠️ No mapping found, defaulting to OpenAI",
-  );
   return ServiceProvider.OpenAI;
 }
 
