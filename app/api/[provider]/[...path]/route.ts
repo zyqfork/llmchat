@@ -11,6 +11,7 @@ import { handle as deepseekHandler } from "../../deepseek";
 import { handle as siliconflowHandler } from "../../siliconflow";
 import { handle as xaiHandler } from "../../xai";
 import { handle as proxyHandler } from "../../proxy";
+import { handle as customProviderHandler } from "../../custom-provider";
 
 async function handle(
   req: NextRequest,
@@ -18,6 +19,12 @@ async function handle(
 ) {
   const apiPath = `/api/${params.provider}`;
   console.log(`[${params.provider} Route] params `, params);
+
+  // 检查是否是自定义服务商（以custom_开头）
+  if (params.provider.startsWith("custom_")) {
+    return customProviderHandler(req, { params });
+  }
+
   switch (apiPath) {
     case ApiPath.Azure:
       return azureHandler(req, { params });

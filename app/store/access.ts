@@ -20,6 +20,28 @@ import { ensure } from "../utils/clone";
 import { DEFAULT_CONFIG } from "./config";
 import { getModelProvider } from "../utils/model";
 
+// 自定义服务商类型定义
+export type CustomProviderType = "openai" | "google" | "anthropic";
+
+export interface CustomProvider {
+  id: string; // 唯一标识符
+  name: string; // 用户自定义的显示名称
+  type: CustomProviderType; // 服务商类型，决定使用哪套API逻辑
+  apiKey: string; // API密钥
+  endpoint?: string; // 自定义端点
+  // 根据类型的特定配置
+  config?: {
+    // OpenAI类型的特定配置
+    azureApiVersion?: string;
+    // Google类型的特定配置
+    googleSafetySettings?: GoogleSafetySettingsThreshold;
+    // Anthropic类型的特定配置
+    anthropicVersion?: string;
+  };
+  enabled: boolean; // 是否启用
+  created: number; // 创建时间戳
+}
+
 let fetchState = 0; // 0 not fetch, 1 fetching, 2 done
 
 const isApp = getClientConfig()?.buildMode === "export";
@@ -64,7 +86,7 @@ const DEFAULT_ACCESS_STATE = {
     [ServiceProvider.SiliconFlow]: false,
   } as Record<ServiceProvider, boolean>,
 
-  // 每个服务商启用的模型列表
+  // 每个服务商启用的模型列表（支持自定义服务商）
   enabledModels: {
     [ServiceProvider.OpenAI]: [] as string[],
     [ServiceProvider.Azure]: [] as string[],
@@ -76,7 +98,7 @@ const DEFAULT_ACCESS_STATE = {
     [ServiceProvider.XAI]: [] as string[],
     [ServiceProvider.DeepSeek]: [] as string[],
     [ServiceProvider.SiliconFlow]: [] as string[],
-  } as Record<ServiceProvider, string[]>,
+  } as Record<ServiceProvider | string, string[]>,
 
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
@@ -121,6 +143,9 @@ const DEFAULT_ACCESS_STATE = {
   // siliconflow
   siliconflowUrl: DEFAULT_SILICONFLOW_URL,
   siliconflowApiKey: "",
+
+  // 自定义服务商
+  customProviders: [] as CustomProvider[],
 
   // server config
   needCode: true,
@@ -194,10 +219,63 @@ export const useAccessStore = createPersistStore(
       return ensure(get(), ["siliconflowApiKey"]);
     },
 
+    // 自定义服务商管理方法
+    addCustomProvider(provider: Omit<CustomProvider, "id" | "created">) {
+      const newProvider: CustomProvider = {
+        ...provider,
+        id: `custom_${Date.now()}_${Math.random()
+          .toString(36)
+          .substring(2, 11)}`,
+        created: Date.now(),
+      };
+
+      set((state) => ({
+        customProviders: [...state.customProviders, newProvider],
+      }));
+
+      return newProvider.id;
+    },
+
+    updateCustomProvider(id: string, updates: Partial<CustomProvider>) {
+      set((state) => ({
+        customProviders: state.customProviders.map((provider) =>
+          provider.id === id ? { ...provider, ...updates } : provider,
+        ),
+      }));
+    },
+
+    removeCustomProvider(id: string) {
+      set((state) => ({
+        customProviders: state.customProviders.filter(
+          (provider) => provider.id !== id,
+        ),
+      }));
+    },
+
+    getCustomProvider(id: string) {
+      return get().customProviders.find((provider) => provider.id === id);
+    },
+
+    isCustomProviderNameUnique(name: string, excludeId?: string) {
+      const providers = get().customProviders;
+      return !providers.some(
+        (provider) => provider.name === name && provider.id !== excludeId,
+      );
+    },
+
+    isValidCustomProvider(id: string) {
+      const provider = this.getCustomProvider(id);
+      return provider && provider.enabled && !!provider.apiKey;
+    },
+
     isAuthorized() {
       this.fetch();
 
       // has token or has code or disabled access control
+      const hasValidCustomProvider = get().customProviders.some((provider) =>
+        this.isValidCustomProvider(provider.id),
+      );
+
       return (
         this.isValidOpenAI() ||
         this.isValidAzure() ||
@@ -209,6 +287,7 @@ export const useAccessStore = createPersistStore(
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
         this.isValidSiliconFlow() ||
+        hasValidCustomProvider ||
         !this.enabledAccessControl() ||
         (this.enabledAccessControl() && ensure(get(), ["accessCode"]))
       );
@@ -259,7 +338,7 @@ export const useAccessStore = createPersistStore(
   }),
   {
     name: StoreKey.Access,
-    version: 2,
+    version: 3,
     migrate(persistedState, version) {
       if (version < 2) {
         const state = persistedState as {
@@ -270,6 +349,14 @@ export const useAccessStore = createPersistStore(
         };
         state.openaiApiKey = state.token;
         state.azureApiVersion = "2023-08-01-preview";
+      }
+
+      if (version < 3) {
+        // 添加自定义服务商字段
+        const state = persistedState as any;
+        if (!state.customProviders) {
+          state.customProviders = [];
+        }
       }
 
       return persistedState as any;

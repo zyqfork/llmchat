@@ -91,6 +91,7 @@ export interface LLMModel {
   available: boolean;
   provider: LLMModelProvider;
   sorted: number;
+  isDefault?: boolean;
 }
 
 export interface LLMModelProvider {
@@ -177,8 +178,7 @@ export class ClientApi {
       .concat([
         {
           from: "human",
-          value:
-            "Share from [QADChat]: https://github.com/syferie/qadchat",
+          value: "Share from [QADChat]: https://github.com/syferie/qadchat",
         },
       ]);
 
@@ -250,26 +250,39 @@ export function getHeaders(
     const isXAI = modelConfig.providerName === ServiceProvider.XAI;
     const isSiliconFlow =
       modelConfig.providerName === ServiceProvider.SiliconFlow;
+
+    // 检查是否是自定义服务商
+    const isCustomProvider =
+      typeof modelConfig.providerName === "string" &&
+      modelConfig.providerName.startsWith("custom_");
+    const customProvider = isCustomProvider
+      ? accessStore.customProviders.find(
+          (p) => p.id === modelConfig.providerName,
+        )
+      : null;
     const isEnabledAccessControl = accessStore.enabledAccessControl();
-    const apiKey = isGoogle
-      ? accessStore.googleApiKey
-      : isAzure
-      ? accessStore.azureApiKey
-      : isAnthropic
-      ? accessStore.anthropicApiKey
-      : isByteDance
-      ? accessStore.bytedanceApiKey
-      : isAlibaba
-      ? accessStore.alibabaApiKey
-      : isMoonshot
-      ? accessStore.moonshotApiKey
-      : isXAI
-      ? accessStore.xaiApiKey
-      : isDeepSeek
-      ? accessStore.deepseekApiKey
-      : isSiliconFlow
-      ? accessStore.siliconflowApiKey
-      : accessStore.openaiApiKey;
+    const apiKey =
+      isCustomProvider && customProvider
+        ? customProvider.apiKey
+        : isGoogle
+        ? accessStore.googleApiKey
+        : isAzure
+        ? accessStore.azureApiKey
+        : isAnthropic
+        ? accessStore.anthropicApiKey
+        : isByteDance
+        ? accessStore.bytedanceApiKey
+        : isAlibaba
+        ? accessStore.alibabaApiKey
+        : isMoonshot
+        ? accessStore.moonshotApiKey
+        : isXAI
+        ? accessStore.xaiApiKey
+        : isDeepSeek
+        ? accessStore.deepseekApiKey
+        : isSiliconFlow
+        ? accessStore.siliconflowApiKey
+        : accessStore.openaiApiKey;
     return {
       isGoogle,
       isAzure,
@@ -280,6 +293,8 @@ export function getHeaders(
       isDeepSeek,
       isXAI,
       isSiliconFlow,
+      isCustomProvider,
+      customProvider,
       apiKey,
       isEnabledAccessControl,
     };
@@ -305,6 +320,8 @@ export function getHeaders(
     isDeepSeek,
     isXAI,
     isSiliconFlow,
+    isCustomProvider,
+    customProvider,
     apiKey,
     isEnabledAccessControl,
   } = getConfig();
@@ -324,11 +341,27 @@ export function getHeaders(
     );
   }
 
+  // 为自定义服务商添加配置信息到请求头
+  if (isCustomProvider && customProvider) {
+    // 使用Base64编码避免非ISO-8859-1字符问题
+    const configJson = JSON.stringify(customProvider);
+    // 使用TextEncoder将UTF-8字符串转换为字节数组，然后转换为Base64
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(configJson);
+    const base64 = btoa(String.fromCharCode(...bytes));
+    headers["x-custom-provider-config"] = base64;
+  }
+
   return headers;
 }
 
-export function getClientApi(provider: ServiceProvider): ClientApi {
-  switch (provider) {
+export function getClientApi(provider: ServiceProvider | string): ClientApi {
+  // 如果是自定义服务商（以custom_开头）
+  if (typeof provider === "string" && provider.startsWith("custom_")) {
+    return getCustomProviderClientApi(provider);
+  }
+
+  switch (provider as ServiceProvider) {
     case ServiceProvider.Google:
       return new ClientApi(ModelProvider.GeminiPro);
     case ServiceProvider.Anthropic:
@@ -345,6 +378,32 @@ export function getClientApi(provider: ServiceProvider): ClientApi {
       return new ClientApi(ModelProvider.XAI);
     case ServiceProvider.SiliconFlow:
       return new ClientApi(ModelProvider.SiliconFlow);
+    default:
+      return new ClientApi(ModelProvider.GPT);
+  }
+}
+
+// 获取自定义服务商的客户端API
+function getCustomProviderClientApi(customProviderId: string): ClientApi {
+  // 从access store获取自定义服务商配置
+  const { useAccessStore } = require("../store");
+  const accessStore = useAccessStore.getState();
+  const customProvider = accessStore.customProviders.find(
+    (p: any) => p.id === customProviderId,
+  );
+
+  if (!customProvider) {
+    console.error(`Custom provider ${customProviderId} not found`);
+    return new ClientApi(ModelProvider.GPT);
+  }
+
+  // 根据自定义服务商类型返回相应的ClientApi
+  switch (customProvider.type) {
+    case "google":
+      return new ClientApi(ModelProvider.GeminiPro);
+    case "anthropic":
+      return new ClientApi(ModelProvider.Claude);
+    case "openai":
     default:
       return new ClientApi(ModelProvider.GPT);
   }

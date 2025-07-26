@@ -153,18 +153,42 @@ function getModelIconType(
 }
 
 interface ProviderIconProps {
-  provider: ServiceProvider;
+  provider: ServiceProvider | string; // 支持自定义服务商ID
   size?: number;
   modelName?: string; // 新增：模型名称，用于显示具体模型的图标
+  customProviderType?: string; // 新增：自定义服务商的兼容类型
 }
 
 export function ProviderIcon({
   provider,
   size = 24,
   modelName,
+  customProviderType,
 }: ProviderIconProps) {
   const iconProps = { size };
-  const iconType = getModelIconType(provider, modelName);
+
+  // 如果是自定义服务商，根据兼容类型确定实际的服务商类型
+  let actualProvider: ServiceProvider;
+  if (typeof provider === "string" && provider.startsWith("custom_")) {
+    // 根据兼容类型映射到对应的内置服务商
+    switch (customProviderType) {
+      case "openai":
+        actualProvider = ServiceProvider.OpenAI;
+        break;
+      case "google":
+        actualProvider = ServiceProvider.Google;
+        break;
+      case "anthropic":
+        actualProvider = ServiceProvider.Anthropic;
+        break;
+      default:
+        actualProvider = ServiceProvider.OpenAI; // 默认使用OpenAI图标
+    }
+  } else {
+    actualProvider = provider as ServiceProvider;
+  }
+
+  const iconType = getModelIconType(actualProvider, modelName);
 
   // 根据模型类型显示相应的图标
   switch (iconType) {
@@ -220,7 +244,7 @@ export function ProviderIcon({
 
     default:
       // 如果没有具体模型信息，则根据服务商显示图标
-      switch (provider) {
+      switch (actualProvider) {
         case ServiceProvider.OpenAI:
           // OpenAI 默认显示彩色背景 + 白色线条的 Avatar
           return <OpenAI.Avatar {...iconProps} style={{ color: "#ffffff" }} />;
@@ -390,7 +414,7 @@ export function ModelProviderIcon({
   size = 32,
   modelName,
 }: {
-  provider: ServiceProvider;
+  provider: ServiceProvider | string; // 支持自定义服务商
   size?: number;
   modelName?: string;
 }) {

@@ -43,7 +43,7 @@ import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useNavigate } from "react-router-dom";
 
 import chatStyle from "./chat.module.scss";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   copyToClipboard,
   downloadAs,
@@ -65,6 +65,7 @@ import clsx from "clsx";
 import { useAllModels } from "../utils/hooks";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
+import { groupBy } from "lodash-es";
 
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -101,32 +102,57 @@ export function MaskConfig(props: {
   const allModels = useAllModels();
   const accessStore = useAccessStore();
 
-  // 准备分组模型数据 - 基于启用的提供商和模型
-  const enabledProviders = accessStore.enabledProviders || {};
-  const enabledModels = accessStore.enabledModels || {};
+  // 只显示已启用服务商的已启用模型
+  const availableModels = useMemo(() => {
+    const enabledProviders = accessStore.enabledProviders || {};
+    const enabledModels = accessStore.enabledModels || {};
 
-  // 按提供商分组，只显示已启用的提供商和已配置的模型
-  const groupedModels: Record<string, any[]> = {};
+    return allModels.filter((model) => {
+      const providerId = model.provider?.id;
+      const providerName = model.provider?.providerName;
 
-  allModels.forEach((model) => {
-    const providerName = model.provider?.providerName as ServiceProvider;
-    if (!providerName || !enabledProviders[providerName]) return;
+      if (!providerId || !providerName) return false;
 
-    const providerEnabledModels = enabledModels[providerName] || [];
-    // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
-    if (
-      providerEnabledModels.length > 0 &&
-      providerEnabledModels.includes(model.name)
-    ) {
-      if (!groupedModels[providerName]) {
-        groupedModels[providerName] = [];
-      }
-      groupedModels[providerName].push({
-        name: model.name,
-        displayName: model.displayName,
-        providerName: model.provider?.providerName,
-      });
+      // 检查是否是自定义服务商
+      const isCustomProvider = providerId.startsWith("custom_");
+      const customProvider = isCustomProvider
+        ? accessStore.customProviders.find((p) => p.id === providerId)
+        : null;
+
+      // 对于内置服务商，检查是否启用
+      // 对于自定义服务商，检查是否存在且启用
+      const isProviderEnabled = isCustomProvider
+        ? customProvider && customProvider.enabled
+        : enabledProviders[providerName as ServiceProvider];
+
+      if (!isProviderEnabled) return false;
+
+      // 检查模型是否在启用列表中
+      const providerEnabledModels =
+        enabledModels[isCustomProvider ? providerId : providerName] || [];
+
+      // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+      return (
+        providerEnabledModels.length > 0 &&
+        providerEnabledModels.includes(model.name)
+      );
+    });
+  }, [
+    allModels,
+    accessStore.enabledProviders,
+    accessStore.enabledModels,
+    accessStore.customProviders,
+  ]);
+
+  const groupModels = groupBy(availableModels, (model) => {
+    const isCustomProvider = model.provider?.id?.startsWith("custom_");
+    if (isCustomProvider) {
+      const customProvider = accessStore.customProviders.find(
+        (p) => p.id === model.provider?.id,
+      );
+      return customProvider?.name || model.provider?.providerName;
     }
+    return model.provider?.providerName;
   });
 
   const updateConfig = (updater: (config: ModelConfig) => void) => {
@@ -307,11 +333,11 @@ export function MaskConfig(props: {
             }}
           >
             <option value="">使用全局默认模型</option>
-            {Object.entries(groupedModels).map(([providerName, models]) => (
-              <optgroup label={providerName} key={providerName}>
-                {models.map((model) => (
-                  <option value={model.name} key={model.name}>
-                    {model.displayName}
+            {Object.keys(groupModels).map((providerName, index) => (
+              <optgroup label={providerName} key={index}>
+                {groupModels[providerName].map((v, i) => (
+                  <option value={v.name} key={i}>
+                    {v.displayName}
                   </option>
                 ))}
               </optgroup>

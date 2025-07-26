@@ -19,7 +19,7 @@ import {
 import { collectModels } from "../utils/model";
 
 interface ModelManagerProps {
-  provider: ServiceProvider;
+  provider: ServiceProvider | string; // 支持自定义服务商ID
   onClose: () => void;
 }
 
@@ -191,39 +191,78 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     Record<string, ModelTestResult>
   >({});
 
+  // 检查是否是自定义服务商
+  const isCustomProvider =
+    typeof provider === "string" && provider.startsWith("custom_");
+  const customProviderConfig = isCustomProvider
+    ? accessStore.customProviders.find((p) => p.id === provider)
+    : null;
+
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
-    // 获取默认模型
-    const defaultModels = DEFAULT_MODELS.filter(
-      (model) => model.provider.providerName === provider,
-    );
+    if (isCustomProvider && customProviderConfig) {
+      // 对于自定义服务商，根据其类型获取相应的模型
+      const baseModels = DEFAULT_MODELS.filter((model) => {
+        switch (customProviderConfig.type) {
+          case "openai":
+            return model.provider.providerName === ServiceProvider.OpenAI;
+          case "google":
+            return model.provider.providerName === ServiceProvider.Google;
+          case "anthropic":
+            return model.provider.providerName === ServiceProvider.Anthropic;
+          default:
+            return false;
+        }
+      });
 
-    // 获取包含自定义模型的完整列表
-    const allModels = collectModels(
-      DEFAULT_MODELS,
-      accessStore.customModels || "",
-    );
-
-    // 过滤出当前服务商的模型（包括自定义模型）
-    const providerCustomModels = allModels.filter((model) => {
-      if (!model.provider) return false;
-      // 对于自定义模型，比较时忽略大小写
-      return (
-        model.provider.providerName.toLowerCase() === provider.toLowerCase()
+      // 为自定义服务商创建模型副本，使用自定义服务商的ID
+      return baseModels.map((model) => ({
+        ...model,
+        provider: {
+          ...model.provider,
+          id: provider as string,
+          providerName: provider as string,
+        },
+      }));
+    } else {
+      // 内置服务商的原有逻辑
+      const defaultModels = DEFAULT_MODELS.filter(
+        (model) => model.provider.providerName === provider,
       );
-    });
 
-    // 合并默认模型和自定义模型，去重
-    const modelMap = new Map();
-    [...defaultModels, ...providerCustomModels].forEach((model) => {
-      const key = `${model.name}@${model.provider?.id}`;
-      if (!modelMap.has(key)) {
-        modelMap.set(key, model);
-      }
-    });
+      // 获取包含自定义模型的完整列表
+      const allModels = collectModels(
+        DEFAULT_MODELS,
+        accessStore.customModels || "",
+      );
 
-    return Array.from(modelMap.values());
-  }, [provider, accessStore.customModels]);
+      // 过滤出当前服务商的模型（包括自定义模型）
+      const providerCustomModels = allModels.filter((model) => {
+        if (!model.provider) return false;
+        // 对于自定义模型，比较时忽略大小写
+        return (
+          model.provider.providerName.toLowerCase() ===
+          (provider as string).toLowerCase()
+        );
+      });
+
+      // 合并默认模型和自定义模型，去重
+      const modelMap = new Map();
+      [...defaultModels, ...providerCustomModels].forEach((model) => {
+        const key = `${model.name}@${model.provider?.id}`;
+        if (!modelMap.has(key)) {
+          modelMap.set(key, model);
+        }
+      });
+
+      return Array.from(modelMap.values());
+    }
+  }, [
+    provider,
+    accessStore.customModels,
+    isCustomProvider,
+    customProviderConfig,
+  ]);
 
   // 获取已启用的模型
   const enabledModels = accessStore.enabledModels?.[provider] || [];
@@ -352,7 +391,12 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const category = customModelForm.category.trim();
 
     // 构建带服务商的模型名称：modelId@provider（保持原始大小写）
-    const modelWithProvider = `${modelId}@${provider}`;
+    // 对于自定义服务商，使用其类型作为provider
+    const providerForModel =
+      isCustomProvider && customProviderConfig
+        ? customProviderConfig.type
+        : provider;
+    const modelWithProvider = `${modelId}@${providerForModel}`;
 
     // 构建自定义模型字符串
     let customModelString = modelWithProvider;
@@ -485,7 +529,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
       // 创建测试用的API客户端
       const { getClientApi } = await import("../client/api");
-      const api = getClientApi(provider);
+      const api = getClientApi(provider as any);
 
       // 使用Promise来正确处理异步结果，添加超时机制
       const testResult = await new Promise<{
@@ -667,8 +711,19 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   // 能力分类标签（移除免费和重排）
   const categories = ["全部", "推理", "视觉", "联网", "嵌入", "工具"];
 
+  // 获取显示名称
+  const getProviderDisplayName = () => {
+    if (isCustomProvider && customProviderConfig) {
+      return customProviderConfig.name;
+    }
+    return provider as string;
+  };
+
   return (
-    <CustomModal title={`${provider} 模型管理`} onClose={onClose}>
+    <CustomModal
+      title={`${getProviderDisplayName()} 模型管理`}
+      onClose={onClose}
+    >
       <div className={styles["model-manager"]}>
         {/* 搜索框和添加按钮 */}
         <div className={styles["search-section"]}>

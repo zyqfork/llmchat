@@ -45,6 +45,7 @@ import {
   useUpdateStore,
   useAccessStore,
   useAppConfig,
+  CustomProviderType,
 } from "../store";
 
 import Locale, {
@@ -54,6 +55,7 @@ import Locale, {
   getLang,
 } from "../locales";
 import { copyToClipboard, clientUpdate, semverCompare } from "../utils";
+import { groupBy } from "lodash-es";
 import Link from "next/link";
 import {
   Anthropic,
@@ -100,6 +102,185 @@ enum SettingsTab {
   ModelService = "model-service",
   ModelConfig = "model-config",
   Voice = "voice",
+}
+
+// 自定义服务商添加弹窗组件
+interface AddCustomProviderModalProps {
+  onClose: () => void;
+  onAdd: (provider: {
+    name: string;
+    type: CustomProviderType;
+    apiKey: string;
+    endpoint?: string;
+    enabled: boolean;
+  }) => void;
+}
+
+function AddCustomProviderModal({
+  onClose,
+  onAdd,
+}: AddCustomProviderModalProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "openai" as CustomProviderType,
+    apiKey: "",
+    endpoint: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const accessStore = useAccessStore();
+
+  const providerTypeOptions = [
+    {
+      value: "openai",
+      label: "OpenAI",
+      description: Locale.Settings.Access.CustomProvider.Modal.Type.OpenAI,
+    },
+    {
+      value: "google",
+      label: "Google",
+      description: Locale.Settings.Access.CustomProvider.Modal.Type.Google,
+    },
+    {
+      value: "anthropic",
+      label: "Anthropic",
+      description: Locale.Settings.Access.CustomProvider.Modal.Type.Anthropic,
+    },
+  ];
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name =
+        Locale.Settings.Access.CustomProvider.Modal.Name.Required;
+    } else if (!accessStore.isCustomProviderNameUnique(formData.name.trim())) {
+      newErrors.name = Locale.Settings.Access.CustomProvider.Modal.Name.Unique;
+    }
+
+    if (!formData.apiKey.trim()) {
+      newErrors.apiKey =
+        Locale.Settings.Access.CustomProvider.Modal.ApiKey.Required;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (validateForm()) {
+      onAdd({
+        name: formData.name.trim(),
+        type: formData.type,
+        apiKey: formData.apiKey.trim(),
+        endpoint: formData.endpoint.trim() || undefined,
+        enabled: true,
+      });
+    }
+  };
+
+  return (
+    <div className="modal-mask">
+      <div className={styles["modal-container"]}>
+        <div className={styles["modal-header"]}>
+          <div className={styles["modal-title"]}>
+            {Locale.Settings.Access.CustomProvider.Modal.Title}
+          </div>
+          <button className={styles["modal-close-button"]} onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        <div className={styles["modal-content"]}>
+          <div className={styles["form-group"]}>
+            <label>
+              {Locale.Settings.Access.CustomProvider.Modal.Name.Title} *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Modal.Name.Placeholder
+              }
+              className={errors.name ? styles["error"] : ""}
+            />
+            {errors.name && (
+              <div className={styles["error-message"]}>{errors.name}</div>
+            )}
+          </div>
+
+          <div className={styles["form-group"]}>
+            <label>
+              {Locale.Settings.Access.CustomProvider.Modal.Type.Title} *
+            </label>
+            <select
+              value={formData.type}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  type: e.target.value as CustomProviderType,
+                })
+              }
+            >
+              {providerTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} - {option.description}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles["form-group"]}>
+            <label>
+              {Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title} *
+            </label>
+            <input
+              type="password"
+              value={formData.apiKey}
+              onChange={(e) =>
+                setFormData({ ...formData, apiKey: e.target.value })
+              }
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
+              }
+              className={errors.apiKey ? styles["error"] : ""}
+            />
+            {errors.apiKey && (
+              <div className={styles["error-message"]}>{errors.apiKey}</div>
+            )}
+          </div>
+
+          <div className={styles["form-group"]}>
+            <label>
+              {Locale.Settings.Access.CustomProvider.Modal.Endpoint.Title}{" "}
+              {Locale.Settings.Access.CustomProvider.Modal.Endpoint.Optional}
+            </label>
+            <input
+              type="text"
+              value={formData.endpoint}
+              onChange={(e) =>
+                setFormData({ ...formData, endpoint: e.target.value })
+              }
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Modal.Endpoint.Placeholder
+              }
+            />
+          </div>
+        </div>
+
+        <div className={styles["modal-footer"]}>
+          <button className={styles["cancel-button"]} onClick={onClose}>
+            {Locale.Settings.Access.CustomProvider.Modal.Cancel}
+          </button>
+          <button className={styles["confirm-button"]} onClick={handleSubmit}>
+            {Locale.Settings.Access.CustomProvider.Modal.Confirm}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function EditPromptModal(props: { id: string; onClose: () => void }) {
@@ -661,8 +842,10 @@ export function Settings() {
   const customCount = promptStore.getUserPrompts().length ?? 0;
   const [shouldShowPromptModal, setShowPromptModal] = useState(false);
   const [showModelManager, setShowModelManager] = useState(false);
-  const [currentProvider, setCurrentProvider] =
-    useState<ServiceProvider | null>(null);
+  const [currentProvider, setCurrentProvider] = useState<
+    ServiceProvider | string | null
+  >(null);
+  const [showAddCustomProvider, setShowAddCustomProvider] = useState(false);
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<ServiceProvider, boolean>
   >({
@@ -1531,69 +1714,174 @@ export function Settings() {
     </>
   );
 
-  // 服务提供商配置
-  const providerConfigs = [
+  // 创建自定义服务商配置组件
+  const createCustomProviderConfigComponent = (customProvider: any) => {
+    const typeLabels = {
+      openai: "OpenAI",
+      google: "Google",
+      anthropic: "Anthropic",
+    };
+
+    return (
+      <>
+        <ListItem
+          title={Locale.Settings.Access.CustomProvider.Config.Type}
+          subTitle={`基于 ${
+            typeLabels[customProvider.type as keyof typeof typeLabels]
+          } API`}
+        >
+          <span>
+            {typeLabels[customProvider.type as keyof typeof typeLabels]}
+          </span>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title}
+          subTitle="自定义服务商的 API 密钥"
+        >
+          <PasswordInput
+            value={customProvider.apiKey}
+            type="text"
+            placeholder={
+              Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
+            }
+            onChange={(e) => {
+              accessStore.updateCustomProvider(customProvider.id, {
+                apiKey: e.currentTarget.value,
+              });
+            }}
+          />
+        </ListItem>
+
+        {customProvider.endpoint && (
+          <ListItem
+            title={Locale.Settings.Access.CustomProvider.Modal.Endpoint.Title}
+            subTitle="自定义的 API 端点地址"
+          >
+            <input
+              type="text"
+              value={customProvider.endpoint}
+              placeholder="API 端点地址"
+              onChange={(e) => {
+                accessStore.updateCustomProvider(customProvider.id, {
+                  endpoint: e.currentTarget.value,
+                });
+              }}
+            />
+          </ListItem>
+        )}
+
+        <ListItem
+          title={Locale.Settings.Access.CustomProvider.Config.Delete.Title}
+          subTitle={
+            Locale.Settings.Access.CustomProvider.Config.Delete.SubTitle
+          }
+        >
+          <IconButton
+            icon={<ClearIcon />}
+            text={Locale.Settings.Access.CustomProvider.Config.Delete.Button}
+            type="danger"
+            onClick={() => {
+              if (
+                confirm(
+                  `${Locale.Settings.Access.CustomProvider.Config.Delete.Confirm} "${customProvider.name}" 吗？`,
+                )
+              ) {
+                accessStore.removeCustomProvider(customProvider.id);
+              }
+            }}
+          />
+        </ListItem>
+      </>
+    );
+  };
+
+  // 服务提供商配置（包含自定义服务商）
+  const builtinProviderConfigs = [
     {
       provider: ServiceProvider.OpenAI,
       name: "OpenAI",
       description: "OpenAI GPT 系列模型",
       configComponent: openAIConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.Azure,
       name: "Azure OpenAI",
       description: "微软 Azure OpenAI 服务",
       configComponent: azureConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.Google,
       name: "Google",
       description: "Google Gemini 系列模型",
       configComponent: googleConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.Anthropic,
       name: "Anthropic",
       description: "Anthropic Claude 系列模型",
       configComponent: anthropicConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.ByteDance,
       name: "字节跳动",
       description: "字节跳动豆包系列模型",
       configComponent: byteDanceConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.Alibaba,
       name: "阿里云",
       description: "阿里云通义千问系列模型",
       configComponent: alibabaConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.Moonshot,
       name: "月之暗面",
       description: "Moonshot Kimi 系列模型",
       configComponent: moonshotConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.DeepSeek,
       name: "DeepSeek",
       description: "DeepSeek 系列模型",
       configComponent: deepseekConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.XAI,
       name: "xAI",
       description: "xAI Grok 系列模型",
       configComponent: XAIConfigComponent,
+      isCustom: false,
     },
     {
       provider: ServiceProvider.SiliconFlow,
       name: "SiliconFlow",
       description: "SiliconFlow 硅基流动",
       configComponent: siliconflowConfigComponent,
+      isCustom: false,
     },
   ];
+
+  // 合并内置服务商和自定义服务商
+  const customProviderConfigs = accessStore.customProviders.map(
+    (customProvider) => ({
+      provider: customProvider.id as any, // 使用自定义ID作为provider
+      name: customProvider.name,
+      description: `自定义 ${customProvider.type.toUpperCase()} 服务商`,
+      configComponent: createCustomProviderConfigComponent(customProvider),
+      isCustom: true,
+    }),
+  );
+
+  const providerConfigs = [...builtinProviderConfigs, ...customProviderConfigs];
 
   // 模型服务设置
   const renderModelServiceSettings = () => (
@@ -1603,9 +1891,17 @@ export function Settings() {
       {!accessStore.hideUserApiKey && (
         <div className={styles["provider-cards"]}>
           {providerConfigs.map((config) => {
-            const isEnabled =
-              accessStore.enabledProviders?.[config.provider] || false;
-            const isCollapsed = collapsedProviders[config.provider] || false;
+            // 对于自定义服务商，使用不同的启用状态逻辑
+            const isEnabled = config.isCustom
+              ? accessStore.customProviders.find(
+                  (p) => p.id === config.provider,
+                )?.enabled || false
+              : accessStore.enabledProviders?.[
+                  config.provider as ServiceProvider
+                ] || false;
+            const isCollapsed = config.isCustom
+              ? false // 自定义服务商暂时不支持折叠
+              : collapsedProviders[config.provider as ServiceProvider] || false;
 
             return (
               <div
@@ -1617,17 +1913,28 @@ export function Settings() {
                 <div
                   className={styles["provider-card-header"]}
                   onClick={() => {
-                    if (isEnabled) {
+                    if (isEnabled && !config.isCustom) {
                       setCollapsedProviders((prev) => ({
                         ...prev,
-                        [config.provider]: !prev[config.provider],
+                        [config.provider as ServiceProvider]:
+                          !prev[config.provider as ServiceProvider],
                       }));
                     }
                   }}
                 >
                   <div className={styles["provider-info"]}>
                     <span className={styles["provider-icon"]}>
-                      <ProviderIcon provider={config.provider} size={24} />
+                      <ProviderIcon
+                        provider={config.provider}
+                        size={24}
+                        customProviderType={
+                          config.isCustom
+                            ? accessStore.customProviders.find(
+                                (p) => p.id === config.provider,
+                              )?.type
+                            : undefined
+                        }
+                      />
                     </span>
                     <div>
                       <div className={styles["provider-name-container"]}>
@@ -1652,24 +1959,33 @@ export function Settings() {
                         checked={isEnabled}
                         onChange={(e) => {
                           e.stopPropagation();
-                          accessStore.update((access) => {
-                            if (!access.enabledProviders) {
-                              access.enabledProviders = {
-                                [ServiceProvider.OpenAI]: false,
-                                [ServiceProvider.Azure]: false,
-                                [ServiceProvider.Google]: false,
-                                [ServiceProvider.Anthropic]: false,
-                                [ServiceProvider.ByteDance]: false,
-                                [ServiceProvider.Alibaba]: false,
-                                [ServiceProvider.Moonshot]: false,
-                                [ServiceProvider.XAI]: false,
-                                [ServiceProvider.DeepSeek]: false,
-                                [ServiceProvider.SiliconFlow]: false,
-                              } as Record<ServiceProvider, boolean>;
-                            }
-                            access.enabledProviders[config.provider] =
-                              e.target.checked;
-                          });
+                          if (config.isCustom) {
+                            // 自定义服务商的启用状态处理
+                            accessStore.updateCustomProvider(config.provider, {
+                              enabled: e.target.checked,
+                            });
+                          } else {
+                            // 内置服务商的启用状态处理
+                            accessStore.update((access) => {
+                              if (!access.enabledProviders) {
+                                access.enabledProviders = {
+                                  [ServiceProvider.OpenAI]: false,
+                                  [ServiceProvider.Azure]: false,
+                                  [ServiceProvider.Google]: false,
+                                  [ServiceProvider.Anthropic]: false,
+                                  [ServiceProvider.ByteDance]: false,
+                                  [ServiceProvider.Alibaba]: false,
+                                  [ServiceProvider.Moonshot]: false,
+                                  [ServiceProvider.XAI]: false,
+                                  [ServiceProvider.DeepSeek]: false,
+                                  [ServiceProvider.SiliconFlow]: false,
+                                } as Record<ServiceProvider, boolean>;
+                              }
+                              access.enabledProviders[
+                                config.provider as ServiceProvider
+                              ] = e.target.checked;
+                            });
+                          }
                         }}
                         className={styles["provider-checkbox"]}
                       />
@@ -1681,10 +1997,13 @@ export function Settings() {
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCollapsedProviders((prev) => ({
-                            ...prev,
-                            [config.provider]: !prev[config.provider],
-                          }));
+                          if (!config.isCustom) {
+                            setCollapsedProviders((prev) => ({
+                              ...prev,
+                              [config.provider as ServiceProvider]:
+                                !prev[config.provider as ServiceProvider],
+                            }));
+                          }
                         }}
                       >
                         <DownIcon />
@@ -1702,7 +2021,7 @@ export function Settings() {
                     <List>
                       {config.configComponent}
 
-                      {/* 启用模型列表 */}
+                      {/* 启用模型列表 - 支持所有服务商 */}
                       <ListItem
                         title="启用的模型"
                         subTitle="当前服务商中已启用的模型列表"
@@ -1717,7 +2036,7 @@ export function Settings() {
                                   accessStore.enabledModels?.[
                                     config.provider
                                   ] || []
-                                ).map((modelName) => (
+                                ).map((modelName: string) => (
                                   <span
                                     key={modelName}
                                     className={styles["model-tag"]}
@@ -1756,6 +2075,20 @@ export function Settings() {
               </div>
             );
           })}
+
+          {/* 添加自定义服务商按钮 */}
+          <div className={styles["add-custom-provider"]}>
+            <button
+              className={styles["add-custom-provider-button"]}
+              onClick={() => setShowAddCustomProvider(true)}
+            >
+              <span className={styles["add-icon"]}>+</span>
+              <div className={styles["add-text"]}>
+                <h3>{Locale.Settings.Access.CustomProvider.Add.Title}</h3>
+                <p>{Locale.Settings.Access.CustomProvider.Add.Description}</p>
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1791,31 +2124,58 @@ export function Settings() {
 
   // 准备分组模型数据 - 基于启用的提供商和模型
   const allModels = useAllModels();
-  const enabledProviders = accessStore.enabledProviders || {};
-  const enabledModels = accessStore.enabledModels || {};
 
-  // 按提供商分组，只显示已启用的提供商和已配置的模型
-  const groupedModels: Record<string, any[]> = {};
+  // 只显示已启用服务商的已启用模型
+  const availableModels = useMemo(() => {
+    const enabledProviders = accessStore.enabledProviders || {};
+    const enabledModels = accessStore.enabledModels || {};
 
-  allModels.forEach((model) => {
-    const providerName = model.provider?.providerName as ServiceProvider;
-    if (!providerName || !enabledProviders[providerName]) return;
+    return allModels.filter((model) => {
+      const providerId = model.provider?.id;
+      const providerName = model.provider?.providerName;
 
-    const providerEnabledModels = enabledModels[providerName] || [];
-    // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
-    if (
-      providerEnabledModels.length > 0 &&
-      providerEnabledModels.includes(model.name)
-    ) {
-      if (!groupedModels[providerName]) {
-        groupedModels[providerName] = [];
-      }
-      groupedModels[providerName].push({
-        name: model.name,
-        displayName: model.displayName,
-        providerName: model.provider?.providerName,
-      });
+      if (!providerId || !providerName) return false;
+
+      // 检查是否是自定义服务商
+      const isCustomProvider = providerId.startsWith("custom_");
+      const customProvider = isCustomProvider
+        ? accessStore.customProviders.find((p) => p.id === providerId)
+        : null;
+
+      // 对于内置服务商，检查是否启用
+      // 对于自定义服务商，检查是否存在且启用
+      const isProviderEnabled = isCustomProvider
+        ? customProvider && customProvider.enabled
+        : enabledProviders[providerName as ServiceProvider];
+
+      if (!isProviderEnabled) return false;
+
+      // 检查模型是否在启用列表中
+      const providerEnabledModels =
+        enabledModels[isCustomProvider ? providerId : providerName] || [];
+
+      // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
+      return (
+        providerEnabledModels.length > 0 &&
+        providerEnabledModels.includes(model.name)
+      );
+    });
+  }, [
+    allModels,
+    accessStore.enabledProviders,
+    accessStore.enabledModels,
+    accessStore.customProviders,
+  ]);
+
+  const groupModels = groupBy(availableModels, (model) => {
+    const isCustomProvider = model.provider?.id?.startsWith("custom_");
+    if (isCustomProvider) {
+      const customProvider = accessStore.customProviders.find(
+        (p) => p.id === model.provider?.id,
+      );
+      return customProvider?.name || model.provider?.providerName;
     }
+    return model.provider?.providerName;
   });
 
   // 模型配置设置
@@ -1836,14 +2196,16 @@ export function Settings() {
             });
           }}
         >
-          {Object.entries(groupedModels).map(([providerName, models]) => (
-            <optgroup label={providerName} key={providerName}>
-              {models.map((model) => (
+          {Object.keys(groupModels).map((providerName, index) => (
+            <optgroup label={providerName} key={index}>
+              {groupModels[providerName].map((v, i) => (
                 <option
-                  value={`${model.name}@${model.providerName}`}
-                  key={`${model.name}@${model.providerName}`}
+                  value={`${v.name}@${
+                    v.provider?.id || v.provider?.providerName
+                  }`}
+                  key={i}
                 >
-                  {model.displayName}
+                  {v.displayName}
                 </option>
               ))}
             </optgroup>
@@ -1940,6 +2302,17 @@ export function Settings() {
           onClose={() => {
             setShowModelManager(false);
             setCurrentProvider(null);
+          }}
+        />
+      )}
+
+      {/* 自定义服务商添加弹窗 */}
+      {showAddCustomProvider && (
+        <AddCustomProviderModal
+          onClose={() => setShowAddCustomProvider(false)}
+          onAdd={(provider) => {
+            accessStore.addCustomProvider(provider);
+            setShowAddCustomProvider(false);
           }}
         />
       )}

@@ -309,8 +309,7 @@ const cn = {
       SaasStart: {
         Title: "",
         Label: "",
-        SubTitle:
-          "",
+        SubTitle: "",
         ChatNow: "",
       },
       AccessCode: {
@@ -532,6 +531,49 @@ const cn = {
         Endpoint: {
           Title: "接口地址",
           SubTitle: "样例：",
+        },
+      },
+      CustomProvider: {
+        Add: {
+          Title: "添加自定义服务商",
+          Button: "添加自定义服务商",
+          Description: "基于现有服务商类型添加自定义渠道",
+        },
+        Modal: {
+          Title: "添加自定义服务商",
+          Name: {
+            Title: "服务商名称",
+            Placeholder: "请输入自定义服务商名称",
+            Required: "请输入服务商名称",
+            Unique: "服务商名称已存在，请使用其他名称",
+          },
+          Type: {
+            Title: "服务商类型",
+            OpenAI: "OpenAI - 兼容 OpenAI API 的服务",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Key",
+            Placeholder: "请输入 API Key",
+            Required: "请输入 API Key",
+          },
+          Endpoint: {
+            Title: "自定义端点",
+            Placeholder: "留空使用默认端点",
+            Optional: "(可选)",
+          },
+          Cancel: "取消",
+          Confirm: "添加",
+        },
+        Config: {
+          Type: "服务商类型",
+          Delete: {
+            Title: "删除服务商",
+            SubTitle: "删除此自定义服务商及其所有配置",
+            Button: "删除",
+            Confirm: "确定要删除自定义服务商吗？",
+          },
         },
       },
     },

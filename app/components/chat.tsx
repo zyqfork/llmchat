@@ -745,7 +745,8 @@ export function ChatActions(props: {
     const model = models.find(
       (m) =>
         m.name == currentModel &&
-        m?.provider?.providerName == currentProviderName,
+        (m?.provider?.providerName == currentProviderName ||
+          m?.provider?.id == currentProviderName),
     );
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
@@ -760,19 +761,42 @@ export function ChatActions(props: {
     const groupedModels: Record<string, any[]> = {};
 
     models.forEach((model) => {
-      const providerName = model.provider?.providerName as ServiceProvider;
-      if (!providerName || !enabledProviders[providerName]) return;
+      const providerId = model.provider?.id;
+      const providerName = model.provider?.providerName;
 
-      const providerEnabledModels = enabledModels[providerName] || [];
+      if (!providerId || !providerName) return;
+
+      // 检查是否是自定义服务商
+      const isCustomProvider = providerId.startsWith("custom_");
+      const customProvider = isCustomProvider
+        ? accessStore.customProviders.find((p) => p.id === providerId)
+        : null;
+
+      // 对于内置服务商，检查是否启用
+      // 对于自定义服务商，检查是否存在且启用
+      const isProviderEnabled = isCustomProvider
+        ? customProvider && customProvider.enabled
+        : enabledProviders[providerName as ServiceProvider];
+
+      if (!isProviderEnabled) return;
+
+      // 检查模型是否在启用列表中
+      const providerEnabledModels =
+        enabledModels[isCustomProvider ? providerId : providerName] || [];
+
       // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
       if (
         providerEnabledModels.length > 0 &&
         providerEnabledModels.includes(model.name)
       ) {
-        if (!groupedModels[providerName]) {
-          groupedModels[providerName] = [];
+        const displayName = isCustomProvider
+          ? customProvider!.name
+          : providerName;
+
+        if (!groupedModels[displayName]) {
+          groupedModels[displayName] = [];
         }
-        groupedModels[providerName].push({
+        groupedModels[displayName].push({
           title: (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span>{model.displayName}</span>
@@ -784,7 +808,7 @@ export function ChatActions(props: {
             </div>
           ),
           searchText: model.displayName,
-          value: `${model.name}@${providerName}`,
+          value: `${model.name}@${providerId}`,
           icon: <Avatar model={model.name} />,
         });
       }
@@ -794,7 +818,12 @@ export function ChatActions(props: {
       groupName: providerName,
       items: models,
     }));
-  }, [models, accessStore.enabledProviders, accessStore.enabledModels]);
+  }, [
+    models,
+    accessStore.enabledProviders,
+    accessStore.enabledModels,
+    accessStore.customProviders,
+  ]);
 
   const [showUploadImage, setShowUploadImage] = useState(false);
 
@@ -1046,21 +1075,19 @@ export function ChatActions(props: {
               searchPlaceholder="搜索模型..."
               onClose={() => setShowModelSelector(false)}
               onSelection={(selectedValue) => {
-                const [model, providerName] = getModelProvider(selectedValue);
+                const [model, providerId] = getModelProvider(selectedValue);
                 chatStore.updateTargetSession(session, (session) => {
                   session.mask.modelConfig.model = model as ModelType;
                   session.mask.modelConfig.providerName =
-                    providerName as ServiceProvider;
+                    providerId as ServiceProvider;
                   session.mask.syncGlobalConfig = false;
                 });
 
                 const selectedModel = models.find(
-                  (m) =>
-                    m.name == model &&
-                    m?.provider?.providerName == providerName,
+                  (m) => m.name == model && m?.provider?.id == providerId,
                 );
 
-                if (providerName == "ByteDance") {
+                if (providerId == "ByteDance") {
                   showToast(selectedModel?.displayName ?? "");
                 } else {
                   showToast(selectedModel?.displayName || model);

@@ -27,8 +27,7 @@ const en: LocaleType = {
     Confirm: "Confirm",
     Later: "Later",
     SaasTips: "",
-    TopTips:
-      "",
+    TopTips: "",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} messages`,
@@ -314,8 +313,7 @@ const en: LocaleType = {
       SaasStart: {
         Title: "",
         Label: "",
-        SubTitle:
-          "",
+        SubTitle: "",
         ChatNow: "",
       },
       AccessCode: {
@@ -538,6 +536,49 @@ const en: LocaleType = {
         Endpoint: {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
+        },
+      },
+      CustomProvider: {
+        Add: {
+          Title: "Add Custom Provider",
+          Button: "Add Custom Provider",
+          Description: "Add custom channel based on existing provider types",
+        },
+        Modal: {
+          Title: "Add Custom Provider",
+          Name: {
+            Title: "Provider Name",
+            Placeholder: "Enter custom provider name",
+            Required: "Please enter provider name",
+            Unique: "Provider name already exists, please use another name",
+          },
+          Type: {
+            Title: "Provider Type",
+            OpenAI: "OpenAI - Compatible with OpenAI API services",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Key",
+            Placeholder: "Enter API Key",
+            Required: "Please enter API Key",
+          },
+          Endpoint: {
+            Title: "Custom Endpoint",
+            Placeholder: "Leave empty to use default endpoint",
+            Optional: "(Optional)",
+          },
+          Cancel: "Cancel",
+          Confirm: "Add",
+        },
+        Config: {
+          Type: "Provider Type",
+          Delete: {
+            Title: "Delete Provider",
+            SubTitle: "Delete this custom provider and all its configurations",
+            Button: "Delete",
+            Confirm: "Are you sure you want to delete the custom provider?",
+          },
         },
       },
     },
