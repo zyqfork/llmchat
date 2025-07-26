@@ -116,6 +116,30 @@ export function getMaskCompressModel(mask: Mask): ModelDecision {
 }
 
 /**
+ * 获取助手的摘要模型配置（类似getSessionModelConfig）
+ * 确保即使没有设置摘要模型，也要使用全局配置
+ */
+export function getSessionCompressModelConfig(mask: Mask) {
+  const compressDecision = getMaskCompressModel(mask);
+
+  // 如果有明确的摘要模型配置，使用它
+  if (compressDecision.model) {
+    return {
+      model: compressDecision.model,
+      providerName: compressDecision.providerName,
+    };
+  }
+
+  // 如果没有设置摘要模型，也要确保使用全局配置
+  // 这里模仿getSessionModelConfig的逻辑
+  const sessionModelConfig = getSessionModelConfig(mask);
+  return {
+    model: sessionModelConfig.model,
+    providerName: sessionModelConfig.providerName,
+  };
+}
+
+/**
  * 检查助手是否使用全局摘要模型配置
  */
 export function isMaskUsingGlobalCompressModel(mask: Mask): boolean {

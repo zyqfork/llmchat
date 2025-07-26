@@ -36,6 +36,7 @@ import { ModelConfig, ModelType, useAppConfig } from "./config";
 import {
   getSessionModelConfig,
   getMaskCompressModel,
+  getSessionCompressModelConfig,
 } from "../utils/model-resolver";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -743,12 +744,20 @@ export const useChatStore = createPersistStore(
 
         // 使用摘要模型决策系统
         const compressDecision = getMaskCompressModel(session.mask);
-        const [model, providerName] = compressDecision.model
-          ? [compressDecision.model, compressDecision.providerName]
-          : getSummarizeModel(
-              session.mask.modelConfig.model,
-              session.mask.modelConfig.providerName,
-            );
+        let model: string, providerName: string;
+
+        if (compressDecision.model) {
+          // 如果有明确的摘要模型配置，使用它
+          model = compressDecision.model;
+          providerName = compressDecision.providerName;
+        } else {
+          // 即使没有设置摘要模型，也要确保使用全局配置
+          const sessionCompressConfig = getSessionCompressModelConfig(
+            session.mask,
+          );
+          model = sessionCompressConfig.model;
+          providerName = sessionCompressConfig.providerName;
+        }
 
         console.log("[Summarize] 📝 Starting summarize request:", {
           originalModel: session.mask.modelConfig.model,
