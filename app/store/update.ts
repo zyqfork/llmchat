@@ -104,6 +104,9 @@ export const useUpdateStore = createPersistStore(
 
       if (get().versionType === "date") {
         version = formatVersionDate(version);
+      } else {
+        // 移除版本号前缀 "v" 以确保版本比较的一致性
+        version = version.replace(/^v/, "");
       }
       return version;
     },
@@ -133,7 +136,8 @@ export const useUpdateStore = createPersistStore(
       try {
         const remoteId = await getVersion(versionType);
         // 确保 remoteId 是有效的字符串
-        const validRemoteId = remoteId && typeof remoteId === "string" ? remoteId : "unknown";
+        const validRemoteId =
+          remoteId && typeof remoteId === "string" ? remoteId : "unknown";
         set(() => ({
           remoteVersion: validRemoteId,
         }));

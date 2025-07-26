@@ -471,9 +471,13 @@ export function semverCompare(a: string, b: string) {
     if (!b) return 1;
   }
 
-  if (a.startsWith(b + "-")) return -1;
-  if (b.startsWith(a + "-")) return 1;
-  return a.localeCompare(b, undefined, {
+  // 移除版本号前缀 "v" 以确保版本比较的一致性
+  const cleanA = a.replace(/^v/, "");
+  const cleanB = b.replace(/^v/, "");
+
+  if (cleanA.startsWith(cleanB + "-")) return -1;
+  if (cleanB.startsWith(cleanA + "-")) return 1;
+  return cleanA.localeCompare(cleanB, undefined, {
     numeric: true,
     sensitivity: "case",
     caseFirst: "upper",
