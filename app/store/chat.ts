@@ -515,7 +515,15 @@ export const useChatStore = createPersistStore(
           ]);
         });
 
+        console.log("[Chat] 🚀 Starting chat request with model config:", {
+          model: modelConfig.model,
+          providerName: modelConfig.providerName,
+          type: typeof modelConfig.providerName,
+        });
+
         const api: ClientApi = getClientApi(modelConfig.providerName);
+        console.log("[Chat] 🎯 Got API instance:", api.llm.constructor.name);
+
         // make request
         api.llm.chat({
           messages: sendMessages,
@@ -741,7 +749,20 @@ export const useChatStore = createPersistStore(
               session.mask.modelConfig.model,
               session.mask.modelConfig.providerName,
             );
+
+        console.log("[Summarize] 📝 Starting summarize request:", {
+          originalModel: session.mask.modelConfig.model,
+          originalProvider: session.mask.modelConfig.providerName,
+          summarizeModel: model,
+          summarizeProvider: providerName,
+          compressDecision,
+        });
+
         const api: ClientApi = getClientApi(providerName as ServiceProvider);
+        console.log(
+          "[Summarize] 🎯 Got API instance:",
+          api.llm.constructor.name,
+        );
 
         // remove error messages if any
         const messages = session.messages;

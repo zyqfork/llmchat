@@ -82,11 +82,20 @@ export class ChatGPTApi implements LLMApi {
   private disableListModels = true;
 
   path(path: string): string {
+    console.log("[OpenAI.path] 🔍 Called with path:", path);
+
     const accessStore = useAccessStore.getState();
 
     let baseUrl = "";
 
     const isAzure = path.includes("deployments");
+    console.log(
+      "[OpenAI.path] 🔍 isAzure:",
+      isAzure,
+      "useCustomConfig:",
+      accessStore.useCustomConfig,
+    );
+
     if (accessStore.useCustomConfig) {
       if (isAzure && !accessStore.isValidAzure()) {
         throw Error(
@@ -95,12 +104,19 @@ export class ChatGPTApi implements LLMApi {
       }
 
       baseUrl = isAzure ? accessStore.azureUrl : accessStore.openaiUrl;
+      console.log("[OpenAI.path] 🔧 Using custom config baseUrl:", baseUrl);
     }
 
     if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
       const apiPath = isAzure ? ApiPath.Azure : ApiPath.OpenAI;
       baseUrl = isApp ? OPENAI_BASE_URL : apiPath;
+      console.log(
+        "[OpenAI.path] 🔧 Using default baseUrl:",
+        baseUrl,
+        "isApp:",
+        isApp,
+      );
     }
 
     if (baseUrl.endsWith("/")) {
@@ -114,10 +130,10 @@ export class ChatGPTApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
-    console.log("[Proxy Endpoint] ", baseUrl, path);
+    const finalUrl = cloudflareAIGatewayUrl([baseUrl, path].join("/"));
+    console.log("[OpenAI.path] 🎯 Final URL:", finalUrl);
 
-    // try rebuild url, when using cloudflare ai gateway in client
-    return cloudflareAIGatewayUrl([baseUrl, path].join("/"));
+    return finalUrl;
   }
 
   async extractMessage(res: any) {

@@ -240,16 +240,27 @@ export function getHeaders(
     const modelConfig =
       overrideModelConfig || chatStore.currentSession().mask.modelConfig;
 
-    const isGoogle = modelConfig.providerName === ServiceProvider.Google;
-    const isAzure = modelConfig.providerName === ServiceProvider.Azure;
-    const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
-    const isByteDance = modelConfig.providerName === ServiceProvider.ByteDance;
-    const isAlibaba = modelConfig.providerName === ServiceProvider.Alibaba;
-    const isMoonshot = modelConfig.providerName === ServiceProvider.Moonshot;
-    const isDeepSeek = modelConfig.providerName === ServiceProvider.DeepSeek;
-    const isXAI = modelConfig.providerName === ServiceProvider.XAI;
+    // 标准化providerName以确保正确匹配
+    const normalizedProviderName = normalizeProviderName(
+      modelConfig.providerName as string,
+    );
+
+    console.log("[getHeaders.getConfig] 🔍 Provider matching:", {
+      original: modelConfig.providerName,
+      normalized: normalizedProviderName,
+      model: modelConfig.model,
+    });
+
+    const isGoogle = normalizedProviderName === ServiceProvider.Google;
+    const isAzure = normalizedProviderName === ServiceProvider.Azure;
+    const isAnthropic = normalizedProviderName === ServiceProvider.Anthropic;
+    const isByteDance = normalizedProviderName === ServiceProvider.ByteDance;
+    const isAlibaba = normalizedProviderName === ServiceProvider.Alibaba;
+    const isMoonshot = normalizedProviderName === ServiceProvider.Moonshot;
+    const isDeepSeek = normalizedProviderName === ServiceProvider.DeepSeek;
+    const isXAI = normalizedProviderName === ServiceProvider.XAI;
     const isSiliconFlow =
-      modelConfig.providerName === ServiceProvider.SiliconFlow;
+      normalizedProviderName === ServiceProvider.SiliconFlow;
 
     // 检查是否是自定义服务商
     const isCustomProvider =
@@ -283,6 +294,21 @@ export function getHeaders(
         : isSiliconFlow
         ? accessStore.siliconflowApiKey
         : accessStore.openaiApiKey;
+
+    console.log("[getHeaders.getConfig] 🔑 API Key selection:", {
+      isGoogle,
+      isAlibaba,
+      isByteDance,
+      isAnthropic,
+      isCustomProvider,
+      selectedApiKey: apiKey ? `${apiKey.substring(0, 10)}...` : "null",
+      googleApiKey: accessStore.googleApiKey
+        ? `${accessStore.googleApiKey.substring(0, 10)}...`
+        : "null",
+      alibabaApiKey: accessStore.alibabaApiKey
+        ? `${accessStore.alibabaApiKey.substring(0, 10)}...`
+        : "null",
+    });
     return {
       isGoogle,
       isAzure,
@@ -356,55 +382,168 @@ export function getHeaders(
 }
 
 export function getClientApi(provider: ServiceProvider | string): ClientApi {
-  // 如果是自定义服务商（以custom_开头）
-  if (typeof provider === "string" && provider.startsWith("custom_")) {
-    return getCustomProviderClientApi(provider);
-  }
-
-  switch (provider as ServiceProvider) {
-    case ServiceProvider.Google:
-      return new ClientApi(ModelProvider.GeminiPro);
-    case ServiceProvider.Anthropic:
-      return new ClientApi(ModelProvider.Claude);
-    case ServiceProvider.ByteDance:
-      return new ClientApi(ModelProvider.Doubao);
-    case ServiceProvider.Alibaba:
-      return new ClientApi(ModelProvider.Qwen);
-    case ServiceProvider.Moonshot:
-      return new ClientApi(ModelProvider.Moonshot);
-    case ServiceProvider.DeepSeek:
-      return new ClientApi(ModelProvider.DeepSeek);
-    case ServiceProvider.XAI:
-      return new ClientApi(ModelProvider.XAI);
-    case ServiceProvider.SiliconFlow:
-      return new ClientApi(ModelProvider.SiliconFlow);
-    default:
-      return new ClientApi(ModelProvider.GPT);
-  }
-}
-
-// 获取自定义服务商的客户端API
-function getCustomProviderClientApi(customProviderId: string): ClientApi {
-  // 从access store获取自定义服务商配置
-  const { useAccessStore } = require("../store");
-  const accessStore = useAccessStore.getState();
-  const customProvider = accessStore.customProviders.find(
-    (p: any) => p.id === customProviderId,
+  console.log(
+    "[getClientApi] 🔍 Input provider:",
+    provider,
+    "Type:",
+    typeof provider,
   );
 
-  if (!customProvider) {
-    console.error(`Custom provider ${customProviderId} not found`);
-    return new ClientApi(ModelProvider.GPT);
+  // 标准化provider名称，支持provider.id、provider.providerName和自定义服务商
+  const normalizedProvider = normalizeProviderName(provider as string);
+  console.log(
+    "[getClientApi] 🔄 Normalized provider:",
+    provider,
+    "->",
+    normalizedProvider,
+  );
+
+  let selectedApi: ClientApi;
+  switch (normalizedProvider) {
+    case ServiceProvider.Google:
+      console.log("[getClientApi] ✅ Selected Google/GeminiPro API");
+      selectedApi = new ClientApi(ModelProvider.GeminiPro);
+      break;
+    case ServiceProvider.Anthropic:
+      console.log("[getClientApi] ✅ Selected Anthropic/Claude API");
+      selectedApi = new ClientApi(ModelProvider.Claude);
+      break;
+    case ServiceProvider.ByteDance:
+      console.log("[getClientApi] ✅ Selected ByteDance/Doubao API");
+      selectedApi = new ClientApi(ModelProvider.Doubao);
+      break;
+    case ServiceProvider.Alibaba:
+      console.log("[getClientApi] ✅ Selected Alibaba/Qwen API");
+      selectedApi = new ClientApi(ModelProvider.Qwen);
+      break;
+    case ServiceProvider.Moonshot:
+      console.log("[getClientApi] ✅ Selected Moonshot API");
+      selectedApi = new ClientApi(ModelProvider.Moonshot);
+      break;
+    case ServiceProvider.DeepSeek:
+      console.log("[getClientApi] ✅ Selected DeepSeek API");
+      selectedApi = new ClientApi(ModelProvider.DeepSeek);
+      break;
+    case ServiceProvider.XAI:
+      console.log("[getClientApi] ✅ Selected XAI API");
+      selectedApi = new ClientApi(ModelProvider.XAI);
+      break;
+    case ServiceProvider.SiliconFlow:
+      console.log("[getClientApi] ✅ Selected SiliconFlow API");
+      selectedApi = new ClientApi(ModelProvider.SiliconFlow);
+      break;
+    default:
+      console.log(
+        "[getClientApi] ⚠️ Using default OpenAI/GPT API for provider:",
+        provider,
+      );
+      selectedApi = new ClientApi(ModelProvider.GPT);
+      break;
   }
 
-  // 根据自定义服务商类型返回相应的ClientApi
-  switch (customProvider.type) {
-    case "google":
-      return new ClientApi(ModelProvider.GeminiPro);
-    case "anthropic":
-      return new ClientApi(ModelProvider.Claude);
-    case "openai":
-    default:
-      return new ClientApi(ModelProvider.GPT);
-  }
+  console.log(
+    "[getClientApi] 🎯 Final API type:",
+    selectedApi.llm.constructor.name,
+  );
+  return selectedApi;
 }
+
+// 标准化provider名称，将provider.id转换为ServiceProvider枚举值
+function normalizeProviderName(provider: string): ServiceProvider {
+  console.log("[normalizeProviderName] 🔍 Input:", provider);
+
+  // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
+  if (provider.startsWith("custom_")) {
+    const { useAccessStore } = require("../store");
+    const accessStore = useAccessStore.getState();
+    const customProvider = accessStore.customProviders.find(
+      (p: any) => p.id === provider,
+    );
+
+    if (customProvider) {
+      console.log(
+        "[normalizeProviderName] 🎯 Custom provider found, type:",
+        customProvider.type,
+      );
+      // 根据自定义服务商类型返回对应的ServiceProvider
+      switch (customProvider.type) {
+        case "google":
+          console.log(
+            "[normalizeProviderName] ✅ Custom Google provider -> Google",
+          );
+          return ServiceProvider.Google;
+        case "anthropic":
+          console.log(
+            "[normalizeProviderName] ✅ Custom Anthropic provider -> Anthropic",
+          );
+          return ServiceProvider.Anthropic;
+        case "openai":
+        default:
+          console.log(
+            "[normalizeProviderName] ✅ Custom OpenAI provider -> OpenAI",
+          );
+          return ServiceProvider.OpenAI;
+      }
+    }
+  }
+
+  // 创建一个映射表，将provider.id映射到ServiceProvider枚举值
+  const providerIdMap: Record<string, ServiceProvider> = {
+    openai: ServiceProvider.OpenAI,
+    azure: ServiceProvider.Azure,
+    google: ServiceProvider.Google,
+    anthropic: ServiceProvider.Anthropic,
+    bytedance: ServiceProvider.ByteDance,
+    alibaba: ServiceProvider.Alibaba,
+    moonshot: ServiceProvider.Moonshot,
+    xai: ServiceProvider.XAI,
+    deepseek: ServiceProvider.DeepSeek,
+    siliconflow: ServiceProvider.SiliconFlow,
+  };
+
+  console.log(
+    "[normalizeProviderName] 📋 Available ServiceProvider values:",
+    Object.values(ServiceProvider),
+  );
+  console.log(
+    "[normalizeProviderName] 🔍 Checking if provider is already ServiceProvider enum:",
+    provider,
+    "->",
+    Object.values(ServiceProvider).includes(provider as ServiceProvider),
+  );
+
+  // 如果provider已经是ServiceProvider枚举值，直接返回
+  if (Object.values(ServiceProvider).includes(provider as ServiceProvider)) {
+    console.log(
+      "[normalizeProviderName] ✅ Already ServiceProvider enum, returning:",
+      provider,
+    );
+    return provider as ServiceProvider;
+  }
+
+  // 如果provider是provider.id格式，转换为ServiceProvider枚举值
+  const lowerProvider = provider.toLowerCase();
+  const normalizedProvider = providerIdMap[lowerProvider];
+  console.log(
+    "[normalizeProviderName] 🔄 Mapping lookup:",
+    lowerProvider,
+    "->",
+    normalizedProvider,
+  );
+
+  if (normalizedProvider) {
+    console.log(
+      "[normalizeProviderName] ✅ Found mapping, returning:",
+      normalizedProvider,
+    );
+    return normalizedProvider;
+  }
+
+  // 默认返回OpenAI
+  console.log(
+    "[normalizeProviderName] ⚠️ No mapping found, defaulting to OpenAI",
+  );
+  return ServiceProvider.OpenAI;
+}
+
+// 自定义服务商现在直接使用内置的API，不再需要CustomProviderApi

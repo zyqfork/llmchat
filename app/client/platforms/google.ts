@@ -30,16 +30,30 @@ import { fetch } from "@/app/utils/stream";
 
 export class GeminiProApi implements LLMApi {
   path(path: string, shouldStream = false): string {
+    console.log(
+      "[Google.path] 🔍 Called with path:",
+      path,
+      "shouldStream:",
+      shouldStream,
+    );
+
     const accessStore = useAccessStore.getState();
 
     let baseUrl = "";
     if (accessStore.useCustomConfig) {
       baseUrl = accessStore.googleUrl;
+      console.log("[Google.path] 🔧 Using custom config baseUrl:", baseUrl);
     }
 
     const isApp = !!getClientConfig()?.isApp;
     if (baseUrl.length === 0) {
       baseUrl = isApp ? GEMINI_BASE_URL : ApiPath.Google;
+      console.log(
+        "[Google.path] 🔧 Using default baseUrl:",
+        baseUrl,
+        "isApp:",
+        isApp,
+      );
     }
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
@@ -48,13 +62,12 @@ export class GeminiProApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
-    console.log("[Proxy Endpoint] ", baseUrl, path);
-
     let chatPath = [baseUrl, path].join("/");
     if (shouldStream) {
       chatPath += chatPath.includes("?") ? "&alt=sse" : "?alt=sse";
     }
 
+    console.log("[Google.path] 🎯 Final URL:", chatPath);
     return chatPath;
   }
   extractMessage(res: any) {

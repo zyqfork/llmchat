@@ -849,19 +849,44 @@ export function Settings() {
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<ServiceProvider, boolean>
   >({
-    [ServiceProvider.OpenAI]: false,
-    [ServiceProvider.Azure]: false,
-    [ServiceProvider.Google]: false,
-    [ServiceProvider.Anthropic]: false,
-    [ServiceProvider.ByteDance]: false,
-    [ServiceProvider.Alibaba]: false,
-    [ServiceProvider.Moonshot]: false,
-    [ServiceProvider.XAI]: false,
-    [ServiceProvider.DeepSeek]: false,
-    [ServiceProvider.SiliconFlow]: false,
+    [ServiceProvider.OpenAI]: true, // 默认全部折叠
+    [ServiceProvider.Azure]: true,
+    [ServiceProvider.Google]: true,
+    [ServiceProvider.Anthropic]: true,
+    [ServiceProvider.ByteDance]: true,
+    [ServiceProvider.Alibaba]: true,
+    [ServiceProvider.Moonshot]: true,
+    [ServiceProvider.XAI]: true,
+    [ServiceProvider.DeepSeek]: true,
+    [ServiceProvider.SiliconFlow]: true,
+  });
+
+  // 自定义服务商的折叠状态 - 默认全部折叠
+  const [collapsedCustomProviders, setCollapsedCustomProviders] = useState<
+    Record<string, boolean>
+  >(() => {
+    const initialState: Record<string, boolean> = {};
+    accessStore.customProviders.forEach((provider) => {
+      initialState[provider.id] = true; // 默认折叠
+    });
+    return initialState;
   });
 
   const showUsage = accessStore.isAuthorized();
+
+  // 当自定义服务商列表变化时，更新折叠状态
+  useEffect(() => {
+    setCollapsedCustomProviders((prev) => {
+      const newState = { ...prev };
+      accessStore.customProviders.forEach((provider) => {
+        if (!(provider.id in newState)) {
+          newState[provider.id] = true; // 新添加的服务商默认折叠
+        }
+      });
+      return newState;
+    });
+  }, [accessStore.customProviders]);
+
   useEffect(() => {
     // checks per minutes
     checkUpdate();
@@ -1900,7 +1925,7 @@ export function Settings() {
                   config.provider as ServiceProvider
                 ] || false;
             const isCollapsed = config.isCustom
-              ? false // 自定义服务商暂时不支持折叠
+              ? collapsedCustomProviders[config.provider as string] ?? true // 自定义服务商默认折叠
               : collapsedProviders[config.provider as ServiceProvider] || false;
 
             return (
@@ -1913,12 +1938,22 @@ export function Settings() {
                 <div
                   className={styles["provider-card-header"]}
                   onClick={() => {
-                    if (isEnabled && !config.isCustom) {
-                      setCollapsedProviders((prev) => ({
-                        ...prev,
-                        [config.provider as ServiceProvider]:
-                          !prev[config.provider as ServiceProvider],
-                      }));
+                    if (isEnabled) {
+                      if (config.isCustom) {
+                        // 自定义服务商折叠逻辑
+                        setCollapsedCustomProviders((prev) => ({
+                          ...prev,
+                          [config.provider as string]:
+                            !prev[config.provider as string],
+                        }));
+                      } else {
+                        // 内置服务商折叠逻辑
+                        setCollapsedProviders((prev) => ({
+                          ...prev,
+                          [config.provider as ServiceProvider]:
+                            !prev[config.provider as ServiceProvider],
+                        }));
+                      }
                     }
                   }}
                 >
@@ -1997,7 +2032,15 @@ export function Settings() {
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!config.isCustom) {
+                          if (config.isCustom) {
+                            // 自定义服务商折叠逻辑
+                            setCollapsedCustomProviders((prev) => ({
+                              ...prev,
+                              [config.provider as string]:
+                                !prev[config.provider as string],
+                            }));
+                          } else {
+                            // 内置服务商折叠逻辑
                             setCollapsedProviders((prev) => ({
                               ...prev,
                               [config.provider as ServiceProvider]:
