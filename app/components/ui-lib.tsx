@@ -586,9 +586,13 @@ export function ModelSelectorModal<T>(props: {
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
+        if (!searchInput) return true;
         const searchText =
           item.searchText || (typeof item.title === "string" ? item.title : "");
-        return searchText.toLowerCase().includes(searchInput.toLowerCase());
+        return (
+          searchText.toLowerCase().includes(searchInput.toLowerCase()) ||
+          item.subTitle?.toLowerCase().includes(searchInput.toLowerCase())
+        );
       }),
     }))
     .filter((group) => group.items.length > 0);
@@ -682,6 +686,176 @@ export function ModelSelectorModal<T>(props: {
     </div>
   );
 }
+
+// 多选模型选择器
+export function MultiModelSelectorModal<T>(props: {
+  groups: Array<{
+    groupName: string;
+    items: Array<{
+      title: string | JSX.Element;
+      searchText?: string; // 用于搜索的文本
+      subTitle?: string;
+      value: T;
+      disable?: boolean;
+      icon?: JSX.Element;
+    }>;
+  }>;
+  defaultSelectedValues?: T[];
+  onSelection?: (selections: T[]) => void;
+  onClose?: () => void;
+  searchPlaceholder?: string;
+}) {
+  const [selectedValues, setSelectedValues] = useState<T[]>(
+    props.defaultSelectedValues || [],
+  );
+  const [searchInput, setSearchInput] = useState("");
+
+  const handleSelection = (value: T) => {
+    const newSelectedValues = selectedValues.includes(value)
+      ? selectedValues.filter((v) => v !== value)
+      : [...selectedValues, value];
+    setSelectedValues(newSelectedValues);
+  };
+
+  const handleConfirm = () => {
+    if (selectedValues.length < 2) {
+      return; // 不执行任何操作
+    }
+    props.onSelection?.(selectedValues);
+    props.onClose?.();
+  };
+
+  // 过滤搜索结果
+  const filteredGroups = props.groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!searchInput) return true;
+        const searchText =
+          item.searchText || (typeof item.title === "string" ? item.title : "");
+        return (
+          searchText.toLowerCase().includes(searchInput.toLowerCase()) ||
+          item.subTitle?.toLowerCase().includes(searchInput.toLowerCase())
+        );
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  return (
+    <div className={styles["model-selector-overlay"]} onClick={props.onClose}>
+      <div
+        className={styles["model-selector-modal"]}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 头部 */}
+        <div className={styles["model-selector-header"]}>
+          <h3 className={styles["model-selector-title"]}>
+            选择多个模型 ({selectedValues.length} 个已选择)
+          </h3>
+          <button
+            className={`${styles["model-selector-close"]} no-dark`}
+            onClick={props.onClose}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        {/* 搜索框 */}
+        <div className={styles["model-selector-search"]}>
+          <input
+            type="text"
+            placeholder={props.searchPlaceholder || "搜索模型..."}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className={styles["model-selector-search-input"]}
+          />
+        </div>
+
+        {/* 模型列表 */}
+        <div className={styles["model-selector-content"]}>
+          {filteredGroups.length === 0 ? (
+            <div className={styles["model-selector-empty"]}>
+              {searchInput ? "未找到匹配的模型" : "暂无可用模型"}
+            </div>
+          ) : (
+            filteredGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className={styles["model-selector-group"]}>
+                <div className={styles["model-selector-group-title"]}>
+                  {group.groupName}
+                </div>
+                <div className={styles["model-selector-group-items"]}>
+                  {group.items.map((item, itemIndex) => {
+                    const selected = selectedValues.includes(item.value);
+                    return (
+                      <div
+                        key={itemIndex}
+                        className={clsx(styles["model-selector-item"], {
+                          [styles["model-selector-item-selected"]]: selected,
+                          [styles["model-selector-item-disabled"]]:
+                            item.disable,
+                        })}
+                        onClick={() => {
+                          if (!item.disable) {
+                            handleSelection(item.value);
+                          }
+                        }}
+                      >
+                        <div className={styles["model-selector-item-icon"]}>
+                          {item.icon || <Avatar model={item.value as string} />}
+                        </div>
+                        <div className={styles["model-selector-item-info"]}>
+                          <div className={styles["model-selector-item-title"]}>
+                            {item.title}
+                          </div>
+                          {item.subTitle && (
+                            <div
+                              className={styles["model-selector-item-subtitle"]}
+                            >
+                              {item.subTitle}
+                            </div>
+                          )}
+                        </div>
+                        {selected && (
+                          <div className={styles["model-selector-item-check"]}>
+                            <ConfirmIcon />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 底部操作按钮 */}
+        <div className={styles["model-selector-footer"]}>
+          <button
+            className={styles["model-selector-clear"]}
+            onClick={() => setSelectedValues([])}
+            disabled={selectedValues.length === 0}
+          >
+            清空选择
+          </button>
+          <button
+            className={styles["model-selector-confirm"]}
+            onClick={handleConfirm}
+            disabled={selectedValues.length < 2}
+          >
+            确认选择 ({selectedValues.length})
+            {selectedValues.length < 2 && (
+              <span className={styles["model-selector-confirm-hint"]}>
+                (至少选择2个模型)
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FullScreen(props: any) {
   const { children, right = 10, top = 10, ...rest } = props;
   const ref = useRef<HTMLDivElement>();

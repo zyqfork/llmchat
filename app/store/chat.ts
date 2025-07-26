@@ -68,6 +68,10 @@ export type ChatMessage = RequestMessage & {
   tools?: ChatMessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
+  // 多模型模式下的模型标识
+  modelKey?: string; // 格式: "model@provider"
+  // 是否为多模型模式下的消息
+  isMultiModel?: boolean;
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -100,6 +104,19 @@ export interface ChatSession {
   mask: Mask;
   // MCP 在当前对话中的启用状态
   mcpEnabledClients?: Record<string, boolean>;
+  // 多模型对话模式
+  multiModelMode?: {
+    enabled: boolean;
+    selectedModels: string[]; // 格式: "model@provider"
+    // 每个模型的独立消息历史 - key: "model@provider", value: messages
+    modelMessages: Record<string, ChatMessage[]>;
+    // 每个模型的独立统计
+    modelStats: Record<string, ChatStat>;
+    // 每个模型的独立记忆提示
+    modelMemoryPrompts: Record<string, string>;
+    // 每个模型的独立总结索引
+    modelSummarizeIndexes: Record<string, number>;
+  };
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -124,6 +141,14 @@ function createEmptySession(): ChatSession {
 
     mask: createDefaultMask(), // 使用默认助手
     mcpEnabledClients: {}, // 初始化 MCP 启用状态
+    multiModelMode: {
+      enabled: false,
+      selectedModels: [],
+      modelMessages: {},
+      modelStats: {},
+      modelMemoryPrompts: {},
+      modelSummarizeIndexes: {},
+    },
   };
 }
 
@@ -470,6 +495,19 @@ export const useChatStore = createPersistStore(
         isMcpResponse?: boolean,
       ) {
         const session = get().currentSession();
+
+        // 检查是否为多模型模式
+        if (
+          session.multiModelMode?.enabled &&
+          session.multiModelMode.selectedModels.length > 1
+        ) {
+          return get().onMultiModelUserInput(
+            content,
+            attachImages,
+            isMcpResponse,
+          );
+        }
+
         const modelConfig = session.mask.modelConfig;
 
         // MCP Response no need to fill template
@@ -593,6 +631,137 @@ export const useChatStore = createPersistStore(
             );
           },
         });
+      },
+
+      async onMultiModelUserInput(
+        content: string,
+        attachImages?: string[],
+        isMcpResponse?: boolean,
+      ) {
+        const session = get().currentSession();
+        const multiModelMode = session.multiModelMode!;
+
+        // 准备用户消息内容
+        let mContent: string | MultimodalContent[] = isMcpResponse
+          ? content
+          : fillTemplateWith(content, session.mask.modelConfig);
+
+        if (!isMcpResponse && attachImages && attachImages.length > 0) {
+          mContent = [
+            ...(content ? [{ type: "text" as const, text: content }] : []),
+            ...attachImages.map((url) => ({
+              type: "image_url" as const,
+              image_url: { url },
+            })),
+          ];
+        }
+
+        // 创建用户消息
+        const userMessage: ChatMessage = createMessage({
+          role: "user",
+          content: mContent,
+          isMcpResponse,
+          isMultiModel: true,
+        });
+
+        // 为每个选中的模型创建独立的 bot 消息
+        const botMessages: Record<string, ChatMessage> = {};
+        const modelConfigs: Record<string, any> = {};
+
+        for (const modelKey of multiModelMode.selectedModels) {
+          const [modelName, providerId] = modelKey.split("@");
+
+          // 创建该模型的配置
+          const modelConfig = {
+            ...session.mask.modelConfig,
+            model: modelName as ModelType,
+            providerName: providerId as ServiceProvider,
+          };
+          modelConfigs[modelKey] = modelConfig;
+
+          // 创建该模型的 bot 消息
+          botMessages[modelKey] = createMessage({
+            role: "assistant",
+            streaming: true,
+            model: modelName as ModelType,
+            modelKey,
+            isMultiModel: true,
+          });
+        }
+
+        // 保存用户消息和所有 bot 消息到主消息列表
+        get().updateTargetSession(session, (session) => {
+          const savedUserMessage = {
+            ...userMessage,
+            content: mContent,
+          };
+
+          // 添加用户消息
+          session.messages.push(savedUserMessage);
+
+          // 添加所有模型的 bot 消息
+          Object.values(botMessages).forEach((botMessage) => {
+            session.messages.push(botMessage);
+          });
+        });
+
+        // 为每个模型发送请求
+        const promises = multiModelMode.selectedModels.map(async (modelKey) => {
+          const modelConfig = modelConfigs[modelKey];
+          const botMessage = botMessages[modelKey];
+
+          // 获取该模型的独立消息历史
+          const modelMessages = multiModelMode.modelMessages[modelKey] || [];
+          const recentMessages = [...modelMessages, userMessage];
+
+          // 更新该模型的消息历史
+          multiModelMode.modelMessages[modelKey] = recentMessages;
+
+          const api: ClientApi = getClientApi(modelConfig.providerName);
+
+          return api.llm.chat({
+            messages: recentMessages,
+            config: { ...modelConfig, stream: true },
+            onUpdate(message) {
+              botMessage.streaming = true;
+              if (message) {
+                botMessage.content = message;
+              }
+              get().updateTargetSession(session, (session) => {
+                session.messages = session.messages.concat();
+              });
+            },
+            async onFinish(message) {
+              botMessage.streaming = false;
+              if (message) {
+                botMessage.content = message;
+                botMessage.date = new Date().toLocaleString();
+
+                // 更新该模型的独立消息历史
+                multiModelMode.modelMessages[modelKey].push(botMessage);
+
+                get().onNewMessage(botMessage, session);
+              }
+              ChatControllerPool.remove(session.id, botMessage.id);
+            },
+            onBeforeTool(tool: ChatMessageTool) {
+              (botMessage.tools = botMessage?.tools || []).push(tool);
+              get().updateTargetSession(session, (session) => {
+                session.messages = session.messages.concat();
+              });
+            },
+            onController(controller) {
+              ChatControllerPool.addController(
+                session.id,
+                botMessage.id ?? session.messages.length,
+                controller,
+              );
+            },
+          });
+        });
+
+        // 等待所有模型完成响应
+        await Promise.allSettled(promises);
       },
 
       getMemoryPrompt() {

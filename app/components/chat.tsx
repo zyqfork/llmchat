@@ -91,6 +91,7 @@ import {
   Modal,
   Selector,
   ModelSelectorModal,
+  MultiModelSelectorModal,
   showConfirm,
   showPrompt,
   showToast,
@@ -151,6 +152,25 @@ const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
       text={`MCP${count ? ` (${count})` : ""}`}
       icon={<McpToolIcon />}
       dataAttribute="data-mcp-button"
+    />
+  );
+};
+
+const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const multiModelMode = session.multiModelMode;
+  const isEnabled = multiModelMode?.enabled || false;
+  const selectedCount = multiModelMode?.selectedModels?.length || 0;
+
+  return (
+    <ChatAction
+      onClick={onToggle}
+      text={`多模型${isEnabled ? " (开启)" : " (关闭)"}${
+        selectedCount > 0 ? ` ${selectedCount}个` : ""
+      }`}
+      icon={<BrainIcon />}
+      dataAttribute="data-multi-model-button"
     />
   );
 };
@@ -372,6 +392,82 @@ function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MultiModelPanel(props: {
+  showPanel: boolean;
+  onClose: () => void;
+  onOpenSelector: () => void;
+}) {
+  const { showPanel, onClose, onOpenSelector } = props;
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 获取当前选中的模型
+  const selectedModels = session.multiModelMode?.selectedModels || [];
+
+  // 点击外部关闭面板
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // 检查是否点击了多模型按钮或其子元素
+      const multiModelButton = document.querySelector(
+        "[data-multi-model-button]",
+      );
+      if (multiModelButton && multiModelButton.contains(target)) {
+        return; // 如果点击的是多模型按钮，不关闭面板
+      }
+
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        onClose();
+      }
+    };
+
+    if (showPanel) {
+      // 使用 setTimeout 延迟添加事件监听器，避免立即触发
+      const timer = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showPanel, onClose]);
+
+  if (!showPanel) return null;
+
+  return (
+    <div ref={panelRef} className={styles["mcp-panel"]}>
+      <div className={styles["mcp-panel-header"]}>
+        <span className={styles["mcp-panel-title"]}>多模型对话设置</span>
+        <button className={styles["mcp-panel-close"]} onClick={onClose}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className={styles["mcp-panel-content"]}>
+        <div className={styles["multi-model-description"]}>
+          🎯 多模型对话竞技场模式已启用！点击模型选择器可选择多个模型进行对话。
+        </div>
+
+        <button
+          className={styles["multi-model-select-button"]}
+          onClick={onOpenSelector}
+        >
+          <span className={styles["multi-model-select-icon"]}>🎯</span>
+          打开模型选择器 ({selectedModels.length} 个已选择)
+        </button>
+
+        <div className={styles["multi-model-tips"]}>
+          💡
+          提示：在多模型模式下，您可以同时选择多个模型，每个模型都会独立回复您的消息，方便对比不同模型的回答效果。
+        </div>
       </div>
     </div>
   );
@@ -699,6 +795,11 @@ export function ChatActions(props: {
   setShowMcpPanel: React.Dispatch<React.SetStateAction<boolean>>;
   showShortcutKeyPanel: boolean;
   setShowShortcutKeyPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  showMultiModelPanel: boolean;
+  setShowMultiModelPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleMultiModelMode: () => void;
+  showModelSelector: boolean;
+  setShowModelSelector: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -750,7 +851,6 @@ export function ChatActions(props: {
     );
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
-  const [showModelSelector, setShowModelSelector] = useState(false);
 
   // 准备分组模型数据
   const modelGroups = useMemo(() => {
@@ -1042,6 +1142,9 @@ export function ChatActions(props: {
             onTogglePanel={() => props.setShowMcpPanel(!props.showMcpPanel)}
           />
         )}
+        {!isMobileScreen && (
+          <MultiModelAction onToggle={() => props.toggleMultiModelMode()} />
+        )}
       </>
       <div className={styles["chat-input-actions-end"]}>
         {config.realtimeConfig.enable && (
@@ -1056,24 +1159,43 @@ export function ChatActions(props: {
         <div className={styles["model-selector-container"]}>
           <button
             className={styles["model-selector-button"]}
-            onClick={() => setShowModelSelector(true)}
+            onClick={() => props.setShowModelSelector(true)}
           >
-            <div className={styles["model-icon"]}>
-              <ProviderIcon
-                provider={currentProviderName}
-                size={16}
-                modelName={currentModel}
-              />
-            </div>
-            <span className={styles["model-name"]}>{currentModelName}</span>
+            {session.multiModelMode?.enabled &&
+            session.multiModelMode.selectedModels.length > 1 ? (
+              <>
+                <div className={styles["model-icon"]}>
+                  <BrainIcon />
+                </div>
+                <span className={styles["model-name"]}>
+                  {session.multiModelMode.selectedModels
+                    .map((modelKey) => {
+                      const [modelName] = modelKey.split("@");
+                      return modelName;
+                    })
+                    .join(" / ")}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className={styles["model-icon"]}>
+                  <ProviderIcon
+                    provider={currentProviderName}
+                    size={16}
+                    modelName={currentModel}
+                  />
+                </div>
+                <span className={styles["model-name"]}>{currentModelName}</span>
+              </>
+            )}
           </button>
 
-          {showModelSelector && (
+          {props.showModelSelector && !session.multiModelMode?.enabled && (
             <ModelSelectorModal
               defaultSelectedValue={`${currentModel}@${currentProviderName}`}
               groups={modelGroups}
               searchPlaceholder="搜索模型..."
-              onClose={() => setShowModelSelector(false)}
+              onClose={() => props.setShowModelSelector(false)}
               onSelection={(selectedValue) => {
                 const [model, providerId] = getModelProvider(selectedValue);
                 chatStore.updateTargetSession(session, (session) => {
@@ -1092,6 +1214,79 @@ export function ChatActions(props: {
                 } else {
                   showToast(selectedModel?.displayName || model);
                 }
+              }}
+            />
+          )}
+
+          {props.showModelSelector && session.multiModelMode?.enabled && (
+            <MultiModelSelectorModal
+              groups={modelGroups}
+              defaultSelectedValues={
+                session.multiModelMode?.selectedModels || []
+              }
+              searchPlaceholder="搜索模型..."
+              onClose={() => props.setShowModelSelector(false)}
+              onSelection={(selectedValues) => {
+                // 确保至少选择了两个模型
+                if (selectedValues.length < 2) {
+                  showToast("请至少选择2个模型才能启用多模型对话");
+                  return;
+                }
+
+                chatStore.updateTargetSession(session, (session) => {
+                  if (!session.multiModelMode) {
+                    session.multiModelMode = {
+                      enabled: true,
+                      selectedModels: [],
+                      modelMessages: {},
+                      modelStats: {},
+                      modelMemoryPrompts: {},
+                      modelSummarizeIndexes: {},
+                    };
+                  }
+
+                  session.multiModelMode.selectedModels = selectedValues;
+                  session.multiModelMode.enabled = true; // 确保启用多模型模式
+
+                  // 初始化新选中模型的数据结构
+                  selectedValues.forEach((modelKey) => {
+                    if (!session.multiModelMode!.modelMessages[modelKey]) {
+                      session.multiModelMode!.modelMessages[modelKey] = [];
+                    }
+                    if (!session.multiModelMode!.modelStats[modelKey]) {
+                      session.multiModelMode!.modelStats[modelKey] = {
+                        tokenCount: 0,
+                        wordCount: 0,
+                        charCount: 0,
+                      };
+                    }
+                    if (!session.multiModelMode!.modelMemoryPrompts[modelKey]) {
+                      session.multiModelMode!.modelMemoryPrompts[modelKey] = "";
+                    }
+                    if (
+                      !session.multiModelMode!.modelSummarizeIndexes[modelKey]
+                    ) {
+                      session.multiModelMode!.modelSummarizeIndexes[
+                        modelKey
+                      ] = 0;
+                    }
+                  });
+
+                  // 清理不再选中的模型数据
+                  const currentKeys = Object.keys(
+                    session.multiModelMode.modelMessages,
+                  );
+                  currentKeys.forEach((key) => {
+                    if (!selectedValues.includes(key)) {
+                      delete session.multiModelMode!.modelMessages[key];
+                      delete session.multiModelMode!.modelStats[key];
+                      delete session.multiModelMode!.modelMemoryPrompts[key];
+                      delete session.multiModelMode!.modelSummarizeIndexes[key];
+                    }
+                  });
+                });
+
+                showToast(`已选择 ${selectedValues.length} 个模型进行对话`);
               }}
             />
           )}
@@ -1858,6 +2053,47 @@ function _Chat() {
   // MCP 面板
   const [showMcpPanel, setShowMcpPanel] = useState(false);
 
+  // 多模型面板
+  const [showMultiModelPanel, setShowMultiModelPanel] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+
+  // 切换多模型模式
+  const toggleMultiModelMode = () => {
+    chatStore.updateTargetSession(session, (session) => {
+      if (!session.multiModelMode) {
+        session.multiModelMode = {
+          enabled: false,
+          selectedModels: [],
+          modelMessages: {},
+          modelStats: {},
+          modelMemoryPrompts: {},
+          modelSummarizeIndexes: {},
+        };
+      }
+
+      const wasEnabled = session.multiModelMode.enabled;
+      session.multiModelMode.enabled = !wasEnabled;
+
+      // 如果关闭多模型模式，清空选中的模型
+      if (wasEnabled) {
+        session.multiModelMode.selectedModels = [];
+        session.multiModelMode.modelMessages = {};
+        session.multiModelMode.modelStats = {};
+        session.multiModelMode.modelMemoryPrompts = {};
+        session.multiModelMode.modelSummarizeIndexes = {};
+      }
+    });
+
+    // 显示提示消息
+    if (session.multiModelMode?.enabled) {
+      showToast(
+        "🎯 多模型模式已开启！点击模型选择器可选择多个模型进行对话竞技场",
+      );
+    } else {
+      showToast("多模型模式已关闭");
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // 打开新聊天 command + shift + o
@@ -2126,7 +2362,18 @@ function _Chat() {
                             </div>
                             {!isUser && (
                               <div className={styles["chat-model-name"]}>
-                                {message.model}
+                                {message.isMultiModel && message.modelKey ? (
+                                  <>
+                                    {message.model}
+                                    <span
+                                      className={styles["chat-model-provider"]}
+                                    >
+                                      @{message.modelKey.split("@")[1]}
+                                    </span>
+                                  </>
+                                ) : (
+                                  message.model
+                                )}
                               </div>
                             )}
 
@@ -2313,6 +2560,15 @@ function _Chat() {
                 onClose={() => setShowShortcutKeyPanel(false)}
               />
 
+              <MultiModelPanel
+                showPanel={showMultiModelPanel}
+                onClose={() => setShowMultiModelPanel(false)}
+                onOpenSelector={() => {
+                  setShowMultiModelPanel(false);
+                  setShowModelSelector(true);
+                }}
+              />
+
               <ChatActions
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
@@ -2338,6 +2594,11 @@ function _Chat() {
                 setShowMcpPanel={setShowMcpPanel}
                 showShortcutKeyPanel={showShortcutKeyPanel}
                 setShowShortcutKeyPanel={setShowShortcutKeyPanel}
+                showMultiModelPanel={showMultiModelPanel}
+                setShowMultiModelPanel={setShowMultiModelPanel}
+                toggleMultiModelMode={toggleMultiModelMode}
+                showModelSelector={showModelSelector}
+                setShowModelSelector={setShowModelSelector}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {

@@ -720,3 +720,69 @@ body.dark {
     }
   }
 }
+
+/* 多选模型选择器底部操作栏样式 */
+.model-selector-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: var(--border-in-light);
+  background: var(--white);
+  gap: 12px;
+}
+
+.model-selector-clear,
+.model-selector-confirm {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.model-selector-clear {
+  background: var(--hover-color);
+  color: var(--black);
+
+  &:hover:not(:disabled) {
+    background: var(--border-in-light);
+  }
+}
+
+.model-selector-confirm {
+  background: var(--primary);
+  color: white;
+  flex: 1;
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  &:hover:not(:disabled) {
+    background: var(--primary);
+    filter: brightness(1.1);
+  }
+
+  &:disabled {
+    background: var(--border-in-light);
+    color: var(--black);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.model-selector-confirm-hint {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.8;
+}
