@@ -1,5 +1,4 @@
 import { type OpenAIListModelResponse } from "@/app/client/platforms/openai";
-import { getServerSideConfig } from "@/app/config/server";
 import { ModelProvider, OpenaiPath } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,20 +8,7 @@ import { requestOpenai } from "./common";
 const ALLOWED_PATH = new Set(Object.values(OpenaiPath));
 
 function getModels(remoteModelRes: OpenAIListModelResponse) {
-  const config = getServerSideConfig();
-
-  if (config.disableGPT4) {
-    remoteModelRes.data = remoteModelRes.data.filter(
-      (m) =>
-        !(
-          m.id.startsWith("gpt-4") ||
-          m.id.startsWith("chatgpt-4o") ||
-          m.id.startsWith("o1") ||
-          m.id.startsWith("o3")
-        ) || m.id.startsWith("gpt-4o-mini"),
-    );
-  }
-
+  // 纯前端应用，不过滤模型，由用户的API密钥权限决定
   return remoteModelRes;
 }
 

@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSideConfig } from "../config/server";
-import { createPersistStore } from "../utils/store";
-import { StoreKey } from "../constant";
-import { CustomProvider, CustomProviderType } from "../store/access";
+import { CustomProvider } from "../store/access";
 import { handle as openaiHandler } from "./openai";
 import { handle as googleHandler } from "./google";
 import { handle as anthropicHandler } from "./anthropic";
 
 // 获取自定义服务商配置
-function getCustomProviderConfig(
-  req: NextRequest,
-  providerId: string,
-): CustomProvider | null {
+function getCustomProviderConfig(req: NextRequest): CustomProvider | null {
   try {
     // 从请求头获取自定义服务商配置
     const configHeader = req.headers.get("x-custom-provider-config");
@@ -44,7 +38,7 @@ export async function handle(
   }
 
   // 获取自定义服务商配置
-  const customConfig = getCustomProviderConfig(req, params.provider);
+  const customConfig = getCustomProviderConfig(req);
 
   if (!customConfig) {
     return NextResponse.json(

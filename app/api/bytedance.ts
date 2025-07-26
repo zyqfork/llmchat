@@ -1,16 +1,7 @@
-import { getServerSideConfig } from "@/app/config/server";
-import {
-  BYTEDANCE_BASE_URL,
-  ApiPath,
-  ModelProvider,
-  ServiceProvider,
-} from "@/app/constant";
+import { BYTEDANCE_BASE_URL, ApiPath, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
-import { isModelNotavailableInServer } from "@/app/utils/model";
-
-const serverConfig = getServerSideConfig();
 
 export async function handle(
   req: NextRequest,
@@ -43,7 +34,7 @@ async function request(req: NextRequest) {
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.ByteDance, "");
 
-  let baseUrl = serverConfig.bytedanceUrl || BYTEDANCE_BASE_URL;
+  let baseUrl = BYTEDANCE_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -78,36 +69,7 @@ async function request(req: NextRequest) {
     signal: controller.signal,
   };
 
-  // #1815 try to refuse some request to some models
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
-
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
-
-      // not undefined and is false
-      if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          ServiceProvider.ByteDance as string,
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error: true,
-            message: `you are not allowed to use ${jsonBody?.model} model`,
-          },
-          {
-            status: 403,
-          },
-        );
-      }
-    } catch (e) {
-      console.error(`[ByteDance] filter`, e);
-    }
-  }
+  // 纯前端应用，不限制模型使用，由用户API密钥权限决定
 
   try {
     const res = await fetch(fetchUrl, fetchOptions);

@@ -8,8 +8,8 @@ export const getBuildConfig = () => {
     );
   }
 
-  const buildMode = process.env.BUILD_MODE ?? "standalone";
-  const isApp = !!process.env.BUILD_APP;
+  const buildMode = "standalone";
+  const isApp = false;
   const version = "v" + tauriConfig.package.version;
 
   const commitInfo = (() => {
@@ -39,7 +39,7 @@ export const getBuildConfig = () => {
     ...commitInfo,
     buildMode,
     isApp,
-    template: process.env.DEFAULT_INPUT_TEMPLATE ?? DEFAULT_INPUT_TEMPLATE,
+    template: DEFAULT_INPUT_TEMPLATE,
   };
 };
 

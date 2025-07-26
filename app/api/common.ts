@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSideConfig } from "../config/server";
 import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
-import { getModelProvider, isModelNotavailableInServer } from "../utils/model";
-
-const serverConfig = getServerSideConfig();
+import { getModelProvider } from "../utils/model";
 
 export async function requestOpenai(req: NextRequest) {
   const controller = new AbortController();
@@ -29,8 +26,7 @@ export async function requestOpenai(req: NextRequest) {
 
   let path = `${req.nextUrl.pathname}`.replaceAll("/api/openai/", "");
 
-  let baseUrl =
-    (isAzure ? serverConfig.azureUrl : serverConfig.baseUrl) || OPENAI_BASE_URL;
+  let baseUrl = OPENAI_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -52,40 +48,12 @@ export async function requestOpenai(req: NextRequest) {
 
   if (isAzure) {
     const azureApiVersion =
-      req?.nextUrl?.searchParams?.get("api-version") ||
-      serverConfig.azureApiVersion;
+      req?.nextUrl?.searchParams?.get("api-version") || "2024-02-01";
     baseUrl = baseUrl.split("/deployments").shift() as string;
     path = `${req.nextUrl.pathname.replaceAll(
       "/api/azure/",
       "",
     )}?api-version=${azureApiVersion}`;
-
-    // Forward compatibility:
-    // if display_name(deployment_name) not set, and '{deploy-id}' in AZURE_URL
-    // then using default '{deploy-id}'
-    if (serverConfig.customModels && serverConfig.azureUrl) {
-      const modelName = path.split("/")[1];
-      let realDeployName = "";
-      serverConfig.customModels
-        .split(",")
-        .filter((v) => !!v && !v.startsWith("-") && v.includes(modelName))
-        .forEach((m) => {
-          const [fullName, displayName] = m.split("=");
-          const [_, providerName] = getModelProvider(fullName);
-          if (providerName === "azure" && !displayName) {
-            const [_, deployId] = (serverConfig?.azureUrl ?? "").split(
-              "deployments/",
-            );
-            if (deployId) {
-              realDeployName = deployId;
-            }
-          }
-        });
-      if (realDeployName) {
-        console.log("[Replace with DeployId", realDeployName);
-        path = path.replaceAll(modelName, realDeployName);
-      }
-    }
   }
 
   const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
@@ -95,9 +63,6 @@ export async function requestOpenai(req: NextRequest) {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       [authHeaderName]: authValue,
-      ...(serverConfig.openaiOrgId && {
-        "OpenAI-Organization": serverConfig.openaiOrgId,
-      }),
     },
     method: req.method,
     body: req.body,
@@ -108,54 +73,10 @@ export async function requestOpenai(req: NextRequest) {
     signal: controller.signal,
   };
 
-  // #1815 try to refuse gpt4 request
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
-
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
-
-      // not undefined and is false
-      if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          [
-            ServiceProvider.OpenAI,
-            ServiceProvider.Azure,
-            jsonBody?.model as string, // support provider-unspecified model
-          ],
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error: true,
-            message: `you are not allowed to use ${jsonBody?.model} model`,
-          },
-          {
-            status: 403,
-          },
-        );
-      }
-    } catch (e) {
-      console.error("[OpenAI] gpt4 filter", e);
-    }
-  }
+  // 纯前端应用，不限制模型使用，由用户API密钥权限决定
 
   try {
     const res = await fetch(fetchUrl, fetchOptions);
-
-    // Extract the OpenAI-Organization header from the response
-    const openaiOrganizationHeader = res.headers.get("OpenAI-Organization");
-
-    // Check if serverConfig.openaiOrgId is defined and not an empty string
-    if (serverConfig.openaiOrgId && serverConfig.openaiOrgId.trim() !== "") {
-      // If openaiOrganizationHeader is present, log it; otherwise, log that the header is not present
-      console.log("[Org ID]", openaiOrganizationHeader);
-    } else {
-      console.log("[Org ID] is not set up.");
-    }
 
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);
@@ -163,11 +84,8 @@ export async function requestOpenai(req: NextRequest) {
     // to disable nginx buffering
     newHeaders.set("X-Accel-Buffering", "no");
 
-    // Conditionally delete the OpenAI-Organization header from the response if [Org ID] is undefined or empty (not setup in ENV)
-    // Also, this is to prevent the header from being sent to the client
-    if (!serverConfig.openaiOrgId || serverConfig.openaiOrgId.trim() === "") {
-      newHeaders.delete("OpenAI-Organization");
-    }
+    // 纯前端应用，删除组织ID相关头部
+    newHeaders.delete("OpenAI-Organization");
 
     // The latest version of the OpenAI API forced the content-encoding to be "br" in json response
     // So if the streaming is disabled, we need to remove the content-encoding header

@@ -58,11 +58,8 @@ git clone https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web
 cd ChatGPT-Next-Web
 yarn install
 
-# Prompt user for environment variables
-read -p "Enter OPENAI_API_KEY: " OPENAI_API_KEY
-read -p "Enter CODE: " CODE
-read -p "Enter PORT: " PORT
-
-# Build and run the project using the environment variables
-OPENAI_API_KEY=$OPENAI_API_KEY CODE=$CODE PORT=$PORT yarn build
-OPENAI_API_KEY=$OPENAI_API_KEY CODE=$CODE PORT=$PORT yarn start
+# 纯前端应用，不需要环境变量
+echo "Building frontend-only application..."
+yarn build
+echo "Starting application..."
+yarn start

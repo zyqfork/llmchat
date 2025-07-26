@@ -232,13 +232,7 @@ export function isModelNotavailableInServer(
   modelName: string,
   providerNames: string | string[],
 ): boolean {
-  // Check DISABLE_GPT4 environment variable
-  if (
-    process.env.DISABLE_GPT4 === "1" &&
-    isGPT4Model(modelName.toLowerCase())
-  ) {
-    return true;
-  }
+  // 纯前端应用，不检查环境变量限制
 
   const modelTable = collectModelTable(DEFAULT_MODELS, customModels);
 

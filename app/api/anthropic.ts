@@ -1,4 +1,3 @@
-import { getServerSideConfig } from "@/app/config/server";
 import {
   ANTHROPIC_BASE_URL,
   Anthropic,
@@ -9,7 +8,6 @@ import {
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
-import { isModelNotavailableInServer } from "@/app/utils/model";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 
 const ALLOWD_PATH = new Set([Anthropic.ChatPath, Anthropic.ChatPath1]);
@@ -55,8 +53,6 @@ export async function handle(
   }
 }
 
-const serverConfig = getServerSideConfig();
-
 async function request(req: NextRequest) {
   const controller = new AbortController();
 
@@ -64,13 +60,11 @@ async function request(req: NextRequest) {
   let authValue =
     req.headers.get(authHeaderName) ||
     req.headers.get("Authorization")?.replaceAll("Bearer ", "").trim() ||
-    serverConfig.anthropicApiKey ||
     "";
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Anthropic, "");
 
-  let baseUrl =
-    serverConfig.anthropicUrl || serverConfig.baseUrl || ANTHROPIC_BASE_URL;
+  let baseUrl = ANTHROPIC_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -100,9 +94,7 @@ async function request(req: NextRequest) {
       "anthropic-dangerous-direct-browser-access": "true",
       [authHeaderName]: authValue,
       "anthropic-version":
-        req.headers.get("anthropic-version") ||
-        serverConfig.anthropicApiVersion ||
-        Anthropic.Vision,
+        req.headers.get("anthropic-version") || Anthropic.Vision,
     },
     method: req.method,
     body: req.body,
@@ -112,36 +104,7 @@ async function request(req: NextRequest) {
     signal: controller.signal,
   };
 
-  // #1815 try to refuse some request to some models
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
-
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
-
-      // not undefined and is false
-      if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          ServiceProvider.Anthropic as string,
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error: true,
-            message: `you are not allowed to use ${jsonBody?.model} model`,
-          },
-          {
-            status: 403,
-          },
-        );
-      }
-    } catch (e) {
-      console.error(`[Anthropic] filter`, e);
-    }
-  }
+  // 纯前端应用，不限制模型使用，由用户API密钥权限决定
   // console.log("[Anthropic request]", fetchOptions.headers, req.method);
   try {
     const res = await fetch(fetchUrl, fetchOptions);

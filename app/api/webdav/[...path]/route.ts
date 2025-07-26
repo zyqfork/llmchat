@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORAGE_KEY, internalAllowedWebDavEndpoints } from "../../../constant";
-import { getServerSideConfig } from "@/app/config/server";
 
-const config = getServerSideConfig();
-
-const mergedAllowedWebDavEndpoints = [
-  ...internalAllowedWebDavEndpoints,
-  ...config.allowedWebDavEndpoints,
-].filter((domain) => Boolean(domain.trim()));
+const mergedAllowedWebDavEndpoints = [...internalAllowedWebDavEndpoints].filter(
+  (domain) => Boolean(domain.trim()),
+);
 
 const normalizeUrl = (url: string) => {
   try {

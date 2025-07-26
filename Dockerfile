@@ -15,9 +15,7 @@ FROM base AS builder
 
 RUN apk update && apk add --no-cache git
 
-ENV OPENAI_API_KEY=""
-ENV GOOGLE_API_KEY=""
-ENV CODE=""
+# 纯前端应用，不需要环境变量
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -30,11 +28,7 @@ WORKDIR /app
 
 RUN apk add proxychains-ng
 
-ENV PROXY_URL=""
-ENV OPENAI_API_KEY=""
-ENV GOOGLE_API_KEY=""
-ENV CODE=""
-ENV ENABLE_MCP=""
+# 纯前端应用，不需要环境变量
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

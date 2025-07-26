@@ -1,4 +1,3 @@
-import { getServerSideConfig } from "@/app/config/server";
 import {
   MOONSHOT_BASE_URL,
   ApiPath,
@@ -8,9 +7,6 @@ import {
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
-import { isModelNotavailableInServer } from "@/app/utils/model";
-
-const serverConfig = getServerSideConfig();
 
 export async function handle(
   req: NextRequest,
@@ -44,7 +40,7 @@ async function request(req: NextRequest) {
   // alibaba use base url or just remove the path
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Moonshot, "");
 
-  let baseUrl = serverConfig.moonshotUrl || MOONSHOT_BASE_URL;
+  let baseUrl = MOONSHOT_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -78,36 +74,7 @@ async function request(req: NextRequest) {
     signal: controller.signal,
   };
 
-  // #1815 try to refuse some request to some models
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
-
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
-
-      // not undefined and is false
-      if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          ServiceProvider.Moonshot as string,
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error: true,
-            message: `you are not allowed to use ${jsonBody?.model} model`,
-          },
-          {
-            status: 403,
-          },
-        );
-      }
-    } catch (e) {
-      console.error(`[Moonshot] filter`, e);
-    }
-  }
+  // 纯前端应用，不限制模型使用，由用户API密钥权限决定
   try {
     const res = await fetch(fetchUrl, fetchOptions);
 

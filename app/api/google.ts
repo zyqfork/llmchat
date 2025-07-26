@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
-import { getServerSideConfig } from "@/app/config/server";
 import { ApiPath, GEMINI_BASE_URL, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
-
-const serverConfig = getServerSideConfig();
 
 export async function handle(
   req: NextRequest,
@@ -27,13 +24,13 @@ export async function handle(
     req.headers.get("x-goog-api-key") || req.headers.get("Authorization") || "";
   const token = bearToken.trim().replaceAll("Bearer ", "").trim();
 
-  const apiKey = token ? token : serverConfig.googleApiKey;
+  const apiKey = token;
 
   if (!apiKey) {
     return NextResponse.json(
       {
         error: true,
-        message: `missing GOOGLE_API_KEY in server env vars`,
+        message: `API key is required for this frontend-only application`,
       },
       {
         status: 401,
@@ -71,7 +68,7 @@ export const preferredRegion = [
 async function request(req: NextRequest, apiKey: string) {
   const controller = new AbortController();
 
-  let baseUrl = serverConfig.googleUrl || GEMINI_BASE_URL;
+  let baseUrl = GEMINI_BASE_URL;
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Google, "");
 
