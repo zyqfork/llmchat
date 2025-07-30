@@ -1,5 +1,6 @@
 import { ServiceProvider } from "@/app/constant";
 import { ModalConfigValidator, ModelConfig } from "../store";
+import { normalizeProviderName } from "../client/api";
 
 import Locale from "../locales";
 import { InputRange } from "./input-range";
@@ -10,6 +11,7 @@ import styles from "./model-config.module.scss";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 import { useMemo } from "react";
+import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
@@ -92,7 +94,19 @@ export function ModelConfigList(props: {
               );
               props.updateConfig((config) => {
                 config.model = ModalConfigValidator.model(model);
-                config.providerName = providerName as ServiceProvider;
+                config.providerName = normalizeProviderName(providerName!);
+
+                // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
+                const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+                  config.model,
+                );
+                if (
+                  modelCapabilities.reasoning &&
+                  modelCapabilities.thinkingType &&
+                  config.thinkingBudget === undefined
+                ) {
+                  config.thinkingBudget = -1; // 默认为动态思考
+                }
               });
             }}
           >
@@ -325,7 +339,9 @@ export function ModelConfigList(props: {
               const [model, providerName] = getModelProvider(value);
               props.updateConfig((config) => {
                 config.compressModel = ModalConfigValidator.model(model);
-                config.compressProviderName = providerName as ServiceProvider;
+                config.compressProviderName = normalizeProviderName(
+                  providerName!,
+                );
               });
             }
           }}

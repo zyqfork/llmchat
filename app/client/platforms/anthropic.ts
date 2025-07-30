@@ -44,6 +44,10 @@ export interface AnthropicChatRequest {
   top_k?: number; // Only sample from the top K options for each subsequent token.
   metadata?: object; // An object describing metadata about the request.
   stream?: boolean; // Whether to incrementally stream the response using server-sent events.
+  thinking?: {
+    type: "enabled";
+    budget_tokens: number;
+  }; // Extended thinking configuration for Claude models.
 }
 
 export interface ChatRequest {
@@ -184,6 +188,11 @@ export class ClaudeApi implements LLMApi {
       });
     }
 
+    // 获取模型能力
+    const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+      modelConfig.model,
+    );
+
     const requestBody: AnthropicChatRequest = {
       messages: prompt,
       stream: shouldStream,
@@ -195,6 +204,22 @@ export class ClaudeApi implements LLMApi {
       // top_k: modelConfig.top_k,
       top_k: 5,
     };
+
+    // 如果模型具有推理能力且是Claude类型，添加thinking配置
+    if (
+      modelCapabilities.reasoning &&
+      modelCapabilities.thinkingType === "claude"
+    ) {
+      const thinkingBudget = modelConfig.thinkingBudget ?? -1;
+
+      if (thinkingBudget !== 0) {
+        // 0表示关闭thinking
+        requestBody.thinking = {
+          type: "enabled",
+          budget_tokens: thinkingBudget === -1 ? 10000 : thinkingBudget, // -1表示自动，使用默认值10000
+        };
+      }
+    }
 
     const path = this.path(Anthropic.ChatPath);
 

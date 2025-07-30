@@ -181,13 +181,28 @@ export class GeminiProApi implements LLMApi {
       },
     };
 
-    // 如果模型具有推理能力，添加思考配置
-    if (modelCapabilities.reasoning) {
+    // 如果模型具有推理能力且是Gemini类型，添加思考配置到generationConfig中
+    if (
+      modelCapabilities.reasoning &&
+      modelCapabilities.thinkingType === "gemini"
+    ) {
       const thinkingBudget = modelConfig.thinkingBudget ?? -1;
-      requestPayload.thinkingConfig = {
-        thinkingBudget: thinkingBudget,
+
+      // 构建thinking配置
+      const thinkingConfig: any = {
         includeThoughts: true, // 包含思考摘要
       };
+
+      // 只有当thinkingBudget不为undefined时才添加
+      if (thinkingBudget !== undefined) {
+        thinkingConfig.thinkingBudget = thinkingBudget;
+      }
+
+      // thinkingConfig应该放在generationConfig中，而不是根级别
+      if (!requestPayload.generationConfig) {
+        requestPayload.generationConfig = {};
+      }
+      requestPayload.generationConfig.thinkingConfig = thinkingConfig;
     }
 
     // 继续添加安全设置

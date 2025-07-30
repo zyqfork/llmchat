@@ -36,6 +36,7 @@ import { ModelConfigList } from "./model-config";
 import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import { normalizeProviderName } from "../client/api";
 
 import { IconButton } from "./button";
 import {
@@ -2235,7 +2236,9 @@ export function Settings() {
             );
             config.update((config) => {
               config.modelConfig.model = model as any;
-              config.modelConfig.providerName = providerName as ServiceProvider;
+              config.modelConfig.providerName = normalizeProviderName(
+                providerName!,
+              );
             });
           }}
         >

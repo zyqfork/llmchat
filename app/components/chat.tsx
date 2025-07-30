@@ -59,6 +59,7 @@ import {
   useAppConfig,
   useChatStore,
 } from "../store";
+import { normalizeProviderName } from "../client/api";
 
 import {
   autoGrowTextArea,
@@ -187,38 +188,84 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
 
-  const thinkingOptions = [
-    {
-      value: -1,
-      label: Locale.Chat.Thinking.Dynamic,
-      description: Locale.Chat.Thinking.DynamicDesc,
-    },
-    {
-      value: 0,
-      label: Locale.Chat.Thinking.Off,
-      description: Locale.Chat.Thinking.OffDesc,
-    },
-    {
-      value: 1024,
-      label: Locale.Chat.Thinking.Light,
-      description: Locale.Chat.Thinking.LightDesc,
-    },
-    {
-      value: 4096,
-      label: Locale.Chat.Thinking.Medium,
-      description: Locale.Chat.Thinking.MediumDesc,
-    },
-    {
-      value: 8192,
-      label: Locale.Chat.Thinking.Deep,
-      description: Locale.Chat.Thinking.DeepDesc,
-    },
-    {
-      value: 16384,
-      label: Locale.Chat.Thinking.VeryDeep,
-      description: Locale.Chat.Thinking.VeryDeepDesc,
-    },
-  ];
+  // 获取当前模型的能力
+  const currentModel = session.mask.modelConfig.model;
+  const modelCapabilities = getModelCapabilitiesWithCustomConfig(currentModel);
+
+  // 根据模型类型定义不同的thinking选项
+  const getThinkingOptions = () => {
+    if (modelCapabilities.thinkingType === "claude") {
+      // Claude模型的thinking选项
+      return [
+        {
+          value: -1,
+          label: Locale.Chat.Thinking.Dynamic,
+          description: "自动调节思考深度（默认10000 tokens）",
+        },
+        {
+          value: 0,
+          label: Locale.Chat.Thinking.Off,
+          description: Locale.Chat.Thinking.OffDesc,
+        },
+        {
+          value: 5000,
+          label: "轻度思考",
+          description: "5000 tokens",
+        },
+        {
+          value: 10000,
+          label: "中度思考",
+          description: "10000 tokens",
+        },
+        {
+          value: 20000,
+          label: "深度思考",
+          description: "20000 tokens",
+        },
+        {
+          value: 32000,
+          label: "极深思考",
+          description: "32000 tokens",
+        },
+      ];
+    } else {
+      // Gemini模型的thinking选项
+      return [
+        {
+          value: -1,
+          label: Locale.Chat.Thinking.Dynamic,
+          description: Locale.Chat.Thinking.DynamicDesc,
+        },
+        {
+          value: 0,
+          label: Locale.Chat.Thinking.Off,
+          description: Locale.Chat.Thinking.OffDesc,
+        },
+        {
+          value: 1024,
+          label: Locale.Chat.Thinking.Light,
+          description: Locale.Chat.Thinking.LightDesc,
+        },
+        {
+          value: 4096,
+          label: Locale.Chat.Thinking.Medium,
+          description: Locale.Chat.Thinking.MediumDesc,
+        },
+        {
+          value: 8192,
+          label: Locale.Chat.Thinking.Deep,
+          description: Locale.Chat.Thinking.DeepDesc,
+        },
+        {
+          value: 16384,
+          label: Locale.Chat.Thinking.VeryDeep,
+          description: Locale.Chat.Thinking.VeryDeepDesc,
+        },
+      ];
+    }
+  };
+
+  const thinkingOptions = getThinkingOptions();
 
   // 点击外部关闭面板
   useEffect(() => {
@@ -261,7 +308,9 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
       </div>
       <div className={styles["shortcut-panel-content"]}>
         <div className={styles["thinking-notice"]}>
-          {Locale.Chat.Thinking.Notice}
+          {modelCapabilities.thinkingType === "claude"
+            ? "仅支持 Claude 系列模型可调节思维深度"
+            : "仅支持 Gemini 系列模型可调节思维深度"}
         </div>
         <div className={styles["shortcut-key-list"]}>
           {thinkingOptions.map((option, index) => (
@@ -1088,6 +1137,18 @@ export function ChatActions(props: {
       session.mask.modelConfig.model = nextModel.name;
       session.mask.modelConfig.providerName = nextModel?.provider
         ?.providerName as ServiceProvider;
+
+      // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
+      const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+        session.mask.modelConfig.model,
+      );
+      if (
+        modelCapabilities.reasoning &&
+        modelCapabilities.thinkingType &&
+        session.mask.modelConfig.thinkingBudget === undefined
+      ) {
+        session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考
+      }
     });
     showToast(
       nextModel?.provider?.providerName == "ByteDance"
@@ -1261,7 +1322,8 @@ export function ChatActions(props: {
             const modelCapabilities =
               getModelCapabilitiesWithCustomConfig(currentModel);
             return (
-              modelCapabilities.reasoning && (
+              modelCapabilities.reasoning &&
+              modelCapabilities.thinkingType && (
                 <ChatAction
                   onClick={() =>
                     props.setShowThinkingPanel(!props.showThinkingPanel)
@@ -1336,9 +1398,23 @@ export function ChatActions(props: {
                 const [model, providerId] = getModelProvider(selectedValue);
                 chatStore.updateTargetSession(session, (session) => {
                   session.mask.modelConfig.model = model as ModelType;
-                  session.mask.modelConfig.providerName =
-                    providerId as ServiceProvider;
+                  session.mask.modelConfig.providerName = normalizeProviderName(
+                    providerId!,
+                  );
                   session.mask.syncGlobalConfig = false;
+
+                  // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
+                  const modelCapabilities =
+                    getModelCapabilitiesWithCustomConfig(
+                      session.mask.modelConfig.model,
+                    );
+                  if (
+                    modelCapabilities.reasoning &&
+                    modelCapabilities.thinkingType &&
+                    session.mask.modelConfig.thinkingBudget === undefined
+                  ) {
+                    session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考
+                  }
                 });
 
                 const selectedModel = models.find(

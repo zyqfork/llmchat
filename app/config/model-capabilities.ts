@@ -5,6 +5,7 @@ export interface ModelCapabilities {
   reasoning?: boolean; // 推理能力
   tools?: boolean; // 工具调用能力
   embedding?: boolean; // 嵌入能力
+  thinkingType?: "gemini" | "claude"; // thinking实现类型
 }
 
 // 基于模型名称的能力映射
@@ -146,31 +147,42 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
   "gemini-2.5-pro-preview-03-25": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
   "gemini-2.5-pro-preview-06-05": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
   "gemini-2.5-pro-preview-05-06": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
-  "gemini-2.5-pro": { vision: true, web: true, reasoning: true, tools: true },
+  "gemini-2.5-pro": {
+    vision: true,
+    web: true,
+    reasoning: true,
+    tools: true,
+    thinkingType: "gemini",
+  },
   "gemini-2.5-flash-preview-05-20": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
   "gemini-2.5-flash-preview-05-20-nothink": {
     vision: true,
@@ -183,12 +195,14 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
   "gemini-2.5-flash-lite": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "gemini",
   },
 
   // Gemini 2.0 系列
@@ -289,12 +303,14 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "claude",
   },
   "claude-opus-4-20250514": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "claude",
   },
 
   // Claude 3.7 系列
@@ -303,12 +319,14 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "claude",
   },
   "claude-3-7-sonnet-20250219-thinking": {
     vision: true,
     web: true,
     reasoning: true,
     tools: true,
+    thinkingType: "claude",
   },
 
   // Claude 3.5 系列
@@ -771,6 +789,13 @@ export function getEnhancedModelCapabilities(
     )
   ) {
     capabilities.reasoning = true;
+
+    // 设置thinking实现类型
+    if (/gemini/i.test(modelName)) {
+      capabilities.thinkingType = "gemini";
+    } else if (/claude/i.test(modelName)) {
+      capabilities.thinkingType = "claude";
+    }
   }
 
   // 联网能力检测

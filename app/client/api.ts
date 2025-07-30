@@ -400,7 +400,7 @@ export function getClientApi(provider: ServiceProvider | string): ClientApi {
 }
 
 // 标准化provider名称，将provider.id转换为ServiceProvider枚举值
-function normalizeProviderName(provider: string): ServiceProvider {
+export function normalizeProviderName(provider: string): ServiceProvider {
   // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
   if (provider.startsWith("custom_")) {
     const { useAccessStore } = require("../store");

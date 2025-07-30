@@ -24,6 +24,7 @@ function parseApiKey(bearToken: string) {
 
 export function auth(req: NextRequest, modelProvider: ModelProvider) {
   const authToken = req.headers.get("Authorization") ?? "";
+  const xGoogApiKey = req.headers.get("x-goog-api-key") ?? "";
 
   // check if it is openai api key or user token
   const { accessCode, apiKey } = parseApiKey(authToken);
@@ -31,11 +32,15 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
   console.log("[User IP] ", getIP(req));
   console.log("[Time] ", new Date().toLocaleString());
 
-  // 纯前端应用，不需要访问码验证，用户必须提供自己的API密钥
-  if (!apiKey) {
+  // 纯前端应用，用户必须提供自己的API密钥
+  // 对于Google，检查x-goog-api-key头部
+  const finalApiKey =
+    modelProvider === ModelProvider.GeminiPro ? xGoogApiKey || apiKey : apiKey;
+
+  if (!finalApiKey) {
     return {
       error: true,
-      msg: "API key is required for this frontend-only application",
+      msg: "Empty api key",
     };
   }
 

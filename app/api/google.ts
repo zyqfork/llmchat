@@ -25,18 +25,6 @@ export async function handle(
   const token = bearToken.trim().replaceAll("Bearer ", "").trim();
 
   const apiKey = token;
-
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error: true,
-        message: `API key is required for this frontend-only application`,
-      },
-      {
-        status: 401,
-      },
-    );
-  }
   try {
     const response = await request(req, apiKey);
     return response;
