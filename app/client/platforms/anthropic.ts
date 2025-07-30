@@ -9,7 +9,12 @@ import {
 import { getClientConfig } from "@/app/config/client";
 import { ANTHROPIC_BASE_URL } from "@/app/constant";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
-import { preProcessImageContent, stream } from "@/app/utils/chat";
+import {
+  preProcessImageContent,
+  stream,
+  streamWithThink,
+} from "@/app/utils/chat";
+import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
@@ -200,7 +205,10 @@ export class ClaudeApi implements LLMApi {
       let index = -1;
       const tools: any[] = [];
       const funcs: Record<string, Function> = {};
-      return stream(
+      const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+        options.config.model,
+      );
+      return streamWithThink(
         path,
         requestBody,
         {
@@ -249,7 +257,10 @@ export class ClaudeApi implements LLMApi {
             options.onError?.(
               new Error("Content policy violation: " + refusalMessage),
             );
-            return refusalMessage;
+            return {
+              isThinking: false,
+              content: refusalMessage,
+            };
           }
 
           if (chunkJson?.content_block?.type == "tool_use") {
@@ -273,7 +284,12 @@ export class ClaudeApi implements LLMApi {
             runTools[index]["function"]["arguments"] +=
               chunkJson?.delta?.partial_json;
           }
-          return chunkJson?.delta?.text;
+          // 返回思考内容信息
+          const content = chunkJson?.delta?.text || "";
+          return {
+            isThinking: false, // Anthropic的思考内容通过<thinking>标签处理
+            content: content,
+          };
         },
         // processToolMessage, include tool_calls message and tool call results
         (
@@ -315,6 +331,7 @@ export class ClaudeApi implements LLMApi {
           );
         },
         options,
+        modelCapabilities.reasoning || false, // 传递模型推理能力
       );
     } else {
       const payload = {

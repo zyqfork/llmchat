@@ -156,20 +156,20 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "gemini-2.5-pro-preview-06-05": {
     vision: true,
     web: true,
-    reasoning: false,
+    reasoning: true,
     tools: true,
   },
   "gemini-2.5-pro-preview-05-06": {
     vision: true,
     web: true,
-    reasoning: false,
+    reasoning: true,
     tools: true,
   },
-  "gemini-2.5-pro": { vision: true, web: true, reasoning: false, tools: true },
+  "gemini-2.5-pro": { vision: true, web: true, reasoning: true, tools: true },
   "gemini-2.5-flash-preview-05-20": {
     vision: true,
     web: true,
-    reasoning: false,
+    reasoning: true,
     tools: true,
   },
   "gemini-2.5-flash-preview-05-20-nothink": {
@@ -181,7 +181,13 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "gemini-2.5-flash": {
     vision: true,
     web: true,
-    reasoning: false,
+    reasoning: true,
+    tools: true,
+  },
+  "gemini-2.5-flash-lite": {
+    vision: true,
+    web: true,
+    reasoning: true,
     tools: true,
   },
 
@@ -759,7 +765,11 @@ export function getEnhancedModelCapabilities(
   }
 
   // 推理能力检测
-  if (/o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1/i.test(modelName)) {
+  if (
+    /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5/i.test(
+      modelName,
+    )
+  ) {
     capabilities.reasoning = true;
   }
 

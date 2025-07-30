@@ -80,6 +80,7 @@ export const DEFAULT_CONFIG = {
     size: "1024x1024" as ModelSize,
     quality: "standard" as DalleQuality,
     style: "vivid" as DalleStyle,
+    thinkingBudget: -1, // 思考深度：-1=动态思考（默认），0=关闭思考，>0=指定token数量
   },
 
   ttsConfig: {

@@ -22,6 +22,7 @@ import {
 } from "../api";
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent } from "@/app/utils";
+import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
 
@@ -118,6 +119,9 @@ export class MoonshotApi implements LLMApi {
       if (shouldStream) {
         const tools: any[] = [];
         const funcs: Record<string, Function> = {};
+        const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+          options.config.model,
+        );
         streamWithThink(
           chatPath,
           requestPayload,
@@ -178,6 +182,7 @@ export class MoonshotApi implements LLMApi {
             );
           },
           options,
+          modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
         const res = await fetch(chatPath, chatPayload);

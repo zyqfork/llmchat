@@ -13,7 +13,8 @@ import {
   useChatStore,
   ChatMessageTool,
 } from "@/app/store";
-import { stream } from "@/app/utils/chat";
+import { stream, streamWithThink } from "@/app/utils/chat";
+import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { getClientConfig } from "@/app/config/client";
 import { GEMINI_BASE_URL } from "@/app/constant";
 
@@ -162,7 +163,12 @@ export class GeminiProApi implements LLMApi {
         model: options.config.model,
       },
     };
-    const requestPayload = {
+    // 检查模型是否具有推理能力
+    const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+      options.config.model,
+    );
+
+    const requestPayload: any = {
       contents: messages,
       generationConfig: {
         // stopSequences: [
@@ -173,25 +179,36 @@ export class GeminiProApi implements LLMApi {
         topP: modelConfig.top_p,
         // "topK": modelConfig.top_k,
       },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: accessStore.googleSafetySettings,
-        },
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: accessStore.googleSafetySettings,
-        },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: accessStore.googleSafetySettings,
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: accessStore.googleSafetySettings,
-        },
-      ],
     };
+
+    // 如果模型具有推理能力，添加思考配置
+    if (modelCapabilities.reasoning) {
+      const thinkingBudget = modelConfig.thinkingBudget ?? -1;
+      requestPayload.thinkingConfig = {
+        thinkingBudget: thinkingBudget,
+        includeThoughts: true, // 包含思考摘要
+      };
+    }
+
+    // 继续添加安全设置
+    requestPayload.safetySettings = [
+      {
+        category: "HARM_CATEGORY_HARASSMENT",
+        threshold: accessStore.googleSafetySettings,
+      },
+      {
+        category: "HARM_CATEGORY_HATE_SPEECH",
+        threshold: accessStore.googleSafetySettings,
+      },
+      {
+        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold: accessStore.googleSafetySettings,
+      },
+      {
+        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+        threshold: accessStore.googleSafetySettings,
+      },
+    ];
 
     let shouldStream = !!options.config.stream;
     const controller = new AbortController();
@@ -223,7 +240,7 @@ export class GeminiProApi implements LLMApi {
       if (shouldStream) {
         const tools: any[] = [];
         const funcs: Record<string, Function> = {};
-        return stream(
+        return streamWithThink(
           chatPath,
           requestPayload,
           getHeaders(false, {
@@ -256,10 +273,30 @@ export class GeminiProApi implements LLMApi {
                 },
               });
             }
-            return chunkJson?.candidates
-              ?.at(0)
-              ?.content.parts?.map((part: { text: string }) => part.text)
+
+            // 检查是否有思考内容
+            const candidate = chunkJson?.candidates?.at(0);
+            const thoughtContent = candidate?.content?.parts?.find(
+              (part: any) => part.thought,
+            )?.text;
+            const regularContent = candidate?.content?.parts
+              ?.filter((part: any) => !part.thought)
+              ?.map((part: { text: string }) => part.text)
               .join("\n\n");
+
+            // 如果有思考内容，返回思考标记
+            if (thoughtContent) {
+              return {
+                isThinking: true,
+                content: thoughtContent,
+              };
+            }
+
+            // 返回常规内容
+            return {
+              isThinking: false,
+              content: regularContent || "",
+            };
           },
           // processToolMessage, include tool_calls message and tool call results
           (
@@ -301,6 +338,7 @@ export class GeminiProApi implements LLMApi {
             );
           },
           options,
+          modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
         const res = await fetch(chatPath, chatPayload);

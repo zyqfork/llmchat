@@ -46,6 +46,7 @@ import StyleIcon from "../icons/palette.svg";
 import ShortcutkeyIcon from "../icons/shortcutkey.svg";
 import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
+import ConnectionIcon from "../icons/connection.svg";
 import {
   BOT_HELLO,
   ChatMessage,
@@ -169,7 +170,7 @@ const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
       text={`多模型${isEnabled ? " (开启)" : " (关闭)"}${
         selectedCount > 0 ? ` ${selectedCount}个` : ""
       }`}
-      icon={<BrainIcon />}
+      icon={<ConnectionIcon />}
       dataAttribute="data-multi-model-button"
     />
   );
@@ -178,6 +179,121 @@ const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
 interface MCPClient {
   clientId: string;
   tools: any;
+}
+
+function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
+  const { showPanel, onClose } = props;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+
+  const thinkingOptions = [
+    {
+      value: -1,
+      label: Locale.Chat.Thinking.Dynamic,
+      description: Locale.Chat.Thinking.DynamicDesc,
+    },
+    {
+      value: 0,
+      label: Locale.Chat.Thinking.Off,
+      description: Locale.Chat.Thinking.OffDesc,
+    },
+    {
+      value: 1024,
+      label: Locale.Chat.Thinking.Light,
+      description: Locale.Chat.Thinking.LightDesc,
+    },
+    {
+      value: 4096,
+      label: Locale.Chat.Thinking.Medium,
+      description: Locale.Chat.Thinking.MediumDesc,
+    },
+    {
+      value: 8192,
+      label: Locale.Chat.Thinking.Deep,
+      description: Locale.Chat.Thinking.DeepDesc,
+    },
+    {
+      value: 16384,
+      label: Locale.Chat.Thinking.VeryDeep,
+      description: Locale.Chat.Thinking.VeryDeepDesc,
+    },
+  ];
+
+  // 点击外部关闭面板
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // 检查是否点击了思考按钮或其子元素
+      const thinkingButton = document.querySelector("[data-thinking-button]");
+      if (thinkingButton && thinkingButton.contains(target)) {
+        return; // 如果点击的是思考按钮，不关闭面板
+      }
+
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        onClose();
+      }
+    };
+
+    if (showPanel) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showPanel, onClose]);
+
+  if (!showPanel) {
+    return null;
+  }
+
+  return (
+    <div ref={panelRef} className={styles["shortcut-panel"]}>
+      <div className={styles["shortcut-panel-header"]}>
+        <span className={styles["shortcut-panel-title"]}>
+          {Locale.Chat.Thinking.Title}
+        </span>
+        <button className={styles["shortcut-panel-close"]} onClick={onClose}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className={styles["shortcut-panel-content"]}>
+        <div className={styles["thinking-notice"]}>
+          {Locale.Chat.Thinking.Notice}
+        </div>
+        <div className={styles["shortcut-key-list"]}>
+          {thinkingOptions.map((option, index) => (
+            <div
+              key={index}
+              className={`${styles["shortcut-key-item"]} ${
+                session.mask.modelConfig.thinkingBudget === option.value
+                  ? styles["thinking-option-selected"]
+                  : ""
+              }`}
+              onClick={() => {
+                chatStore.updateTargetSession(session, (session) => {
+                  session.mask.modelConfig.thinkingBudget = option.value;
+                });
+                onClose();
+              }}
+            >
+              <div className={styles["shortcut-key-title"]}>
+                <div>{option.label}</div>
+                <div style={{ fontSize: "12px", opacity: 0.7 }}>
+                  {option.description}
+                </div>
+              </div>
+              {session.mask.modelConfig.thinkingBudget === option.value && (
+                <div className={styles["thinking-option-check"]}>✓</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ShortcutKeyPanel(props: { showPanel: boolean; onClose: () => void }) {
@@ -795,6 +911,8 @@ export function ChatActions(props: {
   setShowMcpPanel: React.Dispatch<React.SetStateAction<boolean>>;
   showShortcutKeyPanel: boolean;
   setShowShortcutKeyPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  showThinkingPanel: boolean;
+  setShowThinkingPanel: React.Dispatch<React.SetStateAction<boolean>>;
   showMultiModelPanel: boolean;
   setShowMultiModelPanel: React.Dispatch<React.SetStateAction<boolean>>;
   toggleMultiModelMode: () => void;
@@ -1137,6 +1255,24 @@ export function ChatActions(props: {
             dataAttribute="data-shortcut-button"
           />
         )}
+        {!isMobileScreen &&
+          (() => {
+            const currentModel = session.mask.modelConfig.model;
+            const modelCapabilities =
+              getModelCapabilitiesWithCustomConfig(currentModel);
+            return (
+              modelCapabilities.reasoning && (
+                <ChatAction
+                  onClick={() =>
+                    props.setShowThinkingPanel(!props.showThinkingPanel)
+                  }
+                  text={Locale.Chat.Thinking.Title}
+                  icon={<BrainIcon />}
+                  dataAttribute="data-thinking-button"
+                />
+              )
+            );
+          })()}
         {!isMobileScreen && (
           <MCPAction
             onTogglePanel={() => props.setShowMcpPanel(!props.showMcpPanel)}
@@ -2050,6 +2186,9 @@ function _Chat() {
   const [showShortcutKeyModal, setShowShortcutKeyModal] = useState(false);
   const [showShortcutKeyPanel, setShowShortcutKeyPanel] = useState(false);
 
+  // 思考深度面板
+  const [showThinkingPanel, setShowThinkingPanel] = useState(false);
+
   // MCP 面板
   const [showMcpPanel, setShowMcpPanel] = useState(false);
 
@@ -2563,6 +2702,11 @@ function _Chat() {
                 onClose={() => setShowShortcutKeyPanel(false)}
               />
 
+              <ThinkingPanel
+                showPanel={showThinkingPanel}
+                onClose={() => setShowThinkingPanel(false)}
+              />
+
               <MultiModelPanel
                 showPanel={showMultiModelPanel}
                 onClose={() => setShowMultiModelPanel(false)}
@@ -2597,6 +2741,8 @@ function _Chat() {
                 setShowMcpPanel={setShowMcpPanel}
                 showShortcutKeyPanel={showShortcutKeyPanel}
                 setShowShortcutKeyPanel={setShowShortcutKeyPanel}
+                showThinkingPanel={showThinkingPanel}
+                setShowThinkingPanel={setShowThinkingPanel}
                 showMultiModelPanel={showMultiModelPanel}
                 setShowMultiModelPanel={setShowMultiModelPanel}
                 toggleMultiModelMode={toggleMultiModelMode}

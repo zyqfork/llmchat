@@ -409,6 +409,7 @@ export function streamWithThink(
     toolCallResult: any[],
   ) => void,
   options: any,
+  modelHasReasoningCapability: boolean = false, // 新增参数：模型是否具有推理能力
 ) {
   let responseText = "";
   let remainText = "";
@@ -600,7 +601,8 @@ export function streamWithThink(
           }
 
           // deal with <think> and </think> tags start
-          if (!chunk.isThinking) {
+          // 只有当模型具有推理能力时才处理思考内容
+          if (modelHasReasoningCapability && !chunk.isThinking) {
             if (chunk.content.startsWith("<think>")) {
               chunk.isThinking = true;
               chunk.content = chunk.content.slice(7).trim();
@@ -613,14 +615,14 @@ export function streamWithThink(
               chunk.isThinking = true;
             }
           }
-          // deal with <think> and </think> tags start
+          // deal with <think> and </think> tags end
 
           // Check if thinking mode changed
           const isThinkingChanged = lastIsThinking !== chunk.isThinking;
           lastIsThinking = chunk.isThinking;
 
-          if (chunk.isThinking) {
-            // If in thinking mode
+          if (modelHasReasoningCapability && chunk.isThinking) {
+            // If in thinking mode and model has reasoning capability
             if (!isInThinkingMode || isThinkingChanged) {
               // If this is a new thinking block or mode changed, add prefix
               isInThinkingMode = true;
@@ -638,7 +640,7 @@ export function streamWithThink(
               }
             }
           } else {
-            // If in normal mode
+            // If in normal mode or model doesn't have reasoning capability
             if (isInThinkingMode || isThinkingChanged) {
               // If switching from thinking mode to normal mode
               isInThinkingMode = false;

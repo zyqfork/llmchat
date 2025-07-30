@@ -24,6 +24,7 @@ import {
 } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
+import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 
 import {
   ChatOptions,
@@ -314,6 +315,9 @@ export class ChatGPTApi implements LLMApi {
         let index = -1;
         const tools: any[] = [];
         const funcs: Record<string, Function> = {};
+        const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+          options.config.model,
+        );
         // console.log("getAsTools", tools, funcs);
         streamWithThink(
           chatPath,
@@ -408,6 +412,7 @@ export class ChatGPTApi implements LLMApi {
             );
           },
           options,
+          modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
         const chatPayload = {
