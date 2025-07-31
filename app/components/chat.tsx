@@ -48,6 +48,7 @@ import ShortcutkeyIcon from "../icons/shortcutkey.svg";
 import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
 import ConnectionIcon from "../icons/connection.svg";
+import MenuIcon from "../icons/menu.svg";
 import {
   BOT_HELLO,
   ChatMessage,
@@ -116,6 +117,7 @@ import { Avatar } from "./emoji";
 import { ContextPrompts, MaskAvatar, MaskConfig } from "./mask";
 import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
+import { useDragSideBar } from "./sidebar";
 import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
@@ -1768,6 +1770,7 @@ function _Chat() {
   const [hitBottom, setHitBottom] = useState(true);
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
+  const { isCollapsed, toggleSideBarCollapse } = useDragSideBar();
   const [attachImages, setAttachImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -2498,21 +2501,34 @@ function _Chat() {
 
           <div
             className={clsx("window-header-title", styles["chat-body-title"])}
+            style={{ display: "flex", alignItems: "center", gap: "10px" }}
           >
-            <div
-              className={clsx(
-                "window-header-main-title",
-                styles["chat-body-main-title"],
-              )}
-              onClickCapture={() => setIsEditingMessage(true)}
-            >
-              {!session.topic ? DEFAULT_TOPIC : session.topic}
-            </div>
-            <div className="window-header-sub-title">
-              <span>{Locale.Chat.SubTitle(session.messages.length)}</span>
-              <span className={styles["chat-assistant-name"]}>
-                {session.mask.name}
-              </span>
+            {!isMobileScreen && (
+              <div className="window-action-button">
+                <IconButton
+                  icon={<MenuIcon />}
+                  bordered
+                  title="折叠/展开侧边栏"
+                  onClick={toggleSideBarCollapse}
+                />
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <div
+                className={clsx(
+                  "window-header-main-title",
+                  styles["chat-body-main-title"],
+                )}
+                onClickCapture={() => setIsEditingMessage(true)}
+              >
+                {!session.topic ? DEFAULT_TOPIC : session.topic}
+              </div>
+              <div className="window-header-sub-title">
+                <span>{Locale.Chat.SubTitle(session.messages.length)}</span>
+                <span className={styles["chat-assistant-name"]}>
+                  {session.mask.name}
+                </span>
+              </div>
             </div>
           </div>
           <div className="window-actions">

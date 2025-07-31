@@ -22,7 +22,7 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
-import { SideBar } from "./sidebar";
+import { SideBar, useDragSideBar } from "./sidebar";
 import { useAppConfig } from "../store/config";
 import { AuthPage } from "./auth";
 import { getClientConfig } from "../config/client";
@@ -159,6 +159,7 @@ function Screen() {
   const isMobileScreen = useMobileScreen();
   const shouldTightBorder =
     getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
+  const { isCollapsed } = useDragSideBar();
 
   useEffect(() => {
     loadAsyncGoogleFont();
@@ -201,6 +202,7 @@ function Screen() {
     <div
       className={clsx(styles.container, {
         [styles["tight-container"]]: shouldTightBorder,
+        [styles["sidebar-collapsed"]]: isCollapsed,
         // 暂时移除 RTL 支持，因为已注释掉阿拉伯语
         // [styles["rtl-screen"]]: getLang() === "ar",
       })}

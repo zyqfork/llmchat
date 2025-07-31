@@ -13,6 +13,7 @@ import McpIcon from "../icons/mcp.svg";
 import DragIcon from "../icons/drag.svg";
 import DiscoveryIcon from "../icons/discovery.svg";
 import ChatSettingsIcon from "../icons/chat-settings.svg";
+import MenuIcon from "../icons/menu.svg";
 
 import Locale from "../locales";
 
@@ -83,6 +84,12 @@ export function useDragSideBar() {
     });
   };
 
+  const toggleSideBarCollapse = () => {
+    config.update((config) => {
+      config.sidebarCollapsed = !config.sidebarCollapsed;
+    });
+  };
+
   const onDragStart = (e: MouseEvent) => {
     // Remembers the initial width each time the mouse is pressed
     startX.current = e.clientX;
@@ -124,18 +131,34 @@ export function useDragSideBar() {
   const isMobileScreen = useMobileScreen();
   const shouldNarrow =
     !isMobileScreen && config.sidebarWidth < MIN_SIDEBAR_WIDTH;
+  const isCollapsed = config.sidebarCollapsed;
 
   useEffect(() => {
-    const barWidth = shouldNarrow
-      ? NARROW_SIDEBAR_WIDTH
-      : limit(config.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH);
-    const sideBarWidth = isMobileScreen ? "100vw" : `${barWidth}px`;
-    document.documentElement.style.setProperty("--sidebar-width", sideBarWidth);
-  }, [config.sidebarWidth, isMobileScreen, shouldNarrow]);
+    if (isCollapsed) {
+      document.documentElement.style.setProperty("--sidebar-width", "0px");
+    } else {
+      const barWidth = shouldNarrow
+        ? NARROW_SIDEBAR_WIDTH
+        : limit(config.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH);
+      const sideBarWidth = isMobileScreen ? "100vw" : `${barWidth}px`;
+      document.documentElement.style.setProperty(
+        "--sidebar-width",
+        sideBarWidth,
+      );
+    }
+  }, [
+    config.sidebarWidth,
+    config.sidebarCollapsed,
+    isMobileScreen,
+    shouldNarrow,
+    isCollapsed,
+  ]);
 
   return {
     onDragStart,
     shouldNarrow,
+    isCollapsed,
+    toggleSideBarCollapse,
   };
 }
 
@@ -143,6 +166,7 @@ export function SideBarContainer(props: {
   children: React.ReactNode;
   onDragStart: (e: MouseEvent) => void;
   shouldNarrow: boolean;
+  isCollapsed: boolean;
   className?: string;
 }) {
   const isMobileScreen = useMobileScreen();
@@ -150,11 +174,13 @@ export function SideBarContainer(props: {
     () => isIOS() && isMobileScreen,
     [isMobileScreen],
   );
-  const { children, className, onDragStart, shouldNarrow } = props;
+  const { children, className, onDragStart, shouldNarrow, isCollapsed } = props;
+
   return (
     <div
       className={clsx(styles.sidebar, className, {
         [styles["narrow-sidebar"]]: shouldNarrow,
+        [styles["collapsed-sidebar"]]: isCollapsed,
       })}
       style={{
         // #3016 disable transition on ios mobile screen
@@ -229,7 +255,8 @@ export function SideBarTail(props: {
 
 export function SideBar(props: { className?: string }) {
   useHotKey();
-  const { onDragStart, shouldNarrow } = useDragSideBar();
+  const { onDragStart, shouldNarrow, isCollapsed, toggleSideBarCollapse } =
+    useDragSideBar();
 
   const [showMaskList, setShowMaskList] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
@@ -240,6 +267,7 @@ export function SideBar(props: { className?: string }) {
     <SideBarContainer
       onDragStart={onDragStart}
       shouldNarrow={shouldNarrow}
+      isCollapsed={isCollapsed}
       {...props}
     >
       <SideBarHeader
