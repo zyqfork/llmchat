@@ -74,6 +74,8 @@ import {
   supportsCustomSize,
   useMobileScreen,
   selectOrCopy,
+  isThinkingModel,
+  wrapThinkingPart,
 } from "../utils";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
@@ -2766,7 +2768,46 @@ function _Chat() {
                           <div className={styles["chat-message-item"]}>
                             <Markdown
                               key={message.streaming ? "loading" : "done"}
-                              content={getMessageTextContent(message)}
+                              content={(() => {
+                                const messageContent =
+                                  getMessageTextContent(message);
+                                const isThinking = isThinkingModel(
+                                  message.model,
+                                );
+                                const shouldWrap =
+                                  !message.streaming && isThinking;
+
+                                console.log("[Chat] 🔍 Message processing:", {
+                                  messageId: message.id,
+                                  model: message.model,
+                                  isStreaming: message.streaming,
+                                  isThinkingModel: isThinking,
+                                  shouldWrap,
+                                  contentLength: messageContent.length,
+                                  contentPreview:
+                                    messageContent.substring(0, 100) +
+                                    (messageContent.length > 100 ? "..." : ""),
+                                });
+
+                                if (shouldWrap) {
+                                  const wrappedContent =
+                                    wrapThinkingPart(messageContent);
+                                  console.log("[Chat] 🎯 Wrapped content:", {
+                                    originalLength: messageContent.length,
+                                    wrappedLength: wrappedContent.length,
+                                    hasThinkTags:
+                                      wrappedContent.includes("<think>"),
+                                    wrappedPreview:
+                                      wrappedContent.substring(0, 150) +
+                                      (wrappedContent.length > 150
+                                        ? "..."
+                                        : ""),
+                                  });
+                                  return wrappedContent;
+                                }
+
+                                return messageContent;
+                              })()}
                               loading={
                                 (message.preview || message.streaming) &&
                                 message.content.length === 0 &&
@@ -2781,6 +2822,8 @@ function _Chat() {
                               fontFamily={fontFamily}
                               parentRef={scrollRef}
                               defaultShow={i >= messages.length - 6}
+                              thinkingTime={message.statistic?.reasoningLatency}
+                              status={message.streaming}
                             />
                             {getMessageImages(message).length == 1 && (
                               <img

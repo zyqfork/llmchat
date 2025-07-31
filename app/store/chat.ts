@@ -72,6 +72,16 @@ export type ChatMessage = RequestMessage & {
   modelKey?: string; // 格式: "model@provider"
   // 是否为多模型模式下的消息
   isMultiModel?: boolean;
+  // 统计信息
+  statistic?: {
+    singlePromptTokens?: number;
+    completionTokens?: number;
+    reasoningTokens?: number;
+    firstReplyLatency?: number;
+    searchingLatency?: number;
+    reasoningLatency?: number;
+    totalReplyLatency?: number;
+  };
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {

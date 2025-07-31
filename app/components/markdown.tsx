@@ -5,6 +5,8 @@ import RemarkBreaks from "remark-breaks";
 import RehypeKatex from "rehype-katex";
 import RemarkGfm from "remark-gfm";
 import RehypeHighlight from "rehype-highlight";
+import RehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { useRef, useState, RefObject, useEffect, useMemo } from "react";
 import { copyToClipboard, useWindowSize } from "../utils";
 import mermaid from "mermaid";
@@ -21,9 +23,164 @@ import {
 } from "./artifacts";
 import { useChatStore } from "../store";
 import { IconButton } from "./button";
+import { Collapse } from "antd";
 
 import { useAppConfig } from "../store/config";
 import clsx from "clsx";
+import styles from "./markdown.module.scss";
+
+// 配置安全策略，允许 thinkcollapse 标签，防止html注入造成页面崩溃
+const sanitizeOptions = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    div: [
+      ...(defaultSchema.attributes?.div || []),
+      ["className", "math", "math-display"],
+    ],
+    img: [
+      ...(defaultSchema.attributes?.img || []),
+      ["src", ["http:", "https:", "data"]],
+    ],
+    math: [["xmlns", "http://www.w3.org/1998/Math/MathML"], "display"],
+    annotation: ["encoding"],
+    span: ["className", "style"],
+    svg: [
+      ["xmlns", "http://www.w3.org/2000/svg"],
+      "width",
+      "height",
+      "viewBox",
+      "preserveAspectRatio",
+    ],
+    path: ["d"],
+  },
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "thinkcollapse",
+    "math",
+    "semantics",
+    "annotation",
+    "mrow",
+    "mi",
+    "mo",
+    "mfrac",
+    "mn",
+    "msup",
+    "msub",
+    "svg",
+    "path",
+  ],
+};
+
+interface ThinkCollapseProps {
+  title: string | React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  fontSize?: number;
+}
+
+const ThinkCollapse = ({
+  title,
+  children,
+  className,
+  fontSize,
+}: ThinkCollapseProps) => {
+  // 如果是 Thinking 状态，默认展开，否则折叠
+  const defaultActive = title === Locale.NewChat.Thinking ? ["1"] : [];
+  // 如果是 NoThink 状态，禁用
+  const disabled = title === Locale.NewChat.NoThink;
+  const [activeKeys, setActiveKeys] = useState(defaultActive);
+
+  // 当标题从 Thinking 变为 Think 或 NoThink 时自动折叠
+  useEffect(() => {
+    if (
+      (typeof title === "string" && title.includes(Locale.NewChat.Think)) ||
+      title === Locale.NewChat.NoThink
+    ) {
+      setActiveKeys([]);
+    } else if (title === Locale.NewChat.Thinking) {
+      setActiveKeys(["1"]);
+    }
+  }, [title]);
+
+  const toggleCollapse = () => {
+    if (!disabled) {
+      setActiveKeys(activeKeys.length ? [] : ["1"]);
+    }
+  };
+
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCollapse();
+  };
+
+  const handleCopyContent = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 获取children的文本内容
+    const getTextContent = (node: React.ReactNode): string => {
+      if (typeof node === "string") return node;
+      if (typeof node === "number") return String(node);
+      if (React.isValidElement(node)) {
+        if (node.props.children) {
+          return getTextContent(node.props.children);
+        }
+      }
+      if (Array.isArray(node)) {
+        return node.map(getTextContent).join("");
+      }
+      return "";
+    };
+
+    const textContent = getTextContent(children);
+    copyToClipboard(textContent);
+  };
+
+  return (
+    <div
+      onContextMenu={handleRightClick}
+      onDoubleClick={handleDoubleClick}
+      className={`${styles["think-collapse"]} ${
+        disabled ? styles.disabled : ""
+      } ${className || ""}`}
+    >
+      <Collapse
+        className={`${disabled ? "disabled" : ""}`}
+        size="small"
+        activeKey={activeKeys}
+        onChange={(keys) => !disabled && setActiveKeys(keys as string[])}
+        bordered={false}
+        items={[
+          {
+            key: "1",
+            label: (
+              <div className={styles["think-collapse-header"]}>
+                <span>{title}</span>
+                {!disabled && (
+                  <span
+                    className={styles["copy-think-button"]}
+                    onClick={handleCopyContent}
+                    title={Locale.Chat.Actions.Copy}
+                  >
+                    📋
+                  </span>
+                )}
+              </div>
+            ),
+            children: children,
+          },
+        ]}
+      ></Collapse>
+    </div>
+  );
+};
 
 export function Mermaid(props: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -267,16 +424,94 @@ function tryWrapHtmlCode(text: string) {
     );
 }
 
-function _MarkDownContent(props: { content: string }) {
+function formatThinkText(
+  text: string,
+  thinkingTime?: number,
+): {
+  thinkText: string;
+  remainText: string;
+} {
+  console.log("[formatThinkText] 🔍 Input:", {
+    length: text.length,
+    startsWithThink: text.trimStart().startsWith("<think>"),
+    hasThinkTags: text.includes("<think>"),
+    preview: text.substring(0, 100) + (text.length > 100 ? "..." : ""),
+  });
+
+  text = text.trimStart();
+  // 检查是否以 <think> 开头但没有结束标签
+  if (text.startsWith("<think>") && !text.includes("</think>")) {
+    console.log(
+      "[formatThinkText] 🔄 Processing incomplete think tag (thinking in progress)",
+    );
+    // 获取 <think> 后的所有内容
+    const thinkContent = text.slice("<think>".length);
+    // 渲染为"思考中"状态
+    const thinkText = `<thinkcollapse title="${Locale.NewChat.Thinking}">\n${thinkContent}\n\n</thinkcollapse>\n`;
+    const remainText = ""; // 剩余文本为空
+    console.log(
+      "[formatThinkText] ✅ Generated thinking collapse for incomplete tag",
+    );
+    return { thinkText, remainText };
+  }
+
+  // 处理完整的 think 标签
+  const pattern = /^<think>([\s\S]*?)<\/think>/;
+  const match = text.match(pattern);
+  if (match) {
+    console.log("[formatThinkText] 🧠 Processing complete think tag");
+    const thinkContent = match[1];
+    let thinkText = "";
+    if (thinkContent.trim() === "") {
+      console.log("[formatThinkText] 📝 Empty think content");
+      thinkText = `<thinkcollapse title="${Locale.NewChat.NoThink}">\n\n</thinkcollapse>\n`;
+    } else {
+      console.log(
+        "[formatThinkText] 📝 Think content length:",
+        thinkContent.length,
+      );
+      thinkText = `<thinkcollapse title="${
+        Locale.NewChat.Think
+      }${Locale.NewChat.ThinkFormat(
+        thinkingTime,
+      )}">\n${thinkContent}\n\n</thinkcollapse>\n`;
+    }
+    const remainText = text.substring(match[0].length); // 提取剩余文本
+    console.log(
+      "[formatThinkText] ✅ Generated think collapse, remaining text length:",
+      remainText.length,
+    );
+    return { thinkText, remainText };
+  }
+
+  console.log("[formatThinkText] ❌ No think tags found");
+  // 没有找到 think 标签
+  return { thinkText: "", remainText: text };
+}
+
+function _MarkDownContent(props: {
+  content: string;
+  thinkingTime?: number;
+  fontSize?: number;
+  status?: boolean;
+}) {
   const escapedContent = useMemo(() => {
-    return tryWrapHtmlCode(escapeBrackets(props.content));
-  }, [props.content]);
+    const originalContent = tryWrapHtmlCode(escapeBrackets(props.content));
+    const { thinkText, remainText } = formatThinkText(
+      originalContent,
+      props.thinkingTime,
+    );
+    const content = thinkText + remainText;
+    return content;
+  }, [props.content, props.thinkingTime]);
 
   return (
     <ReactMarkdown
       remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
       rehypePlugins={[
+        RehypeRaw,
         RehypeKatex as any,
+        [rehypeSanitize, sanitizeOptions],
         [
           RehypeHighlight,
           {
@@ -285,31 +520,44 @@ function _MarkDownContent(props: { content: string }) {
           },
         ],
       ]}
-      components={{
-        pre: PreCode,
-        code: CustomCode,
-        p: (pProps) => <p {...pProps} dir="auto" />,
-        a: (aProps) => {
-          const href = aProps.href || "";
-          if (/\.(aac|mp3|opus|wav)$/.test(href)) {
-            return (
-              <figure>
-                <audio controls src={href}></audio>
-              </figure>
-            );
-          }
-          if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
-            return (
-              <video controls width="99.9%">
-                <source src={href} />
-              </video>
-            );
-          }
-          const isInternal = /^\/#/i.test(href);
-          const target = isInternal ? "_self" : aProps.target ?? "_blank";
-          return <a {...aProps} target={target} />;
-        },
-      }}
+      components={
+        {
+          pre: PreCode,
+          code: CustomCode,
+          p: (pProps: any) => <p {...pProps} dir="auto" />,
+          thinkcollapse: ({
+            title,
+            children,
+          }: {
+            title: string;
+            children: React.ReactNode;
+          }) => (
+            <ThinkCollapse title={title} fontSize={props.fontSize}>
+              {children}
+            </ThinkCollapse>
+          ),
+          a: (aProps: any) => {
+            const href = aProps.href || "";
+            if (/\.(aac|mp3|opus|wav)$/.test(href)) {
+              return (
+                <figure>
+                  <audio controls src={href}></audio>
+                </figure>
+              );
+            }
+            if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
+              return (
+                <video controls width="99.9%">
+                  <source src={href} />
+                </video>
+              );
+            }
+            const isInternal = /^\/#/i.test(href);
+            const target = isInternal ? "_self" : aProps.target ?? "_blank";
+            return <a {...aProps} target={target} />;
+          },
+        } as any
+      }
     >
       {escapedContent}
     </ReactMarkdown>
@@ -326,6 +574,8 @@ export function Markdown(
     fontFamily?: string;
     parentRef?: RefObject<HTMLDivElement>;
     defaultShow?: boolean;
+    thinkingTime?: number;
+    status?: boolean;
   } & React.DOMAttributes<HTMLDivElement>,
 ) {
   const mdRef = useRef<HTMLDivElement>(null);
@@ -345,7 +595,12 @@ export function Markdown(
       {props.loading ? (
         <LoadingIcon />
       ) : (
-        <MarkdownContent content={props.content} />
+        <MarkdownContent
+          content={props.content}
+          thinkingTime={props.thinkingTime}
+          fontSize={props.fontSize}
+          status={props.status}
+        />
       )}
     </div>
   );

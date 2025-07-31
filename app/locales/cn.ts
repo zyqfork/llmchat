@@ -785,6 +785,25 @@ const cn = {
     Title: "挑选一个助手",
     SubTitle: "现在开始，与助手背后的灵魂思维碰撞",
     More: "查看全部",
+    Less: "折叠代码",
+    ShowCode: "显示代码",
+    Preview: "预览",
+    NotShow: "不再展示",
+    ConfirmNoShow: "确认禁用？禁用后可以随时在设置中重新启用。",
+    Searching: "搜索中...",
+    Search: "搜索内容",
+    NoSearch: "没有搜索内容",
+    SearchFormat: (SearchTime?: number) =>
+      SearchTime !== undefined
+        ? `（用时 ${Math.round(SearchTime / 1000)} 秒）`
+        : "",
+    Thinking: "正在思考中...",
+    Think: "思考过程",
+    NoThink: "没有思考过程",
+    ThinkFormat: (thinkingTime?: number) =>
+      thinkingTime !== undefined
+        ? `（用时 ${Math.round(thinkingTime / 1000)} 秒）`
+        : "",
   },
 
   URLCommand: {

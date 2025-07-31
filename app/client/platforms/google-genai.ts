@@ -7,7 +7,6 @@ import {
   getModelCapabilitiesWithCustomConfig,
 } from "@/app/config/model-capabilities";
 import { getMessageTextContent, getMessageImages } from "@/app/utils";
-import { streamWithThink } from "@/app/utils/chat";
 
 export class GoogleGenAIApi implements LLMApi {
   private client: GoogleGenAI | null = null;
@@ -202,44 +201,66 @@ export class GoogleGenAIApi implements LLMApi {
       let isInThinkingMode = false;
 
       for await (const chunk of response) {
+        console.log(
+          "[GoogleGenAI] 🔍 Raw chunk:",
+          JSON.stringify(chunk, null, 2),
+        );
+
         // 处理思考内容和普通内容
         if (chunk.candidates && chunk.candidates.length > 0) {
           const candidate = chunk.candidates[0];
           if (candidate.content && candidate.content.parts) {
             for (const part of candidate.content.parts) {
+              console.log("[GoogleGenAI] 📝 Processing part:", {
+                hasThought: !!part.thought,
+                thoughtValue: part.thought,
+                hasText: !!part.text,
+                textLength: part.text?.length || 0,
+                textPreview: part.text
+                  ? part.text.substring(0, 50) +
+                    (part.text.length > 50 ? "..." : "")
+                  : "",
+              });
+
               if (part.thought && part.text) {
-                // 这是思考内容
+                // 这是思考内容 - 直接使用 <think> 标签包装
                 console.log("[GoogleGenAI] 🧠 Thought chunk:", part.text);
 
-                // 如果刚进入思考模式，添加思考前缀
+                // 如果刚进入思考模式，添加开始标签
                 if (!isInThinkingMode) {
                   isInThinkingMode = true;
                   if (responseText.length > 0) {
                     responseText += "\n";
                   }
-                  responseText += "> " + part.text;
+                  responseText += "<think>\n" + part.text;
                 } else {
-                  // 处理思考内容中的换行
-                  if (part.text.includes("\n\n")) {
-                    const lines = part.text.split("\n\n");
-                    responseText += lines.join("\n\n> ");
-                  } else {
-                    responseText += part.text;
-                  }
+                  // 继续添加思考内容
+                  responseText += part.text;
                 }
 
+                console.log(
+                  "[GoogleGenAI] 🧠 Current responseText after thought:",
+                  responseText.substring(responseText.length - 100),
+                );
                 options.onUpdate?.(responseText, part.text);
               } else if (part.text && !part.thought) {
                 // 这是普通内容
                 console.log("[GoogleGenAI] 💬 Response chunk:", part.text);
 
-                // 如果从思考模式切换到普通模式，添加分隔符
+                // 如果从思考模式切换到普通模式，添加结束标签和分隔符
                 if (isInThinkingMode) {
                   isInThinkingMode = false;
-                  responseText += "\n\n";
+                  responseText += "\n</think>\n\n";
+                  console.log(
+                    "[GoogleGenAI] 🔄 Switched from thinking to response mode",
+                  );
                 }
 
                 responseText += part.text;
+                console.log(
+                  "[GoogleGenAI] 💬 Current responseText after response:",
+                  responseText.substring(responseText.length - 100),
+                );
                 options.onUpdate?.(responseText, part.text);
               }
             }
@@ -251,6 +272,12 @@ export class GoogleGenAIApi implements LLMApi {
           responseText += chunk.text;
           options.onUpdate?.(responseText, chunk.text);
         }
+      }
+
+      // 如果流结束时还在思考模式，添加结束标签
+      if (isInThinkingMode) {
+        responseText += "\n</think>";
+        console.log("[GoogleGenAI] 🔚 Added closing think tag at stream end");
       }
 
       console.log("[GoogleGenAI] ✅ Chat completed successfully");

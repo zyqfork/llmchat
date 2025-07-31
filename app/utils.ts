@@ -7,11 +7,11 @@ import {
   REQUEST_TIMEOUT_MS_FOR_THINKING,
   ServiceProvider,
 } from "./constant";
+import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 // import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
 import { fetch as tauriStreamFetch } from "./utils/stream";
 import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
-import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 import { ModelSize } from "./typing";
 
 export function trimTopic(topic: string) {
@@ -260,12 +260,8 @@ export function getMessageTextContentWithoutThinking(message: RequestMessage) {
     }
   }
 
-  // Filter out thinking lines (starting with "> ")
-  return content
-    .split("\n")
-    .filter((line) => !line.startsWith("> ") && line.trim() !== "")
-    .join("\n")
-    .trim();
+  // Remove thinking content between <think> and </think> tags
+  return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
 export function getMessageImages(message: RequestMessage): string[] {
@@ -482,4 +478,30 @@ export function semverCompare(a: string, b: string) {
     sensitivity: "case",
     caseFirst: "upper",
   });
+}
+
+export function isThinkingModel(model: string | undefined) {
+  if (!model) {
+    return false;
+  }
+
+  // 使用模型能力配置系统来判断是否具有推理能力
+  const capabilities = getModelCapabilitiesWithCustomConfig(model);
+  return capabilities.reasoning === true;
+}
+
+export function wrapThinkingPart(full_reply: string) {
+  console.log("[wrapThinkingPart] 🔍 Input:", {
+    length: full_reply.length,
+    hasThinkTags: full_reply.includes("<think>"),
+    preview:
+      full_reply.substring(0, 100) + (full_reply.length > 100 ? "..." : ""),
+  });
+
+  // 现在所有模型都直接生成<think>标签，这个函数主要用于确保兼容性
+  // 直接返回原内容，因为思考内容已经被正确包装
+  console.log(
+    "[wrapThinkingPart] ✅ Returning content as-is (all models now generate think tags directly)",
+  );
+  return full_reply;
 }

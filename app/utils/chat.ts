@@ -517,6 +517,13 @@ export function streamWithThink(
         return;
       }
       console.debug("[ChatAPI] end");
+
+      // 如果流结束时还在思考模式，添加结束标签
+      if (isInThinkingMode && modelHasReasoningCapability) {
+        remainText += "\n</think>";
+        console.log("[ChatAPI] Added closing think tag at stream end");
+      }
+
       finished = true;
       options.onFinish(responseText + remainText, responseRes);
     }
@@ -624,27 +631,22 @@ export function streamWithThink(
           if (modelHasReasoningCapability && chunk.isThinking) {
             // If in thinking mode and model has reasoning capability
             if (!isInThinkingMode || isThinkingChanged) {
-              // If this is a new thinking block or mode changed, add prefix
+              // If this is a new thinking block or mode changed, add opening tag
               isInThinkingMode = true;
               if (remainText.length > 0) {
                 remainText += "\n";
               }
-              remainText += "> " + chunk.content;
+              remainText += "<think>\n" + chunk.content;
             } else {
-              // Handle newlines in thinking content
-              if (chunk.content.includes("\n\n")) {
-                const lines = chunk.content.split("\n\n");
-                remainText += lines.join("\n\n> ");
-              } else {
-                remainText += chunk.content;
-              }
+              // Continue adding thinking content
+              remainText += chunk.content;
             }
           } else {
             // If in normal mode or model doesn't have reasoning capability
             if (isInThinkingMode || isThinkingChanged) {
-              // If switching from thinking mode to normal mode
+              // If switching from thinking mode to normal mode, add closing tag
               isInThinkingMode = false;
-              remainText += "\n\n" + chunk.content;
+              remainText += "\n</think>\n\n" + chunk.content;
             } else {
               remainText += chunk.content;
             }
