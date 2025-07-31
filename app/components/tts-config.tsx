@@ -65,6 +65,16 @@ export function TTSConfigList(props: {
       </ListItem>
       {props.ttsConfig.engine === DEFAULT_TTS_ENGINE && (
         <>
+          <ListItem
+            title={Locale.Settings.TTS.EngineConfig.Title}
+            subTitle={Locale.Settings.TTS.EngineConfig.SubTitle}
+          >
+            <div></div>
+          </ListItem>
+        </>
+      )}
+      {props.ttsConfig.engine === DEFAULT_TTS_ENGINE && (
+        <>
           <ListItem title={Locale.Settings.TTS.Model}>
             <Select
               value={props.ttsConfig.model}

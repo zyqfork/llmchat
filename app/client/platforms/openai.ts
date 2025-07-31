@@ -161,6 +161,30 @@ export class ChatGPTApi implements LLMApi {
     return res.choices?.at(0)?.message?.content ?? res;
   }
 
+  // 专门用于 TTS 的 headers 函数，确保始终使用 OpenAI 配置
+  private getTTSHeaders(): Record<string, string> {
+    const accessStore = useAccessStore.getState();
+
+    let headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    // 强制使用 OpenAI 配置，不受当前会话模型影响
+    const openaiApiKey = accessStore.openaiApiKey;
+
+    if (openaiApiKey && openaiApiKey.length > 0) {
+      headers["Authorization"] = `Bearer ${openaiApiKey.trim()}`;
+    } else {
+      // 如果没有 OpenAI API Key，尝试使用访问码
+      if (accessStore.enabledAccessControl() && accessStore.accessCode) {
+        headers["Authorization"] = `Bearer nk-${accessStore.accessCode}`;
+      }
+    }
+
+    return headers;
+  }
+
   async speech(options: SpeechOptions): Promise<ArrayBuffer> {
     const requestPayload = {
       model: options.model,
@@ -177,11 +201,15 @@ export class ChatGPTApi implements LLMApi {
 
     try {
       const speechPath = this.path(OpenaiPath.SpeechPath);
+
+      // 使用专门的 TTS headers 函数，确保使用 OpenAI 配置
+      const headers = this.getTTSHeaders();
+
       const speechPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: headers,
       };
 
       // make a fetch request

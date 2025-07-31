@@ -620,6 +620,11 @@ const cn = {
       },
       Model: "模型",
       Engine: "转换引擎",
+      EngineConfig: {
+        Title: "配置说明",
+        SubTitle:
+          "OpenAI-TTS 将使用模型服务中 OpenAI 提供商的配置，使用前需要在 OpenAI 提供商中添加对应的 API Key",
+      },
       Voice: {
         Title: "声音",
         SubTitle: "生成语音时使用的声音",

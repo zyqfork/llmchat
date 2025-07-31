@@ -1948,19 +1948,24 @@ function _Chat() {
   const [speechStatus, setSpeechStatus] = useState(false);
   const [speechLoading, setSpeechLoading] = useState(false);
 
+  // 创建专门用于 TTS 的 API 客户端，始终使用 OpenAI TTS 配置
+  function createTTSApi(): ClientApi {
+    // 始终使用 OpenAI 作为 TTS 提供商，不受当前对话模型影响
+    return new ClientApi(ModelProvider.GPT);
+  }
+
   async function openaiSpeech(text: string) {
     if (speechStatus) {
       ttsPlayer.stop();
       setSpeechStatus(false);
     } else {
-      var api: ClientApi;
-      api = new ClientApi(ModelProvider.GPT);
       const config = useAppConfig.getState();
       setSpeechLoading(true);
       ttsPlayer.init();
       let audioBuffer: ArrayBuffer;
       const { markdownToTxt } = require("markdown-to-txt");
       const textContent = markdownToTxt(text);
+
       if (config.ttsConfig.engine !== DEFAULT_TTS_ENGINE) {
         const edgeVoiceName = accessStore.edgeVoiceName();
         const tts = new MsEdgeTTS();
@@ -1970,13 +1975,17 @@ function _Chat() {
         );
         audioBuffer = await tts.toArrayBuffer(textContent);
       } else {
-        audioBuffer = await api.llm.speech({
+        // 创建专门用于 TTS 的 API 客户端，确保使用 OpenAI TTS 配置
+        const ttsApi = createTTSApi();
+
+        audioBuffer = await ttsApi.llm.speech({
           model: config.ttsConfig.model,
           input: textContent,
           voice: config.ttsConfig.voice,
           speed: config.ttsConfig.speed,
         });
       }
+
       setSpeechStatus(true);
       ttsPlayer
         .play(audioBuffer, () => {

@@ -628,6 +628,12 @@ const en: LocaleType = {
           "Automatically generate speech and play, you need to enable the text-to-speech switch first",
       },
       Model: "Model",
+      Engine: "TTS Engine",
+      EngineConfig: {
+        Title: "Configuration Note",
+        SubTitle:
+          "OpenAI-TTS will use the configuration from OpenAI provider in Model Services. Please add the corresponding API Key in OpenAI provider before use",
+      },
       Voice: {
         Title: "Voice",
         SubTitle: "The voice to use when generating the audio",
@@ -636,7 +642,6 @@ const en: LocaleType = {
         Title: "Speed",
         SubTitle: "The speed of the generated audio",
       },
-      Engine: "TTS Engine",
     },
     Realtime: {
       Enable: {
