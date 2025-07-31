@@ -143,8 +143,6 @@ export const OpenaiPath = {
   ChatPath: "v1/chat/completions",
   SpeechPath: "v1/audio/speech",
   ImagePath: "v1/images/generations",
-  UsagePath: "dashboard/billing/usage",
-  SubsPath: "dashboard/billing/subscription",
   ListModelPath: "v1/models",
 };
 
@@ -791,4 +789,5 @@ export const internalAllowedWebDavEndpoints = [
 export const DEFAULT_GA_ID = "G-89WN60ZK2E";
 
 export const SAAS_CHAT_URL = "https://github.com/syferie/qadchat";
-export const SAAS_CHAT_UTM_URL = "https://github.com/syferie/qadchat?utm_source=github";
+export const SAAS_CHAT_UTM_URL =
+  "https://github.com/syferie/qadchat?utm_source=github";

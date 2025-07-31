@@ -90,10 +90,6 @@ export const useUpdateStore = createPersistStore(
     lastUpdate: 0,
     version: "unknown",
     remoteVersion: "",
-    used: 0,
-    subscription: 0,
-
-    lastUpdateUsage: 0,
   },
   (set, get) => ({
     formatVersion(version: string) {
@@ -182,30 +178,6 @@ export const useUpdateStore = createPersistStore(
         console.log("[Got Upstream] ", remoteId);
       } catch (error) {
         console.error("[Fetch Upstream Commit Id]", error);
-      }
-    },
-
-    async updateUsage(force = false) {
-      // only support openai for now
-      const overOneMinute = Date.now() - get().lastUpdateUsage >= ONE_MINUTE;
-      if (!overOneMinute && !force) return;
-
-      set(() => ({
-        lastUpdateUsage: Date.now(),
-      }));
-
-      try {
-        const api = new ClientApi(ModelProvider.GPT);
-        const usage = await api.llm.usage();
-
-        if (usage) {
-          set(() => ({
-            used: usage.used,
-            subscription: usage.total,
-          }));
-        }
-      } catch (e) {
-        console.error((e as Error).message);
       }
     },
   }),

@@ -802,35 +802,6 @@ export function Settings() {
   }
 
   const accessStore = useAccessStore();
-  const shouldHideBalanceQuery = useMemo(() => {
-    const isOpenAiUrl = accessStore.openaiUrl.includes(OPENAI_BASE_URL);
-
-    return (
-      accessStore.hideBalanceQuery ||
-      isOpenAiUrl ||
-      accessStore.provider === ServiceProvider.Azure
-    );
-  }, [
-    accessStore.hideBalanceQuery,
-    accessStore.openaiUrl,
-    accessStore.provider,
-  ]);
-
-  const usage = {
-    used: updateStore.used,
-    subscription: updateStore.subscription,
-  };
-  const [loadingUsage, setLoadingUsage] = useState(false);
-  function checkUsage(force = false) {
-    if (shouldHideBalanceQuery) {
-      return;
-    }
-
-    setLoadingUsage(true);
-    updateStore.updateUsage(force).finally(() => {
-      setLoadingUsage(false);
-    });
-  }
 
   const enabledAccessControl = useMemo(
     () => accessStore.enabledAccessControl(),
@@ -873,8 +844,6 @@ export function Settings() {
     return initialState;
   });
 
-  const showUsage = accessStore.isAuthorized();
-
   // 当自定义服务商列表变化时，更新折叠状态
   useEffect(() => {
     setCollapsedCustomProviders((prev) => {
@@ -891,7 +860,6 @@ export function Settings() {
   useEffect(() => {
     // checks per minutes
     checkUpdate();
-    showUsage && checkUsage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2135,34 +2103,6 @@ export function Settings() {
           </div>
         </div>
       )}
-
-      <List>
-        {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
-          <ListItem
-            title={Locale.Settings.Usage.Title}
-            subTitle={
-              showUsage
-                ? loadingUsage
-                  ? Locale.Settings.Usage.IsChecking
-                  : Locale.Settings.Usage.SubTitle(
-                      usage?.used ?? "[?]",
-                      usage?.subscription ?? "[?]",
-                    )
-                : Locale.Settings.Usage.NoAccess
-            }
-          >
-            {!showUsage || loadingUsage ? (
-              <div />
-            ) : (
-              <IconButton
-                icon={<ResetIcon></ResetIcon>}
-                text={Locale.Settings.Usage.Check}
-                onClick={() => checkUsage(true)}
-              />
-            )}
-          </ListItem>
-        ) : null}
-      </List>
     </>
   );
 
