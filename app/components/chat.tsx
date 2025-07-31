@@ -41,6 +41,7 @@ import StopIcon from "../icons/pause.svg";
 
 import SizeIcon from "../icons/size.svg";
 import QualityIcon from "../icons/hd.svg";
+import SearchIcon from "../icons/zoom.svg";
 import StyleIcon from "../icons/palette.svg";
 
 import ShortcutkeyIcon from "../icons/shortcutkey.svg";
@@ -126,7 +127,10 @@ import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, getAllTools } from "../mcp/actions";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import {
+  getModelCapabilitiesWithCustomConfig,
+  isWebSearchModel,
+} from "../config/model-capabilities";
 import { ProviderIcon } from "./provider-icon";
 
 const localStorage = safeLocalStorage();
@@ -503,59 +507,93 @@ function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
 
   if (!showPanel) return null;
 
+  const mcpEnabled = chatStore.getSessionMcpEnabled();
+
   return (
     <div ref={panelRef} className={styles["mcp-panel"]}>
       <div className={styles["mcp-panel-header"]}>
-        <span className={styles["mcp-panel-title"]}>MCP 工具控制</span>
+        <span className={styles["mcp-panel-title"]}>
+          {Locale.Chat.MCP.Title}
+        </span>
         <button className={styles["mcp-panel-close"]} onClick={onClose}>
           <CloseIcon />
         </button>
       </div>
       <div className={styles["mcp-panel-content"]}>
-        {loading ? (
-          <div className={styles["mcp-panel-loading"]}>
-            <LoadingIcon />
-            <span>加载中...</span>
+        {/* MCP 功能总开关 */}
+        <div className={styles["mcp-global-toggle"]}>
+          <div className={styles["mcp-global-toggle-info"]}>
+            <div className={styles["mcp-global-toggle-title"]}>
+              {Locale.Chat.MCP.Enable}
+            </div>
+            <div className={styles["mcp-global-toggle-desc"]}>
+              {Locale.Chat.MCP.EnableDesc}
+            </div>
           </div>
-        ) : mcpClients.length === 0 ? (
-          <div className={styles["mcp-panel-empty"]}>
-            <span>暂无可用的 MCP 工具</span>
-          </div>
-        ) : (
-          <div className={styles["mcp-client-list"]}>
-            {mcpClients.map((client) => {
-              const isEnabled = chatStore.getSessionMcpClientStatus(
-                client.clientId,
-              );
-              const toolCount = client.tools?.tools?.length || 0;
+          <label className={styles["mcp-client-toggle"]}>
+            <input
+              type="checkbox"
+              checked={mcpEnabled}
+              onChange={(e) =>
+                chatStore.updateSessionMcpEnabled(e.target.checked)
+              }
+            />
+            <span className={styles["toggle-slider"]}></span>
+          </label>
+        </div>
 
-              return (
-                <div
-                  key={client.clientId}
-                  className={styles["mcp-client-item"]}
-                >
-                  <div className={styles["mcp-client-info"]}>
-                    <div className={styles["mcp-client-name"]}>
-                      {client.clientId}
+        {/* 只有在 MCP 功能启用时才显示工具列表 */}
+        {mcpEnabled && (
+          <>
+            {loading ? (
+              <div className={styles["mcp-panel-loading"]}>
+                <LoadingIcon />
+                <span>{Locale.Chat.MCP.Loading}</span>
+              </div>
+            ) : mcpClients.length === 0 ? (
+              <div className={styles["mcp-panel-empty"]}>
+                <span>{Locale.Chat.MCP.NoTools}</span>
+              </div>
+            ) : (
+              <div className={styles["mcp-client-list"]}>
+                {mcpClients.map((client) => {
+                  const isEnabled = chatStore.getSessionMcpClientStatus(
+                    client.clientId,
+                  );
+                  const toolCount = client.tools?.tools?.length || 0;
+
+                  return (
+                    <div
+                      key={client.clientId}
+                      className={styles["mcp-client-item"]}
+                    >
+                      <div className={styles["mcp-client-info"]}>
+                        <div className={styles["mcp-client-name"]}>
+                          {client.clientId}
+                        </div>
+                        <div className={styles["mcp-client-tools"]}>
+                          {toolCount} 个工具
+                        </div>
+                      </div>
+                      <label className={styles["mcp-client-toggle"]}>
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) =>
+                            handleToggleClient(
+                              client.clientId,
+                              e.target.checked,
+                            )
+                          }
+                        />
+                        <span className={styles["toggle-slider"]}></span>
+                      </label>
                     </div>
-                    <div className={styles["mcp-client-tools"]}>
-                      {toolCount} 个工具
-                    </div>
-                  </div>
-                  <label className={styles["mcp-client-toggle"]}>
-                    <input
-                      type="checkbox"
-                      checked={isEnabled}
-                      onChange={(e) =>
-                        handleToggleClient(client.clientId, e.target.checked)
-                      }
-                    />
-                    <span className={styles["toggle-slider"]}></span>
-                  </label>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1333,6 +1371,33 @@ export function ChatActions(props: {
                   dataAttribute="data-thinking-button"
                 />
               )
+            );
+          })()}
+        {!isMobileScreen &&
+          (() => {
+            const currentModel = session.mask.modelConfig.model;
+            // 使用更精确的搜索模型检测
+            const supportsSearch = isWebSearchModel(currentModel);
+
+            if (!supportsSearch) return null;
+
+            const searchEnabled = session.searchEnabled ?? false;
+
+            return (
+              <ChatAction
+                onClick={() => {
+                  chatStore.updateTargetSession(session, (session) => {
+                    session.searchEnabled = !searchEnabled;
+                  });
+                }}
+                text={
+                  searchEnabled
+                    ? Locale.Chat.InputActions.SearchOn
+                    : Locale.Chat.InputActions.SearchOff
+                }
+                icon={<SearchIcon />}
+                dataAttribute="data-search-button"
+              />
             );
           })()}
         {!isMobileScreen && (
@@ -2393,7 +2458,7 @@ function _Chat() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [messages, chatStore, navigate, session]);
+  }, [messages, chatStore, navigate, session, showShortcutKeyPanel]);
 
   const [showChatSidePanel, setShowChatSidePanel] = useState(false);
 

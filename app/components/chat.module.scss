@@ -1035,6 +1035,35 @@
     max-height: 300px;
     overflow-y: auto;
 
+    .mcp-global-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-in-light);
+      border-radius: 8px;
+      background-color: var(--gray-50);
+
+      .mcp-global-toggle-info {
+        flex: 1;
+
+        .mcp-global-toggle-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--black);
+          margin-bottom: 4px;
+        }
+
+        .mcp-global-toggle-desc {
+          font-size: 12px;
+          color: var(--black);
+          opacity: 0.6;
+          line-height: 1.4;
+        }
+      }
+    }
+
     .mcp-panel-loading {
       display: flex;
       align-items: center;

@@ -122,7 +122,7 @@ export enum GoogleSafetySettingsThreshold {
 
 export enum ModelProvider {
   GPT = "GPT",
-  GeminiPro = "GeminiPro",
+  GeminiPro = "GeminiPro", // 现在使用官方 SDK 实现
   Claude = "Claude",
   Doubao = "Doubao",
   Qwen = "Qwen",
@@ -336,9 +336,10 @@ Remember: Always respond in the user's language and take immediate action when t
    {
      "method": "tools/call",
      "params": {
-       "name": "search_repositories",
+       "name": "write_file",
        "arguments": {
-         "query": "2oeee"
+         "path": "/path/to/file.txt",
+         "content": "file content"
        }
      }
    }

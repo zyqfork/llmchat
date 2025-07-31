@@ -102,6 +102,8 @@ export interface ChatSession {
   clearContextIndex?: number;
 
   mask: Mask;
+  // MCP 功能总开关（默认关闭）
+  mcpEnabled?: boolean;
   // MCP 在当前对话中的启用状态
   mcpEnabledClients?: Record<string, boolean>;
   // 多模型对话模式
@@ -117,6 +119,8 @@ export interface ChatSession {
     // 每个模型的独立总结索引
     modelSummarizeIndexes: Record<string, number>;
   };
+  // 搜索功能状态
+  searchEnabled?: boolean;
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -236,8 +240,14 @@ function fillTemplateWith(input: string, modelConfig: ModelConfig) {
 }
 
 async function getMcpSystemPrompt(
+  mcpEnabled: boolean = false,
   enabledClients?: Record<string, boolean>,
 ): Promise<string> {
+  // 如果 MCP 功能未启用，返回空字符串
+  if (!mcpEnabled) {
+    return "";
+  }
+
   const tools = await getAllTools();
 
   let toolsStr = "";
@@ -786,6 +796,7 @@ export const useChatStore = createPersistStore(
             session.mask.modelConfig.model.startsWith("chatgpt-"));
 
         const mcpSystemPrompt = await getMcpSystemPrompt(
+          session.mcpEnabled ?? false,
           session.mcpEnabledClients,
         );
 
@@ -1117,6 +1128,20 @@ export const useChatStore = createPersistStore(
       getSessionMcpClients(): Record<string, boolean> {
         const session = get().currentSession();
         return session.mcpEnabledClients ?? {};
+      },
+
+      /** 更新当前对话的 MCP 功能总开关 */
+      updateSessionMcpEnabled(enabled: boolean) {
+        const session = get().currentSession();
+        get().updateTargetSession(session, (session) => {
+          session.mcpEnabled = enabled;
+        });
+      },
+
+      /** 获取当前对话的 MCP 功能总开关状态 */
+      getSessionMcpEnabled(): boolean {
+        const session = get().currentSession();
+        return session.mcpEnabled ?? false; // 默认关闭
       },
     };
 

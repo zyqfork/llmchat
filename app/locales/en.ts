@@ -81,6 +81,17 @@ const en: LocaleType = {
       Clear: "Clear Context",
       Settings: "Settings",
       UploadImage: "Upload Images",
+      Search: "Search",
+      SearchOn: "Search Enabled",
+      SearchOff: "Search Disabled",
+    },
+    MCP: {
+      Title: "MCP Tool Control",
+      Enable: "Enable MCP Features",
+      EnableDesc:
+        "When enabled, MCP tools can be used. When disabled, no MCP-related prompts will be sent",
+      NoTools: "No MCP tools available",
+      Loading: "Loading...",
     },
     Rename: "Rename Chat",
     Typing: "Typing…",

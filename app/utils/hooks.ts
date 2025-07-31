@@ -49,6 +49,7 @@ export function useAllModels() {
     accessStore.customModels,
     accessStore.defaultModel,
     accessStore.customProviders,
+    accessStore.enabledModels,
     configStore.customModels,
     configStore.models,
   ]);

@@ -5,7 +5,7 @@ import PowerIcon from "@/app/icons/power.svg";
 import styles from "./realtime-chat.module.scss";
 import clsx from "clsx";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 import { useChatStore, createMessage, useAppConfig } from "@/app/store";
 
@@ -130,7 +130,7 @@ export function RealtimeChat({
     }
   };
 
-  const startResponseListener = async () => {
+  const startResponseListener = useCallback(async () => {
     if (!clientRef.current) return;
 
     try {
@@ -146,7 +146,7 @@ export function RealtimeChat({
         console.error("Response iteration error:", error);
       }
     }
-  };
+  }, []);
 
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
@@ -200,35 +200,38 @@ export function RealtimeChat({
     }
   };
 
-  const handleInputAudio = async (item: RTInputAudioItem) => {
-    await item.waitForCompletion();
-    if (item.transcription) {
-      const userMessage = createMessage({
-        role: "user",
-        content: item.transcription,
-      });
-      chatStore.updateTargetSession(session, (session) => {
-        session.messages = session.messages.concat([userMessage]);
-      });
-      // save input audio_url, and update session
-      const { audioStartMillis, audioEndMillis } = item;
-      // upload audio get audio_url
-      const blob = audioHandlerRef.current?.saveRecordFile(
-        audioStartMillis,
-        audioEndMillis,
-      );
-      uploadImage(blob!).then((audio_url) => {
-        userMessage.audio_url = audio_url;
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat();
+  const handleInputAudio = useCallback(
+    async (item: RTInputAudioItem) => {
+      await item.waitForCompletion();
+      if (item.transcription) {
+        const userMessage = createMessage({
+          role: "user",
+          content: item.transcription,
         });
-      });
-    }
-    // stop streaming play after get input audio.
-    audioHandlerRef.current?.stopStreamingPlayback();
-  };
+        chatStore.updateTargetSession(session, (session) => {
+          session.messages = session.messages.concat([userMessage]);
+        });
+        // save input audio_url, and update session
+        const { audioStartMillis, audioEndMillis } = item;
+        // upload audio get audio_url
+        const blob = audioHandlerRef.current?.saveRecordFile(
+          audioStartMillis,
+          audioEndMillis,
+        );
+        uploadImage(blob!).then((audio_url) => {
+          userMessage.audio_url = audio_url;
+          chatStore.updateTargetSession(session, (session) => {
+            session.messages = session.messages.concat();
+          });
+        });
+      }
+      // stop streaming play after get input audio.
+      audioHandlerRef.current?.stopStreamingPlayback();
+    },
+    [chatStore, session],
+  );
 
-  const toggleRecording = async () => {
+  const toggleRecording = useCallback(async () => {
     if (!isRecording && clientRef.current) {
       try {
         if (!audioHandlerRef.current) {
@@ -255,7 +258,7 @@ export function RealtimeChat({
         console.error("Failed to stop recording:", error);
       }
     }
-  };
+  }, [isRecording, useVAD, handleInputAudio]);
 
   useEffect(() => {
     // 防止重复初始化
@@ -282,6 +285,7 @@ export function RealtimeChat({
       audioHandlerRef.current?.close().catch(console.error);
       disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -12,7 +12,7 @@ import {
   useChatStore,
 } from "../store";
 import { ChatGPTApi, DalleRequestPayload } from "./platforms/openai";
-import { GeminiProApi } from "./platforms/google";
+import { GoogleGenAIApi } from "./platforms/google-genai";
 import { ClaudeApi } from "./platforms/anthropic";
 import { DoubaoApi } from "./platforms/bytedance";
 import { QwenApi } from "./platforms/alibaba";
@@ -134,7 +134,7 @@ export class ClientApi {
   constructor(provider: ModelProvider = ModelProvider.GPT) {
     switch (provider) {
       case ModelProvider.GeminiPro:
-        this.llm = new GeminiProApi();
+        this.llm = new GoogleGenAIApi();
         break;
       case ModelProvider.Claude:
         this.llm = new ClaudeApi();
