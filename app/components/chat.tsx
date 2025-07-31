@@ -1388,9 +1388,17 @@ export function ChatActions(props: {
             return (
               <ChatAction
                 onClick={() => {
+                  const newSearchEnabled = !searchEnabled;
                   chatStore.updateTargetSession(session, (session) => {
-                    session.searchEnabled = !searchEnabled;
+                    session.searchEnabled = newSearchEnabled;
                   });
+
+                  // 显示状态切换提醒
+                  showToast(
+                    newSearchEnabled
+                      ? Locale.Chat.InputActions.SearchEnabledToast
+                      : Locale.Chat.InputActions.SearchDisabledToast,
+                  );
                 }}
                 text={
                   searchEnabled

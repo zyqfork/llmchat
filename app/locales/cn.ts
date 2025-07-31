@@ -83,6 +83,8 @@ const cn = {
       Search: "搜索功能",
       SearchOn: "搜索已启用",
       SearchOff: "搜索已禁用",
+      SearchEnabledToast: "🔍 搜索功能已启用！现在可以进行网络搜索了",
+      SearchDisabledToast: "❌ 搜索功能已禁用",
     },
     MCP: {
       Title: "MCP 工具控制",

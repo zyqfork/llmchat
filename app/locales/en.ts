@@ -84,6 +84,9 @@ const en: LocaleType = {
       Search: "Search",
       SearchOn: "Search Enabled",
       SearchOff: "Search Disabled",
+      SearchEnabledToast:
+        "🔍 Search feature enabled! Web search is now available",
+      SearchDisabledToast: "❌ Search feature disabled",
     },
     MCP: {
       Title: "MCP Tool Control",
