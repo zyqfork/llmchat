@@ -67,6 +67,7 @@ import {
   copyToClipboard,
   getMessageImages,
   getMessageTextContent,
+  getMessageTextContentWithoutThinking,
   isDalle3,
   isVisionModel,
   safeLocalStorage,
@@ -1929,9 +1930,14 @@ function _Chat() {
   };
   const onRightClick = (e: any, message: ChatMessage) => {
     // copy to clipboard
-    if (selectOrCopy(e.currentTarget, getMessageTextContent(message))) {
+    if (
+      selectOrCopy(
+        e.currentTarget,
+        getMessageTextContentWithoutThinking(message),
+      )
+    ) {
       if (userInput.length === 0) {
-        setUserInput(getMessageTextContent(message));
+        setUserInput(getMessageTextContentWithoutThinking(message));
       }
 
       e.preventDefault();
@@ -2436,7 +2442,8 @@ function _Chat() {
           .filter((message) => message.role !== "user")
           .pop();
         if (lastNonUserMessage) {
-          const lastMessageContent = getMessageTextContent(lastNonUserMessage);
+          const lastMessageContent =
+            getMessageTextContentWithoutThinking(lastNonUserMessage);
           copyToClipboard(lastMessageContent);
         }
       }
@@ -2716,7 +2723,9 @@ function _Chat() {
                                         icon={<CopyIcon />}
                                         onClick={() =>
                                           copyToClipboard(
-                                            getMessageTextContent(message),
+                                            getMessageTextContentWithoutThinking(
+                                              message,
+                                            ),
                                           )
                                         }
                                       />

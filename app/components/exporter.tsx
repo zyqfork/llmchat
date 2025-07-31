@@ -37,7 +37,10 @@ import { prettyObject } from "../utils/format";
 import { EXPORT_MESSAGE_CLASS_NAME } from "../constant";
 import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
-import { getMessageTextContent } from "../utils";
+import {
+  getMessageTextContent,
+  getMessageTextContentWithoutThinking,
+} from "../utils";
 import { MaskAvatar } from "./mask";
 import { getMaskEffectiveModel } from "../utils/model-resolver";
 import clsx from "clsx";
@@ -295,7 +298,14 @@ export function RenderExport(props: {
           id={`${m.role}:${i}`}
           className={EXPORT_MESSAGE_CLASS_NAME}
         >
-          <Markdown content={getMessageTextContent(m)} defaultShow />
+          <Markdown
+            content={
+              m.role === "user"
+                ? getMessageTextContent(m)
+                : getMessageTextContentWithoutThinking(m)
+            }
+            defaultShow
+          />
         </div>
       ))}
     </div>
@@ -577,7 +587,11 @@ export function ImagePreviewer(props: {
 
               <div className={styles["body"]}>
                 <Markdown
-                  content={getMessageTextContent(m)}
+                  content={
+                    m.role === "user"
+                      ? getMessageTextContent(m)
+                      : getMessageTextContentWithoutThinking(m)
+                  }
                   fontSize={config.fontSize}
                   fontFamily={config.fontFamily}
                   defaultShow
@@ -628,9 +642,9 @@ export function MarkdownPreviewer(props: {
       .map((m) => {
         return m.role === "user"
           ? `## ${Locale.Export.MessageFromYou}:\n${getMessageTextContent(m)}`
-          : `## ${Locale.Export.MessageFromChatGPT}:\n${getMessageTextContent(
-              m,
-            ).trim()}`;
+          : `## ${
+              Locale.Export.MessageFromChatGPT
+            }:\n${getMessageTextContentWithoutThinking(m).trim()}`;
       })
       .join("\n\n");
 
