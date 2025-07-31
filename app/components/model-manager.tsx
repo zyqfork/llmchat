@@ -503,13 +503,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       });
     }
 
-    console.log("[ModelManager] 保存模型配置:", {
-      modelName,
-      capabilities: modelConfigForm.capabilities,
-      category: newCategory,
-      isCustomModel,
-    });
-
     // 关闭配置面板
     setShowModelConfig(null);
   };
@@ -600,10 +593,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
             responseTime,
           },
         }));
-
-        console.log(
-          `[ModelTest] ${modelName} 测试成功，响应时间: ${responseTime}ms`,
-        );
       } else {
         // 测试失败
         throw testResult;
@@ -616,7 +605,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         error?.message ||
         error?.toString() ||
         "未知错误";
-      const response = error?.response;
 
       setModelTestResults((prev) => ({
         ...prev,
@@ -625,48 +613,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
           error: errorMessage,
         },
       }));
-
-      console.group(`🔴 [ModelTest] ${modelName} 测试失败`);
-      console.error("错误对象:", error);
-      console.error("错误详情:", errorMessage);
-
-      // 根据错误类型给出具体建议
-      if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("Unauthorized") ||
-        response?.status === 401
-      ) {
-        console.error("💡 解决建议: 请检查API密钥配置是否正确");
-      } else if (
-        errorMessage.includes("403") ||
-        errorMessage.includes("Forbidden") ||
-        response?.status === 403
-      ) {
-        console.error("💡 解决建议: API密钥权限不足或模型访问受限");
-      } else if (
-        errorMessage.includes("404") ||
-        errorMessage.includes("Not Found") ||
-        response?.status === 404
-      ) {
-        console.error("💡 解决建议: 模型不存在或API端点错误");
-      } else if (
-        errorMessage.includes("429") ||
-        errorMessage.includes("Rate limit") ||
-        response?.status === 429
-      ) {
-        console.error("💡 解决建议: 请求频率过高，请稍后重试");
-      } else if (errorMessage.includes("timeout")) {
-        console.error("💡 解决建议: 网络连接超时，请检查网络状况");
-      } else if (
-        errorMessage.includes("500") ||
-        errorMessage.includes("Internal Server Error") ||
-        response?.status >= 500
-      ) {
-        console.error("💡 解决建议: 服务器内部错误，请稍后重试");
-      }
-
-      console.error("📋 查看上方错误详情以获取更多信息");
-      console.groupEnd();
     }
   };
 

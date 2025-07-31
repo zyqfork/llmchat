@@ -1,10 +1,7 @@
 import webpack from "webpack";
 
 const mode = "standalone";
-console.log("[Next] build mode", mode);
-
 const disableChunk = false;
-console.log("[Next] build with chunk: ", !disableChunk);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

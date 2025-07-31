@@ -193,7 +193,7 @@ export class MoonshotApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      console.error("Failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }

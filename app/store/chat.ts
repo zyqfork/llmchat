@@ -1013,13 +1013,6 @@ export const useChatStore = createPersistStore(
 
         const lastSummarizeIndex = session.messages.length;
 
-        console.log(
-          "[Chat History] ",
-          toBeSummarizedMsgs,
-          historyMsgLength,
-          modelConfig.compressMessageLengthThreshold,
-        );
-
         if (
           historyMsgLength > modelConfig.compressMessageLengthThreshold &&
           modelConfig.sendMemory
@@ -1047,7 +1040,6 @@ export const useChatStore = createPersistStore(
             },
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
-                console.log("[Memory] ", message);
                 get().updateTargetSession(session, (session) => {
                   session.lastSummarizeIndex = lastSummarizeIndex;
                   session.memoryPrompt = message; // Update the memory prompt for stored it in local storage
@@ -1055,7 +1047,7 @@ export const useChatStore = createPersistStore(
               }
             },
             onError(err) {
-              console.error("[Summarize] ", err);
+              console.error("Summarize error: ", err);
             },
           });
         }

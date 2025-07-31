@@ -1907,7 +1907,6 @@ function _Chat() {
 
       // auto sync mask config from global config
       if (session.mask.syncGlobalConfig) {
-        console.log("[Mask] syncing from global, name = ", session.mask.name);
         session.mask.modelConfig = { ...config.modelConfig };
       }
     });
@@ -2810,32 +2809,9 @@ function _Chat() {
                                 const shouldWrap =
                                   !message.streaming && isThinking;
 
-                                console.log("[Chat] 🔍 Message processing:", {
-                                  messageId: message.id,
-                                  model: message.model,
-                                  isStreaming: message.streaming,
-                                  isThinkingModel: isThinking,
-                                  shouldWrap,
-                                  contentLength: messageContent.length,
-                                  contentPreview:
-                                    messageContent.substring(0, 100) +
-                                    (messageContent.length > 100 ? "..." : ""),
-                                });
-
                                 if (shouldWrap) {
                                   const wrappedContent =
                                     wrapThinkingPart(messageContent);
-                                  console.log("[Chat] 🎯 Wrapped content:", {
-                                    originalLength: messageContent.length,
-                                    wrappedLength: wrappedContent.length,
-                                    hasThinkTags:
-                                      wrappedContent.includes("<think>"),
-                                    wrappedPreview:
-                                      wrappedContent.substring(0, 150) +
-                                      (wrappedContent.length > 150
-                                        ? "..."
-                                        : ""),
-                                  });
                                   return wrappedContent;
                                 }
 

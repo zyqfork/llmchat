@@ -314,8 +314,6 @@ export const useAccessStore = createPersistStore(
           return res;
         })
         .then((res: DangerConfig) => {
-          console.log("[Config] got config from server", res);
-
           // 保存当前的用户自定义配置
           const currentState = get();
           const userCustomModels = currentState.customModels;

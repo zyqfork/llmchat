@@ -181,7 +181,6 @@ export class ClientApi {
         },
       ]);
 
-    console.log("[Share]", messages, msgs);
     const clientConfig = getClientConfig();
     const proxyUrl = "/sharegpt";
     const rawUrl = "https://sharegpt.com/api/conversations";

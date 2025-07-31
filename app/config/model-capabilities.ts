@@ -769,14 +769,8 @@ export const GEMINI_SEARCH_REGEX = new RegExp("gemini-(2\\.|1\\.5)", "i");
 
 // 检测模型是否支持网络搜索
 export function isWebSearchModel(modelName: string): boolean {
-  console.log(
-    "[ModelCapabilities] 🔍 Checking if model supports web search:",
-    modelName,
-  );
-
   // Gemini 2.x 系列模型支持内置搜索
   if (GEMINI_SEARCH_REGEX.test(modelName)) {
-    console.log("[ModelCapabilities] ✅ Model matches Gemini 2.x regex");
     return true;
   }
 
@@ -788,13 +782,9 @@ export function isWebSearchModel(modelName: string): boolean {
   ];
 
   if (geminiSearchModels.includes(modelName)) {
-    console.log(
-      "[ModelCapabilities] ✅ Model is in specific search models list",
-    );
     return true;
   }
 
-  console.log("[ModelCapabilities] ❌ Model does not support web search");
   // 其他支持搜索的模型可以在这里添加
   return false;
 }

@@ -34,12 +34,10 @@ export class GoogleGenAIApi implements LLMApi {
 
       // 如果有自定义 URL，添加到配置中
       if (customUrl) {
-        console.log("[GoogleGenAI] 🔧 Using custom baseUrl:", customUrl);
         clientConfig.baseUrl = customUrl;
       }
 
       this.client = new GoogleGenAI(clientConfig);
-      console.log("[GoogleGenAI] ✅ Client initialized successfully");
     } catch (error) {
       console.error("[GoogleGenAI] ❌ Failed to initialize client:", error);
     }
@@ -88,19 +86,6 @@ export class GoogleGenAIApi implements LLMApi {
       options.config.model,
     );
 
-    console.log("[GoogleGenAI] 🔍 Search Debug Info:", {
-      model: options.config.model,
-      sessionSearchEnabled: session.searchEnabled,
-      enableWebSearch,
-      isSearchModel,
-    });
-
-    console.log("[GoogleGenAI] 🧠 Model Capabilities:", {
-      reasoning: modelCapabilities.reasoning,
-      thinkingType: modelCapabilities.thinkingType,
-      thinkingBudget: modelConfig.thinkingBudget,
-    });
-
     // 配置工具
     const tools: any[] = [];
     if (enableWebSearch && isSearchModel) {
@@ -114,13 +99,11 @@ export class GoogleGenAIApi implements LLMApi {
             },
           },
         });
-        console.log("[GoogleGenAI] ✅ Added Gemini 1.5 search tool");
       } else {
         // Gemini 2.x 使用 googleSearch
         tools.push({
           googleSearch: {},
         });
-        console.log("[GoogleGenAI] ✅ Added Gemini 2.x search tool");
       }
     }
 
@@ -176,20 +159,9 @@ export class GoogleGenAIApi implements LLMApi {
       }
 
       config.thinkingConfig = thinkingConfig;
-
-      console.log("[GoogleGenAI] 🧠 Added thinking config:", thinkingConfig);
     }
 
-    console.log("[GoogleGenAI] 🛠️ Generated tools:", tools);
-    console.log("[GoogleGenAI] ⚙️ Generation config:", config);
-    console.log("[GoogleGenAI] 📝 Messages format:", messages);
-
     try {
-      console.log(
-        "[GoogleGenAI] 🚀 Starting generateContentStream with model:",
-        options.config.model,
-      );
-
       // 使用 models.generateContentStream 进行流式生成
       const response = await this.client.models.generateContentStream({
         model: options.config.model,
@@ -201,30 +173,13 @@ export class GoogleGenAIApi implements LLMApi {
       let isInThinkingMode = false;
 
       for await (const chunk of response) {
-        console.log(
-          "[GoogleGenAI] 🔍 Raw chunk:",
-          JSON.stringify(chunk, null, 2),
-        );
-
         // 处理思考内容和普通内容
         if (chunk.candidates && chunk.candidates.length > 0) {
           const candidate = chunk.candidates[0];
           if (candidate.content && candidate.content.parts) {
             for (const part of candidate.content.parts) {
-              console.log("[GoogleGenAI] 📝 Processing part:", {
-                hasThought: !!part.thought,
-                thoughtValue: part.thought,
-                hasText: !!part.text,
-                textLength: part.text?.length || 0,
-                textPreview: part.text
-                  ? part.text.substring(0, 50) +
-                    (part.text.length > 50 ? "..." : "")
-                  : "",
-              });
-
               if (part.thought && part.text) {
                 // 这是思考内容 - 直接使用 <think> 标签包装
-                console.log("[GoogleGenAI] 🧠 Thought chunk:", part.text);
 
                 // 如果刚进入思考模式，添加开始标签
                 if (!isInThinkingMode) {
@@ -245,22 +200,14 @@ export class GoogleGenAIApi implements LLMApi {
                 options.onUpdate?.(responseText, part.text);
               } else if (part.text && !part.thought) {
                 // 这是普通内容
-                console.log("[GoogleGenAI] 💬 Response chunk:", part.text);
 
                 // 如果从思考模式切换到普通模式，添加结束标签和分隔符
                 if (isInThinkingMode) {
                   isInThinkingMode = false;
                   responseText += "\n</think>\n\n";
-                  console.log(
-                    "[GoogleGenAI] 🔄 Switched from thinking to response mode",
-                  );
                 }
 
                 responseText += part.text;
-                console.log(
-                  "[GoogleGenAI] 💬 Current responseText after response:",
-                  responseText.substring(responseText.length - 100),
-                );
                 options.onUpdate?.(responseText, part.text);
               }
             }
@@ -277,10 +224,7 @@ export class GoogleGenAIApi implements LLMApi {
       // 如果流结束时还在思考模式，添加结束标签
       if (isInThinkingMode) {
         responseText += "\n</think>";
-        console.log("[GoogleGenAI] 🔚 Added closing think tag at stream end");
       }
-
-      console.log("[GoogleGenAI] ✅ Chat completed successfully");
       // 创建一个模拟的 Response 对象
       const mockResponse = new Response(responseText, { status: 200 });
       options.onFinish(responseText, mockResponse);

@@ -431,13 +431,6 @@ function formatThinkText(
   thinkText: string;
   remainText: string;
 } {
-  console.log("[formatThinkText] 🔍 Input:", {
-    length: text.length,
-    startsWithThink: text.trimStart().startsWith("<think>"),
-    hasThinkTags: text.includes("<think>"),
-    preview: text.substring(0, 100) + (text.length > 100 ? "..." : ""),
-  });
-
   text = text.trimStart();
   // 检查是否以 <think> 开头但没有结束标签
   if (text.startsWith("<think>") && !text.includes("</think>")) {
@@ -459,11 +452,9 @@ function formatThinkText(
   const pattern = /^<think>([\s\S]*?)<\/think>/;
   const match = text.match(pattern);
   if (match) {
-    console.log("[formatThinkText] 🧠 Processing complete think tag");
     const thinkContent = match[1];
     let thinkText = "";
     if (thinkContent.trim() === "") {
-      console.log("[formatThinkText] 📝 Empty think content");
       thinkText = `<thinkcollapse title="${Locale.NewChat.NoThink}">\n\n</thinkcollapse>\n`;
     } else {
       console.log(
@@ -484,7 +475,6 @@ function formatThinkText(
     return { thinkText, remainText };
   }
 
-  console.log("[formatThinkText] ❌ No think tags found");
   // 没有找到 think 标签
   return { thinkText: "", remainText: text };
 }

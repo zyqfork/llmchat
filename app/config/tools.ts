@@ -10,14 +10,7 @@ export function getGeminiSearchTools(
 ): any[] {
   const tools: any[] = [];
 
-  console.log("[Tools] 🔍 getGeminiSearchTools called:", {
-    modelName,
-    enableWebSearch,
-    isWebSearchModel: isWebSearchModel(modelName),
-  });
-
   if (!enableWebSearch || !isWebSearchModel(modelName)) {
-    console.log("[Tools] ❌ Search not enabled or model not supported");
     return tools;
   }
 
@@ -33,14 +26,12 @@ export function getGeminiSearchTools(
       },
     };
     tools.push(tool);
-    console.log("[Tools] ✅ Added Gemini 1.5 search tool:", tool);
   } else {
     // Gemini 2.0+ 使用新版 google_search (注意：REST API 使用下划线格式)
     const tool = {
       google_search: {},
     };
     tools.push(tool);
-    console.log("[Tools] ✅ Added Gemini 2.0+ search tool:", tool);
   }
 
   return tools;

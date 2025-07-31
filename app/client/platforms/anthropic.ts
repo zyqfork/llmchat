@@ -87,8 +87,6 @@ export class ClaudeApi implements LLMApi {
   }
 
   extractMessage(res: any) {
-    console.log("[Response] claude response: ", res);
-
     return res?.content?.[0]?.text;
   }
   async chat(options: ChatOptions): Promise<void> {

@@ -198,7 +198,6 @@ export function stream(
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
       responseText += remainText;
-      console.log("[Response Animation] finished");
       if (responseText?.length === 0) {
         options.onError?.(new Error("empty response from server"));
       }
@@ -322,7 +321,7 @@ export function stream(
       async onopen(res) {
         clearTimeout(requestTimeoutId);
         const contentType = res.headers.get("content-type");
-        console.log("[Request] response content type: ", contentType);
+
         responseRes = res;
 
         if (contentType?.startsWith("text/plain")) {
@@ -425,7 +424,6 @@ export function streamWithThink(
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
       responseText += remainText;
-      console.log("[Response Animation] finished");
       if (responseText?.length === 0) {
         options.onError?.(new Error("empty response from server"));
       }
@@ -506,7 +504,7 @@ export function streamWithThink(
           processToolMessage(requestPayload, toolCallMessage, toolCallResult);
           setTimeout(() => {
             // call again
-            console.debug("[ChatAPI] restart");
+
             running = false;
             chatApi(chatPath, headers, requestPayload, tools); // call fetchEventSource
           }, 60);
@@ -516,12 +514,10 @@ export function streamWithThink(
       if (running) {
         return;
       }
-      console.debug("[ChatAPI] end");
 
       // 如果流结束时还在思考模式，添加结束标签
       if (isInThinkingMode && modelHasReasoningCapability) {
         remainText += "\n</think>";
-        console.log("[ChatAPI] Added closing think tag at stream end");
       }
 
       finished = true;
@@ -556,7 +552,7 @@ export function streamWithThink(
       async onopen(res) {
         clearTimeout(requestTimeoutId);
         const contentType = res.headers.get("content-type");
-        console.log("[Request] response content type: ", contentType);
+
         responseRes = res;
 
         if (contentType?.startsWith("text/plain")) {

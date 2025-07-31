@@ -491,17 +491,7 @@ export function isThinkingModel(model: string | undefined) {
 }
 
 export function wrapThinkingPart(full_reply: string) {
-  console.log("[wrapThinkingPart] 🔍 Input:", {
-    length: full_reply.length,
-    hasThinkTags: full_reply.includes("<think>"),
-    preview:
-      full_reply.substring(0, 100) + (full_reply.length > 100 ? "..." : ""),
-  });
-
   // 现在所有模型都直接生成<think>标签，这个函数主要用于确保兼容性
   // 直接返回原内容，因为思考内容已经被正确包装
-  console.log(
-    "[wrapThinkingPart] ✅ Returning content as-is (all models now generate think tags directly)",
-  );
   return full_reply;
 }
