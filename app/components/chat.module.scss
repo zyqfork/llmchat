@@ -178,19 +178,9 @@
     white-space: nowrap;
     z-index: 1000;
     pointer-events: none;
-    box-shadow: var(--card-shadow);
-    border: var(--border-in-light);
-
-    &::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 4px solid transparent;
-      border-top-color: var(--white);
-    }
   }
+
+
 }
 
 .prompt-toast {
@@ -800,6 +790,13 @@
   padding-right: 10px;
   pointer-events: none;
   z-index: 1;
+}
+
+.chat-message-version {
+  font-size: 12px;
+  color: var(--black);
+  margin-right: 8px;
+  white-space: nowrap;
 }
 
 .chat-message-user > .chat-message-container > .chat-message-item {

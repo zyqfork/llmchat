@@ -25,6 +25,8 @@ import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import ReloadIcon from "../icons/reload.svg";
+import LeftIcon from "../icons/left.svg";
+import RightIcon from "../icons/right.svg";
 import BreakIcon from "../icons/break.svg";
 import DeleteIcon from "../icons/clear.svg";
 import PinIcon from "../icons/pin.svg";
@@ -1959,12 +1961,7 @@ function _Chat() {
   };
 
   const onResend = (message: ChatMessage) => {
-    // when it is resending a message
-    // 1. for a user's message, find the next bot response
-    // 2. for a bot's message, find the last user's input
-    // 3. delete original user input and bot's message
-    // 4. resend the user's input
-
+    // 重构后的重试逻辑：使用专门的重试方法
     const resendingIndex = session.messages.findIndex(
       (m) => m.id === message.id,
     );
@@ -1978,7 +1975,6 @@ function _Chat() {
     let botMessage: ChatMessage | undefined;
 
     if (message.role === "assistant") {
-      // if it is resending a bot's message, find the user input for it
       botMessage = message;
       for (let i = resendingIndex; i >= 0; i -= 1) {
         if (session.messages[i].role === "user") {
@@ -1987,7 +1983,6 @@ function _Chat() {
         }
       }
     } else if (message.role === "user") {
-      // if it is resending a user's input, find the bot's response
       userMessage = message;
       for (let i = resendingIndex; i < session.messages.length; i += 1) {
         if (session.messages[i].role === "assistant") {
@@ -2002,16 +1997,128 @@ function _Chat() {
       return;
     }
 
-    // delete the original messages
-    deleteMessage(userMessage.id);
-    deleteMessage(botMessage?.id);
+    // 如果是重试 bot 消息，使用专门的重试方法
+    if (botMessage) {
+      console.log("[Debug] Retrying bot message", {
+        botMessageId: botMessage.id,
+        userMessageId: userMessage.id,
+      });
 
-    // resend the message
+      setIsLoading(true);
+      chatStore
+        .retryBotMessage(botMessage.id, userMessage)
+        .then(() => {
+          setIsLoading(false);
+        })
+        .catch((error) => {
+          console.error("[Chat] Retry failed", error);
+          setIsLoading(false);
+        });
+      inputRef.current?.focus();
+      return;
+    }
+
+    // 如果是重试用户消息，使用原有逻辑（删除后续消息并重新发送）
     setIsLoading(true);
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
     chatStore.onUserInput(textContent, images).then(() => setIsLoading(false));
     inputRef.current?.focus();
+  };
+
+  // 切换到上一个版本
+  const onPreviousVersion = (message: ChatMessage) => {
+    console.log("[Debug] onPreviousVersion called", {
+      messageId: message.id,
+      currentIndex: message.currentVersionIndex,
+      versionsLength: message.versions?.length,
+    });
+
+    chatStore.updateTargetSession(session, (session) => {
+      const messageIndex = session.messages.findIndex(
+        (m) => m.id === message.id,
+      );
+      if (messageIndex >= 0) {
+        const currentMessage = session.messages[messageIndex];
+        if (currentMessage.versions && currentMessage.versions.length >= 1) {
+          const currentIndex = currentMessage.currentVersionIndex ?? 0;
+          if (currentIndex > 0) {
+            currentMessage.currentVersionIndex = currentIndex - 1;
+            console.log("[Debug] Version switched to previous", {
+              newIndex: currentMessage.currentVersionIndex,
+              totalVersions: currentMessage.versions.length + 1,
+            });
+          }
+        }
+      }
+    });
+  };
+
+  // 切换到下一个版本
+  const onNextVersion = (message: ChatMessage) => {
+    console.log("[Debug] onNextVersion called", {
+      messageId: message.id,
+      currentIndex: message.currentVersionIndex,
+      versionsLength: message.versions?.length,
+    });
+
+    chatStore.updateTargetSession(session, (session) => {
+      const messageIndex = session.messages.findIndex(
+        (m) => m.id === message.id,
+      );
+      if (messageIndex >= 0) {
+        const currentMessage = session.messages[messageIndex];
+        if (currentMessage.versions && currentMessage.versions.length >= 1) {
+          const currentIndex = currentMessage.currentVersionIndex ?? 0;
+          const maxIndex = currentMessage.versions.length;
+          if (currentIndex < maxIndex) {
+            currentMessage.currentVersionIndex = currentIndex + 1;
+            console.log("[Debug] Version switched to next", {
+              newIndex: currentMessage.currentVersionIndex,
+              totalVersions: currentMessage.versions.length + 1,
+            });
+          }
+        }
+      }
+    });
+  };
+
+  // 获取当前显示的消息内容
+  const getCurrentMessageContent = (message: ChatMessage): string => {
+    console.log("[Debug] getCurrentMessageContent called", {
+      messageId: message.id,
+      hasVersions: !!message.versions,
+      versionsLength: message.versions?.length,
+      currentIndex: message.currentVersionIndex,
+      originalContent:
+        typeof message.content === "string"
+          ? message.content.slice(0, 50) + "..."
+          : message.content,
+    });
+
+    if (!message.versions || message.versions.length <= 1) {
+      console.log(
+        "[Debug] No versions or only one version, returning original content",
+      );
+      return typeof message.content === "string" ? message.content : "";
+    }
+
+    const currentIndex = message.currentVersionIndex ?? 0;
+    if (currentIndex === message.versions.length) {
+      // 显示最新版本（当前消息内容）
+      console.log("[Debug] Showing latest version (current content)");
+      return typeof message.content === "string" ? message.content : "";
+    } else if (currentIndex >= 0 && currentIndex < message.versions.length) {
+      // 显示历史版本
+      console.log("[Debug] Showing historical version", {
+        index: currentIndex,
+        content: message.versions[currentIndex].slice(0, 50) + "...",
+      });
+      return message.versions[currentIndex];
+    }
+
+    console.log("[Debug] Fallback to original content");
+    return typeof message.content === "string" ? message.content : "";
   };
 
   const onPinMessage = (message: ChatMessage) => {
@@ -2720,6 +2827,64 @@ function _Chat() {
                                         onClick={() => onResend(message)}
                                       />
 
+                                      {/* 版本切换按钮 - 只对 assistant 消息显示 */}
+                                      {(() => {
+                                        const shouldShowVersionControls =
+                                          message.role === "assistant" &&
+                                          message.versions &&
+                                          message.versions.length >= 1;
+                                        console.log(
+                                          "[Debug] Version controls check",
+                                          {
+                                            messageId: message.id,
+                                            role: message.role,
+                                            hasVersions: !!message.versions,
+                                            versionsLength:
+                                              message.versions?.length,
+                                            currentIndex:
+                                              message.currentVersionIndex,
+                                            shouldShow:
+                                              shouldShowVersionControls,
+                                          },
+                                        );
+
+                                        return (
+                                          shouldShowVersionControls && (
+                                            <>
+                                              {(message.currentVersionIndex ??
+                                                0) > 0 && (
+                                                <ChatAction
+                                                  text={
+                                                    Locale.Chat.Actions
+                                                      .PreviousVersion
+                                                  }
+                                                  icon={<LeftIcon />}
+                                                  onClick={() =>
+                                                    onPreviousVersion(message)
+                                                  }
+                                                />
+                                              )}
+
+                                              {(message.currentVersionIndex ??
+                                                0) <
+                                                (message.versions?.length ??
+                                                  0) && (
+                                                <ChatAction
+                                                  text={
+                                                    Locale.Chat.Actions
+                                                      .NextVersion
+                                                  }
+                                                  icon={<RightIcon />}
+                                                  onClick={() =>
+                                                    onNextVersion(message)
+                                                  }
+                                                />
+                                              )}
+                                            </>
+                                          )
+                                        );
+                                      })()}
+
                                       <ChatAction
                                         text={Locale.Chat.Actions.Delete}
                                         icon={<DeleteIcon />}
@@ -2801,8 +2966,9 @@ function _Chat() {
                             <Markdown
                               key={message.streaming ? "loading" : "done"}
                               content={(() => {
+                                // 获取当前显示的消息内容
                                 const messageContent =
-                                  getMessageTextContent(message);
+                                  getCurrentMessageContent(message);
                                 const isThinking = isThinkingModel(
                                   message.model,
                                 );
@@ -2877,6 +3043,17 @@ function _Chat() {
                           )}
 
                           <div className={styles["chat-message-action-date"]}>
+                            {/* 版本指示器 - 只对有版本的 assistant 消息显示 */}
+                            {message.role === "assistant" &&
+                              message.versions &&
+                              message.versions.length >= 1 && (
+                                <span
+                                  className={styles["chat-message-version"]}
+                                >
+                                  {(message.currentVersionIndex ?? 0) + 1}/
+                                  {(message.versions?.length ?? 0) + 1}
+                                </span>
+                              )}
                             {isContext
                               ? Locale.Chat.IsContext
                               : message.date.toLocaleString()}

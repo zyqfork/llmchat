@@ -58,6 +58,8 @@ const en: LocaleType = {
       RefreshToast: "Title refresh request sent",
       Speech: "Play",
       StopSpeech: "Stop",
+      PreviousVersion: "Previous Version",
+      NextVersion: "Next Version",
     },
     Commands: {
       new: "Start a new chat",

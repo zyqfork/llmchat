@@ -1,5 +1,6 @@
 import {
   getMessageTextContent,
+  getMessageImages,
   isDalle3,
   safeLocalStorage,
   trimTopic,
@@ -82,6 +83,9 @@ export type ChatMessage = RequestMessage & {
     reasoningLatency?: number;
     totalReplyLatency?: number;
   };
+  // 重试版本管理 - 简化版本
+  versions?: string[]; // 存储所有版本的内容
+  currentVersionIndex?: number; // 当前显示的版本索引
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -594,6 +598,15 @@ export const useChatStore = createPersistStore(
             if (message) {
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
+
+              // 不在新消息时初始化版本管理，只在重试时才初始化
+              console.log("[Debug] Bot message finished", {
+                messageId: botMessage.id,
+                hasVersions: !!botMessage.versions,
+                versionsCount: botMessage.versions?.length || 0,
+                currentVersionIndex: botMessage.currentVersionIndex,
+              });
+
               get().onNewMessage(botMessage, session);
             }
             ChatControllerPool.remove(session.id, botMessage.id);
@@ -1078,6 +1091,158 @@ export const useChatStore = createPersistStore(
         set({
           lastInput,
         });
+      },
+
+      /** 重试 bot 消息，在同一条消息中管理多个版本 */
+      async retryBotMessage(botMessageId: string, userMessage: ChatMessage) {
+        const session = get().currentSession();
+        const messageIndex = session.messages.findIndex(
+          (m) => m.id === botMessageId,
+        );
+
+        if (messageIndex < 0) {
+          console.error("[Chat] Bot message not found for retry", botMessageId);
+          return;
+        }
+
+        const botMessage = session.messages[messageIndex];
+        console.log("[Debug] Starting bot message retry", {
+          botMessageId,
+          currentContent:
+            typeof botMessage.content === "string"
+              ? botMessage.content.slice(0, 50) + "..."
+              : botMessage.content,
+        });
+
+        // 保存当前版本到版本数组
+        get().updateTargetSession(session, (session) => {
+          const currentMessage = session.messages[messageIndex];
+
+          // 初始化版本管理
+          if (!currentMessage.versions) {
+            currentMessage.versions = [];
+            currentMessage.currentVersionIndex = 0;
+          }
+
+          // 保存当前内容作为一个版本
+          if (
+            typeof currentMessage.content === "string" &&
+            currentMessage.content.trim()
+          ) {
+            currentMessage.versions.push(currentMessage.content);
+            console.log("[Debug] Version saved", {
+              totalVersions: currentMessage.versions.length,
+              savedContent: currentMessage.content.slice(0, 50) + "...",
+            });
+          }
+
+          // 重置消息状态，准备接收新回复
+          currentMessage.content = "";
+          currentMessage.streaming = true;
+          currentMessage.date = new Date().toLocaleString();
+          // 设置当前版本索引为即将生成的新版本
+          currentMessage.currentVersionIndex = currentMessage.versions.length;
+        });
+
+        // 获取用户消息内容
+        const textContent = getMessageTextContent(userMessage);
+        const images = getMessageImages(userMessage);
+
+        // 准备消息内容
+        let mContent: string | MultimodalContent[] = fillTemplateWith(
+          textContent,
+          session.mask.modelConfig,
+        );
+        if (images && images.length > 0) {
+          mContent = [
+            ...(textContent
+              ? [{ type: "text" as const, text: textContent }]
+              : []),
+            ...images.map((url) => ({
+              type: "image_url" as const,
+              image_url: { url },
+            })),
+          ];
+        }
+
+        // 获取历史消息（不包括当前正在重试的 bot 消息）
+        const recentMessages = await get().getMessagesWithMemory();
+        const sendMessages = recentMessages.concat({
+          ...userMessage,
+          content: mContent,
+        });
+
+        const modelConfig = session.mask.modelConfig;
+        const api: ClientApi = getClientApi(modelConfig.providerName);
+
+        // 发送请求
+        try {
+          await api.llm.chat({
+            messages: sendMessages,
+            config: { ...modelConfig, stream: true },
+            onUpdate(message) {
+              get().updateTargetSession(session, (session) => {
+                const currentMessage = session.messages[messageIndex];
+                if (currentMessage) {
+                  currentMessage.streaming = true;
+                  currentMessage.content = message;
+                }
+              });
+            },
+            onFinish(message) {
+              let finishedMessage: ChatMessage | undefined;
+              get().updateTargetSession(session, (session) => {
+                const currentMessage = session.messages[messageIndex];
+                if (currentMessage) {
+                  currentMessage.streaming = false;
+                  currentMessage.content = message;
+                  finishedMessage = currentMessage;
+                  console.log("[Debug] Bot message retry finished", {
+                    messageId: currentMessage.id,
+                    hasVersions: !!currentMessage.versions,
+                    versionsCount: currentMessage.versions?.length || 0,
+                    currentVersionIndex: currentMessage.currentVersionIndex,
+                  });
+                }
+              });
+              if (finishedMessage) {
+                get().onNewMessage(finishedMessage, session);
+              }
+            },
+            onError(error) {
+              const isAborted = error.message.includes("aborted");
+              let errorMessage: ChatMessage | undefined;
+              get().updateTargetSession(session, (session) => {
+                const currentMessage = session.messages[messageIndex];
+                if (currentMessage) {
+                  currentMessage.streaming = false;
+                  if (!isAborted) {
+                    currentMessage.content = prettyObject({
+                      error: true,
+                      message: error.message,
+                    });
+                    currentMessage.isError = true;
+                  }
+                  errorMessage = currentMessage;
+                }
+              });
+              if (errorMessage) {
+                get().onNewMessage(errorMessage, session);
+              }
+              console.error("[Chat] failed to retry bot message", error);
+            },
+            onController(controller) {
+              // 注册控制器用于停止生成
+              ChatControllerPool.addController(
+                session.id,
+                botMessageId,
+                controller,
+              );
+            },
+          });
+        } catch (error) {
+          console.error("[Chat] Error in retryBotMessage", error);
+        }
       },
 
       /** check if the message contains MCP JSON and execute the MCP action */
