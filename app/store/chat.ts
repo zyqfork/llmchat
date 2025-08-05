@@ -1,5 +1,6 @@
 import {
   getMessageTextContent,
+  getMessageTextContentWithoutThinking,
   getMessageImages,
   isDalle3,
   safeLocalStorage,
@@ -887,8 +888,32 @@ export const useChatStore = createPersistStore(
         ) {
           const msg = messages[i];
           if (!msg || msg.isError) continue;
-          tokenCount += estimateTokenLength(getMessageTextContent(msg));
-          reversedRecentMessages.push(msg);
+          // 使用不包含思考内容的版本来计算Token数量
+          tokenCount += estimateTokenLength(
+            getMessageTextContentWithoutThinking(msg),
+          );
+
+          // 创建不包含思考内容的消息副本用于发送
+          const msgToSend = { ...msg };
+          if (msg.role === "assistant") {
+            // 对于助手消息，移除思考内容
+            if (typeof msg.content === "string") {
+              msgToSend.content = getMessageTextContentWithoutThinking(msg);
+            } else if (Array.isArray(msg.content)) {
+              msgToSend.content = msg.content.map((c) => {
+                if (c.type === "text") {
+                  return {
+                    ...c,
+                    text: c.text
+                      ? c.text.replace(/<think>[\s\S]*?<\/think>/g, "").trim()
+                      : "",
+                  };
+                }
+                return c;
+              });
+            }
+          }
+          reversedRecentMessages.push(msgToSend);
         }
         // concat all messages
         const recentMessages = [

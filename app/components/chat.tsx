@@ -963,12 +963,15 @@ export function TokenCounter(props: {
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // 计算当前对话的Token数量
+  // 计算当前对话的Token数量（排除思考内容）
   const calculateUsedTokens = () => {
     const messages = props.session.messages;
     return messages.reduce((total: number, message: ChatMessage) => {
       if (message.isError) return total;
-      return total + estimateTokenLength(getMessageTextContent(message));
+      return (
+        total +
+        estimateTokenLength(getMessageTextContentWithoutThinking(message))
+      );
     }, 0);
   };
 
