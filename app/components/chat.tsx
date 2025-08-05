@@ -1999,11 +1999,6 @@ function _Chat() {
 
     // 如果是重试 bot 消息，使用专门的重试方法
     if (botMessage) {
-      console.log("[Debug] Retrying bot message", {
-        botMessageId: botMessage.id,
-        userMessageId: userMessage.id,
-      });
-
       setIsLoading(true);
       chatStore
         .retryBotMessage(botMessage.id, userMessage)
@@ -2028,12 +2023,6 @@ function _Chat() {
 
   // 切换到上一个版本
   const onPreviousVersion = (message: ChatMessage) => {
-    console.log("[Debug] onPreviousVersion called", {
-      messageId: message.id,
-      currentIndex: message.currentVersionIndex,
-      versionsLength: message.versions?.length,
-    });
-
     chatStore.updateTargetSession(session, (session) => {
       const messageIndex = session.messages.findIndex(
         (m) => m.id === message.id,
@@ -2044,10 +2033,6 @@ function _Chat() {
           const currentIndex = currentMessage.currentVersionIndex ?? 0;
           if (currentIndex > 0) {
             currentMessage.currentVersionIndex = currentIndex - 1;
-            console.log("[Debug] Version switched to previous", {
-              newIndex: currentMessage.currentVersionIndex,
-              totalVersions: currentMessage.versions.length + 1,
-            });
           }
         }
       }
@@ -2056,12 +2041,6 @@ function _Chat() {
 
   // 切换到下一个版本
   const onNextVersion = (message: ChatMessage) => {
-    console.log("[Debug] onNextVersion called", {
-      messageId: message.id,
-      currentIndex: message.currentVersionIndex,
-      versionsLength: message.versions?.length,
-    });
-
     chatStore.updateTargetSession(session, (session) => {
       const messageIndex = session.messages.findIndex(
         (m) => m.id === message.id,
@@ -2073,10 +2052,6 @@ function _Chat() {
           const maxIndex = currentMessage.versions.length;
           if (currentIndex < maxIndex) {
             currentMessage.currentVersionIndex = currentIndex + 1;
-            console.log("[Debug] Version switched to next", {
-              newIndex: currentMessage.currentVersionIndex,
-              totalVersions: currentMessage.versions.length + 1,
-            });
           }
         }
       }
@@ -2085,39 +2060,19 @@ function _Chat() {
 
   // 获取当前显示的消息内容
   const getCurrentMessageContent = (message: ChatMessage): string => {
-    console.log("[Debug] getCurrentMessageContent called", {
-      messageId: message.id,
-      hasVersions: !!message.versions,
-      versionsLength: message.versions?.length,
-      currentIndex: message.currentVersionIndex,
-      originalContent:
-        typeof message.content === "string"
-          ? message.content.slice(0, 50) + "..."
-          : message.content,
-    });
-
     if (!message.versions || message.versions.length <= 1) {
-      console.log(
-        "[Debug] No versions or only one version, returning original content",
-      );
       return typeof message.content === "string" ? message.content : "";
     }
 
     const currentIndex = message.currentVersionIndex ?? 0;
     if (currentIndex === message.versions.length) {
       // 显示最新版本（当前消息内容）
-      console.log("[Debug] Showing latest version (current content)");
       return typeof message.content === "string" ? message.content : "";
     } else if (currentIndex >= 0 && currentIndex < message.versions.length) {
       // 显示历史版本
-      console.log("[Debug] Showing historical version", {
-        index: currentIndex,
-        content: message.versions[currentIndex].slice(0, 50) + "...",
-      });
       return message.versions[currentIndex];
     }
 
-    console.log("[Debug] Fallback to original content");
     return typeof message.content === "string" ? message.content : "";
   };
 
@@ -2833,20 +2788,6 @@ function _Chat() {
                                           message.role === "assistant" &&
                                           message.versions &&
                                           message.versions.length >= 1;
-                                        console.log(
-                                          "[Debug] Version controls check",
-                                          {
-                                            messageId: message.id,
-                                            role: message.role,
-                                            hasVersions: !!message.versions,
-                                            versionsLength:
-                                              message.versions?.length,
-                                            currentIndex:
-                                              message.currentVersionIndex,
-                                            shouldShow:
-                                              shouldShowVersionControls,
-                                          },
-                                        );
 
                                         return (
                                           shouldShowVersionControls && (

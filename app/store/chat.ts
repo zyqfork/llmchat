@@ -600,12 +600,6 @@ export const useChatStore = createPersistStore(
               botMessage.date = new Date().toLocaleString();
 
               // 不在新消息时初始化版本管理，只在重试时才初始化
-              console.log("[Debug] Bot message finished", {
-                messageId: botMessage.id,
-                hasVersions: !!botMessage.versions,
-                versionsCount: botMessage.versions?.length || 0,
-                currentVersionIndex: botMessage.currentVersionIndex,
-              });
 
               get().onNewMessage(botMessage, session);
             }
@@ -1105,15 +1099,6 @@ export const useChatStore = createPersistStore(
           return;
         }
 
-        const botMessage = session.messages[messageIndex];
-        console.log("[Debug] Starting bot message retry", {
-          botMessageId,
-          currentContent:
-            typeof botMessage.content === "string"
-              ? botMessage.content.slice(0, 50) + "..."
-              : botMessage.content,
-        });
-
         // 保存当前版本到版本数组
         get().updateTargetSession(session, (session) => {
           const currentMessage = session.messages[messageIndex];
@@ -1130,10 +1115,6 @@ export const useChatStore = createPersistStore(
             currentMessage.content.trim()
           ) {
             currentMessage.versions.push(currentMessage.content);
-            console.log("[Debug] Version saved", {
-              totalVersions: currentMessage.versions.length,
-              savedContent: currentMessage.content.slice(0, 50) + "...",
-            });
           }
 
           // 重置消息状态，准备接收新回复
@@ -1197,12 +1178,6 @@ export const useChatStore = createPersistStore(
                   currentMessage.streaming = false;
                   currentMessage.content = message;
                   finishedMessage = currentMessage;
-                  console.log("[Debug] Bot message retry finished", {
-                    messageId: currentMessage.id,
-                    hasVersions: !!currentMessage.versions,
-                    versionsCount: currentMessage.versions?.length || 0,
-                    currentVersionIndex: currentMessage.currentVersionIndex,
-                  });
                 }
               });
               if (finishedMessage) {
