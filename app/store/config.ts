@@ -16,6 +16,7 @@ import {
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import type { Voice } from "rt-client";
+import { getModelCompressThreshold } from "../config/model-context-tokens";
 
 export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
 export type TTSModelType = (typeof DEFAULT_TTS_MODELS)[number];
@@ -73,7 +74,7 @@ export const DEFAULT_CONFIG = {
     frequency_penalty: 0,
     sendMemory: true,
     historyMessageCount: 4,
-    compressMessageLengthThreshold: 1000,
+    compressMessageLengthThreshold: getModelCompressThreshold("gpt-4o-mini"),
     compressModel: "",
     compressProviderName: "",
     enableInjectSystemPrompts: true,
@@ -196,7 +197,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.2,
+    version: 4.3,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -263,6 +264,12 @@ export const useAppConfig = createPersistStore(
 
       if (version < 4.2) {
         state.useModelIconAsAvatar = DEFAULT_CONFIG.useModelIconAsAvatar;
+      }
+
+      if (version < 4.3) {
+        // 根据当前模型更新压缩阈值
+        state.modelConfig.compressMessageLengthThreshold =
+          getModelCompressThreshold(state.modelConfig.model);
       }
 
       return state as any;

@@ -15,6 +15,7 @@ import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabiliti
 import {
   getModelContextTokens,
   formatTokenCount,
+  getModelCompressThreshold,
 } from "../config/model-context-tokens";
 
 export function ModelConfigList(props: {
@@ -127,6 +128,10 @@ export function ModelConfigList(props: {
                 ) {
                   config.thinkingBudget = -1; // 默认为动态思考
                 }
+
+                // 根据新模型自动更新压缩阈值
+                const autoThreshold = getModelCompressThreshold(config.model);
+                config.compressMessageLengthThreshold = autoThreshold;
               });
             }}
           >
@@ -318,14 +323,29 @@ export function ModelConfigList(props: {
 
       <ListItem
         title={Locale.Settings.CompressThreshold.Title}
-        subTitle={Locale.Settings.CompressThreshold.SubTitle}
+        subTitle={(() => {
+          const autoThreshold = getModelCompressThreshold(
+            props.modelConfig.model,
+          );
+          const currentThreshold =
+            props.modelConfig.compressMessageLengthThreshold;
+          const isAuto = currentThreshold === autoThreshold;
+          return `${Locale.Settings.CompressThreshold.SubTitle}${
+            isAuto
+              ? ` (当前: 自动 - ${formatTokenCount(autoThreshold)} Token)`
+              : ` (当前: 自定义)`
+          }`;
+        })()}
       >
         <input
           aria-label={Locale.Settings.CompressThreshold.Title}
           type="number"
           min={500}
-          max={4000}
+          max={10000000}
           value={props.modelConfig.compressMessageLengthThreshold}
+          placeholder={getModelCompressThreshold(
+            props.modelConfig.model,
+          ).toString()}
           onChange={(e) =>
             props.updateConfig(
               (config) =>

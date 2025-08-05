@@ -66,6 +66,7 @@ import { useAllModels } from "../utils/hooks";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 import { groupBy } from "lodash-es";
+import { getModelCompressThreshold } from "../config/model-context-tokens";
 
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -97,6 +98,7 @@ export function MaskConfig(props: {
   extraListItems?: JSX.Element;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
+  isSessionConfig?: boolean; // 新增参数，标识是否为会话配置
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const allModels = useAllModels();
@@ -320,37 +322,70 @@ export function MaskConfig(props: {
       </List>
 
       <List>
-        {/* 默认模型配置 */}
-        <ListItem title="默认模型" subTitle="新建对话时使用的默认模型">
-          <Select
-            aria-label="默认模型"
-            value={props.mask.defaultModel || ""}
-            onChange={(e) => {
-              const value = e.currentTarget.value;
-              props.updateMask((mask) => {
-                mask.defaultModel = value || undefined;
-              });
-            }}
-          >
-            <option value="">使用全局默认模型</option>
-            {Object.keys(groupModels).map((providerName, index) => (
-              <optgroup label={providerName} key={index}>
-                {groupModels[providerName].map((v, i) => (
-                  <option value={v.name} key={i}>
-                    {v.displayName}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </Select>
-        </ListItem>
+        {/* 根据使用场景显示不同的模型选择器 */}
+        {props.isSessionConfig ? (
+          // 会话配置：显示 ModelConfigList 中的模型选择器
+          <ModelConfigList
+            modelConfig={{ ...props.mask.modelConfig }}
+            updateConfig={updateConfig}
+            showModelSelector={true}
+            showGlobalOption={true}
+          />
+        ) : (
+          // 助手编辑：显示默认模型选择器
+          <>
+            <ListItem title="默认模型" subTitle="新建对话时使用的默认模型">
+              <Select
+                aria-label="默认模型"
+                value={props.mask.defaultModel || ""}
+                onChange={(e) => {
+                  const value = e.currentTarget.value;
+                  props.updateMask((mask) => {
+                    mask.defaultModel = value || undefined;
 
-        <ModelConfigList
-          modelConfig={{ ...props.mask.modelConfig }}
-          updateConfig={updateConfig}
-          showModelSelector={false}
-          showGlobalOption={true}
-        />
+                    // 同时更新 modelConfig 中的模型配置
+                    if (value) {
+                      const [model, providerName] = getModelProvider(value);
+                      if (model) {
+                        mask.modelConfig.model = model as any;
+                        if (providerName) {
+                          mask.modelConfig.providerName = providerName as any;
+                        }
+                        // 根据新模型自动更新压缩阈值
+                        const autoThreshold = getModelCompressThreshold(model);
+                        mask.modelConfig.compressMessageLengthThreshold =
+                          autoThreshold;
+                      }
+                    }
+                  });
+                }}
+              >
+                <option value="">使用全局默认模型</option>
+                {Object.keys(groupModels).map((providerName, index) => (
+                  <optgroup label={providerName} key={index}>
+                    {groupModels[providerName].map((v, i) => (
+                      <option
+                        value={`${v.name}@${
+                          v.provider?.id || v.provider?.providerName
+                        }`}
+                        key={i}
+                      >
+                        {v.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </Select>
+            </ListItem>
+
+            <ModelConfigList
+              modelConfig={{ ...props.mask.modelConfig }}
+              updateConfig={updateConfig}
+              showModelSelector={false}
+              showGlobalOption={true}
+            />
+          </>
+        )}
         {props.extraListItems}
       </List>
     </>

@@ -37,6 +37,7 @@ import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 import { normalizeProviderName } from "../client/api";
+import { getModelCompressThreshold } from "../config/model-context-tokens";
 
 import { IconButton } from "./button";
 import {
@@ -2206,6 +2207,10 @@ export function Settings() {
                 config.modelConfig.providerName = normalizeProviderName(
                   providerName!,
                 );
+                // 根据新模型自动更新压缩阈值
+                const autoThreshold = getModelCompressThreshold(model);
+                config.modelConfig.compressMessageLengthThreshold =
+                  autoThreshold;
               });
             }}
           >

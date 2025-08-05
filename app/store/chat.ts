@@ -40,6 +40,7 @@ import {
   getMaskCompressModel,
   getSessionCompressModelConfig,
 } from "../utils/model-resolver";
+import { getModelCompressThreshold } from "../config/model-context-tokens";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
@@ -417,11 +418,17 @@ export const useChatStore = createPersistStore(
             const sessionModelConfig = getSessionModelConfig(mask);
             newMask.modelConfig.model = sessionModelConfig.model;
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
+            // 根据模型更新压缩阈值
+            newMask.modelConfig.compressMessageLengthThreshold =
+              getModelCompressThreshold(sessionModelConfig.model);
           } else {
             // 即使没有设置默认模型，也要确保使用全局配置
             const sessionModelConfig = getSessionModelConfig(mask);
             newMask.modelConfig.model = sessionModelConfig.model;
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
+            // 根据模型更新压缩阈值
+            newMask.modelConfig.compressMessageLengthThreshold =
+              getModelCompressThreshold(sessionModelConfig.model);
           }
 
           // 禁用全局同步，防止后续操作覆盖我们的助手配置

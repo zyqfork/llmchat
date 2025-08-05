@@ -147,3 +147,13 @@ export function isMaskUsingGlobalCompressModel(mask: Mask): boolean {
     !mask.modelConfig.compressModel || mask.modelConfig.compressModel === ""
   );
 }
+
+/**
+ * 获取当前会话的有效模型名称（用于压缩阈值计算）
+ * 优先级：会话模型配置 > 面具模型配置 > 全局模型配置
+ */
+export function getSessionEffectiveModel(mask: Mask): string {
+  // 获取会话的模型配置
+  const sessionModelConfig = getSessionModelConfig(mask);
+  return sessionModelConfig.model;
+}

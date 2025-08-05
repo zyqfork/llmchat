@@ -68,6 +68,7 @@ import { normalizeProviderName } from "../client/api";
 import {
   getModelContextTokens,
   formatTokenCount,
+  getModelCompressThreshold,
 } from "../config/model-context-tokens";
 import { estimateTokenLength } from "../utils/token";
 
@@ -740,6 +741,7 @@ export function SessionConfigModel(props: { onClose: () => void }) {
             );
           }}
           shouldSyncFromGlobal
+          isSessionConfig={true}
           extraListItems={
             session.mask.modelConfig.sendMemory ? (
               <ListItem
@@ -1291,6 +1293,10 @@ export function ChatActions(props: {
       ) {
         session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考
       }
+
+      // 根据新模型自动更新压缩阈值
+      const autoThreshold = getModelCompressThreshold(nextModel.name);
+      session.mask.modelConfig.compressMessageLengthThreshold = autoThreshold;
     });
     showToast(
       nextModel?.provider?.providerName == "ByteDance"
@@ -1597,6 +1603,11 @@ export function ChatActions(props: {
                   ) {
                     session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考
                   }
+
+                  // 根据新模型自动更新压缩阈值
+                  const autoThreshold = getModelCompressThreshold(model);
+                  session.mask.modelConfig.compressMessageLengthThreshold =
+                    autoThreshold;
                 });
 
                 const selectedModel = models.find(

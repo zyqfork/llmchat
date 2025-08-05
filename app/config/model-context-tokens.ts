@@ -487,3 +487,20 @@ export function formatTokenCount(tokens: number): string {
   }
   return tokens.toString();
 }
+
+/**
+ * 根据模型的上下文Token数自动计算压缩阈值
+ * @param modelName 模型名称
+ * @returns 压缩阈值（Token数）
+ */
+export function getModelCompressThreshold(modelName: string): number {
+  const DEFAULT_THRESHOLD = 128000; // 默认128K Token
+
+  const contextConfig = getModelContextTokens(modelName);
+  if (!contextConfig?.contextTokens) {
+    return DEFAULT_THRESHOLD;
+  }
+
+  // 直接使用Token数作为压缩阈值，不进行字符转换
+  return contextConfig.contextTokens;
+}

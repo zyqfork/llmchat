@@ -4,6 +4,7 @@ import { ModelConfig, useAppConfig } from "./config";
 import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
+import { getModelCompressThreshold } from "../config/model-context-tokens";
 
 export type Mask = {
   id: string;
@@ -43,7 +44,12 @@ export const createDefaultMask = () => {
     name: "默认助手",
     context: [],
     syncGlobalConfig: false, // 修改为 false，让默认助手也保持自己的配置
-    modelConfig: { ...globalConfig },
+    modelConfig: {
+      ...globalConfig,
+      compressMessageLengthThreshold: getModelCompressThreshold(
+        globalConfig.model,
+      ),
+    },
     defaultModel: undefined, // 初始化默认模型为 undefined
 
     lang: getLang(),
@@ -54,21 +60,28 @@ export const createDefaultMask = () => {
   return defaultMask;
 };
 
-export const createEmptyMask = () =>
-  ({
+export const createEmptyMask = () => {
+  const globalConfig = useAppConfig.getState().modelConfig;
+  return {
     id: nanoid(),
     avatar: DEFAULT_MASK_AVATAR,
     name: DEFAULT_TOPIC,
     context: [],
     syncGlobalConfig: true, // use global config as default
-    modelConfig: { ...useAppConfig.getState().modelConfig },
+    modelConfig: {
+      ...globalConfig,
+      compressMessageLengthThreshold: getModelCompressThreshold(
+        globalConfig.model,
+      ),
+    },
     defaultModel: undefined, // 初始化默认模型为 undefined
 
     lang: getLang(),
     builtin: false,
     createdAt: Date.now(),
     plugin: [],
-  }) as Mask;
+  } as Mask;
+};
 
 export const useMaskStore = createPersistStore(
   { ...DEFAULT_MASK_STATE },
