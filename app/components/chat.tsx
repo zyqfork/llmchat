@@ -54,6 +54,7 @@ import MenuIcon from "../icons/menu.svg";
 import {
   BOT_HELLO,
   ChatMessage,
+  ChatSession,
   createMessage,
   DEFAULT_TOPIC,
   ModelType,
@@ -68,6 +69,7 @@ import {
   getModelContextTokens,
   formatTokenCount,
 } from "../config/model-context-tokens";
+import { estimateTokenLength } from "../utils/token";
 
 import {
   autoGrowTextArea,
@@ -953,6 +955,76 @@ export function ChatAction(props: {
   );
 }
 
+// Token计数器组件
+export function TokenCounter(props: {
+  session: ChatSession;
+  currentModel: string;
+  userInput?: string;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // 计算当前对话的Token数量
+  const calculateUsedTokens = () => {
+    const messages = props.session.messages;
+    return messages.reduce((total: number, message: ChatMessage) => {
+      if (message.isError) return total;
+      return total + estimateTokenLength(getMessageTextContent(message));
+    }, 0);
+  };
+
+  // 获取当前会话的配置
+  const modelConfig = props.session.mask.modelConfig;
+  const usedTokens = calculateUsedTokens();
+  const contextConfig = getModelContextTokens(props.currentModel);
+  const maxTokens = contextConfig?.contextTokens;
+
+  // 计算当前上下文数量
+  const currentContextCount = props.session.messages.length;
+  const maxContextCount = modelConfig.historyMessageCount;
+
+  // 计算预估Token数（包括用户输入）
+  const inputTokens = props.userInput
+    ? estimateTokenLength(props.userInput)
+    : 0;
+  const estimatedTokens = usedTokens + inputTokens;
+
+  const displayText = maxTokens
+    ? `${formatTokenCount(usedTokens)}/${formatTokenCount(maxTokens)}`
+    : `${formatTokenCount(usedTokens)}/?`;
+
+  // 构建详细的tooltip内容
+  const tooltipLines = [
+    `当前上下文: ${currentContextCount} / ${maxContextCount}`,
+    maxTokens
+      ? `当前Token: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
+      : `当前Token: ${usedTokens.toLocaleString()} / 未知`,
+    inputTokens > 0 ? `预估Token: ${estimatedTokens.toLocaleString()}` : null,
+  ].filter(Boolean);
+
+  const tooltipText = tooltipLines.join("\n");
+
+  return (
+    <div className={styles["chat-action-wrapper"]}>
+      <button
+        className={styles["token-counter-button"]}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={(e) => e.preventDefault()}
+        type="button"
+      >
+        <span className={styles["token-counter-text"]}>{displayText}</span>
+      </button>
+      {showTooltip && (
+        <div className={styles["token-counter-tooltip"]}>
+          {tooltipLines.map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function useScrollToBottom(
   scrollRef: RefObject<HTMLDivElement>,
   detach: boolean = false,
@@ -1016,6 +1088,7 @@ export function ChatActions(props: {
   toggleMultiModelMode: () => void;
   showModelSelector: boolean;
   setShowModelSelector: React.Dispatch<React.SetStateAction<boolean>>;
+  userInput: string;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -1454,8 +1527,13 @@ export function ChatActions(props: {
           />
         )}
 
-        {/* 模型选择器 - 固定在右侧 */}
+        {/* Token计数器和模型选择器 - 固定在右侧 */}
         <div className={styles["model-selector-container"]}>
+          <TokenCounter
+            session={session}
+            currentModel={currentModel}
+            userInput={props.userInput}
+          />
           <button
             className={styles["model-selector-button"]}
             onClick={() => props.setShowModelSelector(true)}
@@ -3089,6 +3167,7 @@ function _Chat() {
                 toggleMultiModelMode={toggleMultiModelMode}
                 showModelSelector={showModelSelector}
                 setShowModelSelector={setShowModelSelector}
+                userInput={userInput}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {

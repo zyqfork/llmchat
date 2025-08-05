@@ -60,6 +60,7 @@
     position: relative;
     display: flex;
     align-items: flex-start;
+    gap: 8px;
   }
 
   .model-selector-button {
@@ -164,6 +165,48 @@
     }
   }
 
+  .token-counter-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: var(--border-in-light);
+    background-color: var(--white);
+    color: var(--black);
+    cursor: default;
+    font-size: 12px;
+    box-shadow: var(--card-shadow);
+    animation: slide-in ease 0.3s;
+    outline: none;
+    height: 32px;
+    justify-content: center;
+    width: auto;
+    min-width: fit-content;
+
+    .token-counter-text {
+      white-space: nowrap;
+      font-weight: 500;
+      color: var(--black);
+      font-size: 13px;
+      font-family: "Noto Sans", "SF Pro SC", "SF Pro Text", "SF Pro Icons",
+        "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      pointer-events: none;
+    }
+
+    &:hover {
+      background-color: var(--hover-color);
+    }
+
+    &:focus {
+      outline: none;
+    }
+
+    &:active {
+      transform: none;
+    }
+  }
+
   .chat-action-tooltip {
     position: absolute;
     bottom: 100%;
@@ -178,6 +221,33 @@
     white-space: nowrap;
     z-index: 1000;
     pointer-events: none;
+  }
+
+  .token-counter-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background-color: var(--white);
+    color: var(--black);
+    font-size: 12px;
+    border-radius: 6px;
+    border: var(--border-in-light);
+    box-shadow: var(--card-shadow);
+    z-index: 1000;
+    pointer-events: none;
+    white-space: normal;
+    min-width: 200px;
+
+    div {
+      margin-bottom: 2px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
   }
 
 
