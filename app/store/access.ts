@@ -100,6 +100,29 @@ const DEFAULT_ACCESS_STATE = {
     [ServiceProvider.SiliconFlow]: [] as string[],
   } as Record<ServiceProvider | string, string[]>,
 
+  // 是否从API获取可用模型（每个服务商独立控制）
+  fetchModelsFromAPI: {
+    [ServiceProvider.OpenAI]: true,
+    [ServiceProvider.Azure]: true,
+    [ServiceProvider.Google]: true,
+    [ServiceProvider.Anthropic]: true,
+    [ServiceProvider.ByteDance]: true,
+    [ServiceProvider.Alibaba]: true,
+    [ServiceProvider.Moonshot]: true,
+    [ServiceProvider.XAI]: true,
+    [ServiceProvider.DeepSeek]: true,
+    [ServiceProvider.SiliconFlow]: true,
+  } as Record<ServiceProvider | string, boolean>,
+
+  // 从API获取的模型列表缓存
+  apiModelsCache: {} as Record<ServiceProvider | string, any[]>,
+
+  // 模型获取状态
+  modelsFetchStatus: {} as Record<
+    ServiceProvider | string,
+    "idle" | "loading" | "success" | "error"
+  >,
+
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
   openaiApiKey: "",
@@ -292,6 +315,56 @@ export const useAccessStore = createPersistStore(
         (this.enabledAccessControl() && ensure(get(), ["accessCode"]))
       );
     },
+
+    // 设置是否从API获取模型
+    setFetchModelsFromAPI(
+      provider: ServiceProvider | string,
+      enabled: boolean,
+    ) {
+      set((state) => ({
+        ...state,
+        fetchModelsFromAPI: {
+          ...state.fetchModelsFromAPI,
+          [provider]: enabled,
+        },
+      }));
+    },
+
+    // 设置模型获取状态
+    setModelsFetchStatus(
+      provider: ServiceProvider | string,
+      status: "idle" | "loading" | "success" | "error",
+    ) {
+      set((state) => ({
+        ...state,
+        modelsFetchStatus: {
+          ...state.modelsFetchStatus,
+          [provider]: status,
+        },
+      }));
+    },
+
+    // 缓存从API获取的模型
+    setApiModelsCache(provider: ServiceProvider | string, models: any[]) {
+      set((state) => ({
+        ...state,
+        apiModelsCache: {
+          ...state.apiModelsCache,
+          [provider]: models,
+        },
+      }));
+    },
+
+    // 清除模型缓存
+    clearApiModelsCache(provider?: ServiceProvider | string) {
+      set((state) => ({
+        ...state,
+        apiModelsCache: provider
+          ? { ...state.apiModelsCache, [provider]: [] }
+          : {},
+      }));
+    },
+
     fetch() {
       if (fetchState > 0 || getClientConfig()?.buildMode === "export") return;
       fetchState = 1;

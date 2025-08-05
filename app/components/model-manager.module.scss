@@ -185,6 +185,74 @@
   }
 }
 
+// 控制按钮区域样式
+.control-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+// API获取开关样式
+.api-fetch-toggle {
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+.toggle-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  font-size: 14px !important;
+  color: var(--black) !important;
+  white-space: nowrap !important;
+}
+
+.toggle-checkbox {
+  width: 18px !important;
+  height: 18px !important;
+  cursor: pointer !important;
+  accent-color: var(--primary) !important;
+}
+
+.toggle-text {
+  font-weight: 500 !important;
+}
+
+// 加载状态样式
+.loading-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 60px 20px !important;
+  color: var(--black) !important;
+}
+
+.loading-spinner {
+  width: 40px !important;
+  height: 40px !important;
+  border: 3px solid var(--border-in-light) !important;
+  border-top: 3px solid var(--primary) !important;
+  border-radius: 50% !important;
+  animation: spin 1s linear infinite !important;
+  margin-bottom: 16px !important;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px !important;
+  color: var(--gray) !important;
+  font-weight: 500 !important;
+}
+
 // 添加自定义模型按钮样式 - 优化为更明显的按钮外观
 .model-manager .search-section .add-custom-button,
 .add-custom-button {

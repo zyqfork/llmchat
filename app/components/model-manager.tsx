@@ -1,7 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { ServiceProvider, DEFAULT_MODELS } from "../constant";
 import { useAccessStore } from "../store/access";
 import { LLMModel } from "../client/api";
+import { ModelFetcher } from "../client/model-fetcher";
+import { showToast } from "./ui-lib";
 import styles from "./model-manager.module.scss";
 
 import CloseIcon from "../icons/close.svg";
@@ -191,6 +193,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     Record<string, ModelTestResult>
   >({});
 
+  // API模型获取状态
+  const [isLoadingAPIModels, setIsLoadingAPIModels] = useState(false);
+  const [apiModels, setApiModels] = useState<LLMModel[]>([]);
+
+  // 获取API获取开关状态
+  const fetchFromAPIEnabled =
+    accessStore.fetchModelsFromAPI?.[provider] ?? true;
+
   // 检查是否是自定义服务商
   const isCustomProvider =
     typeof provider === "string" && provider.startsWith("custom_");
@@ -200,6 +210,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
+    // 如果有API模型数据，优先使用API模型
+    if (apiModels.length > 0) {
+      return apiModels;
+    }
     if (isCustomProvider && customProviderConfig) {
       // 对于自定义服务商，根据其类型获取相应的模型
       const baseModels = DEFAULT_MODELS.filter((model) => {
@@ -260,12 +274,86 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   }, [
     provider,
     accessStore.customModels,
+    apiModels,
     isCustomProvider,
     customProviderConfig,
   ]);
 
   // 获取已启用的模型
   const enabledModels = accessStore.enabledModels?.[provider] || [];
+
+  // 从API获取模型
+  const fetchModelsFromAPI = useCallback(async () => {
+    setIsLoadingAPIModels(true);
+    const store = useAccessStore.getState();
+    store.setModelsFetchStatus(provider, "loading");
+
+    try {
+      const result = await ModelFetcher.fetchModels(provider);
+
+      if (result.success) {
+        setApiModels(result.models);
+        store.setApiModelsCache(provider, result.models);
+        store.setModelsFetchStatus(provider, "success");
+        showToast("模型列表获取成功");
+      } else {
+        throw new Error(result.error || "获取模型失败");
+      }
+    } catch (error) {
+      console.error("[ModelManager] 获取API模型失败:", error);
+      store.setModelsFetchStatus(provider, "error");
+      showToast(
+        `获取模型失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      // 获取失败时回退到内置模型
+      store.setFetchModelsFromAPI(provider, false);
+    } finally {
+      setIsLoadingAPIModels(false);
+    }
+  }, [provider]);
+
+  // 处理API获取开关切换
+  const handleToggleAPIFetch = useCallback(
+    async (enabled: boolean) => {
+      const store = useAccessStore.getState();
+      store.setFetchModelsFromAPI(provider, enabled);
+
+      if (enabled) {
+        // 开启时立即获取模型
+        await fetchModelsFromAPI();
+      } else {
+        // 关闭时清除API模型缓存
+        setApiModels([]);
+        store.clearApiModelsCache(provider);
+        store.setModelsFetchStatus(provider, "idle");
+      }
+    },
+    [provider, fetchModelsFromAPI],
+  );
+
+  // 初始化时检查是否需要从API获取模型
+  useEffect(() => {
+    const store = useAccessStore.getState();
+    const shouldFetchFromAPI = store.fetchModelsFromAPI?.[provider] ?? true;
+
+    if (shouldFetchFromAPI) {
+      // 检查是否有缓存
+      const cachedModels = store.apiModelsCache?.[provider];
+      if (cachedModels && cachedModels.length > 0) {
+        setApiModels(cachedModels);
+        // 不在useEffect中直接调用store方法，避免无限循环
+      } else {
+        // 没有缓存时获取模型
+        fetchModelsFromAPI();
+      }
+    } else {
+      // 如果关闭了API获取，清空API模型
+      setApiModels([]);
+    }
+  }, [provider, fetchModelsFromAPI]);
 
   // 分类模型
   const categorizedModels = useMemo(() => {
@@ -671,7 +759,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       onClose={onClose}
     >
       <div className={styles["model-manager"]}>
-        {/* 搜索框和添加按钮 */}
+        {/* 搜索框和控制按钮 */}
         <div className={styles["search-section"]}>
           <input
             type="text"
@@ -680,13 +768,27 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
             onChange={(e) => setSearchTerm(e.target.value)}
             className={styles["search-input"]}
           />
-          <button
-            className={styles["add-custom-button"]}
-            onClick={() => setShowAddCustomModel(true)}
-            title="添加自定义模型"
-          >
-            添加自定义模型
-          </button>
+          <div className={styles["control-buttons"]}>
+            {/* 从API获取模型开关 */}
+            <div className={styles["api-fetch-toggle"]}>
+              <label className={styles["toggle-label"]}>
+                <input
+                  type="checkbox"
+                  checked={fetchFromAPIEnabled}
+                  onChange={(e) => handleToggleAPIFetch(e.target.checked)}
+                  className={styles["toggle-checkbox"]}
+                />
+                <span className={styles["toggle-text"]}>从API获取可用模型</span>
+              </label>
+            </div>
+            <button
+              className={styles["add-custom-button"]}
+              onClick={() => setShowAddCustomModel(true)}
+              title="添加自定义模型"
+            >
+              添加自定义模型
+            </button>
+          </div>
         </div>
 
         {/* 添加自定义模型表单 */}
@@ -776,182 +878,191 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
         {/* 模型列表 */}
         <div className={styles["model-list"]}>
-          {/* 始终按模型名称分组显示 */}
-          {Object.entries(filteredCategorizedModels).map(
-            ([category, models]) => {
-              if (models.length === 0) return null;
+          {isLoadingAPIModels ? (
+            <div className={styles["loading-container"]}>
+              <div className={styles["loading-spinner"]}></div>
+              <div className={styles["loading-text"]}>正在获取可用模型...</div>
+            </div>
+          ) : (
+            /* 始终按模型名称分组显示 */
+            Object.entries(filteredCategorizedModels).map(
+              ([category, models]) => {
+                if (models.length === 0) return null;
 
-              return (
-                <div key={category} className={styles["category-section"]}>
-                  <div className={styles["category-header"]}>
-                    <h3>{category}</h3>
-                  </div>
-                  <div className={styles["model-items"]}>
-                    {models.map((model) => (
-                      <div key={model.name} className={styles["model-item"]}>
-                        <div className={styles["model-info"]}>
-                          <div className={styles["model-icon"]}>
-                            <ModelProviderIcon
-                              provider={provider}
-                              size={20}
-                              modelName={model.name}
-                            />
-                          </div>
-                          <div className={styles["model-details"]}>
-                            <div className={styles["model-name"]}>
-                              {model.name}
-                              <ModelCapabilityIcons
-                                capabilities={getModelCapabilitiesWithCustomConfig(
-                                  model.name,
-                                )}
-                                size={14}
-                                colorful={true}
+                return (
+                  <div key={category} className={styles["category-section"]}>
+                    <div className={styles["category-header"]}>
+                      <h3>{category}</h3>
+                    </div>
+                    <div className={styles["model-items"]}>
+                      {models.map((model) => (
+                        <div key={model.name} className={styles["model-item"]}>
+                          <div className={styles["model-info"]}>
+                            <div className={styles["model-icon"]}>
+                              <ModelProviderIcon
+                                provider={provider}
+                                size={20}
+                                modelName={model.name}
                               />
                             </div>
-                            <div className={styles["model-id"]}>
-                              {model.name}
+                            <div className={styles["model-details"]}>
+                              <div className={styles["model-name"]}>
+                                {model.name}
+                                <ModelCapabilityIcons
+                                  capabilities={getModelCapabilitiesWithCustomConfig(
+                                    model.name,
+                                  )}
+                                  size={14}
+                                  colorful={true}
+                                />
+                              </div>
+                              <div className={styles["model-id"]}>
+                                {model.name}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className={styles["model-actions"]}>
-                          {/* 测试结果显示 */}
-                          {(() => {
-                            const modelKey = `${model.name}@${provider}`;
-                            const testResult = modelTestResults[modelKey];
-
-                            if (
-                              testResult?.status === "success" &&
-                              testResult.responseTime
-                            ) {
-                              return (
-                                <span className={styles["response-time"]}>
-                                  {testResult.responseTime}ms
-                                </span>
-                              );
-                            }
-
-                            if (
-                              testResult?.status === "error" &&
-                              testResult.error
-                            ) {
-                              // 提取错误代码和生成友好提示
-                              const errorStr = testResult.error.toString();
-                              let errorCode = "ERROR";
-                              let friendlyMessage =
-                                "测试失败，请查看控制台获取详细错误信息";
-
-                              if (
-                                errorStr.includes("401") ||
-                                errorStr.includes("Unauthorized")
-                              ) {
-                                errorCode = "401";
-                                friendlyMessage = "认证失败，请检查API密钥配置";
-                              } else if (
-                                errorStr.includes("403") ||
-                                errorStr.includes("Forbidden")
-                              ) {
-                                errorCode = "403";
-                                friendlyMessage =
-                                  "API密钥权限不足或模型访问受限";
-                              } else if (
-                                errorStr.includes("404") ||
-                                errorStr.includes("Not Found")
-                              ) {
-                                errorCode = "404";
-                                friendlyMessage = "模型不存在或API端点错误";
-                              } else if (
-                                errorStr.includes("429") ||
-                                errorStr.includes("Rate limit")
-                              ) {
-                                errorCode = "429";
-                                friendlyMessage = "请求频率过高，请稍后重试";
-                              } else if (
-                                errorStr.includes("500") ||
-                                errorStr.includes("Internal Server Error")
-                              ) {
-                                errorCode = "500";
-                                friendlyMessage = "服务器内部错误，请稍后重试";
-                              } else if (errorStr.includes("timeout")) {
-                                errorCode = "TIMEOUT";
-                                friendlyMessage = "请求超时，请检查网络连接";
-                              } else {
-                                // 尝试提取HTTP状态码
-                                const httpCode =
-                                  errorStr.match(/\b[4-5]\d{2}\b/)?.[0];
-                                if (httpCode) {
-                                  errorCode = httpCode;
-                                }
-                              }
-
-                              return (
-                                <div className={styles["error-display"]}>
-                                  <span
-                                    className={styles["error-info"]}
-                                    title={`${friendlyMessage}\n\n完整错误: ${testResult.error}\n\n💡 按F12打开控制台查看详细信息`}
-                                  >
-                                    {errorCode}
-                                  </span>
-                                  <span className={styles["console-tip"]}>
-                                    查看控制台获取详细报错
-                                  </span>
-                                </div>
-                              );
-                            }
-
-                            return null;
-                          })()}
-
-                          <button
-                            className={`${styles["test-button"]} ${(() => {
+                          <div className={styles["model-actions"]}>
+                            {/* 测试结果显示 */}
+                            {(() => {
                               const modelKey = `${model.name}@${provider}`;
                               const testResult = modelTestResults[modelKey];
-                              if (testResult?.status === "testing")
-                                return styles["testing"];
-                              if (testResult?.status === "success")
-                                return styles["success"];
-                              if (testResult?.status === "error")
-                                return styles["error"];
-                              return "";
-                            })()}`}
-                            onClick={() => testModel(model.name)}
-                            title="测试模型连通性"
-                            disabled={
-                              modelTestResults[`${model.name}@${provider}`]
-                                ?.status === "testing"
-                            }
-                          >
-                            {modelTestResults[`${model.name}@${provider}`]
-                              ?.status === "testing" ? (
-                              <LoadingIcon />
-                            ) : (
-                              "测试"
-                            )}
-                          </button>
 
-                          <button
-                            className={styles["manage-button"]}
-                            onClick={() => openModelConfig(model)}
-                            title="模型配置"
-                          >
-                            <ConfigIcon />
-                          </button>
-                          <button
-                            className={`${styles["toggle-button"]} ${
-                              enabledModels.includes(model.name)
-                                ? styles["enabled"]
-                                : ""
-                            }`}
-                            onClick={() => toggleModel(model.name)}
-                          >
-                            {enabledModels.includes(model.name) ? "−" : "+"}
-                          </button>
+                              if (
+                                testResult?.status === "success" &&
+                                testResult.responseTime
+                              ) {
+                                return (
+                                  <span className={styles["response-time"]}>
+                                    {testResult.responseTime}ms
+                                  </span>
+                                );
+                              }
+
+                              if (
+                                testResult?.status === "error" &&
+                                testResult.error
+                              ) {
+                                // 提取错误代码和生成友好提示
+                                const errorStr = testResult.error.toString();
+                                let errorCode = "ERROR";
+                                let friendlyMessage =
+                                  "测试失败，请查看控制台获取详细错误信息";
+
+                                if (
+                                  errorStr.includes("401") ||
+                                  errorStr.includes("Unauthorized")
+                                ) {
+                                  errorCode = "401";
+                                  friendlyMessage =
+                                    "认证失败，请检查API密钥配置";
+                                } else if (
+                                  errorStr.includes("403") ||
+                                  errorStr.includes("Forbidden")
+                                ) {
+                                  errorCode = "403";
+                                  friendlyMessage =
+                                    "API密钥权限不足或模型访问受限";
+                                } else if (
+                                  errorStr.includes("404") ||
+                                  errorStr.includes("Not Found")
+                                ) {
+                                  errorCode = "404";
+                                  friendlyMessage = "模型不存在或API端点错误";
+                                } else if (
+                                  errorStr.includes("429") ||
+                                  errorStr.includes("Rate limit")
+                                ) {
+                                  errorCode = "429";
+                                  friendlyMessage = "请求频率过高，请稍后重试";
+                                } else if (
+                                  errorStr.includes("500") ||
+                                  errorStr.includes("Internal Server Error")
+                                ) {
+                                  errorCode = "500";
+                                  friendlyMessage =
+                                    "服务器内部错误，请稍后重试";
+                                } else if (errorStr.includes("timeout")) {
+                                  errorCode = "TIMEOUT";
+                                  friendlyMessage = "请求超时，请检查网络连接";
+                                } else {
+                                  // 尝试提取HTTP状态码
+                                  const httpCode =
+                                    errorStr.match(/\b[4-5]\d{2}\b/)?.[0];
+                                  if (httpCode) {
+                                    errorCode = httpCode;
+                                  }
+                                }
+
+                                return (
+                                  <div className={styles["error-display"]}>
+                                    <span
+                                      className={styles["error-info"]}
+                                      title={`${friendlyMessage}\n\n完整错误: ${testResult.error}\n\n💡 按F12打开控制台查看详细信息`}
+                                    >
+                                      {errorCode}
+                                    </span>
+                                    <span className={styles["console-tip"]}>
+                                      查看控制台获取详细报错
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return null;
+                            })()}
+
+                            <button
+                              className={`${styles["test-button"]} ${(() => {
+                                const modelKey = `${model.name}@${provider}`;
+                                const testResult = modelTestResults[modelKey];
+                                if (testResult?.status === "testing")
+                                  return styles["testing"];
+                                if (testResult?.status === "success")
+                                  return styles["success"];
+                                if (testResult?.status === "error")
+                                  return styles["error"];
+                                return "";
+                              })()}`}
+                              onClick={() => testModel(model.name)}
+                              title="测试模型连通性"
+                              disabled={
+                                modelTestResults[`${model.name}@${provider}`]
+                                  ?.status === "testing"
+                              }
+                            >
+                              {modelTestResults[`${model.name}@${provider}`]
+                                ?.status === "testing" ? (
+                                <LoadingIcon />
+                              ) : (
+                                "测试"
+                              )}
+                            </button>
+
+                            <button
+                              className={styles["manage-button"]}
+                              onClick={() => openModelConfig(model)}
+                              title="模型配置"
+                            >
+                              <ConfigIcon />
+                            </button>
+                            <button
+                              className={`${styles["toggle-button"]} ${
+                                enabledModels.includes(model.name)
+                                  ? styles["enabled"]
+                                  : ""
+                              }`}
+                              onClick={() => toggleModel(model.name)}
+                            >
+                              {enabledModels.includes(model.name) ? "−" : "+"}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            },
+                );
+              },
+            )
           )}
         </div>
 
