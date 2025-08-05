@@ -64,6 +64,10 @@ import {
   useChatStore,
 } from "../store";
 import { normalizeProviderName } from "../client/api";
+import {
+  getModelContextTokens,
+  formatTokenCount,
+} from "../config/model-context-tokens";
 
 import {
   autoGrowTextArea,
@@ -1109,6 +1113,12 @@ export function ChatActions(props: {
         groupedModels[displayName] = [];
       }
 
+      // 获取模型的Token信息
+      const contextConfig = getModelContextTokens(model.name);
+      const contextTokensDisplay = contextConfig
+        ? formatTokenCount(contextConfig.contextTokens)
+        : null;
+
       groupedModels[displayName].push({
         title: (
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1120,6 +1130,9 @@ export function ChatActions(props: {
             />
           </div>
         ),
+        subTitle: contextTokensDisplay
+          ? `上下文: ${contextTokensDisplay} tokens`
+          : undefined,
         searchText: model.displayName,
         value: `${model.name}@${providerId}`,
         icon: <Avatar model={model.name} />,

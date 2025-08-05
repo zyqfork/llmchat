@@ -12,6 +12,10 @@ import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import {
+  getModelContextTokens,
+  formatTokenCount,
+} from "../config/model-context-tokens";
 
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
@@ -128,16 +132,24 @@ export function ModelConfigList(props: {
           >
             {Object.keys(groupModels).map((providerName, index) => (
               <optgroup label={providerName} key={index}>
-                {groupModels[providerName].map((v, i) => (
-                  <option
-                    value={`${v.name}@${
-                      v.provider?.id || v.provider?.providerName
-                    }`}
-                    key={i}
-                  >
-                    {v.displayName}
-                  </option>
-                ))}
+                {groupModels[providerName].map((v, i) => {
+                  const contextConfig = getModelContextTokens(v.name);
+                  const contextTokensDisplay = contextConfig
+                    ? formatTokenCount(contextConfig.contextTokens)
+                    : null;
+
+                  return (
+                    <option
+                      value={`${v.name}@${
+                        v.provider?.id || v.provider?.providerName
+                      }`}
+                      key={i}
+                    >
+                      {v.displayName}
+                      {contextTokensDisplay ? ` (${contextTokensDisplay})` : ""}
+                    </option>
+                  );
+                })}
               </optgroup>
             ))}
           </Select>
@@ -367,16 +379,24 @@ export function ModelConfigList(props: {
           )}
           {Object.keys(groupModels).map((providerName, index) => (
             <optgroup label={providerName} key={index}>
-              {groupModels[providerName].map((v, i) => (
-                <option
-                  value={`${v.name}@${
-                    v.provider?.id || v.provider?.providerName
-                  }`}
-                  key={i}
-                >
-                  {v.displayName}
-                </option>
-              ))}
+              {groupModels[providerName].map((v, i) => {
+                const contextConfig = getModelContextTokens(v.name);
+                const contextTokensDisplay = contextConfig
+                  ? formatTokenCount(contextConfig.contextTokens)
+                  : null;
+
+                return (
+                  <option
+                    value={`${v.name}@${
+                      v.provider?.id || v.provider?.providerName
+                    }`}
+                    key={i}
+                  >
+                    {v.displayName}
+                    {contextTokensDisplay ? ` (${contextTokensDisplay})` : ""}
+                  </option>
+                );
+              })}
             </optgroup>
           ))}
         </Select>

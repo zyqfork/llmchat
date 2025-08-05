@@ -19,6 +19,11 @@ import {
   getModelCapabilitiesWithCustomConfig,
 } from "../config/model-capabilities";
 import { collectModels } from "../utils/model";
+import {
+  getModelContextTokens,
+  formatTokenCount,
+  saveCustomContextTokens,
+} from "../config/model-context-tokens";
 
 interface ModelManagerProps {
   provider: ServiceProvider | string; // 支持自定义服务商ID
@@ -39,6 +44,7 @@ interface ModelConfigForm {
     reasoning: boolean;
     tools: boolean;
   };
+  contextTokens?: number; // 上下文Token数
 }
 
 interface ModelTestResult {
@@ -559,6 +565,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       currentCategory = model.displayName;
     }
 
+    // 获取当前上下文Token数配置
+    const currentContextConfig = getModelContextTokens(model.name);
+    const currentContextTokens = currentContextConfig?.contextTokens;
+
     setModelConfigForm({
       modelId: model.name,
       category: currentCategory || "",
@@ -568,6 +578,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         reasoning: currentCapabilities.reasoning || false,
         tools: currentCapabilities.tools || false,
       },
+      contextTokens: currentContextTokens,
     });
     setShowModelConfig(model.name);
   };
@@ -583,6 +594,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       capabilitiesKey,
       JSON.stringify(modelConfigForm.capabilities),
     );
+
+    // 保存上下文Token数配置
+    if (modelConfigForm.contextTokens !== undefined) {
+      saveCustomContextTokens(modelName, modelConfigForm.contextTokens);
+    }
 
     // 如果是自定义模型且分组发生变化，更新 customModels
     const isCustomModel =
@@ -946,6 +962,27 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                               </div>
                               <div className={styles["model-id"]}>
                                 {model.name}
+                                {(() => {
+                                  const contextConfig = getModelContextTokens(
+                                    model.name,
+                                  );
+                                  if (contextConfig) {
+                                    return (
+                                      <span
+                                        className={
+                                          styles["model-context-tokens"]
+                                        }
+                                      >
+                                        {" • "}
+                                        {formatTokenCount(
+                                          contextConfig.contextTokens,
+                                        )}{" "}
+                                        tokens
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1147,6 +1184,36 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                       }
                       className={styles["config-input"]}
                     />
+                  </div>
+                  <div className={styles["config-field"]}>
+                    <label>上下文Token数</label>
+                    <input
+                      type="number"
+                      placeholder="例如: 128000"
+                      min="1024"
+                      max="10000000"
+                      value={modelConfigForm.contextTokens || ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setModelConfigForm((prev) => ({
+                          ...prev,
+                          contextTokens: value
+                            ? parseInt(value, 10)
+                            : undefined,
+                        }));
+                      }}
+                      className={styles["config-input"]}
+                    />
+                    <small
+                      style={{
+                        color: "#666",
+                        fontSize: "12px",
+                        marginTop: "4px",
+                        display: "block",
+                      }}
+                    >
+                      设置模型支持的最大上下文Token数量，留空使用默认值
+                    </small>
                   </div>
                 </div>
 

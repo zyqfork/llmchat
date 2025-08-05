@@ -460,6 +460,12 @@
   opacity: 0.8;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  .model-context-tokens {
+    color: var(--primary);
+    font-weight: 500;
+    opacity: 0.9;
+  }
   white-space: nowrap;
   // 在暗夜模式下提高副标题的可见度
 }

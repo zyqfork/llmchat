@@ -92,6 +92,7 @@ export interface LLMModel {
   provider: LLMModelProvider;
   sorted: number;
   isDefault?: boolean;
+  contextTokens?: number; // 上下文窗口Token数
 }
 
 export interface LLMModelProvider {

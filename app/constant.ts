@@ -1,3 +1,5 @@
+import { getModelContextTokens } from "./config/model-context-tokens";
+
 export const OWNER = "syferie";
 export const REPO = "qadchat";
 export const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
@@ -648,6 +650,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++, // Global sequence sort(index)
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "openai",
       providerName: "OpenAI",
@@ -659,6 +662,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "azure",
       providerName: "Azure",
@@ -670,6 +674,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "google",
       providerName: "Google",
@@ -681,6 +686,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "anthropic",
       providerName: "Anthropic",
@@ -692,6 +698,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "bytedance",
       providerName: "ByteDance",
@@ -703,6 +710,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "alibaba",
       providerName: "Alibaba",
@@ -714,6 +722,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "moonshot",
       providerName: "Moonshot",
@@ -725,6 +734,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "xai",
       providerName: "XAI",
@@ -736,6 +746,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "deepseek",
       providerName: "DeepSeek",
@@ -747,6 +758,7 @@ export const DEFAULT_MODELS = [
     name,
     available: true,
     sorted: seq++,
+    contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
       id: "siliconflow",
       providerName: "SiliconFlow",
