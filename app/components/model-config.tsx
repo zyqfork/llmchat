@@ -5,12 +5,12 @@ import { normalizeProviderName } from "../client/api";
 import Locale from "../locales";
 import { InputRange } from "./input-range";
 import { ListItem, Select } from "./ui-lib";
-import { useAllModels } from "../utils/hooks";
+import { useEnabledModels } from "../utils/hooks";
 import { groupBy } from "lodash-es";
 import styles from "./model-config.module.scss";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
-import { useMemo } from "react";
+
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 
 export function ModelConfigList(props: {
@@ -19,50 +19,9 @@ export function ModelConfigList(props: {
   showModelSelector?: boolean; // 新增参数控制是否显示模型选择器
   showGlobalOption?: boolean; // 新增参数控制是否显示"使用全局配置"选项
 }) {
-  const allModels = useAllModels();
+  // 直接使用启用的模型，无需额外过滤
+  const availableModels = useEnabledModels();
   const accessStore = useAccessStore();
-
-  // 只显示已启用服务商的已启用模型
-  const availableModels = useMemo(() => {
-    const enabledProviders = accessStore.enabledProviders || {};
-    const enabledModels = accessStore.enabledModels || {};
-
-    return allModels.filter((model) => {
-      const providerId = model.provider?.id;
-      const providerName = model.provider?.providerName;
-
-      if (!providerId || !providerName) return false;
-
-      // 检查是否是自定义服务商
-      const isCustomProvider = providerId.startsWith("custom_");
-      const customProvider = isCustomProvider
-        ? accessStore.customProviders.find((p) => p.id === providerId)
-        : null;
-
-      // 对于内置服务商，检查是否启用
-      // 对于自定义服务商，检查是否存在且启用
-      const isProviderEnabled = isCustomProvider
-        ? customProvider && customProvider.enabled
-        : enabledProviders[providerName as ServiceProvider];
-
-      if (!isProviderEnabled) return false;
-
-      // 检查模型是否在启用列表中
-      const providerEnabledModels =
-        enabledModels[isCustomProvider ? providerId : providerName] || [];
-
-      // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
-      return (
-        providerEnabledModels.length > 0 &&
-        providerEnabledModels.includes(model.name)
-      );
-    });
-  }, [
-    allModels,
-    accessStore.enabledProviders,
-    accessStore.enabledModels,
-    accessStore.customProviders,
-  ]);
 
   const groupModels = groupBy(availableModels, (model) => {
     const isCustomProvider = model.provider?.id?.startsWith("custom_");
@@ -75,10 +34,67 @@ export function ModelConfigList(props: {
     return model.provider?.providerName;
   });
 
-  const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
-  const compressModelValue = props.modelConfig.compressModel
-    ? `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`
-    : "";
+  // 构建当前选中模型的value，需要与option的value格式一致
+  const value = (() => {
+    const currentModel = props.modelConfig.model;
+    const currentProviderName = props.modelConfig.providerName;
+
+    // 查找匹配的模型，确保value格式一致
+    for (const providerGroup of Object.values(groupModels)) {
+      for (const model of providerGroup) {
+        if (model.name === currentModel) {
+          const modelProviderId =
+            model.provider?.id || model.provider?.providerName;
+          const normalizedCurrentProvider = normalizeProviderName(
+            currentProviderName as string,
+          );
+          const normalizedModelProvider = normalizeProviderName(
+            modelProviderId as string,
+          );
+
+          if (normalizedCurrentProvider === normalizedModelProvider) {
+            return `${model.name}@${modelProviderId}`;
+          }
+        }
+      }
+    }
+
+    // 如果没找到匹配的，使用原始格式
+    return `${currentModel}@${currentProviderName}`;
+  })();
+
+  // 构建对话摘要模型的value
+  const compressModelValue = (() => {
+    if (!props.modelConfig.compressModel) {
+      return "";
+    }
+
+    const currentModel = props.modelConfig.compressModel;
+    const currentProviderName = props.modelConfig.compressProviderName;
+
+    // 查找匹配的模型，确保value格式一致
+    for (const providerGroup of Object.values(groupModels)) {
+      for (const model of providerGroup) {
+        if (model.name === currentModel) {
+          const modelProviderId =
+            model.provider?.id || model.provider?.providerName;
+          const normalizedCurrentProvider = normalizeProviderName(
+            currentProviderName as string,
+          );
+          const normalizedModelProvider = normalizeProviderName(
+            modelProviderId as string,
+          );
+
+          if (normalizedCurrentProvider === normalizedModelProvider) {
+            return `${model.name}@${modelProviderId}`;
+          }
+        }
+      }
+    }
+
+    // 如果没找到匹配的，使用原始格式
+    return `${currentModel}@${currentProviderName}`;
+  })();
 
   return (
     <>

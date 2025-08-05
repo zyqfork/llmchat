@@ -2160,52 +2160,83 @@ export function Settings() {
   });
 
   // 模型配置设置
-  const renderModelConfigSettings = () => (
-    <List>
-      <ListItem title={Locale.Settings.Model}>
-        <Select
-          aria-label={Locale.Settings.Model}
-          value={`${config.modelConfig.model}@${config.modelConfig?.providerName}`}
-          align="left"
-          onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
+  const renderModelConfigSettings = () => {
+    // 构建当前选中模型的value，需要与option的value格式一致
+    const currentModelValue = (() => {
+      const currentModel = config.modelConfig.model;
+      const currentProviderName = config.modelConfig.providerName;
+
+      // 查找匹配的模型，确保value格式一致
+      for (const providerGroup of Object.values(groupModels)) {
+        for (const model of providerGroup) {
+          if (model.name === currentModel) {
+            const modelProviderId =
+              model.provider?.id || model.provider?.providerName;
+            const normalizedCurrentProvider = normalizeProviderName(
+              currentProviderName as string,
             );
-            config.update((config) => {
-              config.modelConfig.model = model as any;
-              config.modelConfig.providerName = normalizeProviderName(
-                providerName!,
+            const normalizedModelProvider = normalizeProviderName(
+              modelProviderId as string,
+            );
+
+            if (normalizedCurrentProvider === normalizedModelProvider) {
+              return `${model.name}@${modelProviderId}`;
+            }
+          }
+        }
+      }
+
+      // 如果没找到匹配的，使用原始格式
+      return `${currentModel}@${currentProviderName}`;
+    })();
+
+    return (
+      <List>
+        <ListItem title={Locale.Settings.Model}>
+          <Select
+            aria-label={Locale.Settings.Model}
+            value={currentModelValue}
+            align="left"
+            onChange={(e) => {
+              const [model, providerName] = getModelProvider(
+                e.currentTarget.value,
               );
-            });
+              config.update((config) => {
+                config.modelConfig.model = model as any;
+                config.modelConfig.providerName = normalizeProviderName(
+                  providerName!,
+                );
+              });
+            }}
+          >
+            {Object.keys(groupModels).map((providerName, index) => (
+              <optgroup label={providerName} key={index}>
+                {groupModels[providerName].map((v, i) => (
+                  <option
+                    value={`${v.name}@${
+                      v.provider?.id || v.provider?.providerName
+                    }`}
+                    key={i}
+                  >
+                    {v.displayName}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+        </ListItem>
+        <ModelConfigList
+          modelConfig={config.modelConfig}
+          updateConfig={(updater) => {
+            const modelConfig = { ...config.modelConfig };
+            updater(modelConfig);
+            config.update((config) => (config.modelConfig = modelConfig));
           }}
-        >
-          {Object.keys(groupModels).map((providerName, index) => (
-            <optgroup label={providerName} key={index}>
-              {groupModels[providerName].map((v, i) => (
-                <option
-                  value={`${v.name}@${
-                    v.provider?.id || v.provider?.providerName
-                  }`}
-                  key={i}
-                >
-                  {v.displayName}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </Select>
-      </ListItem>
-      <ModelConfigList
-        modelConfig={config.modelConfig}
-        updateConfig={(updater) => {
-          const modelConfig = { ...config.modelConfig };
-          updater(modelConfig);
-          config.update((config) => (config.modelConfig = modelConfig));
-        }}
-        showModelSelector={false}
-      />
-    </List>
-  );
+          showModelSelector={false}
+        />
+      </List>
+    );
+  };
 
   // 语音设置
   const renderVoiceSettings = () => (

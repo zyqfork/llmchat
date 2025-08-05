@@ -123,7 +123,7 @@ import { useDragSideBar } from "./sidebar";
 import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
-import { useAllModels } from "../utils/hooks";
+import { useEnabledModels } from "../utils/hooks";
 import { ClientApi, MultimodalContent } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
@@ -1039,21 +1039,36 @@ export function ChatActions(props: {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
+
+  // 使用新的高效hook直接获取启用的模型
+  const enabledModels = useEnabledModels();
   const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
+    console.log("[Chat] 获取到的启用模型:", enabledModels.length, "个");
+
+    const defaultModel = enabledModels.find((m) => m.isDefault);
 
     if (defaultModel) {
       const arr = [
         defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
+        ...enabledModels.filter((m) => m !== defaultModel),
       ];
+      console.log(
+        "[Chat] 排序后的模型列表:",
+        arr.map(
+          (m) => `${m.name}@${m.provider?.id || m.provider?.providerName}`,
+        ),
+      );
       return arr;
     } else {
-      return filteredModels;
+      console.log(
+        "[Chat] 没有默认模型，返回所有启用模型:",
+        enabledModels.map(
+          (m) => `${m.name}@${m.provider?.id || m.provider?.providerName}`,
+        ),
+      );
+      return enabledModels;
     }
-  }, [allModels]);
+  }, [enabledModels]);
   const currentModelName = useMemo(() => {
     const model = models.find(
       (m) =>
@@ -1064,19 +1079,21 @@ export function ChatActions(props: {
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
 
-  // 准备分组模型数据
+  // 准备分组模型数据 - 简化版本，因为models已经是启用的模型
   const modelGroups = useMemo(() => {
-    const enabledProviders = accessStore.enabledProviders || {};
-    const enabledModels = accessStore.enabledModels || {};
+    console.log("[Chat] 开始分组模型，总数:", models.length);
 
-    // 按提供商分组，只显示已启用的提供商和已配置的模型
+    // 按提供商分组
     const groupedModels: Record<string, any[]> = {};
 
     models.forEach((model) => {
       const providerId = model.provider?.id;
       const providerName = model.provider?.providerName;
 
-      if (!providerId || !providerName) return;
+      if (!providerId || !providerName) {
+        console.log("[Chat] 跳过无效模型:", model.name);
+        return;
+      }
 
       // 检查是否是自定义服务商
       const isCustomProvider = providerId.startsWith("custom_");
@@ -1084,58 +1101,49 @@ export function ChatActions(props: {
         ? accessStore.customProviders.find((p) => p.id === providerId)
         : null;
 
-      // 对于内置服务商，检查是否启用
-      // 对于自定义服务商，检查是否存在且启用
-      const isProviderEnabled = isCustomProvider
-        ? customProvider && customProvider.enabled
-        : enabledProviders[providerName as ServiceProvider];
+      const displayName = isCustomProvider
+        ? customProvider?.name || providerName
+        : providerName;
 
-      if (!isProviderEnabled) return;
-
-      // 检查模型是否在启用列表中
-      const providerEnabledModels =
-        enabledModels[isCustomProvider ? providerId : providerName] || [];
-
-      // 只有明确配置了可用模型的提供商才显示，且只显示已配置的模型
-      if (
-        providerEnabledModels.length > 0 &&
-        providerEnabledModels.includes(model.name)
-      ) {
-        const displayName = isCustomProvider
-          ? customProvider!.name
-          : providerName;
-
-        if (!groupedModels[displayName]) {
-          groupedModels[displayName] = [];
-        }
-        groupedModels[displayName].push({
-          title: (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>{model.displayName}</span>
-              <ModelCapabilityIcons
-                capabilities={getModelCapabilitiesWithCustomConfig(model.name)}
-                size={14}
-                colorful={true}
-              />
-            </div>
-          ),
-          searchText: model.displayName,
-          value: `${model.name}@${providerId}`,
-          icon: <Avatar model={model.name} />,
-        });
+      if (!groupedModels[displayName]) {
+        groupedModels[displayName] = [];
       }
+
+      groupedModels[displayName].push({
+        title: (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span>{model.displayName}</span>
+            <ModelCapabilityIcons
+              capabilities={getModelCapabilitiesWithCustomConfig(model.name)}
+              size={14}
+              colorful={true}
+            />
+          </div>
+        ),
+        searchText: model.displayName,
+        value: `${model.name}@${providerId}`,
+        icon: <Avatar model={model.name} />,
+      });
+
+      console.log(
+        `[Chat] 添加模型到分组 ${displayName}: ${model.name}@${providerId}`,
+      );
     });
 
-    return Object.entries(groupedModels).map(([providerName, models]) => ({
-      groupName: providerName,
-      items: models,
-    }));
-  }, [
-    models,
-    accessStore.enabledProviders,
-    accessStore.enabledModels,
-    accessStore.customProviders,
-  ]);
+    const result = Object.entries(groupedModels).map(
+      ([providerName, models]) => ({
+        groupName: providerName,
+        items: models,
+      }),
+    );
+
+    console.log(
+      "[Chat] 分组结果:",
+      result.map((g) => `${g.groupName}: ${g.items.length}个模型`),
+    );
+
+    return result;
+  }, [models, accessStore.customProviders]);
 
   const [showUploadImage, setShowUploadImage] = useState(false);
 
