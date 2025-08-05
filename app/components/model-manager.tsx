@@ -188,6 +188,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     },
   });
 
+  // 处理关闭事件，清理临时缓存
+  const handleClose = useCallback(() => {
+    console.log(`[ModelManager] 关闭模型管理器，清理 ${provider} 的临时缓存`);
+    // 注意：这里不清理缓存，因为其他组件可能还在使用
+    // 缓存会在下次打开模型管理器时自动刷新
+    onClose();
+  }, [provider, onClose]);
+
   // 模型测试状态
   const [modelTestResults, setModelTestResults] = useState<
     Record<string, ModelTestResult>
@@ -207,6 +215,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   const customProviderConfig = isCustomProvider
     ? accessStore.customProviders.find((p) => p.id === provider)
     : null;
+
+  // 获取显示名称
+  const getProviderDisplayName = useCallback(() => {
+    if (isCustomProvider && customProviderConfig) {
+      return customProviderConfig.name;
+    }
+    return provider as string;
+  }, [isCustomProvider, customProviderConfig, provider]);
 
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
@@ -288,32 +304,43 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const store = useAccessStore.getState();
     store.setModelsFetchStatus(provider, "loading");
 
+    console.log(`[ModelManager] 开始获取 ${provider} 的最新模型列表`);
+
     try {
       const result = await ModelFetcher.fetchModels(provider);
 
       if (result.success) {
+        console.log(
+          `[ModelManager] 成功获取 ${provider} 的 ${result.models.length} 个模型`,
+        );
         setApiModels(result.models);
+        // 更新临时缓存，供其他组件使用
         store.setApiModelsCache(provider, result.models);
         store.setModelsFetchStatus(provider, "success");
-        showToast("模型列表获取成功");
+        showToast(`模型列表获取成功，共 ${result.models.length} 个模型`);
       } else {
         throw new Error(result.error || "获取模型失败");
       }
     } catch (error) {
       console.error("[ModelManager] 获取API模型失败:", error);
       store.setModelsFetchStatus(provider, "error");
-      showToast(
-        `获取模型失败: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
 
-      // 获取失败时回退到内置模型
-      store.setFetchModelsFromAPI(provider, false);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const displayName =
+        isCustomProvider && customProviderConfig
+          ? customProviderConfig.name
+          : (provider as string);
+
+      // 显示更详细的错误信息
+      showToast(`${displayName} 模型获取失败: ${errorMessage}`);
+
+      // 获取失败时不自动关闭API获取，让用户手动决定
+      // store.setFetchModelsFromAPI(provider, false);
     } finally {
       setIsLoadingAPIModels(false);
     }
-  }, [provider]);
+  }, [provider, isCustomProvider, customProviderConfig]);
 
   // 处理API获取开关切换
   const handleToggleAPIFetch = useCallback(
@@ -334,24 +361,22 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     [provider, fetchModelsFromAPI],
   );
 
-  // 初始化时检查是否需要从API获取模型
+  // 每次打开模型管理界面时都重新获取最新的API模型
   useEffect(() => {
     const store = useAccessStore.getState();
     const shouldFetchFromAPI = store.fetchModelsFromAPI?.[provider] ?? true;
 
     if (shouldFetchFromAPI) {
-      // 检查是否有缓存
-      const cachedModels = store.apiModelsCache?.[provider];
-      if (cachedModels && cachedModels.length > 0) {
-        setApiModels(cachedModels);
-        // 不在useEffect中直接调用store方法，避免无限循环
-      } else {
-        // 没有缓存时获取模型
-        fetchModelsFromAPI();
-      }
+      // 每次打开都重新获取最新模型，不依赖缓存
+      console.log(
+        `[ModelManager] 打开模型管理界面，重新获取 ${provider} 的最新模型列表`,
+      );
+      fetchModelsFromAPI();
     } else {
       // 如果关闭了API获取，清空API模型
       setApiModels([]);
+      // 同时清除缓存
+      store.clearApiModelsCache(provider);
     }
   }, [provider, fetchModelsFromAPI]);
 
@@ -745,18 +770,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   // 能力分类标签（移除免费和重排）
   const categories = ["全部", "推理", "视觉", "联网", "嵌入", "工具"];
 
-  // 获取显示名称
-  const getProviderDisplayName = () => {
-    if (isCustomProvider && customProviderConfig) {
-      return customProviderConfig.name;
-    }
-    return provider as string;
-  };
-
   return (
     <CustomModal
       title={`${getProviderDisplayName()} 模型管理`}
-      onClose={onClose}
+      onClose={handleClose}
     >
       <div className={styles["model-manager"]}>
         {/* 搜索框和控制按钮 */}
@@ -780,6 +797,17 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                 />
                 <span className={styles["toggle-text"]}>从API获取可用模型</span>
               </label>
+              {/* 刷新按钮 */}
+              {fetchFromAPIEnabled && (
+                <button
+                  className={styles["refresh-button"]}
+                  onClick={fetchModelsFromAPI}
+                  disabled={isLoadingAPIModels}
+                  title="刷新模型列表"
+                >
+                  {isLoadingAPIModels ? <LoadingIcon /> : "🔄"}
+                </button>
+              )}
             </div>
             <button
               className={styles["add-custom-button"]}

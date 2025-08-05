@@ -197,6 +197,7 @@
 .api-fetch-toggle {
   display: flex !important;
   align-items: center !important;
+  gap: 12px !important;
   flex-shrink: 0 !important;
 }
 
@@ -220,6 +221,37 @@
 
 .toggle-text {
   font-weight: 500 !important;
+}
+
+.refresh-button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid var(--border-in-light) !important;
+  border-radius: 6px !important;
+  background: var(--white) !important;
+  color: var(--black) !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+
+  &:hover {
+    background: var(--second) !important;
+    border-color: var(--primary) !important;
+  }
+
+  &:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+  }
+
+  svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
 }
 
 // 加载状态样式

@@ -60,6 +60,7 @@ export function useAllModels() {
 /**
  * 获取启用服务商的启用模型 - 更高效的版本
  * 只返回已启用服务商的已启用模型，避免不必要的计算
+ * 注意：这个钩子现在包含API获取的模型，但API模型应该是实时的，不依赖长期缓存
  */
 export function useEnabledModels() {
   const accessStore = useAccessStore();
@@ -71,10 +72,12 @@ export function useEnabledModels() {
     const enabledProviders = accessStore.enabledProviders || {};
     const enabledModelsConfig = accessStore.enabledModels || {};
     const customProviders = accessStore.customProviders || [];
+    const apiModelsCache = accessStore.apiModelsCache || {};
 
     console.log("[useEnabledModels] 启用的服务商:", enabledProviders);
     console.log("[useEnabledModels] 启用的模型配置:", enabledModelsConfig);
     console.log("[useEnabledModels] 自定义服务商:", customProviders);
+    console.log("[useEnabledModels] API模型缓存:", apiModelsCache);
 
     const result: LLMModel[] = [];
 
@@ -115,8 +118,41 @@ export function useEnabledModels() {
         }
       });
 
+      // 添加从API获取的模型（如果有的话）
+      const apiModels = apiModelsCache[providerName] || [];
+      if (apiModels.length > 0) {
+        console.log(
+          `[useEnabledModels] 发现 ${providerName} 的API模型缓存:`,
+          apiModels.length,
+          "个模型",
+        );
+
+        apiModels.forEach((apiModel) => {
+          if (providerEnabledModels.includes(apiModel.name)) {
+            // 检查是否已经存在（避免重复）
+            const exists = result.some(
+              (existingModel) =>
+                existingModel.name === apiModel.name &&
+                existingModel.provider?.providerName === providerName,
+            );
+
+            if (!exists) {
+              result.push({
+                ...apiModel,
+                available: true,
+                displayName: apiModel.displayName || apiModel.name,
+              } as LLMModel);
+            }
+          }
+        });
+      }
+
       console.log(
-        `[useEnabledModels] 添加了 ${providerModels.length} 个 ${providerName} 模型`,
+        `[useEnabledModels] 添加了 ${
+          providerModels.length
+        } 个内置 ${providerName} 模型和 ${
+          apiModels.filter((m) => providerEnabledModels.includes(m.name)).length
+        } 个API ${providerName} 模型`,
       );
     });
 
@@ -151,8 +187,35 @@ export function useEnabledModels() {
         }
       });
 
+      // 添加从API获取的自定义服务商模型
+      const apiModels = apiModelsCache[provider.id] || [];
+      apiModels.forEach((apiModel) => {
+        if (providerEnabledModels.includes(apiModel.name)) {
+          // 检查是否已经存在（避免重复）
+          const exists = result.some(
+            (existingModel) =>
+              existingModel.name === apiModel.name &&
+              existingModel.provider?.id === provider.id,
+          );
+
+          if (!exists) {
+            result.push({
+              ...apiModel,
+              available: true,
+              displayName: apiModel.displayName || apiModel.name,
+              provider: {
+                id: provider.id,
+                providerName: provider.name,
+                providerType: provider.type,
+                sorted: 1000 + provider.created,
+              },
+            } as LLMModel);
+          }
+        }
+      });
+
       console.log(
-        `[useEnabledModels] 添加了自定义服务商 ${provider.name} 的模型`,
+        `[useEnabledModels] 添加了自定义服务商 ${provider.name} 的内置模型和API模型`,
       );
     });
 
@@ -170,6 +233,7 @@ export function useEnabledModels() {
     accessStore.customProviders,
     accessStore.customModels,
     accessStore.defaultModel,
+    accessStore.apiModelsCache,
     configStore.customModels,
     configStore.models,
   ]);
