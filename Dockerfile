@@ -8,9 +8,7 @@ WORKDIR /app
 
 COPY package.json yarn.lock ./
 
-RUN yarn config set registry 'https://registry.yarnpkg.com/'
-RUN yarn config set strict-ssl false
-RUN yarn install
+RUN yarn config set registry 'https://registry.npmmirror.com/'
 
 FROM base AS builder
 
