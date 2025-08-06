@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:22-alpine AS base
 
 FROM base AS deps
 
@@ -8,7 +8,8 @@ WORKDIR /app
 
 COPY package.json yarn.lock ./
 
-RUN yarn config set registry 'https://registry.npmmirror.com/'
+RUN yarn config set registry 'https://registry.yarnpkg.com/'
+RUN yarn config set strict-ssl false
 RUN yarn install
 
 FROM base AS builder
@@ -27,8 +28,6 @@ FROM base AS runner
 WORKDIR /app
 
 RUN apk add proxychains-ng
-
-# 纯前端应用，不需要环境变量
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

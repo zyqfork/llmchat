@@ -6,11 +6,21 @@
 
 ## 开始使用
 
-### 部署
+### 部署说明
 
-当前处于快速开发时期，暂不提供 docker 镜像等部署方式，可自行 clone 后通过源代码部署，或者可以 fork 后在 Vercel 等平台导入仓库后一键部署
+#### 环境变量配置
 
-当前移除了所有的环境变量，因此并不支持在部署时通过环境变量去指定相关信息，请直接于应用内进行相关信息的配置，将会在之后的稳定版本重新加入与应用所需的环境变量。
+支持通过环境变量配置所有主要AI服务商的API密钥和Base URL，并配置访问码，请参考 [.env.example](.env.example) 文件。
+
+#### Docker 部署(推荐)
+
+1. git clone https://github.com/Syferie/qadchat.git
+2. cd qadchat
+3. docker-compose up -d
+
+#### Vercel 一键部署
+
+点击[https://vercel.com/new/clone?repository-url=https://github.com/Syferie/qadchat](https://vercel.com/new/clone?repository-url=https://github.com/Syferie/qadchat)
 
 ### Demo站点
 
@@ -68,6 +78,11 @@
 
 ### 全新功能模块
 
+- **访问码控制**：支持通过环境变量设置访问码，控制系统访问权限
+  - 在 `.env` 文件中设置 `ACCESS_CODE` 环境变量即可启用访问控制
+  - 用户需要输入正确的访问码才能使用系统
+  - 不设置环境变量则无访问限制
+
 - 模型竞技场，选择多个模型进行对话，对比模型之间的差异
   ![模型竞技场](docs/images/readme/multi-model-arena.png)
 
@@ -86,16 +101,16 @@
 
 - 移除插件模块，该模块功能与 MCP 高度重复，因此仅保留更为活跃的 MCP 服务
 - 移除 SD 绘图模块，当前绘图模型较多，等待后续增加新的绘图界面
-- 暂时移除环境变量
 
 ## 计划功能
 
 - [ ] MCP 服务器添加面板
-- [ ] 多文件类型上传支持 
-- [ ] 对话详细信息，如 qps 等内容显示 
+- [ ] 多文件类型上传支持
+- [ ] 对话详细信息，如 qps 等内容显示
 - [x] 多模型对话 ✅ **已完成**
-- [ ] 环境变量支持
-- [ ] 自部署支持、文档完善
+- [x] 访问码控制功能 ✅ **已完成**
+- [x] 自部署支持、文档完善 ✅ **已完成**
+- [x] 环境变量支持 ✅ **已完成**
 - [x] 模型/对话上下文统计 ✅ **已完成**
 
 ### Support
