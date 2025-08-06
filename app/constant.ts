@@ -521,6 +521,8 @@ const googleModels = [
 ];
 
 const anthropicModels = [
+  // Claude 4.1 系列
+  "claude-opus-4-1-20250805",
   // Claude 4 系列
   "claude-sonnet-4-20250514",
   "claude-opus-4-20250514",

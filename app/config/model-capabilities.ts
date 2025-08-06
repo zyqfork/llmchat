@@ -297,6 +297,15 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "gemma-3-27b": { vision: true, web: false, reasoning: false, tools: false },
 
   // Anthropic Claude 模型
+  // Claude 4.1 系列
+  "claude-opus-4-1-20250805": {
+    vision: true,
+    web: true,
+    reasoning: true,
+    tools: true,
+    thinkingType: "claude",
+  },
+
   // Claude 4 系列
   "claude-sonnet-4-20250514": {
     vision: true,

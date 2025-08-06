@@ -230,6 +230,13 @@ export const MODEL_CONTEXT_TOKENS: Record<string, ModelContextConfig> = {
   "gemma-3-27b": { contextTokens: 8192, maxOutputTokens: 8192 },
 
   // Anthropic Claude 模型
+  // Claude 4.1 系列
+  "claude-opus-4-1-20250805": {
+    contextTokens: 200000,
+    maxOutputTokens: 8192,
+    description: "Latest Claude 4.1",
+  },
+
   // Claude 4 系列
   "claude-sonnet-4-20250514": {
     contextTokens: 200000,
