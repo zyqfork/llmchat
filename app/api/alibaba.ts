@@ -21,7 +21,7 @@ export async function handle(
   }
 
   try {
-    const response = await request(req);
+    const response = await request(req, authResult.useServerConfig);
     return response;
   } catch (e) {
     console.error("[Alibaba] ", e);
@@ -29,13 +29,15 @@ export async function handle(
   }
 }
 
-async function request(req: NextRequest) {
+async function request(req: NextRequest, useServerConfig?: boolean) {
   const controller = new AbortController();
 
   // alibaba use base url or just remove the path
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Alibaba, "");
 
-  let baseUrl = ALIBABA_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.ALIBABA_BASE_URL || ALIBABA_BASE_URL
+    : ALIBABA_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -58,13 +60,22 @@ async function request(req: NextRequest) {
   const fetchUrl = `${baseUrl}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: req.headers.get("Authorization") ?? "",
     "X-DashScope-SSE": req.headers.get("X-DashScope-SSE") ?? "disable",
   };
 
-  const apiKey = req.headers.get("x-api-key");
-  if (apiKey) {
-    headers["x-api-key"] = apiKey;
+  // 设置 API 密钥和 Authorization
+  if (useServerConfig) {
+    const serverApiKey = process.env.ALIBABA_API_KEY || "";
+    headers["Authorization"] = `Bearer ${serverApiKey}`;
+    if (serverApiKey) {
+      headers["x-api-key"] = serverApiKey;
+    }
+  } else {
+    headers["Authorization"] = req.headers.get("Authorization") ?? "";
+    const apiKey = req.headers.get("x-api-key");
+    if (apiKey) {
+      headers["x-api-key"] = apiKey;
+    }
   }
 
   const fetchOptions: RequestInit = {

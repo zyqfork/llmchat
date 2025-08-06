@@ -801,10 +801,14 @@ export function Settings() {
 
   const accessStore = useAccessStore();
 
+  // 确保访问存储状态是最新的
+  useEffect(() => {
+    accessStore.fetch();
+  }, [accessStore]);
+
   const enabledAccessControl = useMemo(
     () => accessStore.enabledAccessControl(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [accessStore],
   );
 
   const promptStore = usePromptStore();
@@ -1637,6 +1641,47 @@ export function Settings() {
             }
           ></input>
         </ListItem>
+
+        {/* 访问码配置 - 当启用访问控制时显示 */}
+        {(accessStore.enabledAccessControl() ||
+          accessStore.hasServerProviderConfig) && (
+          <ListItem
+            title={Locale.Settings.AccessCode.Title}
+            subTitle={Locale.Settings.AccessCode.SubTitle}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "100%",
+              }}
+            >
+              <PasswordInput
+                value={accessStore.accessCode}
+                type="text"
+                placeholder={Locale.Settings.AccessCode.Placeholder}
+                onChange={(e) => {
+                  accessStore.update(
+                    (access) => (access.accessCode = e.currentTarget.value),
+                  );
+                }}
+                style={{ flex: 1 }}
+              />
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: accessStore.accessCode ? "#4CAF50" : "#FF9800",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {accessStore.accessCode
+                  ? Locale.Settings.AccessCode.Status.Valid
+                  : Locale.Settings.AccessCode.Status.Enabled}
+              </span>
+            </div>
+          </ListItem>
+        )}
       </List>
       <DangerItems />
     </>

@@ -45,7 +45,7 @@ export async function handle(
   }
 
   try {
-    const response = await request(req);
+    const response = await request(req, authResult.useServerConfig);
     return response;
   } catch (e) {
     console.error("[Anthropic] ", e);
@@ -53,18 +53,26 @@ export async function handle(
   }
 }
 
-async function request(req: NextRequest) {
+async function request(req: NextRequest, useServerConfig?: boolean) {
   const controller = new AbortController();
 
   let authHeaderName = "x-api-key";
-  let authValue =
-    req.headers.get(authHeaderName) ||
-    req.headers.get("Authorization")?.replaceAll("Bearer ", "").trim() ||
-    "";
+  let authValue = "";
+
+  if (useServerConfig) {
+    authValue = process.env.ANTHROPIC_API_KEY || "";
+  } else {
+    authValue =
+      req.headers.get(authHeaderName) ||
+      req.headers.get("Authorization")?.replaceAll("Bearer ", "").trim() ||
+      "";
+  }
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Anthropic, "");
 
-  let baseUrl = ANTHROPIC_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.ANTHROPIC_BASE_URL || ANTHROPIC_BASE_URL
+    : ANTHROPIC_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;

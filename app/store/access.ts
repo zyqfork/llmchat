@@ -171,7 +171,7 @@ const DEFAULT_ACCESS_STATE = {
   customProviders: [] as CustomProvider[],
 
   // server config
-  needCode: true,
+  needCode: false, // 默认不需要访问码，从服务器配置获取
   hideUserApiKey: false,
   hideBalanceQuery: false,
   disableGPT4: false,
@@ -179,6 +179,102 @@ const DEFAULT_ACCESS_STATE = {
   customModels: "",
   defaultModel: "",
   visionModels: "",
+
+  // 是否设置了服务器端访问码
+  hasServerAccessCode: false,
+
+  // 是否设置了服务器端服务商配置
+  hasServerProviderConfig: false,
+
+  // 服务器端各服务商配置状态
+  serverProviders: {
+    openai: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    google: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    anthropic: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    azure: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+      hasApiVersion: false,
+    },
+    bytedance: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    alibaba: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    moonshot: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    deepseek: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    xai: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+    siliconflow: {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    },
+  },
+
+  // 服务器端配置缓存
+  serverConfig: {
+    openai: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    google: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    anthropic: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    azure: {
+      apiKey: "",
+      baseUrl: "",
+      apiVersion: "",
+    },
+    bytedance: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    alibaba: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    moonshot: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    deepseek: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    xai: {
+      apiKey: "",
+      baseUrl: "",
+    },
+    siliconflow: {
+      apiKey: "",
+      baseUrl: "",
+    },
+  },
 
   // tts config
   edgeTTSVoiceName: "zh-CN-YunxiNeural",
@@ -205,6 +301,170 @@ export const useAccessStore = createPersistStore(
 
     isValidOpenAI() {
       return ensure(get(), ["openaiApiKey"]);
+    },
+
+    // 获取有效的 OpenAI 配置（优先级：前端配置 > 服务器配置）
+    getEffectiveOpenAIConfig() {
+      const state = get();
+
+      // 如果前端有配置，优先使用前端配置
+      if (state.openaiApiKey) {
+        return {
+          apiKey: state.openaiApiKey,
+          baseUrl: state.openaiUrl || "https://api.openai.com/v1",
+          source: "frontend" as const,
+        };
+      }
+
+      // 如果没有前端配置，但有服务器配置，使用服务器配置
+      if (state.serverConfig.openai.apiKey) {
+        return {
+          apiKey: state.serverConfig.openai.apiKey,
+          baseUrl:
+            state.serverConfig.openai.baseUrl || "https://api.openai.com/v1",
+          source: "server" as const,
+        };
+      }
+
+      return null;
+    },
+
+    // 检查是否有有效的 OpenAI 配置（前端或服务器）
+    hasValidOpenAIConfig() {
+      return !!this.getEffectiveOpenAIConfig();
+    },
+
+    // 获取有效的服务商配置（通用方法）
+    getEffectiveProviderConfig(provider: string) {
+      const state = get();
+
+      // 根据服务商类型获取前端配置
+      let frontendConfig = null;
+      switch (provider) {
+        case "google":
+          if (state.googleApiKey) {
+            frontendConfig = {
+              apiKey: state.googleApiKey,
+              baseUrl: state.googleUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "anthropic":
+          if (state.anthropicApiKey) {
+            frontendConfig = {
+              apiKey: state.anthropicApiKey,
+              baseUrl: state.anthropicUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "azure":
+          if (state.azureApiKey) {
+            frontendConfig = {
+              apiKey: state.azureApiKey,
+              baseUrl: state.azureUrl || "",
+              apiVersion: state.azureApiVersion || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "bytedance":
+          if (state.bytedanceApiKey) {
+            frontendConfig = {
+              apiKey: state.bytedanceApiKey,
+              baseUrl: state.bytedanceUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "alibaba":
+          if (state.alibabaApiKey) {
+            frontendConfig = {
+              apiKey: state.alibabaApiKey,
+              baseUrl: state.alibabaUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "moonshot":
+          if (state.moonshotApiKey) {
+            frontendConfig = {
+              apiKey: state.moonshotApiKey,
+              baseUrl: state.moonshotUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "deepseek":
+          if (state.deepseekApiKey) {
+            frontendConfig = {
+              apiKey: state.deepseekApiKey,
+              baseUrl: state.deepseekUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "xai":
+          if (state.xaiApiKey) {
+            frontendConfig = {
+              apiKey: state.xaiApiKey,
+              baseUrl: state.xaiUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+        case "siliconflow":
+          if (state.siliconflowApiKey) {
+            frontendConfig = {
+              apiKey: state.siliconflowApiKey,
+              baseUrl: state.siliconflowUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
+      }
+
+      // 如果有前端配置，优先使用
+      if (frontendConfig) {
+        return frontendConfig;
+      }
+
+      // 否则使用服务器配置
+      const serverConfig =
+        state.serverConfig[provider as keyof typeof state.serverConfig];
+      if (serverConfig && serverConfig.apiKey) {
+        return {
+          ...serverConfig,
+          source: "server" as const,
+        };
+      }
+
+      return null;
+    },
+
+    // 检查是否有有效的服务商配置
+    hasValidProviderConfig(provider: string) {
+      return !!this.getEffectiveProviderConfig(provider);
+    },
+
+    // 检查是否有任何有效的服务商配置（包括服务器端配置）
+    hasAnyValidProviderConfig() {
+      const providers = [
+        "openai",
+        "google",
+        "anthropic",
+        "azure",
+        "bytedance",
+        "alibaba",
+        "moonshot",
+        "deepseek",
+        "xai",
+        "siliconflow",
+      ];
+      return providers.some((provider) =>
+        this.hasValidProviderConfig(provider),
+      );
     },
 
     isValidAzure() {
@@ -291,10 +551,94 @@ export const useAccessStore = createPersistStore(
       return provider && provider.enabled && !!provider.apiKey;
     },
 
+    // 验证服务器端访问码
+    async verifyServerAccessCode(accessCode: string): Promise<boolean> {
+      try {
+        const response = await fetch("/api/verify-access", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ accessCode }),
+        });
+
+        const result = await response.json();
+        return result.valid;
+      } catch (error) {
+        console.error("[Access] Failed to verify access code:", error);
+        return false;
+      }
+    },
+
+    // 获取服务器端配置
+    async fetchServerConfig(accessCode: string): Promise<boolean> {
+      try {
+        const response = await fetch("/api/server-config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ accessCode }),
+        });
+
+        const result = await response.json();
+        if (result.error) {
+          console.error(
+            "[Access] Failed to fetch server config:",
+            result.message,
+          );
+          return false;
+        }
+
+        // 更新服务器端配置缓存
+        set((state) => ({
+          ...state,
+          serverConfig: result.config,
+        }));
+
+        return true;
+      } catch (error) {
+        console.error("[Access] Failed to fetch server config:", error);
+        return false;
+      }
+    },
+
+    // 检查是否有有效的访问码（服务器端验证）
+    async isValidAccessCode(): Promise<boolean> {
+      const state = get();
+      if (!this.enabledAccessControl()) {
+        return true;
+      }
+
+      if (!state.accessCode) {
+        return false;
+      }
+
+      // 验证服务器端访问码
+      return await this.verifyServerAccessCode(state.accessCode);
+    },
+
     isAuthorized() {
       this.fetch();
 
-      // has token or has code or disabled access control
+      // 如果启用了访问控制，优先检查访问码
+      if (this.enabledAccessControl()) {
+        const hasAccessCode = ensure(get(), ["accessCode"]);
+        if (hasAccessCode) {
+          // 有访问码的情况下，检查是否有任何有效配置（前端或服务器）
+          return (
+            this.hasAnyValidProviderConfig() || this.hasOtherValidProviders()
+          );
+        }
+        return false;
+      }
+
+      // 如果没有启用访问控制，检查API密钥
+      return this.hasOtherValidProviders();
+    },
+
+    // 检查其他服务商是否有有效配置
+    hasOtherValidProviders() {
       const hasValidCustomProvider = get().customProviders.some((provider) =>
         this.isValidCustomProvider(provider.id),
       );
@@ -310,10 +654,42 @@ export const useAccessStore = createPersistStore(
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
         this.isValidSiliconFlow() ||
-        hasValidCustomProvider ||
-        !this.enabledAccessControl() ||
-        (this.enabledAccessControl() && ensure(get(), ["accessCode"]))
+        hasValidCustomProvider
       );
+    },
+
+    // 异步版本的授权检查，支持服务器端访问码验证
+    async isAuthorizedAsync(): Promise<boolean> {
+      this.fetch();
+
+      // has token or has code or disabled access control
+      const hasValidCustomProvider = get().customProviders.some((provider) =>
+        this.isValidCustomProvider(provider.id),
+      );
+
+      const hasValidProvider =
+        this.isValidOpenAI() ||
+        this.isValidAzure() ||
+        this.isValidGoogle() ||
+        this.isValidAnthropic() ||
+        this.isValidByteDance() ||
+        this.isValidAlibaba() ||
+        this.isValidMoonshot() ||
+        this.isValidDeepSeek() ||
+        this.isValidXAI() ||
+        this.isValidSiliconFlow() ||
+        hasValidCustomProvider;
+
+      if (hasValidProvider) {
+        return true;
+      }
+
+      if (!this.enabledAccessControl()) {
+        return true;
+      }
+
+      // 使用异步访问码验证
+      return await this.isValidAccessCode();
     },
 
     // 设置是否从API获取模型

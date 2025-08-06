@@ -20,13 +20,20 @@ export async function handle(
     });
   }
 
-  const bearToken =
-    req.headers.get("x-goog-api-key") || req.headers.get("Authorization") || "";
-  const token = bearToken.trim().replaceAll("Bearer ", "").trim();
+  // 获取API密钥（优先使用服务器配置）
+  let apiKey = "";
+  if (authResult.useServerConfig) {
+    apiKey = process.env.GOOGLE_API_KEY || "";
+  } else {
+    const bearToken =
+      req.headers.get("x-goog-api-key") ||
+      req.headers.get("Authorization") ||
+      "";
+    apiKey = bearToken.trim().replaceAll("Bearer ", "").trim();
+  }
 
-  const apiKey = token;
   try {
-    const response = await request(req, apiKey);
+    const response = await request(req, apiKey, authResult.useServerConfig);
     return response;
   } catch (e) {
     console.error("[Google] ", e);
@@ -53,10 +60,16 @@ export const preferredRegion = [
   "syd1",
 ];
 
-async function request(req: NextRequest, apiKey: string) {
+async function request(
+  req: NextRequest,
+  apiKey: string,
+  useServerConfig?: boolean,
+) {
   const controller = new AbortController();
 
-  let baseUrl = GEMINI_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.GOOGLE_BASE_URL || GEMINI_BASE_URL
+    : GEMINI_BASE_URL;
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Google, "");
 

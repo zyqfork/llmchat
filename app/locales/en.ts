@@ -304,6 +304,16 @@ const en: LocaleType = {
           "When enabled, AI avatar in conversations will use the current model's icon instead of emoji",
       },
     },
+    AccessCode: {
+      Title: "Access Code",
+      SubTitle: "Access control is enabled, please enter access code",
+      Placeholder: "Enter access code",
+      Status: {
+        Enabled: "Access control enabled",
+        Valid: "Access code valid",
+        Invalid: "Access code invalid",
+      },
+    },
     Prompt: {
       Disable: {
         Title: "Disable auto-completion",

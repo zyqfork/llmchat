@@ -298,6 +298,16 @@ const cn = {
         SubTitle: "启用后，对话中的AI头像将使用当前模型的图标，而不是表情符号",
       },
     },
+    AccessCode: {
+      Title: "访问码",
+      SubTitle: "当前系统启用了访问控制，请输入访问码",
+      Placeholder: "请输入访问码",
+      Status: {
+        Enabled: "访问控制已启用",
+        Valid: "访问码有效",
+        Invalid: "访问码无效",
+      },
+    },
     Prompt: {
       Disable: {
         Title: "禁用提示词自动补全",

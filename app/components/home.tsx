@@ -151,15 +151,30 @@ export function WindowContent(props: { children: React.ReactNode }) {
 
 function Screen() {
   const config = useAppConfig();
+  const accessStore = useAccessStore();
   const location = useLocation();
   const isArtifact = location.pathname.includes(Path.Artifacts);
   const isHome = location.pathname === Path.Home;
   const isAuth = location.pathname === Path.Auth;
+  const isSettings = location.pathname === Path.Settings;
 
   const isMobileScreen = useMobileScreen();
   const shouldTightBorder =
     getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
   const { isCollapsed } = useDragSideBar();
+
+  // 检查是否需要访问码验证
+  const needsAuth = () => {
+    // 如果正在访问认证页面或设置页面，不需要验证
+    if (isAuth || isSettings) return false;
+
+    // 如果有环境变量设置的访问码要求
+    if (accessStore.enabledAccessControl()) {
+      return !accessStore.isAuthorized();
+    }
+
+    return false;
+  };
 
   useEffect(() => {
     loadAsyncGoogleFont();
@@ -173,6 +188,9 @@ function Screen() {
     );
   }
   const renderContent = () => {
+    // 如果需要认证，显示认证页面
+    if (needsAuth()) return <AuthPage />;
+
     if (isAuth) return <AuthPage />;
 
     return (

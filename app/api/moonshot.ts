@@ -26,7 +26,7 @@ export async function handle(
   }
 
   try {
-    const response = await request(req);
+    const response = await request(req, authResult.useServerConfig);
     return response;
   } catch (e) {
     console.error("[Moonshot] ", e);
@@ -34,13 +34,15 @@ export async function handle(
   }
 }
 
-async function request(req: NextRequest) {
+async function request(req: NextRequest, useServerConfig?: boolean) {
   const controller = new AbortController();
 
-  // alibaba use base url or just remove the path
+  // moonshot use base url or just remove the path
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Moonshot, "");
 
-  let baseUrl = MOONSHOT_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.MOONSHOT_BASE_URL || MOONSHOT_BASE_URL
+    : MOONSHOT_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -61,11 +63,21 @@ async function request(req: NextRequest) {
   );
 
   const fetchUrl = `${baseUrl}${path}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  // 设置 Authorization
+  if (useServerConfig) {
+    const serverApiKey = process.env.MOONSHOT_API_KEY || "";
+    headers["Authorization"] = `Bearer ${serverApiKey}`;
+  } else {
+    headers["Authorization"] = req.headers.get("Authorization") ?? "";
+  }
+
   const fetchOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: req.headers.get("Authorization") ?? "",
-    },
+    headers,
     method: req.method,
     body: req.body,
     redirect: "manual",

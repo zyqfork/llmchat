@@ -21,7 +21,7 @@ export async function handle(
   }
 
   try {
-    const response = await request(req);
+    const response = await request(req, authResult.useServerConfig);
     return response;
   } catch (e) {
     console.error("[ByteDance] ", e);
@@ -29,12 +29,14 @@ export async function handle(
   }
 }
 
-async function request(req: NextRequest) {
+async function request(req: NextRequest, useServerConfig?: boolean) {
   const controller = new AbortController();
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.ByteDance, "");
 
-  let baseUrl = BYTEDANCE_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.BYTEDANCE_BASE_URL || BYTEDANCE_BASE_URL
+    : BYTEDANCE_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -56,11 +58,20 @@ async function request(req: NextRequest) {
 
   const fetchUrl = `${baseUrl}${path}`;
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  // 设置 Authorization
+  if (useServerConfig) {
+    const serverApiKey = process.env.BYTEDANCE_API_KEY || "";
+    headers["Authorization"] = `Bearer ${serverApiKey}`;
+  } else {
+    headers["Authorization"] = req.headers.get("Authorization") ?? "";
+  }
+
   const fetchOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: req.headers.get("Authorization") ?? "",
-    },
+    headers,
     method: req.method,
     body: req.body,
     redirect: "manual",

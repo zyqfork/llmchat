@@ -3,30 +3,42 @@ import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
 import { getModelProvider } from "../utils/model";
 
-export async function requestOpenai(req: NextRequest) {
+export async function requestOpenai(
+  req: NextRequest,
+  useServerConfig?: boolean,
+) {
   const controller = new AbortController();
 
   const isAzure = req.nextUrl.pathname.includes("azure/deployments");
 
   var authValue,
     authHeaderName = "";
-  if (isAzure) {
-    authValue =
-      req.headers
-        .get("Authorization")
-        ?.trim()
-        .replaceAll("Bearer ", "")
-        .trim() ?? "";
 
-    authHeaderName = "api-key";
-  } else {
-    authValue = req.headers.get("Authorization") ?? "";
+  // 如果使用服务器配置，使用服务器端的API密钥
+  if (useServerConfig) {
+    authValue = `Bearer ${process.env.OPENAI_API_KEY || ""}`;
     authHeaderName = "Authorization";
+  } else {
+    if (isAzure) {
+      authValue =
+        req.headers
+          .get("Authorization")
+          ?.trim()
+          .replaceAll("Bearer ", "")
+          .trim() ?? "";
+
+      authHeaderName = "api-key";
+    } else {
+      authValue = req.headers.get("Authorization") ?? "";
+      authHeaderName = "Authorization";
+    }
   }
 
   let path = `${req.nextUrl.pathname}`.replaceAll("/api/openai/", "");
 
-  let baseUrl = OPENAI_BASE_URL;
+  let baseUrl = useServerConfig
+    ? process.env.OPENAI_BASE_URL || OPENAI_BASE_URL
+    : OPENAI_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
