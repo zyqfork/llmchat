@@ -1,5 +1,5 @@
 services:
-  chatgpt-next-web:
+  qadchat:
     container_name: qadchat
     image: syferie/qadchat:latest
     ports:
@@ -8,7 +8,7 @@ services:
     #   # 访问码配置（必需，当设置任何服务商配置时）
     #   - ACCESS_CODE=your-access-code
     #   - OPENAI_API_KEY=sk-your-openai-api-key
-    #   - OPENAI_BASE_URL=https://api.openai.com/v1
+    #   - OPENAI_BASE_URL=https://api.openai.com
     #   - GOOGLE_API_KEY=your-google-api-key
     #   - GOOGLE_BASE_URL=https://generativelanguage.googleapis.com
     #   - ANTHROPIC_API_KEY=your-anthropic-api-key
