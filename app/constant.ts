@@ -1,6 +1,6 @@
 import { getModelContextTokens } from "./config/model-context-tokens";
 
-export const OWNER = "syferie";
+export const OWNER = "MoonWeSif";
 export const REPO = "qadchat";
 export const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
 
@@ -793,6 +793,6 @@ export const internalAllowedWebDavEndpoints = [
 
 export const DEFAULT_GA_ID = "G-89WN60ZK2E";
 
-export const SAAS_CHAT_URL = "https://github.com/syferie/qadchat";
+export const SAAS_CHAT_URL = "https://github.com/MoonWeSif/qadchat";
 export const SAAS_CHAT_UTM_URL =
-  "https://github.com/syferie/qadchat?utm_source=github";
+  "https://github.com/MoonWeSif/qadchat?utm_source=github";
