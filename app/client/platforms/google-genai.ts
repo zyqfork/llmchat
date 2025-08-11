@@ -25,7 +25,6 @@ export class GoogleGenAIApi implements LLMApi {
       : null;
 
     if (!apiKey) {
-      console.warn("[GoogleGenAI] No API key provided");
       return;
     }
 
@@ -34,13 +33,11 @@ export class GoogleGenAIApi implements LLMApi {
 
       // 如果有自定义 URL，添加到配置中
       if (customUrl) {
-        clientConfig.baseUrl = customUrl;
+        clientConfig.httpOptions = { baseUrl: customUrl };
       }
 
       this.client = new GoogleGenAI(clientConfig);
-    } catch (error) {
-      console.error("[GoogleGenAI] ❌ Failed to initialize client:", error);
-    }
+    } catch (error) {}
   }
 
   async chat(options: ChatOptions): Promise<void> {
@@ -193,10 +190,6 @@ export class GoogleGenAIApi implements LLMApi {
                   responseText += part.text;
                 }
 
-                console.log(
-                  "[GoogleGenAI] 🧠 Current responseText after thought:",
-                  responseText.substring(responseText.length - 100),
-                );
                 options.onUpdate?.(responseText, part.text);
               } else if (part.text && !part.thought) {
                 // 这是普通内容
@@ -229,7 +222,6 @@ export class GoogleGenAIApi implements LLMApi {
       const mockResponse = new Response(responseText, { status: 200 });
       options.onFinish(responseText, mockResponse);
     } catch (error) {
-      console.error("[GoogleGenAI] ❌ Chat error:", error);
       options.onError?.(error as Error);
     }
   }
@@ -239,7 +231,42 @@ export class GoogleGenAIApi implements LLMApi {
   }
 
   async models(): Promise<LLMModel[]> {
-    return DEFAULT_MODELS.filter((m) => m.name.startsWith("gemini"));
+    try {
+      if (!this.client) {
+        this.initializeClient();
+        if (!this.client) {
+          throw new Error("Failed to initialize Google GenAI client");
+        }
+      }
+      const response = await this.client.models.list();
+      let models: LLMModel[] = [];
+      for await (const model of response) {
+        if (!model.name) continue;
+        const modelName = model.name.replace("models/", "");
+        models.push({
+          name: modelName,
+          displayName: model.displayName,
+          available: true,
+          provider: {
+            id: "google",
+            providerName: "Google",
+            providerType: "google",
+            sorted: 1,
+          },
+          sorted: 1,
+          contextTokens: model.inputTokenLimit,
+        });
+      }
+      // if list models is empty, return default models
+      if (models.length === 0) {
+        return DEFAULT_MODELS.filter(
+          (m) => m.provider.providerName === "Google",
+        );
+      }
+      return models;
+    } catch (e) {
+      return DEFAULT_MODELS.filter((m) => m.name.startsWith("gemini"));
+    }
   }
 
   async speech(_options: any): Promise<ArrayBuffer> {
