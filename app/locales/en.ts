@@ -143,6 +143,13 @@ const en: LocaleType = {
       return inputHints + ", / to search prompts, : to use commands";
     },
     Send: "Send",
+    TokenUsage: "Usage",
+    TokenTooltip: {
+      Context: "Current Context",
+      CurrentToken: "Current Token",
+      EstimatedToken: "Estimated Token",
+      Unknown: "Unknown",
+    },
     StartSpeak: "Start Speak",
     StopSpeak: "Stop Speak",
     Config: {

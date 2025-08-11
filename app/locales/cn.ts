@@ -138,6 +138,13 @@ const cn = {
       return inputHints + "，/ 触发补全，: 触发命令";
     },
     Send: "发送",
+    TokenUsage: "使用率",
+    TokenTooltip: {
+      Context: "当前上下文",
+      CurrentToken: "当前Token",
+      EstimatedToken: "预估Token",
+      Unknown: "未知",
+    },
     StartSpeak: "说话",
     StopSpeak: "停止",
     Config: {
