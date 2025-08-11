@@ -838,7 +838,8 @@ export const useChatStore = createPersistStore(
                 }) + mcpSystemPrompt,
             }),
           ];
-        } else {
+        } else if (mcpSystemPrompt) {
+          // 只在 mcpSystemPrompt 不為空時才創建 system message
           systemPrompts = [
             createMessage({
               role: "system",
@@ -846,6 +847,7 @@ export const useChatStore = createPersistStore(
             }),
           ];
         }
+        // 如果兩者都沒有，systemPrompts 保持為空數組
 
         if (shouldInjectSystemPrompts || mcpSystemPrompt) {
           // 只在开发环境输出系统提示词日志，避免生产环境控制台污染

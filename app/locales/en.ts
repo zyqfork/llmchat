@@ -33,6 +33,39 @@ const en: LocaleType = {
     ChatItemCount: (count: number) => `${count} messages`,
   },
   Chat: {
+    MultiModel: {
+      Title: "Multi-Model Chat Settings",
+      Enabled: "Multi-Model (Enabled)",
+      Disabled: "Multi-Model (Disabled)",
+      Count: (count: number) => `${count} models`,
+      Description:
+        "🎯 Multi-model arena mode enabled! Click model selector to select multiple models for conversation.",
+      OpenSelector: "Open Model Selector",
+      AlreadySelected: (count: number) => `(${count} selected)`,
+      Tips: "💡 Tip: In multi-model mode, you can select multiple models simultaneously, and each model will respond independently to your messages, allowing you to compare different models' responses.",
+      EnableToast:
+        "🎯 Multi-model mode enabled! Click model selector to select multiple models for conversation arena",
+      DisableToast: "Multi-model mode disabled",
+      MinimumModelsError:
+        "Please select at least 2 models to enable multi-model conversation",
+      ModelsSelectedToast: (count: number) =>
+        `Selected ${count} models for conversation`,
+    },
+    UI: {
+      SidebarToggle: "Toggle Sidebar",
+      SearchModels: "Search models...",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `Current context: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `Current tokens: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `Current tokens: ${current.toLocaleString()} / Unknown`,
+        EstimatedTokens: (estimated: number) =>
+          `Estimated tokens: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `Context: ${tokens} tokens`,
+      },
+    },
     SubTitle: (count: number) => `${count} messages`,
     EditMessage: {
       Title: "Edit All Messages",
@@ -97,6 +130,8 @@ const en: LocaleType = {
         "When enabled, MCP tools can be used. When disabled, no MCP-related prompts will be sent",
       NoTools: "No MCP tools available",
       Loading: "Loading...",
+      ClientFailed: "MCP client loading failed, handle silently",
+      ToolsCount: (count: number) => `${count} tools`,
     },
     Rename: "Rename Chat",
     Typing: "Typing…",
@@ -146,6 +181,18 @@ const en: LocaleType = {
       VeryDeep: "Very Deep Thinking",
       VeryDeepDesc: "16384 tokens",
       Notice: "Only models supporting thinkingBudget can adjust thinking depth",
+      ClaudeNotice: "Only Claude series models can adjust thinking depth",
+      GeminiNotice: "Only Gemini series models can adjust thinking depth",
+      ClaudeLight: "Think",
+      ClaudeLightDesc: "5000 tokens",
+      ClaudeMedium: "Think hard",
+      ClaudeMediumDesc: "10000 tokens",
+      ClaudeDeep: "Think Harder",
+      ClaudeDeepDesc: "20000 tokens",
+      ClaudeVeryDeep: "Ultrathink",
+      ClaudeVeryDeepDesc: "32000 tokens",
+      ClaudeDynamicDesc:
+        "Automatically adjust thinking depth (default 10000 tokens)",
     },
   },
   Export: {
@@ -201,6 +248,17 @@ const en: LocaleType = {
     Title: "Settings",
     SubTitle: "All Settings",
     ShowPassword: "ShowPassword",
+
+    Tab: {
+      General: "General",
+      Sync: "Sync",
+      Mask: "Assistant",
+      Prompt: "Prompts",
+      ModelService: "Model Service",
+      ModelConfig: "Model Config",
+      Voice: "Voice",
+    },
+
     Danger: {
       Reset: {
         Title: "Reset All Settings",
@@ -368,6 +426,36 @@ const en: LocaleType = {
       Provider: {
         Title: "Model Provider",
         SubTitle: "Select Azure or OpenAI",
+        Name: {
+          ByteDance: "ByteDance",
+          Alibaba: "Alibaba Cloud",
+          Moonshot: "Moonshot",
+        },
+        Status: {
+          Enabled: "Enabled",
+        },
+        Models: {
+          Title: "Enabled Models",
+          SubTitle: "List of enabled models in current provider",
+          NoModels: "No enabled models",
+          Manage: "Manage",
+        },
+        Description: {
+          OpenAI: "OpenAI GPT Series Models",
+          Azure: "Microsoft Azure OpenAI Service",
+          Google: "Google Gemini Series Models",
+          Anthropic: "Anthropic Claude Series Models",
+          ByteDance: "ByteDance Doubao Series Models",
+          Alibaba: "Alibaba Cloud Qwen Series Models",
+          Moonshot: "Moonshot Kimi Series Models",
+          DeepSeek: "DeepSeek Series Models",
+          XAI: "xAI Grok Series Models",
+          SiliconFlow: "SiliconFlow",
+          Custom: "Custom",
+        },
+        Terms: {
+          Provider: "Provider",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -613,11 +701,16 @@ const en: LocaleType = {
         },
         Config: {
           Type: "Provider Type",
+          BasedOn: "Based on",
+          ApiKeyDescription: "Custom provider's API key",
+          EndpointDescription: "Custom API endpoint address",
+          EndpointPlaceholder: "API endpoint address",
           Delete: {
             Title: "Delete Provider",
             SubTitle: "Delete this custom provider and all its configurations",
             Button: "Delete",
-            Confirm: "Are you sure you want to delete the custom provider?",
+            Confirm: "Are you sure you want to delete the custom provider",
+            ConfirmSuffix: "?",
           },
         },
       },
@@ -766,6 +859,14 @@ const en: LocaleType = {
 
   Mask: {
     Name: "Assistant",
+    DefaultName: "Default Assistant",
+    Management: "Assistant Management",
+    NewMask: "New Assistant",
+    DefaultModel: "Default Model",
+    DefaultModelDesc: "Default model for new conversations",
+    UseGlobalModel: "Use Global Default Model",
+    ConversationCount: (count: number) =>
+      `${count} conversation${count > 1 ? "s" : ""}`,
     Page: {
       Title: "Prompt Template",
       SubTitle: (count: number) => `${count} prompt templates`,
