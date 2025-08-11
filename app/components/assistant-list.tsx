@@ -97,14 +97,14 @@ export function MaskList(props: MaskListProps) {
             <IconButton
               key="manage"
               icon={<SettingsIcon />}
-              text="助手管理"
+              text={Locale.Mask.Management}
               onClick={handleMaskManagement}
               bordered
             />,
             <IconButton
               key="add"
               icon={<AddIcon />}
-              text="新建助手"
+              text={Locale.Mask.NewMask}
               onClick={handleCreateMask}
               bordered
             />,
@@ -130,9 +130,11 @@ export function MaskList(props: MaskListProps) {
                   <div className={styles["mask-item-desc"]}>
                     {`${Locale.Mask.Item.Info(mask.context.length)} / ${
                       ALL_LANG_OPTIONS[mask.lang]
-                    } / ${getMaskEffectiveModel(mask)} / ${
-                      chatStore.getSessionsByMask(mask.id).length
-                    } 个对话`}
+                    } / ${getMaskEffectiveModel(
+                      mask,
+                    )} / ${Locale.Mask.ConversationCount(
+                      chatStore.getSessionsByMask(mask.id).length,
+                    )}`}
                   </div>
                 </div>
               </div>

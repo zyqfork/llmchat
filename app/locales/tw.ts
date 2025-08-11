@@ -33,6 +33,37 @@ const tw = {
     ChatItemCount: (count: number) => `${count} 則對話`,
   },
   Chat: {
+    MultiModel: {
+      Title: "多模型對話設置",
+      Enabled: "多模型 (已啟用)",
+      Disabled: "多模型 (已關閉)",
+      Count: (count: number) => `${count}個模型`,
+      Description:
+        "🎯 多模型對話競技場模式已啟用！點擊模型選擇器可選擇多個模型進行對話。",
+      OpenSelector: "開啟模型選擇器",
+      AlreadySelected: (count: number) => `(${count} 個已選擇)`,
+      Tips: "💡 提示：在多模型模式下，您可以同時選擇多個模型，每個模型都會獨立回覆您的訊息，方便對比不同模型的回答效果。",
+      EnableToast:
+        "🎯 多模型模式已啟用！點擊模型選擇器可選擇多個模型進行對話競技場",
+      DisableToast: "多模型模式已關閉",
+      MinimumModelsError: "請至少選擇2個模型才能啟用多模型對話",
+      ModelsSelectedToast: (count: number) => `已選擇 ${count} 個模型進行對話`,
+    },
+    UI: {
+      SidebarToggle: "折疊/展開側邊欄",
+      SearchModels: "搜尋模型...",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `目前上下文: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `目前Token: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `目前Token: ${current.toLocaleString()} / 未知`,
+        EstimatedTokens: (estimated: number) =>
+          `預估Token: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `上下文: ${tokens} tokens`,
+      },
+    },
     SubTitle: (count: number) => `您已經與 ChatGPT 進行了 ${count} 則對話`,
     EditMessage: {
       Title: "編輯訊息記錄",
@@ -53,8 +84,13 @@ const tw = {
       PinToastAction: "檢視",
       Delete: "刪除",
       Edit: "編輯",
+      FullScreen: "全螢幕",
       RefreshTitle: "重新整理標題",
       RefreshToast: "已傳送重新整理標題請求",
+      Speech: "朗讀",
+      StopSpeech: "停止",
+      PreviousVersion: "上一版本",
+      NextVersion: "下一版本",
     },
     Commands: {
       new: "新建聊天",
@@ -62,6 +98,7 @@ const tw = {
       next: "下一個聊天",
       prev: "上一個聊天",
       clear: "清除上下文",
+      fork: "複製聊天",
       del: "刪除聊天",
     },
     InputActions: {
@@ -89,6 +126,8 @@ const tw = {
       EnableDesc: "開啟後可使用 MCP 工具，關閉後不會發送任何 MCP 相關提示詞",
       NoTools: "暫無可用的 MCP 工具",
       Loading: "載入中...",
+      ClientFailed: "MCP 客戶端載入失敗，靜默處理",
+      ToolsCount: (count: number) => `${count} 個工具`,
     },
     Rename: "重新命名對話",
     Typing: "正在輸入…",
@@ -100,6 +139,8 @@ const tw = {
       return inputHints;
     },
     Send: "傳送",
+    StartSpeak: "說話",
+    StopSpeak: "停止",
     Config: {
       Reset: "重設",
       SaveAs: "另存新檔",
@@ -113,6 +154,33 @@ const tw = {
       copyLastCode: "複製最後一個程式碼區塊",
       showShortcutKey: "顯示快捷方式",
       clearContext: "清除上下文",
+    },
+    Thinking: {
+      Title: "思考深度",
+      Dynamic: "動態思考",
+      DynamicDesc: "模型自動決定思考深度",
+      Off: "關閉思考",
+      OffDesc: "不進行思考過程",
+      Light: "輕度思考",
+      LightDesc: "1024 tokens",
+      Medium: "中度思考",
+      MediumDesc: "4096 tokens",
+      Deep: "深度思考",
+      DeepDesc: "8192 tokens",
+      VeryDeep: "極深思考",
+      VeryDeepDesc: "16384 tokens",
+      Notice: "僅支援 thinkingBudget 的模型可調節思維深度",
+      ClaudeNotice: "僅支援 Claude 系列模型可調節思維深度",
+      GeminiNotice: "僅支援 Gemini 系列模型可調節思維深度",
+      ClaudeLight: "輕度思考",
+      ClaudeLightDesc: "5000 tokens",
+      ClaudeMedium: "中度思考",
+      ClaudeMediumDesc: "10000 tokens",
+      ClaudeDeep: "深度思考",
+      ClaudeDeepDesc: "20000 tokens",
+      ClaudeVeryDeep: "極深思考",
+      ClaudeVeryDeepDesc: "32000 tokens",
+      ClaudeDynamicDesc: "自動調節思考深度（默認10000 tokens）",
     },
   },
   Export: {
@@ -138,6 +206,10 @@ const tw = {
       Toast: "正在產生截圖",
       Modal: "長按或按右鍵儲存圖片",
     },
+    Artifacts: {
+      Title: "分享頁面",
+      Error: "分享失敗",
+    },
   },
   Select: {
     Search: "查詢訊息",
@@ -162,6 +234,17 @@ const tw = {
   Settings: {
     Title: "設定",
     SubTitle: "設定選項",
+    ShowPassword: "顯示密碼",
+
+    Tab: {
+      General: "通用設定",
+      Sync: "雲端同步",
+      Mask: "角色助手",
+      Prompt: "提示詞",
+      ModelService: "模型服務",
+      ModelConfig: "模型設定",
+      Voice: "語音",
+    },
 
     Danger: {
       Reset: {
@@ -207,6 +290,8 @@ const tw = {
       IsChecking: "正在檢查更新...",
       FoundUpdate: (x: string) => `發現新版本：${x}`,
       GoToUpdate: "前往更新",
+      Success: "更新成功！",
+      Failed: "更新失敗",
     },
     SendKey: "傳送鍵",
     Theme: "主題",
@@ -271,6 +356,10 @@ const tw = {
         Title: "隱藏內建角色助手",
         SubTitle: "在所有角色助手列表中隱藏內建角色助手",
       },
+      ModelIcon: {
+        Title: "使用模型圖示作為AI頭像",
+        SubTitle: "啟用後，對話中的AI頭像將使用目前模型的圖示，而不是表情符號",
+      },
     },
     Prompt: {
       Disable: {
@@ -297,6 +386,17 @@ const tw = {
     CompressThreshold: {
       Title: "歷史訊息長度壓縮閾值",
       SubTitle: "當未壓縮的歷史訊息超過該值時，將進行壓縮",
+    },
+
+    AccessCode: {
+      Title: "存取碼",
+      SubTitle: "目前系統啟用了存取控制，請輸入存取碼",
+      Placeholder: "請輸入存取碼",
+      Status: {
+        Enabled: "存取控制已啟用",
+        Valid: "存取碼有效",
+        Invalid: "存取碼無效",
+      },
     },
 
     Usage: {
@@ -330,6 +430,36 @@ const tw = {
       Provider: {
         Title: "模型供應商",
         SubTitle: "切換不同的服務供應商",
+        Name: {
+          ByteDance: "字節跳動",
+          Alibaba: "阿里雲",
+          Moonshot: "月之暗面",
+        },
+        Status: {
+          Enabled: "已啟用",
+        },
+        Models: {
+          Title: "啟用的模型",
+          SubTitle: "當前服務商中已啟用的模型列表",
+          NoModels: "暫無啟用的模型",
+          Manage: "管理",
+        },
+        Description: {
+          OpenAI: "OpenAI GPT 系列模型",
+          Azure: "微軟 Azure OpenAI 服務",
+          Google: "Google Gemini 系列模型",
+          Anthropic: "Anthropic Claude 系列模型",
+          ByteDance: "字節跳動豆包系列模型",
+          Alibaba: "阿里雲通義千問系列模型",
+          Moonshot: "Moonshot Kimi 系列模型",
+          DeepSeek: "DeepSeek 系列模型",
+          XAI: "xAI Grok 系列模型",
+          SiliconFlow: "SiliconFlow 矽基流動",
+          Custom: "自訂",
+        },
+        Terms: {
+          Provider: "服務商",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -393,6 +523,136 @@ const tw = {
           Title: "API 版本（僅適用於 gemini-pro）",
           SubTitle: "選擇一個特定的 API 版本",
         },
+        GoogleSafetySettings: {
+          Title: "Google 安全過濾級別",
+          SubTitle: "設定內容過濾級別",
+        },
+      },
+      Baidu: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "使用自訂 Baidu API Key",
+          Placeholder: "Baidu API Key",
+        },
+        SecretKey: {
+          Title: "Secret Key",
+          SubTitle: "使用自訂 Baidu Secret Key",
+          Placeholder: "Baidu Secret Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "不支援自訂前往 .env 配置",
+        },
+      },
+      Tencent: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "使用自訂騰訊雲API Key",
+          Placeholder: "Tencent API Key",
+        },
+        SecretKey: {
+          Title: "Secret Key",
+          SubTitle: "使用自訂騰訊雲Secret Key",
+          Placeholder: "Tencent Secret Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "不支援自訂前往 .env 配置",
+        },
+      },
+      ByteDance: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂 ByteDance API Key",
+          Placeholder: "ByteDance API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      Alibaba: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂阿里雲API Key",
+          Placeholder: "Alibaba Cloud API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      Moonshot: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂月之暗面API Key",
+          Placeholder: "Moonshot API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      DeepSeek: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂DeepSeek API Key",
+          Placeholder: "DeepSeek API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      XAI: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂XAI API Key",
+          Placeholder: "XAI API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      ChatGLM: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂 ChatGLM API Key",
+          Placeholder: "ChatGLM API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+      SiliconFlow: {
+        ApiKey: {
+          Title: "介面金鑰",
+          SubTitle: "使用自訂矽基流動 API Key",
+          Placeholder: "矽基流動 API Key",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
+      },
+
+      Iflytek: {
+        ApiKey: {
+          Title: "ApiKey",
+          SubTitle: "從訊飛星火控制台取得的 APIKey",
+          Placeholder: "APIKey",
+        },
+        ApiSecret: {
+          Title: "ApiSecret",
+          SubTitle: "從訊飛星火控制台取得的 APISecret",
+          Placeholder: "APISecret",
+        },
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "範例：",
+        },
       },
       AI302: {
         ApiKey: {
@@ -407,7 +667,55 @@ const tw = {
       },
       CustomModel: {
         Title: "自訂模型名稱",
-        SubTitle: "增加自訂模型可選擇項目，使用英文逗號隔開",
+        SubTitle: "新增自訂模型可選項目，使用英文逗號隔開",
+      },
+      CustomProvider: {
+        Add: {
+          Title: "新增自訂服務商",
+          Button: "新增自訂服務商",
+          Description: "基於現有服務商類型新增自訂通道",
+        },
+        Modal: {
+          Title: "新增自訂服務商",
+          Name: {
+            Title: "服務商名稱",
+            Placeholder: "請輸入自訂服務商名稱",
+            Required: "請輸入服務商名稱",
+            Unique: "服務商名稱已存在，請使用其他名稱",
+          },
+          Type: {
+            Title: "服務商類型",
+            OpenAI: "OpenAI - 相容 OpenAI API 的服務",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Key",
+            Placeholder: "請輸入 API Key",
+            Required: "請輸入 API Key",
+          },
+          Endpoint: {
+            Title: "自訂端點",
+            Placeholder: "留空使用預設端點",
+            Optional: "(可選)",
+          },
+          Cancel: "取消",
+          Confirm: "新增",
+        },
+        Config: {
+          Type: "服務商類型",
+          BasedOn: "基於",
+          ApiKeyDescription: "自訂服務商的 API 金鑰",
+          EndpointDescription: "自訂的 API 端點位址",
+          EndpointPlaceholder: "API 端點位址",
+          Delete: {
+            Title: "刪除服務商",
+            SubTitle: "刪除此自訂服務商及其所有配置",
+            Button: "刪除",
+            Confirm: "確定要刪除自訂服務商",
+            ConfirmSuffix: "嗎？",
+          },
+        },
       },
     },
 
@@ -435,6 +743,64 @@ const tw = {
     FrequencyPenalty: {
       Title: "頻率懲罰度 (frequency_penalty)",
       SubTitle: "值越大，越有可能降低重複字詞",
+    },
+    TTS: {
+      Enable: {
+        Title: "啟用文字轉語音",
+        SubTitle: "啟用文字產生語音服務",
+      },
+      Autoplay: {
+        Title: "啟用自動朗讀",
+        SubTitle: "自動產生語音並播放，需先開啟文字轉語音開關",
+      },
+      Model: "模型",
+      Engine: "轉換引擎",
+      EngineConfig: {
+        Title: "配置說明",
+        SubTitle:
+          "OpenAI-TTS 將使用模型服務中 OpenAI 提供商的配置，使用前需要在 OpenAI 提供商中新增對應的 API Key",
+      },
+      Voice: {
+        Title: "聲音",
+        SubTitle: "產生語音時使用的聲音",
+      },
+      Speed: {
+        Title: "速度",
+        SubTitle: "產生語音的速度",
+      },
+    },
+    Realtime: {
+      Enable: {
+        Title: "即時聊天",
+        SubTitle: "開啟即時聊天功能",
+      },
+      Provider: {
+        Title: "模型服務商",
+        SubTitle: "切換不同的服務商",
+      },
+      Model: {
+        Title: "模型",
+        SubTitle: "選擇一個模型",
+      },
+      ApiKey: {
+        Title: "API Key",
+        SubTitle: "API Key",
+        Placeholder: "API Key",
+      },
+      Azure: {
+        Endpoint: {
+          Title: "介面位址",
+          SubTitle: "介面位址",
+        },
+        Deployment: {
+          Title: "部署名稱",
+          SubTitle: "部署名稱",
+        },
+      },
+      Temperature: {
+        Title: "隨機性 (temperature)",
+        SubTitle: "值越大，回應越隨機",
+      },
     },
   },
   Store: {
@@ -466,9 +832,22 @@ const tw = {
     Revert: "恢復上下文",
   },
 
+  ChatSettings: {
+    Name: "對話設定",
+  },
+  Mcp: {
+    Name: "MCP",
+  },
   FineTuned: { Sysmessage: "你是一個助手" },
   Mask: {
     Name: "角色助手",
+    DefaultName: "預設助手",
+    Management: "助手管理",
+    NewMask: "新增助手",
+    DefaultModel: "預設模型",
+    DefaultModelDesc: "新建對話時使用的預設模型",
+    UseGlobalModel: "使用全域預設模型",
+    ConversationCount: (count: number) => `${count} 個對話`,
     Page: {
       Title: "預設角色助手",
       SubTitle: (count: number) => `${count} 個預設角色定義`,
@@ -501,6 +880,14 @@ const tw = {
         Title: "隱藏預設對話",
         SubTitle: "隱藏後預設對話不會出現在聊天介面",
       },
+      Artifacts: {
+        Title: "啟用Artifacts",
+        SubTitle: "啟用之後可以直接渲染HTML頁面",
+      },
+      CodeFold: {
+        Title: "啟用程式碼摺疊",
+        SubTitle: "啟用之後可以自動摺疊/展開過長的程式碼區塊",
+      },
       Share: {
         Title: "分享此角色助手",
         SubTitle: "產生此角色助手的直達連結",
@@ -526,11 +913,28 @@ const tw = {
   NewChat: {
     Return: "返回",
     Skip: "跳過",
-    NotShow: "不再顯示",
-    ConfirmNoShow: "確認停用？停用後可以隨時在設定中重新啟用。",
     Title: "挑選一個角色助手",
     SubTitle: "現在開始，與角色助手背後的靈魂思維碰撞",
-    More: "搜尋更多",
+    More: "檢視全部",
+    Less: "摺疊程式碼",
+    ShowCode: "顯示程式碼",
+    Preview: "預覽",
+    NotShow: "不再顯示",
+    ConfirmNoShow: "確認停用？停用後可以隨時在設定中重新啟用。",
+    Searching: "搜尋中...",
+    Search: "搜尋內容",
+    NoSearch: "沒有搜尋內容",
+    SearchFormat: (SearchTime?: number) =>
+      SearchTime !== undefined
+        ? `（用時 ${Math.round(SearchTime / 1000)} 秒）`
+        : "",
+    Thinking: "正在思考中...",
+    Think: "思考過程",
+    NoThink: "沒有思考過程",
+    ThinkFormat: (thinkingTime?: number) =>
+      thinkingTime !== undefined
+        ? `（用時 ${Math.round(thinkingTime / 1000)} 秒）`
+        : "",
   },
   URLCommand: {
     Code: "偵測到連結中已經包含存取密碼，是否自動填入？",

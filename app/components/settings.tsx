@@ -1391,13 +1391,25 @@ export function Settings() {
 
   // 分页标签配置
   const tabConfig = [
-    { key: SettingsTab.General, label: "通用配置", icon: "⚙️" },
-    { key: SettingsTab.Sync, label: "云同步", icon: "☁️" },
-    { key: SettingsTab.Mask, label: "助手", icon: "🎭" },
-    { key: SettingsTab.Prompt, label: "提示词", icon: "💬" },
-    { key: SettingsTab.ModelService, label: "模型服务", icon: "🔧" },
-    { key: SettingsTab.ModelConfig, label: "模型配置", icon: "🤖" },
-    { key: SettingsTab.Voice, label: "语音", icon: "🔊" },
+    {
+      key: SettingsTab.General,
+      label: Locale.Settings.Tab.General,
+      icon: "⚙️",
+    },
+    { key: SettingsTab.Sync, label: Locale.Settings.Tab.Sync, icon: "☁️" },
+    { key: SettingsTab.Mask, label: Locale.Settings.Tab.Mask, icon: "🎭" },
+    { key: SettingsTab.Prompt, label: Locale.Settings.Tab.Prompt, icon: "💬" },
+    {
+      key: SettingsTab.ModelService,
+      label: Locale.Settings.Tab.ModelService,
+      icon: "🔧",
+    },
+    {
+      key: SettingsTab.ModelConfig,
+      label: Locale.Settings.Tab.ModelConfig,
+      icon: "🤖",
+    },
+    { key: SettingsTab.Voice, label: Locale.Settings.Tab.Voice, icon: "🔊" },
   ];
 
   // 渲染分页内容
@@ -1763,7 +1775,7 @@ export function Settings() {
       <>
         <ListItem
           title={Locale.Settings.Access.CustomProvider.Config.Type}
-          subTitle={`基于 ${
+          subTitle={`${Locale.Settings.Access.CustomProvider.Config.BasedOn} ${
             typeLabels[customProvider.type as keyof typeof typeLabels]
           } API`}
         >
@@ -1774,7 +1786,9 @@ export function Settings() {
 
         <ListItem
           title={Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title}
-          subTitle="自定义服务商的 API 密钥"
+          subTitle={
+            Locale.Settings.Access.CustomProvider.Config.ApiKeyDescription
+          }
         >
           <PasswordInput
             value={customProvider.apiKey}
@@ -1793,12 +1807,16 @@ export function Settings() {
         {customProvider.endpoint && (
           <ListItem
             title={Locale.Settings.Access.CustomProvider.Modal.Endpoint.Title}
-            subTitle="自定义的 API 端点地址"
+            subTitle={
+              Locale.Settings.Access.CustomProvider.Config.EndpointDescription
+            }
           >
             <input
               type="text"
               value={customProvider.endpoint}
-              placeholder="API 端点地址"
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Config.EndpointPlaceholder
+              }
               onChange={(e) => {
                 accessStore.updateCustomProvider(customProvider.id, {
                   endpoint: e.currentTarget.value,
@@ -1821,7 +1839,7 @@ export function Settings() {
             onClick={() => {
               if (
                 confirm(
-                  `${Locale.Settings.Access.CustomProvider.Config.Delete.Confirm} "${customProvider.name}" 吗？`,
+                  `${Locale.Settings.Access.CustomProvider.Config.Delete.Confirm} "${customProvider.name}" ${Locale.Settings.Access.CustomProvider.Config.Delete.ConfirmSuffix}`,
                 )
               ) {
                 accessStore.removeCustomProvider(customProvider.id);
@@ -1838,70 +1856,70 @@ export function Settings() {
     {
       provider: ServiceProvider.OpenAI,
       name: "OpenAI",
-      description: "OpenAI GPT 系列模型",
+      description: Locale.Settings.Access.Provider.Description.OpenAI,
       configComponent: openAIConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.Azure,
       name: "Azure OpenAI",
-      description: "微软 Azure OpenAI 服务",
+      description: Locale.Settings.Access.Provider.Description.Azure,
       configComponent: azureConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.Google,
       name: "Google",
-      description: "Google Gemini 系列模型",
+      description: Locale.Settings.Access.Provider.Description.Google,
       configComponent: googleConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.Anthropic,
       name: "Anthropic",
-      description: "Anthropic Claude 系列模型",
+      description: Locale.Settings.Access.Provider.Description.Anthropic,
       configComponent: anthropicConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.ByteDance,
-      name: "字节跳动",
-      description: "字节跳动豆包系列模型",
+      name: Locale.Settings.Access.Provider.Name.ByteDance,
+      description: Locale.Settings.Access.Provider.Description.ByteDance,
       configComponent: byteDanceConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.Alibaba,
-      name: "阿里云",
-      description: "阿里云通义千问系列模型",
+      name: Locale.Settings.Access.Provider.Name.Alibaba,
+      description: Locale.Settings.Access.Provider.Description.Alibaba,
       configComponent: alibabaConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.Moonshot,
-      name: "月之暗面",
-      description: "Moonshot Kimi 系列模型",
+      name: Locale.Settings.Access.Provider.Name.Moonshot,
+      description: Locale.Settings.Access.Provider.Description.Moonshot,
       configComponent: moonshotConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.DeepSeek,
       name: "DeepSeek",
-      description: "DeepSeek 系列模型",
+      description: Locale.Settings.Access.Provider.Description.DeepSeek,
       configComponent: deepseekConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.XAI,
       name: "xAI",
-      description: "xAI Grok 系列模型",
+      description: Locale.Settings.Access.Provider.Description.XAI,
       configComponent: XAIConfigComponent,
       isCustom: false,
     },
     {
       provider: ServiceProvider.SiliconFlow,
       name: "SiliconFlow",
-      description: "SiliconFlow 硅基流动",
+      description: Locale.Settings.Access.Provider.Description.SiliconFlow,
       configComponent: siliconflowConfigComponent,
       isCustom: false,
     },
@@ -1912,7 +1930,11 @@ export function Settings() {
     (customProvider) => ({
       provider: customProvider.id as any, // 使用自定义ID作为provider
       name: customProvider.name,
-      description: `自定义 ${customProvider.type.toUpperCase()} 服务商`,
+      description: `${
+        Locale.Settings.Access.Provider.Description.Custom
+      } ${customProvider.type.toUpperCase()} ${
+        Locale.Settings.Access.Provider.Terms.Provider
+      }`,
       configComponent: createCustomProviderConfigComponent(customProvider),
       isCustom: true,
     }),
@@ -1990,7 +2012,7 @@ export function Settings() {
                         </h3>
                         {isEnabled && (
                           <span className={styles["provider-badge"]}>
-                            已启用
+                            {Locale.Settings.Access.Provider.Status.Enabled}
                           </span>
                         )}
                       </div>
@@ -2078,8 +2100,10 @@ export function Settings() {
 
                       {/* 启用模型列表 - 支持所有服务商 */}
                       <ListItem
-                        title="启用的模型"
-                        subTitle="当前服务商中已启用的模型列表"
+                        title={Locale.Settings.Access.Provider.Models.Title}
+                        subTitle={
+                          Locale.Settings.Access.Provider.Models.SubTitle
+                        }
                       >
                         <div className={styles["enabled-models"]}>
                           <div className={styles["model-list"]}>
@@ -2109,7 +2133,10 @@ export function Settings() {
                               </div>
                             ) : (
                               <span className={styles["no-models"]}>
-                                暂无启用的模型
+                                {
+                                  Locale.Settings.Access.Provider.Models
+                                    .NoModels
+                                }
                               </span>
                             )}
                           </div>
@@ -2120,7 +2147,7 @@ export function Settings() {
                               setShowModelManager(true);
                             }}
                           >
-                            管理
+                            {Locale.Settings.Access.Provider.Models.Manage}
                           </button>
                         </div>
                       </ListItem>
