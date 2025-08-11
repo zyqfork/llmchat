@@ -121,9 +121,7 @@ export function AuthPage() {
           type="text"
           placeholder="请输入访问码"
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.accessCode = e.currentTarget.value),
-            );
+            accessStore.updateAccessCode(e.currentTarget.value);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !isVerifying) {
@@ -140,9 +138,7 @@ export function AuthPage() {
             type="text"
             placeholder={Locale.Auth.Input}
             onChange={(e) => {
-              accessStore.update(
-                (access) => (access.accessCode = e.currentTarget.value),
-              );
+              accessStore.updateAccessCode(e.currentTarget.value);
             }}
           />
 

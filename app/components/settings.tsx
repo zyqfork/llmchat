@@ -897,9 +897,7 @@ export function Settings() {
         type="text"
         placeholder={Locale.Settings.Access.AccessCode.Placeholder}
         onChange={(e) => {
-          accessStore.update(
-            (access) => (access.accessCode = e.currentTarget.value),
-          );
+          accessStore.updateAccessCode(e.currentTarget.value);
         }}
       />
     </ListItem>

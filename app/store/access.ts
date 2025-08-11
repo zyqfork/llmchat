@@ -183,6 +183,9 @@ const DEFAULT_ACCESS_STATE = {
   // 是否设置了服务器端访问码
   hasServerAccessCode: false,
 
+  // 客户端是否已通过验证
+  isAuthenticated: false,
+
   // 是否设置了服务器端服务商配置
   hasServerProviderConfig: false,
 
@@ -278,6 +281,57 @@ const DEFAULT_ACCESS_STATE = {
 
   // tts config
   edgeTTSVoiceName: "zh-CN-YunxiNeural",
+};
+
+export type AccessControlStore = typeof DEFAULT_ACCESS_STATE & {
+  enabledAccessControl: () => boolean;
+  getVisionModels: () => string;
+  edgeVoiceName: () => string;
+  isValidOpenAI: () => boolean;
+  getEffectiveOpenAIConfig: () => {
+    apiKey: string;
+    baseUrl: string;
+    source: "frontend" | "server";
+  } | null;
+  hasValidOpenAIConfig: () => boolean;
+  getEffectiveProviderConfig: (provider: string) => any;
+  hasValidProviderConfig: (provider: string) => boolean;
+  hasAnyValidProviderConfig: () => boolean;
+  isValidAzure: () => boolean;
+  isValidGoogle: () => boolean;
+  isValidAnthropic: () => boolean;
+  isValidByteDance: () => boolean;
+  isValidAlibaba: () => boolean;
+  isValidMoonshot: () => boolean;
+  isValidDeepSeek: () => boolean;
+  isValidXAI: () => boolean;
+  isValidSiliconFlow: () => boolean;
+  addCustomProvider: (
+    provider: Omit<CustomProvider, "id" | "created">,
+  ) => string;
+  updateCustomProvider: (id: string, updates: Partial<CustomProvider>) => void;
+  removeCustomProvider: (id: string) => void;
+  getCustomProvider: (id: string) => CustomProvider | undefined;
+  isCustomProviderNameUnique: (name: string, excludeId?: string) => boolean;
+  isValidCustomProvider: (id: string) => boolean | undefined;
+  verifyServerAccessCode: (accessCode: string) => Promise<boolean>;
+  fetchServerConfig: (accessCode: string) => Promise<boolean>;
+  isAuthorized: () => boolean;
+  isAuthorizedAsync: () => Promise<boolean>;
+  hasOtherValidProviders: () => boolean;
+  setFetchModelsFromAPI: (provider: string, enabled: boolean) => void;
+  setModelsFetchStatus: (
+    provider: string,
+    status: "idle" | "loading" | "success" | "error",
+  ) => void;
+  setApiModelsCache: (provider: string, models: any[]) => void;
+  clearApiModelsCache: (provider?: string) => void;
+  sanitizeEnabledModels: (
+    provider: string,
+    availableModels: { name: string }[],
+  ) => void;
+  fetch: () => void;
+  updateAccessCode: (code: string) => void;
 };
 
 export const useAccessStore = createPersistStore(
@@ -563,6 +617,9 @@ export const useAccessStore = createPersistStore(
         });
 
         const result = await response.json();
+        if (result.valid) {
+          set({ isAuthenticated: true });
+        }
         return result.valid;
       } catch (error) {
         console.error("[Access] Failed to verify access code:", error);
@@ -621,20 +678,12 @@ export const useAccessStore = createPersistStore(
     isAuthorized() {
       this.fetch();
 
-      // 如果启用了访问控制，优先检查访问码
-      if (this.enabledAccessControl()) {
-        const hasAccessCode = ensure(get(), ["accessCode"]);
-        if (hasAccessCode) {
-          // 有访问码的情况下，检查是否有任何有效配置（前端或服务器）
-          return (
-            this.hasAnyValidProviderConfig() || this.hasOtherValidProviders()
-          );
-        }
-        return false;
+      // if you don't have access code, you are authorized
+      if (!this.enabledAccessControl()) {
+        return true;
       }
 
-      // 如果没有启用访问控制，检查API密钥
-      return this.hasOtherValidProviders();
+      return get().isAuthenticated;
     },
 
     // 检查其他服务商是否有有效配置
@@ -660,36 +709,21 @@ export const useAccessStore = createPersistStore(
 
     // 异步版本的授权检查，支持服务器端访问码验证
     async isAuthorizedAsync(): Promise<boolean> {
-      this.fetch();
-
-      // has token or has code or disabled access control
-      const hasValidCustomProvider = get().customProviders.some((provider) =>
-        this.isValidCustomProvider(provider.id),
-      );
-
-      const hasValidProvider =
-        this.isValidOpenAI() ||
-        this.isValidAzure() ||
-        this.isValidGoogle() ||
-        this.isValidAnthropic() ||
-        this.isValidByteDance() ||
-        this.isValidAlibaba() ||
-        this.isValidMoonshot() ||
-        this.isValidDeepSeek() ||
-        this.isValidXAI() ||
-        this.isValidSiliconFlow() ||
-        hasValidCustomProvider;
-
-      if (hasValidProvider) {
+      if (this.isAuthorized()) {
         return true;
+      } else if (this.enabledAccessControl()) {
+        const isValid = await this.verifyServerAccessCode(get().accessCode);
+        return isValid;
       }
+      return true;
+    },
 
-      if (!this.enabledAccessControl()) {
-        return true;
-      }
-
-      // 使用异步访问码验证
-      return await this.isValidAccessCode();
+    updateAccessCode(code: string) {
+      set((state) => ({
+        ...state,
+        accessCode: code,
+        isAuthenticated: false, // 只要code变化，就重置认证状态
+      }));
     },
 
     // 设置是否从API获取模型
