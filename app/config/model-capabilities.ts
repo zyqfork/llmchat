@@ -11,6 +11,11 @@ export interface ModelCapabilities {
 // 基于模型名称的能力映射
 export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   // OpenAI 模型
+  // GPT-5 系列
+  "gpt-5": { vision: true, web: true, reasoning: true, tools: true },
+  "gpt-5-mini": { vision: true, web: true, reasoning: true, tools: true },
+  "gpt-5-nano": { vision: true, web: true, reasoning: true, tools: true },
+  "gpt-5-chat": { vision: true, web: false, reasoning: true, tools: false },
   // GPT-4 系列
   "gpt-4o": { vision: true, web: true, reasoning: false, tools: true },
   "gpt-4o-2024-11-20": {

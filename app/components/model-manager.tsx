@@ -113,11 +113,13 @@ function CustomModal({ title, children, onClose }: CustomModalProps) {
 
 // 基于模型名称的分类映射（用于默认分组显示）
 const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
+  "GPT-5": ["gpt-5"],
   "GPT-4o": ["gpt-4o"],
   "GPT-4.5": ["gpt-4.5"],
   "GPT-4.1": ["gpt-4.1"],
   "GPT-4": ["gpt-4", "gpt-4-turbo"],
   "GPT-3.5": ["gpt-3.5-turbo"],
+  "GPT-OSS": ["gpt-oss"],
   O系列: ["o1-preview", "o1-mini", "o1-2024-12-17", "o3", "o4-mini"],
   "Gemini 2.5": ["gemini-2.5"],
   "Gemini 2.0": ["gemini-2.0"],

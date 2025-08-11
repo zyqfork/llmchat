@@ -60,6 +60,12 @@ export const MODEL_CONTEXT_TOKENS: Record<string, ModelContextConfig> = {
   },
   "chatgpt-4o-latest": { contextTokens: 128000, maxOutputTokens: 16384 },
 
+  // GPT-5 系列
+  "gpt-5": { contextTokens: 400000, maxOutputTokens: 16384 },
+  "gpt-5-mini": { contextTokens: 400000, maxOutputTokens: 16384 },
+  "gpt-5-nano": { contextTokens: 400000, maxOutputTokens: 16384 },
+  "gpt-5-chat": { contextTokens: 400000, maxOutputTokens: 16384 },
+
   // 推理模型系列
   "o1-2024-12-17": {
     contextTokens: 200000,

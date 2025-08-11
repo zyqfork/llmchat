@@ -378,6 +378,10 @@ export const KnowledgeCutOffDate: Record<string, string> = {
   "chatgpt-4o-latest": "2023-10",
   "gpt-4o-mini": "2023-10",
   "gpt-4o-mini-2024-07-18": "2023-10",
+  "gpt-5": "2024-08",
+  "gpt-5-mini": "2024-08",
+  "gpt-5-nano": "2024-08",
+  "gpt-5-chat": "2024-08",
   "gpt-4-vision-preview": "2023-04",
   "o1-mini-2024-09-12": "2023-10",
   "o1-mini": "2023-10",
@@ -413,6 +417,7 @@ export const DEFAULT_TTS_VOICES = [
 
 export const VISION_MODEL_REGEXES = [
   /vision/,
+  /gpt-5/,
   /gpt-4o/,
   /gpt-4\.1/,
   /gpt-4-turbo(?!.*preview)/,
@@ -471,6 +476,11 @@ const openaiModels = [
   "gpt-4o-mini-2024-07-18",
   "gpt-4o-mini-search-preview",
   "chatgpt-4o-latest",
+  // GPT-5 系列
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-5-chat",
   // 推理模型系列
   "o1-2024-12-17",
   "o1-preview",
