@@ -741,6 +741,35 @@ export const useAccessStore = createPersistStore(
       }));
     },
 
+    sanitizeEnabledModels(
+      provider: ServiceProvider | string,
+      availableModels: { name: string }[],
+    ) {
+      set((state) => {
+        const enabled = state.enabledModels[provider] ?? [];
+        if (enabled.length === 0) {
+          return state;
+        }
+
+        const availableModelNames = new Set(availableModels.map((m) => m.name));
+        const newEnabledModels = enabled.filter((modelName) =>
+          availableModelNames.has(modelName),
+        );
+
+        if (newEnabledModels.length === enabled.length) {
+          return state;
+        }
+
+        return {
+          ...state,
+          enabledModels: {
+            ...state.enabledModels,
+            [provider]: newEnabledModels,
+          },
+        };
+      });
+    },
+
     fetch() {
       if (fetchState > 0 || getClientConfig()?.buildMode === "export") return;
       fetchState = 1;

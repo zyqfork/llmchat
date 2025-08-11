@@ -317,6 +317,8 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         // 更新临时缓存，供其他组件使用
         store.setApiModelsCache(provider, result.models);
         store.setModelsFetchStatus(provider, "success");
+        // 清理该服务商下无效的已启用模型
+        store.sanitizeEnabledModels(provider, result.models);
         showToast(`模型列表获取成功，共 ${result.models.length} 个模型`);
       } else {
         throw new Error(result.error || "获取模型失败");
