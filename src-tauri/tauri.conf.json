@@ -97,7 +97,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/syferie/qadchat/releases/latest/download/latest.json"
+        "https://github.com/MoonWeSif/qadchat/releases/latest/download/latest.json"
       ],
       "dialog": true,
       "windows": {
