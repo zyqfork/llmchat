@@ -2,6 +2,7 @@
 import { ChatMessage, useAppConfig, useChatStore } from "../store";
 import Locale from "../locales";
 import styles from "./exporter.module.scss";
+import Image from "next/image";
 import {
   List,
   ListItem,
@@ -597,12 +598,16 @@ export function ImagePreviewer(props: {
                   defaultShow
                 />
                 {getMessageImages(m).length == 1 && (
-                  <img
-                    key={i}
-                    src={getMessageImages(m)[0]}
-                    alt="message"
-                    className={styles["message-image"]}
-                  />
+                  <div className={styles["message-image-container"]}>
+                    <Image
+                      key={i}
+                      src={getMessageImages(m)[0]}
+                      alt="message"
+                      className={styles["message-image"]}
+                      fill
+                      unoptimized
+                    />
+                  </div>
                 )}
                 {getMessageImages(m).length > 1 && (
                   <div
@@ -614,12 +619,18 @@ export function ImagePreviewer(props: {
                     }
                   >
                     {getMessageImages(m).map((src, i) => (
-                      <img
+                      <div
                         key={i}
-                        src={src}
-                        alt="message"
-                        className={styles["message-image-multi"]}
-                      />
+                        className={styles["message-image-multi-container"]}
+                      >
+                        <Image
+                          src={src}
+                          alt="message"
+                          className={styles["message-image-multi"]}
+                          fill
+                          unoptimized
+                        />
+                      </div>
                     ))}
                   </div>
                 )}

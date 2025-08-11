@@ -201,7 +201,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     // 注意：这里不清理缓存，因为其他组件可能还在使用
     // 缓存会在下次打开模型管理器时自动刷新
     onClose();
-  }, [provider, onClose]);
+  }, [onClose]);
 
   // 模型测试状态
   const [modelTestResults, setModelTestResults] = useState<

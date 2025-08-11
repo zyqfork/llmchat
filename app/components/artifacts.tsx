@@ -59,7 +59,7 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
       return () => {
         window.removeEventListener("message", handleMessage);
       };
-    }, [frameId]);
+    }, [frameId, setIframeHeight]);
 
     useImperativeHandle(ref, () => ({
       reload: () => {

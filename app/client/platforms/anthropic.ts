@@ -418,6 +418,7 @@ export class ClaudeApi implements LLMApi {
           providerType: "anthropic",
           sorted: 4,
         },
+        sorted: 4,
       }));
     } catch (e) {
       console.error("[Anthropic] failed to list models", e);

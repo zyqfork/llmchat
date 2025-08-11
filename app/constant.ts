@@ -186,6 +186,7 @@ export const Moonshot = {
 export const DeepSeek = {
   ExampleEndpoint: DEEPSEEK_BASE_URL,
   ChatPath: "chat/completions",
+  ListModelPath: "v1/models",
 };
 
 export const XAI = {

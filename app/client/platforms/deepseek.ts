@@ -284,6 +284,7 @@ export class DeepSeekApi implements LLMApi {
           providerType: "deepseek",
           sorted: 9,
         },
+        sorted: 9,
       }));
     } catch (e) {
       console.error("[DeepSeek] failed to list models", e);

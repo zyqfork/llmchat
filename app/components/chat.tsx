@@ -9,6 +9,8 @@ import React, {
   useState,
 } from "react";
 
+import Image from "next/image";
+
 import SendWhiteIcon from "../icons/send-white.svg";
 import BrainIcon from "../icons/brain.svg";
 import RenameIcon from "../icons/rename.svg";
@@ -1269,14 +1271,15 @@ export function ChatActions(props: {
 
   const isMobileScreen = useMobileScreen();
 
+  const { setAttachImages, setUploading } = props;
   useEffect(() => {
     const show = isVisionModel(currentModel);
     setShowUploadImage(show);
     if (!show) {
-      props.setAttachImages([]);
-      props.setUploading(false);
+      setAttachImages([]);
+      setUploading(false);
     }
-  }, [currentModel, props.setAttachImages, props.setUploading]);
+  }, [currentModel, setAttachImages, setUploading]);
 
   // 分离模型可用性检查到单独的 useEffect
   // 使用 ref 来避免依赖 session 对象
@@ -3072,11 +3075,19 @@ function _Chat() {
                               status={message.streaming}
                             />
                             {getMessageImages(message).length == 1 && (
-                              <img
-                                className={styles["chat-message-item-image"]}
-                                src={getMessageImages(message)[0]}
-                                alt=""
-                              />
+                              <div
+                                className={
+                                  styles["chat-message-item-image-container"]
+                                }
+                              >
+                                <Image
+                                  className={styles["chat-message-item-image"]}
+                                  src={getMessageImages(message)[0]}
+                                  alt=""
+                                  fill
+                                  unoptimized
+                                />
+                              </div>
                             )}
                             {getMessageImages(message).length > 1 && (
                               <div
@@ -3091,16 +3102,26 @@ function _Chat() {
                                 {getMessageImages(message).map(
                                   (image, index) => {
                                     return (
-                                      <img
+                                      <div
                                         className={
                                           styles[
-                                            "chat-message-item-image-multi"
+                                            "chat-message-item-image-multi-container"
                                           ]
                                         }
                                         key={index}
-                                        src={image}
-                                        alt=""
-                                      />
+                                      >
+                                        <Image
+                                          className={
+                                            styles[
+                                              "chat-message-item-image-multi"
+                                            ]
+                                          }
+                                          src={image}
+                                          alt=""
+                                          fill
+                                          unoptimized
+                                        />
+                                      </div>
                                     );
                                   },
                                 )}

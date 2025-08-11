@@ -130,76 +130,6 @@ export function RealtimeChat({
     }
   };
 
-  const startResponseListener = useCallback(async () => {
-    if (!clientRef.current) return;
-
-    try {
-      for await (const serverEvent of clientRef.current.events()) {
-        if (serverEvent.type === "response") {
-          await handleResponse(serverEvent);
-        } else if (serverEvent.type === "input_audio") {
-          await handleInputAudio(serverEvent);
-        }
-      }
-    } catch (error) {
-      if (clientRef.current) {
-        console.error("Response iteration error:", error);
-      }
-    }
-  }, []);
-
-  const handleResponse = async (response: RTResponse) => {
-    for await (const item of response) {
-      if (item.type === "message" && item.role === "assistant") {
-        const botMessage = createMessage({
-          role: item.role,
-          content: "",
-        });
-        // add bot message first
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat([botMessage]);
-        });
-        let hasAudio = false;
-        for await (const content of item) {
-          if (content.type === "text") {
-            for await (const text of content.textChunks()) {
-              botMessage.content += text;
-            }
-          } else if (content.type === "audio") {
-            const textTask = async () => {
-              for await (const text of content.transcriptChunks()) {
-                botMessage.content += text;
-              }
-            };
-            const audioTask = async () => {
-              audioHandlerRef.current?.startStreamingPlayback();
-              for await (const audio of content.audioChunks()) {
-                hasAudio = true;
-                audioHandlerRef.current?.playChunk(audio);
-              }
-            };
-            await Promise.all([textTask(), audioTask()]);
-          }
-          // update message.content
-          chatStore.updateTargetSession(session, (session) => {
-            session.messages = session.messages.concat();
-          });
-        }
-        if (hasAudio) {
-          // upload audio get audio_url
-          const blob = audioHandlerRef.current?.savePlayFile();
-          uploadImage(blob!).then((audio_url) => {
-            botMessage.audio_url = audio_url;
-            // update text and audio_url
-            chatStore.updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
-          });
-        }
-      }
-    }
-  };
-
   const handleInputAudio = useCallback(
     async (item: RTInputAudioItem) => {
       await item.waitForCompletion();
@@ -230,6 +160,79 @@ export function RealtimeChat({
     },
     [chatStore, session],
   );
+
+  const handleResponse = useCallback(
+    async (response: RTResponse) => {
+      for await (const item of response) {
+        if (item.type === "message" && item.role === "assistant") {
+          const botMessage = createMessage({
+            role: item.role,
+            content: "",
+          });
+          // add bot message first
+          chatStore.updateTargetSession(session, (session) => {
+            session.messages = session.messages.concat([botMessage]);
+          });
+          let hasAudio = false;
+          for await (const content of item) {
+            if (content.type === "text") {
+              for await (const text of content.textChunks()) {
+                botMessage.content += text;
+              }
+            } else if (content.type === "audio") {
+              const textTask = async () => {
+                for await (const text of content.transcriptChunks()) {
+                  botMessage.content += text;
+                }
+              };
+              const audioTask = async () => {
+                audioHandlerRef.current?.startStreamingPlayback();
+                for await (const audio of content.audioChunks()) {
+                  hasAudio = true;
+                  audioHandlerRef.current?.playChunk(audio);
+                }
+              };
+              await Promise.all([textTask(), audioTask()]);
+            }
+            // update message.content
+            chatStore.updateTargetSession(session, (session) => {
+              session.messages = session.messages.concat();
+            });
+          }
+          if (hasAudio) {
+            // upload audio get audio_url
+            const blob = audioHandlerRef.current?.savePlayFile();
+            uploadImage(blob!).then((audio_url) => {
+              botMessage.audio_url = audio_url;
+              // update text and audio_url
+              chatStore.updateTargetSession(session, (session) => {
+                session.messages = session.messages.concat();
+              });
+            });
+          }
+        }
+      }
+    },
+    [chatStore, session],
+  );
+
+  const startResponseListener = useCallback(async () => {
+    if (!clientRef.current) return;
+
+    try {
+      for await (const serverEvent of clientRef.current.events()) {
+        if (serverEvent.type === "response") {
+          await handleResponse(serverEvent);
+        } else if (serverEvent.type === "input_audio") {
+          await handleInputAudio(serverEvent);
+        }
+      }
+    } catch (error) {
+      if (clientRef.current) {
+        console.error("Response iteration error:", error);
+      }
+    }
+  }, [handleInputAudio, handleResponse]);
 
   const toggleRecording = useCallback(async () => {
     if (!isRecording && clientRef.current) {
