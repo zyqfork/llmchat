@@ -32,6 +32,37 @@ const cn = {
     ChatItemCount: (count: number) => `${count} 条对话`,
   },
   Chat: {
+    MultiModel: {
+      Title: "多模型对话设置",
+      Enabled: "多模型 (开启)",
+      Disabled: "多模型 (关闭)",
+      Count: (count: number) => `${count}个`,
+      Description:
+        "🎯 多模型对话竞技场模式已启用！点击模型选择器可选择多个模型进行对话。",
+      OpenSelector: "打开模型选择器",
+      AlreadySelected: (count: number) => `(${count} 个已选择)`,
+      Tips: "💡 提示：在多模型模式下，您可以同时选择多个模型，每个模型都会独立回复您的消息，方便对比不同模型的回答效果。",
+      EnableToast:
+        "🎯 多模型模式已开启！点击模型选择器可选择多个模型进行对话竞技场",
+      DisableToast: "多模型模式已关闭",
+      MinimumModelsError: "请至少选择2个模型才能启用多模型对话",
+      ModelsSelectedToast: (count: number) => `已选择 ${count} 个模型进行对话`,
+    },
+    UI: {
+      SidebarToggle: "折叠/展开侧边栏",
+      SearchModels: "搜索模型...",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `当前上下文: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `当前Token: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `当前Token: ${current.toLocaleString()} / 未知`,
+        EstimatedTokens: (estimated: number) =>
+          `预估Token: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `上下文: ${tokens} tokens`,
+      },
+    },
     SubTitle: (count: number) => `共 ${count} 条对话`,
     EditMessage: {
       Title: "编辑消息记录",
@@ -94,6 +125,8 @@ const cn = {
       EnableDesc: "开启后可使用 MCP 工具，关闭后不会发送任何 MCP 相关提示词",
       NoTools: "暂无可用的 MCP 工具",
       Loading: "加载中...",
+      ClientFailed: "MCP 客户端加载失败，静默处理",
+      ToolsCount: (count: number) => `${count} 个工具`,
     },
     Rename: "重命名对话",
     Typing: "正在输入…",
@@ -136,6 +169,17 @@ const cn = {
       VeryDeep: "极深思考",
       VeryDeepDesc: "16384 tokens",
       Notice: "仅支持 thinkingBudget 的模型可调节思维深度",
+      ClaudeNotice: "仅支持 Claude 系列模型可调节思维深度",
+      GeminiNotice: "仅支持 Gemini 系列模型可调节思维深度",
+      ClaudeLight: "轻度思考",
+      ClaudeLightDesc: "5000 tokens",
+      ClaudeMedium: "中度思考",
+      ClaudeMediumDesc: "10000 tokens",
+      ClaudeDeep: "深度思考",
+      ClaudeDeepDesc: "20000 tokens",
+      ClaudeVeryDeep: "极深思考",
+      ClaudeVeryDeepDesc: "32000 tokens",
+      ClaudeDynamicDesc: "自动调节思考深度（默认10000 tokens）",
     },
   },
   Export: {
@@ -190,6 +234,16 @@ const cn = {
     Title: "设置",
     SubTitle: "所有设置选项",
     ShowPassword: "显示密码",
+
+    Tab: {
+      General: "通用配置",
+      Sync: "云同步",
+      Mask: "助手",
+      Prompt: "提示词",
+      ModelService: "模型服务",
+      ModelConfig: "模型配置",
+      Voice: "语音",
+    },
 
     Danger: {
       Reset: {
@@ -354,6 +408,36 @@ const cn = {
       Provider: {
         Title: "模型服务商",
         SubTitle: "切换不同的服务商",
+        Name: {
+          ByteDance: "字节跳动",
+          Alibaba: "阿里云",
+          Moonshot: "月之暗面",
+        },
+        Status: {
+          Enabled: "已启用",
+        },
+        Models: {
+          Title: "启用的模型",
+          SubTitle: "当前服务商中已启用的模型列表",
+          NoModels: "暂无启用的模型",
+          Manage: "管理",
+        },
+        Description: {
+          OpenAI: "OpenAI GPT 系列模型",
+          Azure: "微软 Azure OpenAI 服务",
+          Google: "Google Gemini 系列模型",
+          Anthropic: "Anthropic Claude 系列模型",
+          ByteDance: "字节跳动豆包系列模型",
+          Alibaba: "阿里云通义千问系列模型",
+          Moonshot: "Moonshot Kimi 系列模型",
+          DeepSeek: "DeepSeek 系列模型",
+          XAI: "xAI Grok 系列模型",
+          SiliconFlow: "SiliconFlow 硅基流动",
+          Custom: "自定义",
+        },
+        Terms: {
+          Provider: "服务商",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -598,11 +682,16 @@ const cn = {
         },
         Config: {
           Type: "服务商类型",
+          BasedOn: "基于",
+          ApiKeyDescription: "自定义服务商的 API 密钥",
+          EndpointDescription: "自定义的 API 端点地址",
+          EndpointPlaceholder: "API 端点地址",
           Delete: {
             Title: "删除服务商",
             SubTitle: "删除此自定义服务商及其所有配置",
             Button: "删除",
-            Confirm: "确定要删除自定义服务商吗？",
+            Confirm: "确定要删除自定义服务商",
+            ConfirmSuffix: "吗？",
           },
         },
       },
@@ -747,6 +836,13 @@ const cn = {
 
   Mask: {
     Name: "助手",
+    DefaultName: "默认助手",
+    Management: "助手管理",
+    NewMask: "新建助手",
+    DefaultModel: "默认模型",
+    DefaultModelDesc: "新建对话时使用的默认模型",
+    UseGlobalModel: "使用全局默认模型",
+    ConversationCount: (count: number) => `${count} 个对话`,
     Page: {
       Title: "预设角色助手",
       SubTitle: (count: number) => `${count} 个预设角色定义`,

@@ -334,9 +334,12 @@ export function MaskConfig(props: {
         ) : (
           // 助手编辑：显示默认模型选择器
           <>
-            <ListItem title="默认模型" subTitle="新建对话时使用的默认模型">
+            <ListItem
+              title={Locale.Mask.DefaultModel}
+              subTitle={Locale.Mask.DefaultModelDesc}
+            >
               <Select
-                aria-label="默认模型"
+                aria-label={Locale.Mask.DefaultModel}
                 value={props.mask.defaultModel || ""}
                 onChange={(e) => {
                   const value = e.currentTarget.value;
@@ -360,7 +363,7 @@ export function MaskConfig(props: {
                   });
                 }}
               >
-                <option value="">使用全局默认模型</option>
+                <option value="">{Locale.Mask.UseGlobalModel}</option>
                 {Object.keys(groupModels).map((providerName, index) => (
                   <optgroup label={providerName} key={index}>
                     {groupModels[providerName].map((v, i) => (
@@ -729,9 +732,11 @@ export function MaskPage() {
                     <div className={clsx(styles["mask-info"], "one-line")}>
                       {`${Locale.Mask.Item.Info(m.context.length)} / ${
                         ALL_LANG_OPTIONS[m.lang]
-                      } / ${getMaskEffectiveModel(m)} / ${
-                        chatStore.getSessionsByMask(m.id).length
-                      } 个对话`}
+                      } / ${getMaskEffectiveModel(
+                        m,
+                      )} / ${Locale.Mask.ConversationCount(
+                        chatStore.getSessionsByMask(m.id).length,
+                      )}`}
                     </div>
                   </div>
                 </div>

@@ -186,8 +186,14 @@ const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
   return (
     <ChatAction
       onClick={onToggle}
-      text={`多模型${isEnabled ? " (开启)" : " (关闭)"}${
-        selectedCount > 0 ? ` ${selectedCount}个` : ""
+      text={`${
+        isEnabled
+          ? Locale.Chat.MultiModel.Enabled
+          : Locale.Chat.MultiModel.Disabled
+      }${
+        selectedCount > 0
+          ? ` ${Locale.Chat.MultiModel.Count(selectedCount)}`
+          : ""
       }`}
       icon={<ConnectionIcon />}
       dataAttribute="data-multi-model-button"
@@ -218,7 +224,7 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
         {
           value: -1,
           label: Locale.Chat.Thinking.Dynamic,
-          description: "自动调节思考深度（默认10000 tokens）",
+          description: Locale.Chat.Thinking.ClaudeDynamicDesc,
         },
         {
           value: 0,
@@ -227,23 +233,23 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
         },
         {
           value: 5000,
-          label: "轻度思考",
-          description: "5000 tokens",
+          label: Locale.Chat.Thinking.ClaudeLight,
+          description: Locale.Chat.Thinking.ClaudeLightDesc,
         },
         {
           value: 10000,
-          label: "中度思考",
-          description: "10000 tokens",
+          label: Locale.Chat.Thinking.ClaudeMedium,
+          description: Locale.Chat.Thinking.ClaudeMediumDesc,
         },
         {
           value: 20000,
-          label: "深度思考",
-          description: "20000 tokens",
+          label: Locale.Chat.Thinking.ClaudeDeep,
+          description: Locale.Chat.Thinking.ClaudeDeepDesc,
         },
         {
           value: 32000,
-          label: "极深思考",
-          description: "32000 tokens",
+          label: Locale.Chat.Thinking.ClaudeVeryDeep,
+          description: Locale.Chat.Thinking.ClaudeVeryDeepDesc,
         },
       ];
     } else {
@@ -327,8 +333,8 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
       <div className={styles["shortcut-panel-content"]}>
         <div className={styles["thinking-notice"]}>
           {modelCapabilities.thinkingType === "claude"
-            ? "仅支持 Claude 系列模型可调节思维深度"
-            : "仅支持 Gemini 系列模型可调节思维深度"}
+            ? Locale.Chat.Thinking.ClaudeNotice
+            : Locale.Chat.Thinking.GeminiNotice}
         </div>
         <div className={styles["shortcut-key-list"]}>
           {thinkingOptions.map((option, index) => (
@@ -475,7 +481,7 @@ function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
           ),
         );
       } catch (error) {
-        // MCP 客户端加载失败，静默处理
+        // Locale.Chat.MCP.ClientFailed
       } finally {
         setLoading(false);
       }
@@ -586,7 +592,7 @@ function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
                           {client.clientId}
                         </div>
                         <div className={styles["mcp-client-tools"]}>
-                          {toolCount} 个工具
+                          {Locale.Chat.MCP.ToolsCount(toolCount)}
                         </div>
                       </div>
                       <label className={styles["mcp-client-toggle"]}>
@@ -663,14 +669,16 @@ function MultiModelPanel(props: {
   return (
     <div ref={panelRef} className={styles["mcp-panel"]}>
       <div className={styles["mcp-panel-header"]}>
-        <span className={styles["mcp-panel-title"]}>多模型对话设置</span>
+        <span className={styles["mcp-panel-title"]}>
+          {Locale.Chat.MultiModel.Title}
+        </span>
         <button className={styles["mcp-panel-close"]} onClick={onClose}>
           <CloseIcon />
         </button>
       </div>
       <div className={styles["mcp-panel-content"]}>
         <div className={styles["multi-model-description"]}>
-          🎯 多模型对话竞技场模式已启用！点击模型选择器可选择多个模型进行对话。
+          {Locale.Chat.MultiModel.Description}
         </div>
 
         <button
@@ -678,12 +686,12 @@ function MultiModelPanel(props: {
           onClick={onOpenSelector}
         >
           <span className={styles["multi-model-select-icon"]}>🎯</span>
-          打开模型选择器 ({selectedModels.length} 个已选择)
+          {Locale.Chat.MultiModel.OpenSelector}{" "}
+          {Locale.Chat.MultiModel.AlreadySelected(selectedModels.length)}
         </button>
 
         <div className={styles["multi-model-tips"]}>
-          💡
-          提示：在多模型模式下，您可以同时选择多个模型，每个模型都会独立回复您的消息，方便对比不同模型的回答效果。
+          {Locale.Chat.MultiModel.Tips}
         </div>
       </div>
     </div>
@@ -999,11 +1007,13 @@ export function TokenCounter(props: {
 
   // 构建详细的tooltip内容
   const tooltipLines = [
-    `当前上下文: ${currentContextCount} / ${maxContextCount}`,
+    Locale.Chat.UI.ContextTooltip.Current(currentContextCount, maxContextCount),
     maxTokens
-      ? `当前Token: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
-      : `当前Token: ${usedTokens.toLocaleString()} / 未知`,
-    inputTokens > 0 ? `预估Token: ${estimatedTokens.toLocaleString()}` : null,
+      ? Locale.Chat.UI.ContextTooltip.CurrentTokens(usedTokens, maxTokens)
+      : Locale.Chat.UI.ContextTooltip.CurrentTokensUnknown(usedTokens),
+    inputTokens > 0
+      ? Locale.Chat.UI.ContextTooltip.EstimatedTokens(estimatedTokens)
+      : null,
   ].filter(Boolean);
 
   const tooltipText = tooltipLines.join("\n");
@@ -1209,7 +1219,7 @@ export function ChatActions(props: {
           </div>
         ),
         subTitle: contextTokensDisplay
-          ? `上下文: ${contextTokensDisplay} tokens`
+          ? Locale.Chat.UI.ContextTooltip.ContextTokens(contextTokensDisplay)
           : undefined,
         searchText: model.displayName,
         value: `${model.name}@${providerId}`,
@@ -1580,7 +1590,7 @@ export function ChatActions(props: {
             <ModelSelectorModal
               defaultSelectedValue={`${currentModel}@${currentProviderName}`}
               groups={modelGroups}
-              searchPlaceholder="搜索模型..."
+              searchPlaceholder={Locale.Chat.UI.SearchModels}
               onClose={() => props.setShowModelSelector(false)}
               onSelection={(selectedValue) => {
                 const [model, providerId] = getModelProvider(selectedValue);
@@ -1629,12 +1639,12 @@ export function ChatActions(props: {
               defaultSelectedValues={
                 session.multiModelMode?.selectedModels || []
               }
-              searchPlaceholder="搜索模型..."
+              searchPlaceholder={Locale.Chat.UI.SearchModels}
               onClose={() => props.setShowModelSelector(false)}
               onSelection={(selectedValues) => {
                 // 确保至少选择了两个模型
                 if (selectedValues.length < 2) {
-                  showToast("请至少选择2个模型才能启用多模型对话");
+                  showToast(Locale.Chat.MultiModel.MinimumModelsError);
                   return;
                 }
 
@@ -1691,7 +1701,11 @@ export function ChatActions(props: {
                   });
                 });
 
-                showToast(`已选择 ${selectedValues.length} 个模型进行对话`);
+                showToast(
+                  Locale.Chat.MultiModel.ModelsSelectedToast(
+                    selectedValues.length,
+                  ),
+                );
               }}
             />
           )}
@@ -2568,11 +2582,9 @@ function _Chat() {
 
     // 显示提示消息
     if (session.multiModelMode?.enabled) {
-      showToast(
-        "🎯 多模型模式已开启！点击模型选择器可选择多个模型进行对话竞技场",
-      );
+      showToast(Locale.Chat.MultiModel.EnableToast);
     } else {
-      showToast("多模型模式已关闭");
+      showToast(Locale.Chat.MultiModel.DisableToast);
     }
   };
 
@@ -2682,7 +2694,7 @@ function _Chat() {
                 <IconButton
                   icon={<MenuIcon />}
                   bordered
-                  title="折叠/展开侧边栏"
+                  title={Locale.Chat.UI.SidebarToggle}
                   onClick={toggleSideBarCollapse}
                 />
               </div>
