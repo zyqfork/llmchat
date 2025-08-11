@@ -1,4 +1,4 @@
-# QADChat
+# QADChat v2.17.5
 
 **QADChat 为基于项目 [NextChat](https://github.com/ChatGPTNextWeb/NextChat) 的改造版本, 由 v2.16.0 版本 clone 后进行二次开发**
 
@@ -22,8 +22,7 @@
 2. cd qadchat
 3. docker-compose up -d
 
-#### Vercel 一键部署
-
+#### Vercel 一键部署(推荐)
 
 点击[https://vercel.com/new/clone?repository-url=https://github.com/MoonWeSif/qadchat](https://vercel.com/new/clone?repository-url=https://github.com/MoonWeSif/qadchat)
 
@@ -119,6 +118,7 @@
 - [x] 自部署支持、文档完善 ✅ **已完成**
 - [x] 环境变量支持 ✅ **已完成**
 - [x] 模型/对话上下文统计 ✅ **已完成**
+- [ ] OpenAI Response 接口支持
 
 ### Support
 
