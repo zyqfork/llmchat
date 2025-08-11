@@ -999,14 +999,32 @@ export function TokenCounter(props: {
 
   // 构建详细的tooltip内容
   const tooltipLines = [
-    `当前上下文: ${currentContextCount} / ${maxContextCount}`,
+    `${Locale.Chat.TokenTooltip.Context}: ${currentContextCount} / ${maxContextCount}`,
     maxTokens
-      ? `当前Token: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
-      : `当前Token: ${usedTokens.toLocaleString()} / 未知`,
-    inputTokens > 0 ? `预估Token: ${estimatedTokens.toLocaleString()}` : null,
+      ? `${
+          Locale.Chat.TokenTooltip.CurrentToken
+        }: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
+      : `${
+          Locale.Chat.TokenTooltip.CurrentToken
+        }: ${usedTokens.toLocaleString()} / ${
+          Locale.Chat.TokenTooltip.Unknown
+        }`,
+    inputTokens > 0
+      ? `${
+          Locale.Chat.TokenTooltip.EstimatedToken
+        }: ${estimatedTokens.toLocaleString()}`
+      : null,
   ].filter(Boolean);
 
   const tooltipText = tooltipLines.join("\n");
+
+  // 計算進度條數據
+  const progressPercentage = maxTokens ? (usedTokens / maxTokens) * 100 : 0;
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 90) return "#ef4444"; // 紅色 - 危險
+    if (percentage >= 70) return "#f59e0b"; // 黃色 - 警告
+    return "#22c55e"; // 綠色 - 安全
+  };
 
   return (
     <div className={styles["chat-action-wrapper"]}>
@@ -1024,6 +1042,24 @@ export function TokenCounter(props: {
           {tooltipLines.map((line, index) => (
             <div key={index}>{line}</div>
           ))}
+          {maxTokens && (
+            <div className={styles["token-progress-container"]}>
+              <div className={styles["token-progress-info"]}>
+                <span>
+                  {Locale.Chat.TokenUsage}: {progressPercentage.toFixed(1)}%
+                </span>
+              </div>
+              <div className={styles["token-progress-bar"]}>
+                <div
+                  className={styles["token-progress-fill"]}
+                  style={{
+                    width: `${Math.min(progressPercentage, 100)}%`,
+                    backgroundColor: getProgressColor(progressPercentage),
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -100,6 +100,13 @@ const tw = {
       return inputHints;
     },
     Send: "傳送",
+    TokenUsage: "使用率",
+    TokenTooltip: {
+      Context: "目前上下文",
+      CurrentToken: "目前Token",
+      EstimatedToken: "預估Token",
+      Unknown: "未知",
+    },
     Config: {
       Reset: "重設",
       SaveAs: "另存新檔",

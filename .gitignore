@@ -51,6 +51,6 @@ masks.json
 app/mcp/mcp_config.json
 
 .kiro
-
 dev_docs
 qdrant*
+.claude
