@@ -196,7 +196,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
   // 处理关闭事件，清理临时缓存
   const handleClose = useCallback(() => {
-    console.log(`[ModelManager] 关闭模型管理器，清理 ${provider} 的临时缓存`);
     // 注意：这里不清理缓存，因为其他组件可能还在使用
     // 缓存会在下次打开模型管理器时自动刷新
     onClose();
@@ -310,15 +309,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const store = useAccessStore.getState();
     store.setModelsFetchStatus(provider, "loading");
 
-    console.log(`[ModelManager] 开始获取 ${provider} 的最新模型列表`);
-
     try {
       const result = await ModelFetcher.fetchModels(provider);
 
       if (result.success) {
-        console.log(
-          `[ModelManager] 成功获取 ${provider} 的 ${result.models.length} 个模型`,
-        );
         setApiModels(result.models);
         // 更新临时缓存，供其他组件使用
         store.setApiModelsCache(provider, result.models);
@@ -328,7 +322,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         throw new Error(result.error || "获取模型失败");
       }
     } catch (error) {
-      console.error("[ModelManager] 获取API模型失败:", error);
       store.setModelsFetchStatus(provider, "error");
 
       const errorMessage =
@@ -374,9 +367,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
     if (shouldFetchFromAPI) {
       // 每次打开都重新获取最新模型，不依赖缓存
-      console.log(
-        `[ModelManager] 打开模型管理界面，重新获取 ${provider} 的最新模型列表`,
-      );
       fetchModelsFromAPI();
     } else {
       // 如果关闭了API获取，清空API模型

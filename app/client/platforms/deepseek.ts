@@ -1,6 +1,12 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
-import { ApiPath, DEEPSEEK_BASE_URL, DeepSeek } from "@/app/constant";
+import {
+  ApiPath,
+  DEEPSEEK_BASE_URL,
+  DeepSeek,
+  DEFAULT_MODELS,
+} from "@/app/constant";
+import { OpenAIListModelResponse } from "./openai";
 import {
   useAccessStore,
   useAppConfig,
@@ -255,6 +261,35 @@ export class DeepSeekApi implements LLMApi {
   }
 
   async models(): Promise<LLMModel[]> {
-    return [];
+    try {
+      const res = await fetch(this.path(DeepSeek.ListModelPath), {
+        method: "GET",
+        headers: {
+          ...getHeaders(),
+        },
+      });
+
+      const resJson = (await res.json()) as OpenAIListModelResponse;
+      const chatModels = resJson.data;
+
+      if (!chatModels) {
+        return [];
+      }
+      return chatModels.map((m) => ({
+        name: m.id,
+        available: true,
+        provider: {
+          id: "deepseek",
+          providerName: "DeepSeek",
+          providerType: "deepseek",
+          sorted: 9,
+        },
+      }));
+    } catch (e) {
+      console.error("[DeepSeek] failed to list models", e);
+      return DEFAULT_MODELS.filter(
+        (m) => m.provider.providerName === "DeepSeek",
+      );
+    }
   }
 }

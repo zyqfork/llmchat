@@ -850,7 +850,6 @@ export const useChatStore = createPersistStore(
         // 如果兩者都沒有，systemPrompts 保持為空數組
 
         if (shouldInjectSystemPrompts || mcpSystemPrompt) {
-          // 只在开发环境输出系统提示词日志，避免生产环境控制台污染
           if (process.env.NODE_ENV === "development") {
             console.log(
               "[Global System Prompt] ",

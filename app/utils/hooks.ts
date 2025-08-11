@@ -67,17 +67,10 @@ export function useEnabledModels() {
   const configStore = useAppConfig();
 
   const enabledModels = useMemo(() => {
-    console.log("[useEnabledModels] 开始计算启用的模型");
-
     const enabledProviders = accessStore.enabledProviders || {};
     const enabledModelsConfig = accessStore.enabledModels || {};
     const customProviders = accessStore.customProviders || [];
     const apiModelsCache = accessStore.apiModelsCache || {};
-
-    console.log("[useEnabledModels] 启用的服务商:", enabledProviders);
-    console.log("[useEnabledModels] 启用的模型配置:", enabledModelsConfig);
-    console.log("[useEnabledModels] 自定义服务商:", customProviders);
-    console.log("[useEnabledModels] API模型缓存:", apiModelsCache);
 
     const result: LLMModel[] = [];
 
@@ -94,11 +87,6 @@ export function useEnabledModels() {
 
       const providerEnabledModels = enabledModelsConfig[providerName] || [];
       if (providerEnabledModels.length === 0) return;
-
-      console.log(
-        `[useEnabledModels] 处理内置服务商 ${providerName}, 启用模型:`,
-        providerEnabledModels,
-      );
 
       // 从基础模型中找到该服务商的模型
       const providerModels = allBaseModels.filter(
@@ -121,12 +109,6 @@ export function useEnabledModels() {
       // 添加从API获取的模型（如果有的话）
       const apiModels = apiModelsCache[providerName] || [];
       if (apiModels.length > 0) {
-        console.log(
-          `[useEnabledModels] 发现 ${providerName} 的API模型缓存:`,
-          apiModels.length,
-          "个模型",
-        );
-
         apiModels.forEach((apiModel) => {
           if (providerEnabledModels.includes(apiModel.name)) {
             // 检查是否已经存在（避免重复）
@@ -146,14 +128,6 @@ export function useEnabledModels() {
           }
         });
       }
-
-      console.log(
-        `[useEnabledModels] 添加了 ${
-          providerModels.length
-        } 个内置 ${providerName} 模型和 ${
-          apiModels.filter((m) => providerEnabledModels.includes(m.name)).length
-        } 个API ${providerName} 模型`,
-      );
     });
 
     // 处理自定义服务商
@@ -162,11 +136,6 @@ export function useEnabledModels() {
 
       const providerEnabledModels = enabledModelsConfig[provider.id] || [];
       if (providerEnabledModels.length === 0) return;
-
-      console.log(
-        `[useEnabledModels] 处理自定义服务商 ${provider.name} (${provider.id}), 启用模型:`,
-        providerEnabledModels,
-      );
 
       // 根据自定义服务商类型获取基础模型
       const baseModelsForType = getBaseModelsForProviderType(provider.type);
@@ -213,18 +182,7 @@ export function useEnabledModels() {
           }
         }
       });
-
-      console.log(
-        `[useEnabledModels] 添加了自定义服务商 ${provider.name} 的内置模型和API模型`,
-      );
     });
-
-    console.log(
-      `[useEnabledModels] 总共返回 ${result.length} 个启用的模型:`,
-      result.map(
-        (m) => `${m.name}@${m.provider?.id || m.provider?.providerName}`,
-      ),
-    );
 
     return result;
   }, [

@@ -1169,8 +1169,6 @@ export function ChatActions(props: {
   // 使用新的高效hook直接获取启用的模型
   const enabledModels = useEnabledModels();
   const models = useMemo(() => {
-    console.log("[Chat] 获取到的启用模型:", enabledModels.length, "个");
-
     const defaultModel = enabledModels.find((m) => m.isDefault);
 
     if (defaultModel) {
@@ -1178,20 +1176,8 @@ export function ChatActions(props: {
         defaultModel,
         ...enabledModels.filter((m) => m !== defaultModel),
       ];
-      console.log(
-        "[Chat] 排序后的模型列表:",
-        arr.map(
-          (m) => `${m.name}@${m.provider?.id || m.provider?.providerName}`,
-        ),
-      );
       return arr;
     } else {
-      console.log(
-        "[Chat] 没有默认模型，返回所有启用模型:",
-        enabledModels.map(
-          (m) => `${m.name}@${m.provider?.id || m.provider?.providerName}`,
-        ),
-      );
       return enabledModels;
     }
   }, [enabledModels]);
@@ -2154,7 +2140,6 @@ function _Chat() {
     }
 
     if (userMessage === undefined) {
-      console.error("[Chat] failed to resend", message);
       return;
     }
 
@@ -2167,7 +2152,6 @@ function _Chat() {
           setIsLoading(false);
         })
         .catch((error) => {
-          console.error("[Chat] Retry failed", error);
           setIsLoading(false);
         });
       inputRef.current?.focus();

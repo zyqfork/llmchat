@@ -80,22 +80,14 @@ export interface DalleRequestPayload {
 }
 
 export class ChatGPTApi implements LLMApi {
-  private disableListModels = true;
+  private disableListModels = false;
 
   path(path: string): string {
-    console.log("[OpenAI.path] 🔍 Called with path:", path);
-
     const accessStore = useAccessStore.getState();
 
     let baseUrl = "";
 
     const isAzure = path.includes("deployments");
-    console.log(
-      "[OpenAI.path] 🔍 isAzure:",
-      isAzure,
-      "useCustomConfig:",
-      accessStore.useCustomConfig,
-    );
 
     if (accessStore.useCustomConfig) {
       if (isAzure && !accessStore.isValidAzure()) {
@@ -105,19 +97,12 @@ export class ChatGPTApi implements LLMApi {
       }
 
       baseUrl = isAzure ? accessStore.azureUrl : accessStore.openaiUrl;
-      console.log("[OpenAI.path] 🔧 Using custom config baseUrl:", baseUrl);
     }
 
     if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
       const apiPath = isAzure ? ApiPath.Azure : ApiPath.OpenAI;
       baseUrl = isApp ? OPENAI_BASE_URL : apiPath;
-      console.log(
-        "[OpenAI.path] 🔧 Using default baseUrl:",
-        baseUrl,
-        "isApp:",
-        isApp,
-      );
     }
 
     if (baseUrl.endsWith("/")) {
@@ -132,7 +117,6 @@ export class ChatGPTApi implements LLMApi {
     }
 
     const finalUrl = cloudflareAIGatewayUrl([baseUrl, path].join("/"));
-    console.log("[OpenAI.path] 🎯 Final URL:", finalUrl);
 
     return finalUrl;
   }
@@ -194,8 +178,6 @@ export class ChatGPTApi implements LLMApi {
       speed: options.speed,
     };
 
-    console.log("[Request] openai speech payload: ", requestPayload);
-
     const controller = new AbortController();
     options.onController?.(controller);
 
@@ -222,7 +204,6 @@ export class ChatGPTApi implements LLMApi {
       clearTimeout(requestTimeoutId);
       return await res.arrayBuffer();
     } catch (e) {
-      console.log("[Request] failed to make a speech request", e);
       throw e;
     }
   }
@@ -301,8 +282,6 @@ export class ChatGPTApi implements LLMApi {
       }
     }
 
-    console.log("[Request] openai payload: ", requestPayload);
-
     const shouldStream = !isDalle3 && !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);
@@ -346,7 +325,6 @@ export class ChatGPTApi implements LLMApi {
         const modelCapabilities = getModelCapabilitiesWithCustomConfig(
           options.config.model,
         );
-        // console.log("getAsTools", tools, funcs);
         streamWithThink(
           chatPath,
           requestPayload,
@@ -359,7 +337,6 @@ export class ChatGPTApi implements LLMApi {
           controller,
           // parseSSE
           (text: string, runTools: ChatMessageTool[]) => {
-            // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
@@ -467,7 +444,6 @@ export class ChatGPTApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }
@@ -485,10 +461,7 @@ export class ChatGPTApi implements LLMApi {
     });
 
     const resJson = (await res.json()) as OpenAIListModelResponse;
-    const chatModels = resJson.data?.filter(
-      (m) => m.id.startsWith("gpt-") || m.id.startsWith("chatgpt-"),
-    );
-    console.log("[Models]", chatModels);
+    const chatModels = resJson.data;
 
     if (!chatModels) {
       return [];

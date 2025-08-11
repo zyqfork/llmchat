@@ -1,4 +1,5 @@
-import { Anthropic, ApiPath } from "@/app/constant";
+import { Anthropic, ApiPath, DEFAULT_MODELS, OpenaiPath } from "@/app/constant";
+import { OpenAIListModelResponse } from "./openai";
 import { ChatOptions, getHeaders, LLMApi, SpeechOptions } from "../api";
 import {
   useAccessStore,
@@ -394,44 +395,36 @@ export class ClaudeApi implements LLMApi {
     };
   }
   async models() {
-    // const provider = {
-    //   id: "anthropic",
-    //   providerName: "Anthropic",
-    //   providerType: "anthropic",
-    // };
+    try {
+      const res = await fetch(this.path(OpenaiPath.ListModelPath), {
+        method: "GET",
+        headers: {
+          ...getHeaders(),
+        },
+      });
 
-    return [
-      // {
-      //   name: "claude-instant-1.2",
-      //   available: true,
-      //   provider,
-      // },
-      // {
-      //   name: "claude-2.0",
-      //   available: true,
-      //   provider,
-      // },
-      // {
-      //   name: "claude-2.1",
-      //   available: true,
-      //   provider,
-      // },
-      // {
-      //   name: "claude-3-opus-20240229",
-      //   available: true,
-      //   provider,
-      // },
-      // {
-      //   name: "claude-3-sonnet-20240229",
-      //   available: true,
-      //   provider,
-      // },
-      // {
-      //   name: "claude-3-haiku-20240307",
-      //   available: true,
-      //   provider,
-      // },
-    ];
+      const resJson = (await res.json()) as OpenAIListModelResponse;
+      const chatModels = resJson.data;
+
+      if (!chatModels) {
+        return [];
+      }
+      return chatModels.map((m) => ({
+        name: m.id,
+        available: true,
+        provider: {
+          id: "anthropic",
+          providerName: "Anthropic",
+          providerType: "anthropic",
+          sorted: 4,
+        },
+      }));
+    } catch (e) {
+      console.error("[Anthropic] failed to list models", e);
+      return DEFAULT_MODELS.filter(
+        (m) => m.provider.providerName === "Anthropic",
+      );
+    }
   }
   path(path: string): string {
     const accessStore = useAccessStore.getState();
