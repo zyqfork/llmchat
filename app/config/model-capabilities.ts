@@ -91,6 +91,10 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "o3-mini-high": { vision: true, web: true, reasoning: true, tools: true },
   "o4-mini": { vision: true, web: true, reasoning: true, tools: true },
 
+  // OSS 模型系列
+  "gpt-oss-120b": { vision: false, web: false, reasoning: true, tools: true },
+  "gpt-oss-20b": { vision: false, web: false, reasoning: true, tools: true },
+
   // GPT-3.5 系列
   "gpt-3.5-turbo": { vision: false, web: false, reasoning: false, tools: true },
   "gpt-3.5-turbo-0125": {

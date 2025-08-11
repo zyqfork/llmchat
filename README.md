@@ -4,6 +4,10 @@
 
 **包含部分 UI 重构，使用逻辑重构，无用模块移除、全新功能模块**
 
+## 补充说明
+
+由于原Github账号不明原因被封禁，故使用新仓库进行存储，本仓库为 QADChat 新的官方仓库，谢谢🙏
+
 ## 开始使用
 
 ### 部署说明
@@ -14,17 +18,20 @@
 
 #### Docker 部署(推荐)
 
-1. git clone https://github.com/Syferie/qadchat.git
+1. git clone https://github.com/MoonWeSif/qadchat.git
 2. cd qadchat
 3. docker-compose up -d
 
 #### Vercel 一键部署
 
-点击[https://vercel.com/new/clone?repository-url=https://github.com/Syferie/qadchat](https://vercel.com/new/clone?repository-url=https://github.com/Syferie/qadchat)
+
+点击[https://vercel.com/new/clone?repository-url=https://github.com/MoonWeSif/qadchat](https://vercel.com/new/clone?repository-url=https://github.com/MoonWeSif/qadchat)
 
 ### Demo站点
 
 点击[https://qaduck.com](https://qaduck.com)
+
+## QADChat 版本特点
 
 ### 架构重构
 
@@ -115,7 +122,7 @@
 
 ### Support
 
-请通过 [Issue](https://github.com/Syferie/qadchat/issues) 来获取支持
+请通过 [Issue](https://github.com/MoonWeSif/qadchat/issues) 来获取支持
 
 ## 致谢
 

@@ -96,7 +96,6 @@ export const MODEL_CONTEXT_TOKENS: Record<string, ModelContextConfig> = {
     maxOutputTokens: 100000,
     description: "Advanced reasoning",
   },
-
   // 嵌入模型
   "text-embedding-3-large": {
     contextTokens: 8191,
@@ -129,6 +128,18 @@ export const MODEL_CONTEXT_TOKENS: Record<string, ModelContextConfig> = {
     contextTokens: 4000,
     maxOutputTokens: 0,
     description: "Image generation",
+  },
+
+  // OSS 模型系列
+  "gpt-oss-120b": {
+    contextTokens: 131072,
+    maxOutputTokens: 131072,
+    description: "OSS 120B model with reasoning and tool use capabilities",
+  },
+  "gpt-oss-20b": {
+    contextTokens: 131072,
+    maxOutputTokens: 131072,
+    description: "OSS 20B model with reasoning and tool use capabilities",
   },
 
   // Google Gemini 模型

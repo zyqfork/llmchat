@@ -1,6 +1,6 @@
 import { getModelContextTokens } from "./config/model-context-tokens";
 
-export const OWNER = "syferie";
+export const OWNER = "MoonWeSif";
 export const REPO = "qadchat";
 export const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
 
@@ -387,6 +387,8 @@ export const KnowledgeCutOffDate: Record<string, string> = {
   o1: "2023-10",
   "o3-mini-2025-01-31": "2023-10",
   "o3-mini": "2023-10",
+  "gpt-oss-120b": "2023-10",
+  "gpt-oss-20b": "2023-10",
   // After improvements,
   // it's now easier to add "KnowledgeCutOffDate" instead of stupid hardcoding it, as was done previously.
   "gemini-pro": "2023-12",
@@ -477,6 +479,9 @@ const openaiModels = [
   "o3-mini",
   "o3-mini-high",
   "o4-mini",
+  // OSS 模型系列
+  "gpt-oss-120b",
+  "gpt-oss-20b",
   // 嵌入模型
   "text-embedding-3-large",
   "text-embedding-3-small",
@@ -788,6 +793,6 @@ export const internalAllowedWebDavEndpoints = [
 
 export const DEFAULT_GA_ID = "G-89WN60ZK2E";
 
-export const SAAS_CHAT_URL = "https://github.com/syferie/qadchat";
+export const SAAS_CHAT_URL = "https://github.com/MoonWeSif/qadchat";
 export const SAAS_CHAT_UTM_URL =
-  "https://github.com/syferie/qadchat?utm_source=github";
+  "https://github.com/MoonWeSif/qadchat?utm_source=github";
