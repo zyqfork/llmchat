@@ -1193,8 +1193,6 @@ export function ChatActions(props: {
 
   // 准备分组模型数据 - 简化版本，因为models已经是启用的模型
   const modelGroups = useMemo(() => {
-    console.log("[Chat] 开始分组模型，总数:", models.length);
-
     // 按提供商分组
     const groupedModels: Record<string, any[]> = {};
 
@@ -1203,7 +1201,6 @@ export function ChatActions(props: {
       const providerName = model.provider?.providerName;
 
       if (!providerId || !providerName) {
-        console.log("[Chat] 跳过无效模型:", model.name);
         return;
       }
 
@@ -1245,10 +1242,6 @@ export function ChatActions(props: {
         value: `${model.name}@${providerId}`,
         icon: <Avatar model={model.name} />,
       });
-
-      console.log(
-        `[Chat] 添加模型到分组 ${displayName}: ${model.name}@${providerId}`,
-      );
     });
 
     const result = Object.entries(groupedModels).map(
@@ -1256,11 +1249,6 @@ export function ChatActions(props: {
         groupName: providerName,
         items: models,
       }),
-    );
-
-    console.log(
-      "[Chat] 分组结果:",
-      result.map((g) => `${g.groupName}: ${g.items.length}个模型`),
     );
 
     return result;
@@ -2114,7 +2102,6 @@ function _Chat() {
     );
 
     if (resendingIndex < 0 || resendingIndex >= session.messages.length) {
-      console.error("[Chat] failed to find resending message", message);
       return;
     }
 

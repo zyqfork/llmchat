@@ -647,8 +647,6 @@ export const useChatStore = createPersistStore(
               session.id,
               botMessage.id ?? messageIndex,
             );
-
-            console.error("[Chat] failed ", error);
           },
           onController(controller) {
             // collect controller for stop/retry

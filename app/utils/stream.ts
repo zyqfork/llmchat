@@ -99,7 +99,6 @@ export function fetch(url: string, options?: RequestInit): Promise<Response> {
         return response;
       })
       .catch((e) => {
-        console.error("stream error", e);
         // throw e;
         return new Response("", { status: 599 });
       });

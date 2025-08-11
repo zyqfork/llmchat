@@ -195,7 +195,6 @@ export function Mermaid(props: { code: string }) {
         })
         .catch((e) => {
           setHasError(true);
-          console.error("[Mermaid] ", e.message);
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,17 +433,11 @@ function formatThinkText(
   text = text.trimStart();
   // 检查是否以 <think> 开头但没有结束标签
   if (text.startsWith("<think>") && !text.includes("</think>")) {
-    console.log(
-      "[formatThinkText] 🔄 Processing incomplete think tag (thinking in progress)",
-    );
     // 获取 <think> 后的所有内容
     const thinkContent = text.slice("<think>".length);
     // 渲染为"思考中"状态
     const thinkText = `<thinkcollapse title="${Locale.NewChat.Thinking}">\n${thinkContent}\n\n</thinkcollapse>\n`;
     const remainText = ""; // 剩余文本为空
-    console.log(
-      "[formatThinkText] ✅ Generated thinking collapse for incomplete tag",
-    );
     return { thinkText, remainText };
   }
 
@@ -457,10 +450,6 @@ function formatThinkText(
     if (thinkContent.trim() === "") {
       thinkText = `<thinkcollapse title="${Locale.NewChat.NoThink}">\n\n</thinkcollapse>\n`;
     } else {
-      console.log(
-        "[formatThinkText] 📝 Think content length:",
-        thinkContent.length,
-      );
       thinkText = `<thinkcollapse title="${
         Locale.NewChat.Think
       }${Locale.NewChat.ThinkFormat(
@@ -468,10 +457,6 @@ function formatThinkText(
       )}">\n${thinkContent}\n\n</thinkcollapse>\n`;
     }
     const remainText = text.substring(match[0].length); // 提取剩余文本
-    console.log(
-      "[formatThinkText] ✅ Generated think collapse, remaining text length:",
-      remainText.length,
-    );
     return { thinkText, remainText };
   }
 
