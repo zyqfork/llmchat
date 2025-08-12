@@ -52,6 +52,7 @@ const tw = {
     UI: {
       SidebarToggle: "折疊/展開側邊欄",
       SearchModels: "搜尋模型...",
+      SelectModel: "選擇模型",
       ContextTooltip: {
         Current: (current: number, max: number) =>
           `目前上下文: ${current} / ${max}`,

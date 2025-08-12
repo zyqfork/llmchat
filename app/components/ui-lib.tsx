@@ -617,7 +617,9 @@ export function ModelSelectorModal<T>(props: {
       >
         {/* 头部 */}
         <div className={styles["model-selector-header"]}>
-          <h3 className={styles["model-selector-title"]}>选择模型</h3>
+          <h3 className={styles["model-selector-title"]}>
+            {Locale.Chat.UI.SelectModel}
+          </h3>
           <button
             className={`${styles["model-selector-close"]} no-dark`}
             onClick={props.onClose}

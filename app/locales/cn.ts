@@ -51,6 +51,7 @@ const cn = {
     UI: {
       SidebarToggle: "折叠/展开侧边栏",
       SearchModels: "搜索模型...",
+      SelectModel: "选择模型",
       ContextTooltip: {
         Current: (current: number, max: number) =>
           `当前上下文: ${current} / ${max}`,
