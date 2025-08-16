@@ -1152,6 +1152,8 @@ export const useChatStore = createPersistStore(
           currentMessage.content = "";
           currentMessage.streaming = true;
           currentMessage.date = new Date().toLocaleString();
+          // 更新消息的模型字段为当前会话的模型配置
+          currentMessage.model = session.mask.modelConfig.model;
           // 设置当前版本索引为即将生成的新版本
           currentMessage.currentVersionIndex = currentMessage.versions.length;
         });

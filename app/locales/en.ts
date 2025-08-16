@@ -54,6 +54,7 @@ const en: LocaleType = {
     UI: {
       SidebarToggle: "Toggle Sidebar",
       SearchModels: "Search models...",
+      SelectModel: "Select Model",
       ContextTooltip: {
         Current: (current: number, max: number) =>
           `Current context: ${current} / ${max}`,
