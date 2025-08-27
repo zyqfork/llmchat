@@ -213,6 +213,12 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     tools: true,
     thinkingType: "gemini",
   },
+  "gemini-2.5-flash-image-preview": {
+    vision: true,
+    web: false,
+    reasoning: false,
+    tools: false,
+  },
 
   // Gemini 2.0 系列
   "gemini-2.0-flash": {
@@ -835,7 +841,8 @@ export function getEnhancedModelCapabilities(
   if (
     /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5/i.test(
       modelName,
-    )
+    ) &&
+    !/image/i.test(modelName) // 排除包含 "image" 的模型
   ) {
     capabilities.reasoning = true;
 

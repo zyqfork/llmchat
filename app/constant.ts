@@ -513,6 +513,7 @@ const googleModels = [
   "gemini-2.5-flash-preview-05-20",
   "gemini-2.5-flash-preview-05-20-nothink",
   "gemini-2.5-flash",
+  "gemini-2.5-flash-image-preview",
   // Gemini 2.0 系列
   "gemini-2.0-flash",
   "gemini-2.0-flash-001",

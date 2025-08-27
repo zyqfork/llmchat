@@ -470,14 +470,35 @@ function _MarkDownContent(props: {
   fontSize?: number;
   status?: boolean;
 }) {
-  const escapedContent = useMemo(() => {
+  // 预处理base64图片，将长base64 URL替换为占位符
+  const { processedContent, imageMap } = useMemo(() => {
     const originalContent = tryWrapHtmlCode(escapeBrackets(props.content));
     const { thinkText, remainText } = formatThinkText(
       originalContent,
       props.thinkingTime,
     );
-    const content = thinkText + remainText;
-    return content;
+    let content = thinkText + remainText;
+
+    const imageMap = new Map<string, string>();
+    let imageCounter = 0;
+
+    // 匹配 ![alt](data:image/...;base64,...) 格式的长base64图片
+    content = content.replace(
+      /!\[([^\]]*)\]\(data:image\/([^;]+);base64,([A-Za-z0-9+/=]+)\)/g,
+      (match, alt, format, base64Data) => {
+        // 只处理长度超过1000字符的base64数据
+        if (base64Data.length > 1000) {
+          imageCounter++;
+          const placeholder = `BASE64_IMAGE_${imageCounter}`;
+          const fullDataUrl = `data:image/${format};base64,${base64Data}`;
+          imageMap.set(placeholder, fullDataUrl);
+          return `![${alt || "image"}](${placeholder})`;
+        }
+        return match; // 短的base64保持原样
+      },
+    );
+
+    return { processedContent: content, imageMap };
   }, [props.content, props.thinkingTime]);
 
   return (
@@ -500,6 +521,34 @@ function _MarkDownContent(props: {
           pre: PreCode,
           code: CustomCode,
           p: (pProps: any) => <p {...pProps} dir="auto" />,
+          img: (imgProps: any) => {
+            const { src, alt, ...otherProps } = imgProps;
+
+            // 检查是否是我们的占位符
+            let actualSrc = src;
+            if (src && imageMap.has(src)) {
+              actualSrc = imageMap.get(src);
+            }
+
+            // 处理base64图片或普通图片URL
+            if (actualSrc) {
+              return (
+                <img
+                  {...otherProps}
+                  src={actualSrc}
+                  alt={alt || "image"}
+                  style={{
+                    maxWidth: "100%",
+                    height: "auto",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => showImageModal(actualSrc)}
+                />
+              );
+            }
+            return <span>{alt || "[Image]"}</span>;
+          },
           thinkcollapse: ({
             title,
             children,
@@ -534,7 +583,7 @@ function _MarkDownContent(props: {
         } as any
       }
     >
-      {escapedContent}
+      {processedContent}
     </ReactMarkdown>
   );
 }

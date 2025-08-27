@@ -50,28 +50,53 @@ export class GoogleGenAIApi implements LLMApi {
 
     const messages = options.messages
       .filter((v) => v.role === "user" || v.role === "assistant") // 只保留有效角色
-      .map((v) => ({
-        role: v.role === "assistant" ? "model" : "user", // 确保只有 user 和 model 角色
-        parts: [
-          {
-            text: getMessageTextContent(v),
-          },
-          ...getMessageImages(v).map((image) => ({
-            inlineData: {
-              mimeType: image.split(";")[0].split(":")[1],
-              data: image.split(",")[1],
-            },
-          })),
-        ],
-      }));
+      .map((v) => {
+        const textContent = getMessageTextContent(v);
+        const images = getMessageImages(v);
 
-    const modelConfig = {
+        return {
+          role: v.role === "assistant" ? "model" : "user", // 确保只有 user 和 model 角色
+          parts: [
+            // 只有当文本内容不为空时才添加text part
+            ...(textContent && textContent.trim()
+              ? [
+                  {
+                    text: textContent,
+                  },
+                ]
+              : []),
+            // 添加图片
+            ...images.map((image) => ({
+              inlineData: {
+                mimeType: image.split(";")[0].split(":")[1],
+                data: image.split(",")[1],
+              },
+            })),
+          ],
+        };
+      })
+      .filter((msg) => msg.parts.length > 0); // 只保留有内容的消息
+
+    // 获取模型配置，并且明确排除思考相关的参数
+    const { thinkingBudget, ...cleanModelConfig } = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
       ...{
         model: options.config.model,
       },
     };
+
+    // 检查是否是图像模型，如果是，使用清理后的配置
+    const isImageModel = options.config.model.includes("image");
+    const modelConfig = isImageModel
+      ? cleanModelConfig
+      : {
+          ...useAppConfig.getState().modelConfig,
+          ...useChatStore.getState().currentSession().mask.modelConfig,
+          ...{
+            model: options.config.model,
+          },
+        };
 
     // 检查是否启用搜索功能
     const session = useChatStore.getState().currentSession();
@@ -138,10 +163,11 @@ export class GoogleGenAIApi implements LLMApi {
       ...(tools.length > 0 && { tools }),
     };
 
-    // 如果模型具有推理能力且是Gemini类型，添加思考配置
+    // 如果模型具有推理能力且是Gemini类型，且不是图像模型，添加思考配置
     if (
       modelCapabilities.reasoning &&
-      modelCapabilities.thinkingType === "gemini"
+      modelCapabilities.thinkingType === "gemini" &&
+      !options.config.model.includes("image")
     ) {
       const thinkingBudget = modelConfig.thinkingBudget ?? -1;
 
@@ -160,10 +186,20 @@ export class GoogleGenAIApi implements LLMApi {
 
     try {
       // 使用 models.generateContentStream 进行流式生成
+
+      // 确保config中没有任何思考相关的参数
+      const {
+        thinkingConfig,
+        includeThoughts,
+        thinkingBudget: configThinkingBudget,
+        ...cleanConfig
+      } = config;
+      const finalConfig = isImageModel ? cleanConfig : config;
+
       const response = await this.client.models.generateContentStream({
         model: options.config.model,
         contents: messages,
-        config,
+        config: finalConfig,
       });
 
       let responseText = "";
@@ -192,7 +228,7 @@ export class GoogleGenAIApi implements LLMApi {
 
                 options.onUpdate?.(responseText, part.text);
               } else if (part.text && !part.thought) {
-                // 这是普通内容
+                // 这是普通内容（包括markdown格式的图片）
 
                 // 如果从思考模式切换到普通模式，添加结束标签和分隔符
                 if (isInThinkingMode) {
@@ -211,6 +247,17 @@ export class GoogleGenAIApi implements LLMApi {
         if (!chunk.candidates && chunk.text) {
           responseText += chunk.text;
           options.onUpdate?.(responseText, chunk.text);
+        }
+
+        // 处理可能的图片数据（备用方案）
+        if (chunk.inlineData) {
+          const { mimeType, data } = chunk.inlineData;
+          const base64Image = `data:${mimeType};base64,${data}`;
+          responseText += `![Generated Image](${base64Image})\n`;
+          options.onUpdate?.(
+            responseText,
+            `![Generated Image](${base64Image})\n`,
+          );
         }
       }
 
