@@ -8,6 +8,10 @@ import {
 } from "../utils";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
+import {
+  StreamUpdateOptimizer,
+  createLightweightMessageUpdate,
+} from "@/app/utils/stream-optimizer";
 import { nanoid } from "nanoid";
 import type {
   ClientApi,
@@ -320,6 +324,40 @@ export const useChatStore = createPersistStore(
       };
     }
 
+    // 创建流式更新优化器
+    const streamOptimizer = new StreamUpdateOptimizer((updates) => {
+      // 批量处理流式更新，避免频繁的深拷贝和存储
+      const sessions = get().sessions;
+      let hasChanges = false;
+
+      const newSessions = sessions.map((session) => {
+        for (const [key, update] of updates) {
+          if (key.startsWith(session.id)) {
+            const messageIndex = session.messages.findIndex(
+              (m) => m.id === update.messageId,
+            );
+            if (messageIndex >= 0) {
+              const updatedSession = {
+                ...session,
+                ...createLightweightMessageUpdate(
+                  session,
+                  messageIndex,
+                  update.content,
+                ),
+              };
+              hasChanges = true;
+              return updatedSession;
+            }
+          }
+        }
+        return session;
+      });
+
+      if (hasChanges) {
+        set({ sessions: newSessions });
+      }
+    });
+
     const methods = {
       forkSession() {
         // 获取当前会话
@@ -596,12 +634,19 @@ export const useChatStore = createPersistStore(
             botMessage.streaming = true;
             if (message) {
               botMessage.content = message;
+              // 使用流式优化器进行批量更新，减少存储频率
+              streamOptimizer.updateStreamingMessage(
+                session.id,
+                botMessage.id,
+                message,
+                session,
+              );
             }
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
           },
           async onFinish(message) {
+            // 立即刷新任何待处理的更新
+            streamOptimizer.flushUpdates();
+
             botMessage.streaming = false;
             if (message) {
               botMessage.content = message;
@@ -615,9 +660,13 @@ export const useChatStore = createPersistStore(
           },
           onBeforeTool(tool: ChatMessageTool) {
             (botMessage.tools = botMessage?.tools || []).push(tool);
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            // 工具调用时也使用优化更新
+            streamOptimizer.updateStreamingMessage(
+              session.id,
+              botMessage.id,
+              botMessage.content,
+              session,
+            );
           },
           onAfterTool(tool: ChatMessageTool) {
             botMessage?.tools?.forEach((t, i, tools) => {
@@ -625,9 +674,13 @@ export const useChatStore = createPersistStore(
                 tools[i] = { ...tool };
               }
             });
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            // 工具完成时使用优化更新
+            streamOptimizer.updateStreamingMessage(
+              session.id,
+              botMessage.id,
+              botMessage.content,
+              session,
+            );
           },
           onError(error) {
             const isAborted = error.message?.includes?.("aborted");
@@ -752,12 +805,19 @@ export const useChatStore = createPersistStore(
               botMessage.streaming = true;
               if (message) {
                 botMessage.content = message;
+                // 多模型模式也使用流式优化器
+                streamOptimizer.updateStreamingMessage(
+                  session.id,
+                  botMessage.id,
+                  message,
+                  session,
+                );
               }
-              get().updateTargetSession(session, (session) => {
-                session.messages = session.messages.concat();
-              });
             },
             async onFinish(message) {
+              // 立即刷新待处理的更新
+              streamOptimizer.flushUpdates();
+
               botMessage.streaming = false;
               if (message) {
                 botMessage.content = message;
@@ -772,9 +832,13 @@ export const useChatStore = createPersistStore(
             },
             onBeforeTool(tool: ChatMessageTool) {
               (botMessage.tools = botMessage?.tools || []).push(tool);
-              get().updateTargetSession(session, (session) => {
-                session.messages = session.messages.concat();
-              });
+              // 多模型工具调用也使用优化更新
+              streamOptimizer.updateStreamingMessage(
+                session.id,
+                botMessage.id,
+                botMessage.content,
+                session,
+              );
             },
             onController(controller) {
               ChatControllerPool.addController(
@@ -1198,10 +1262,20 @@ export const useChatStore = createPersistStore(
                 if (currentMessage) {
                   currentMessage.streaming = true;
                   currentMessage.content = message;
+                  // 重试时也使用流式优化器
+                  streamOptimizer.updateStreamingMessage(
+                    session.id,
+                    currentMessage.id,
+                    message,
+                    session,
+                  );
                 }
               });
             },
             onFinish(message) {
+              // 立即刷新待处理的更新
+              streamOptimizer.flushUpdates();
+
               let finishedMessage: ChatMessage | undefined;
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];
@@ -1316,7 +1390,19 @@ export const useChatStore = createPersistStore(
         const session = get().currentSession();
         return session.mcpEnabled ?? false; // 默认关闭
       },
+
+      /** 清理资源 */
+      cleanup() {
+        streamOptimizer.destroy();
+      },
     };
+
+    // 监听页面卸载，确保清理资源
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", () => {
+        streamOptimizer.destroy();
+      });
+    }
 
     return methods;
   },
