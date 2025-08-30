@@ -1873,7 +1873,7 @@ function _Chat() {
   const config = useAppConfig();
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
-
+  const [ratio, setRatio] = useState<number>(1); // 預設正方形
   const [showExport, setShowExport] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -3079,6 +3079,7 @@ function _Chat() {
                                 className={
                                   styles["chat-message-item-image-container"]
                                 }
+                                style={{ aspectRatio: ratio }}
                               >
                                 <Image
                                   className={styles["chat-message-item-image"]}
@@ -3086,6 +3087,11 @@ function _Chat() {
                                   alt=""
                                   fill
                                   unoptimized
+                                  onLoadingComplete={(img) => {
+                                    setRatio(
+                                      img.naturalWidth / img.naturalHeight,
+                                    );
+                                  }}
                                 />
                               </div>
                             )}
