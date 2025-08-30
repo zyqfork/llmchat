@@ -533,6 +533,7 @@ function _MarkDownContent(props: {
             // 处理base64图片或普通图片URL
             if (actualSrc) {
               return (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   {...otherProps}
                   src={actualSrc}

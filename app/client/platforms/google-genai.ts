@@ -6,7 +6,11 @@ import {
   isWebSearchModel,
   getModelCapabilitiesWithCustomConfig,
 } from "@/app/config/model-capabilities";
-import { getMessageTextContent, getMessageImages } from "@/app/utils";
+import {
+  getMessageTextContent,
+  getMessageImages,
+  getTimeoutMSByModel,
+} from "@/app/utils";
 
 export class GoogleGenAIApi implements LLMApi {
   private client: GoogleGenAI | null = null;
@@ -48,6 +52,16 @@ export class GoogleGenAIApi implements LLMApi {
       }
     }
 
+    // 创建 AbortController 用于超时控制
+    const controller = new AbortController();
+    options.onController?.(controller);
+
+    // 设置超时
+    const requestTimeoutId = setTimeout(
+      () => controller.abort(),
+      getTimeoutMSByModel(options.config.model),
+    );
+
     const messages = options.messages
       .filter((v) => v.role === "user" || v.role === "assistant") // 只保留有效角色
       .map((v) => {
@@ -77,8 +91,8 @@ export class GoogleGenAIApi implements LLMApi {
       })
       .filter((msg) => msg.parts.length > 0); // 只保留有内容的消息
 
-    // 获取模型配置，并且明确排除思考相关的参数
-    const { thinkingBudget, ...cleanModelConfig } = {
+    // 获取完整的模型配置
+    const fullModelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
       ...{
@@ -86,17 +100,12 @@ export class GoogleGenAIApi implements LLMApi {
       },
     };
 
+    // 获取思考相关的参数
+    const { thinkingBudget, ...cleanModelConfig } = fullModelConfig;
+
     // 检查是否是图像模型，如果是，使用清理后的配置
     const isImageModel = options.config.model.includes("image");
-    const modelConfig = isImageModel
-      ? cleanModelConfig
-      : {
-          ...useAppConfig.getState().modelConfig,
-          ...useChatStore.getState().currentSession().mask.modelConfig,
-          ...{
-            model: options.config.model,
-          },
-        };
+    const modelConfig = isImageModel ? cleanModelConfig : fullModelConfig;
 
     // 检查是否启用搜索功能
     const session = useChatStore.getState().currentSession();
@@ -169,16 +178,16 @@ export class GoogleGenAIApi implements LLMApi {
       modelCapabilities.thinkingType === "gemini" &&
       !options.config.model.includes("image")
     ) {
-      const thinkingBudget = modelConfig.thinkingBudget ?? -1;
+      const thinkingBudgetValue = thinkingBudget ?? -1;
 
       // 构建thinking配置
       const thinkingConfig: any = {
         includeThoughts: true, // 包含思考内容
       };
 
-      // 只有当thinkingBudget不为undefined时才添加
-      if (thinkingBudget !== undefined) {
-        thinkingConfig.thinkingBudget = thinkingBudget;
+      // 只有当thinkingBudgetValue不为undefined时才添加
+      if (thinkingBudgetValue !== undefined) {
+        thinkingConfig.thinkingBudget = thinkingBudgetValue;
       }
 
       config.thinkingConfig = thinkingConfig;
@@ -206,6 +215,11 @@ export class GoogleGenAIApi implements LLMApi {
       let isInThinkingMode = false;
 
       for await (const chunk of response) {
+        // 检查是否已被中断
+        if (controller.signal.aborted) {
+          break;
+        }
+
         // 处理思考内容和普通内容
         if (chunk.candidates && chunk.candidates.length > 0) {
           const candidate = chunk.candidates[0];
@@ -250,8 +264,8 @@ export class GoogleGenAIApi implements LLMApi {
         }
 
         // 处理可能的图片数据（备用方案）
-        if (chunk.inlineData) {
-          const { mimeType, data } = chunk.inlineData;
+        if ((chunk as any).inlineData) {
+          const { mimeType, data } = (chunk as any).inlineData;
           const base64Image = `data:${mimeType};base64,${data}`;
           responseText += `![Generated Image](${base64Image})\n`;
           options.onUpdate?.(
@@ -265,11 +279,28 @@ export class GoogleGenAIApi implements LLMApi {
       if (isInThinkingMode) {
         responseText += "\n</think>";
       }
+
+      // 清理超时定时器
+      clearTimeout(requestTimeoutId);
+
       // 创建一个模拟的 Response 对象
       const mockResponse = new Response(responseText, { status: 200 });
       options.onFinish(responseText, mockResponse);
     } catch (error) {
-      options.onError?.(error as Error);
+      // 清理超时定时器
+      clearTimeout(requestTimeoutId);
+
+      // 检查是否是中断错误
+      const isAborted =
+        controller.signal.aborted ||
+        (error as Error).name === "AbortError" ||
+        (error as Error).message?.includes?.("aborted");
+
+      if (isAborted) {
+        options.onError?.(new Error("Request timed out or was cancelled"));
+      } else {
+        options.onError?.(error as Error);
+      }
     }
   }
 

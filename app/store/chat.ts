@@ -664,7 +664,7 @@ export const useChatStore = createPersistStore(
             streamOptimizer.updateStreamingMessage(
               session.id,
               botMessage.id,
-              botMessage.content,
+              getMessageTextContent(botMessage),
               session,
             );
           },
@@ -678,7 +678,7 @@ export const useChatStore = createPersistStore(
             streamOptimizer.updateStreamingMessage(
               session.id,
               botMessage.id,
-              botMessage.content,
+              getMessageTextContent(botMessage),
               session,
             );
           },
@@ -836,7 +836,7 @@ export const useChatStore = createPersistStore(
               streamOptimizer.updateStreamingMessage(
                 session.id,
                 botMessage.id,
-                botMessage.content,
+                getMessageTextContent(botMessage),
                 session,
               );
             },

@@ -67,7 +67,7 @@ class DebouncedStorage implements StateStorage {
     this.pendingWrites.clear();
     this.pendingData.clear();
 
-    return this.storage.clear();
+    return (this.storage as any).clear?.() || Promise.resolve();
   }
 
   // 立即刷新所有待写入的数据
@@ -78,7 +78,7 @@ class DebouncedStorage implements StateStorage {
       clearTimeout(timer);
       const value = this.pendingData.get(name);
       if (value !== undefined) {
-        promises.push(this.storage.setItem(name, value));
+        promises.push(Promise.resolve(this.storage.setItem(name, value)));
       }
     }
 
@@ -116,10 +116,6 @@ class SmartStorageManager {
         },
         removeItem: (name: string) => {
           this.configStorage.removeItem(name);
-          return Promise.resolve();
-        },
-        clear: () => {
-          this.configStorage.clear();
           return Promise.resolve();
         },
       };
