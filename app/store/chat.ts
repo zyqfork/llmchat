@@ -647,15 +647,24 @@ export const useChatStore = createPersistStore(
             // 立即刷新任何待处理的更新
             streamOptimizer.flushUpdates();
 
-            botMessage.streaming = false;
-            if (message) {
-              botMessage.content = message;
-              botMessage.date = new Date().toLocaleString();
+            get().updateTargetSession(session, (session) => {
+              const messageIndex = session.messages.findIndex(
+                (m) => m.id === botMessage.id,
+              );
 
-              // 不在新消息时初始化版本管理，只在重试时才初始化
+              if (messageIndex > -1) {
+                const finalBotMessage = {
+                  ...session.messages[messageIndex],
+                  streaming: false,
+                  content: message,
+                  date: new Date().toLocaleString(),
+                };
 
-              get().onNewMessage(botMessage, session);
-            }
+                session.messages[messageIndex] = finalBotMessage;
+                get().onNewMessage(finalBotMessage, session);
+              }
+            });
+
             ChatControllerPool.remove(session.id, botMessage.id);
           },
           onBeforeTool(tool: ChatMessageTool) {
