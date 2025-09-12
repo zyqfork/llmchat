@@ -2149,6 +2149,7 @@ function _Chat() {
     }
 
     // 如果是重试用户消息，使用原有逻辑（删除后续消息并重新发送）
+    deleteMessage(userMessage.id);
     setIsLoading(true);
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
