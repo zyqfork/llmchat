@@ -2121,11 +2121,8 @@ function _Chat() {
       }
     } else if (message.role === "user") {
       userMessage = message;
-      for (let i = resendingIndex; i < session.messages.length; i += 1) {
-        if (session.messages[i].role === "assistant") {
-          botMessage = session.messages[i];
-          break;
-        }
+      if (resendingIndex + 1 < session.messages.length && session.messages[resendingIndex + 1].role === "assistant") {
+        botMessage = session.messages[resendingIndex + 1];
       }
     }
 
