@@ -2300,19 +2300,6 @@ function _Chat() {
     return context
       .concat(session.messages as RenderMessage[])
       .concat(
-        isLoading
-          ? [
-              {
-                ...createMessage({
-                  role: "assistant",
-                  content: "……",
-                }),
-                preview: true,
-              },
-            ]
-          : [],
-      )
-      .concat(
         userInput.length > 0 && config.sendPreviewBubble
           ? [
               {
