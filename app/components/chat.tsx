@@ -2195,7 +2195,7 @@ function _Chat() {
 
   // 获取当前显示的消息内容
   const getCurrentMessageContent = (message: ChatMessage): string => {
-    if (!message.versions || message.versions.length <= 1) {
+    if (!message.versions || message.versions.length < 1) {
       return typeof message.content === "string" ? message.content : "";
     }
 
