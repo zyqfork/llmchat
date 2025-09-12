@@ -1222,33 +1222,9 @@ export const useChatStore = createPersistStore(
           currentMessage.currentVersionIndex = currentMessage.versions.length;
         });
 
-        // 获取用户消息内容
-        const textContent = getMessageTextContent(userMessage);
-        const images = getMessageImages(userMessage);
-
-        // 准备消息内容
-        let mContent: string | MultimodalContent[] = fillTemplateWith(
-          textContent,
-          session.mask.modelConfig,
-        );
-        if (images && images.length > 0) {
-          mContent = [
-            ...(textContent
-              ? [{ type: "text" as const, text: textContent }]
-              : []),
-            ...images.map((url) => ({
-              type: "image_url" as const,
-              image_url: { url },
-            })),
-          ];
-        }
-
         // 获取历史消息（不包括当前正在重试的 bot 消息）
         const recentMessages = await get().getMessagesWithMemory();
-        const sendMessages = recentMessages.concat({
-          ...userMessage,
-          content: mContent,
-        });
+        const sendMessages = recentMessages.splice(0, messageIndex);
 
         const modelConfig = session.mask.modelConfig;
         const api: ClientApi = getClientApi(modelConfig.providerName);
