@@ -927,7 +927,11 @@ export function Settings() {
     <>
       <ListItem
         title={Locale.Settings.Access.OpenAI.Endpoint.Title}
-        subTitle={Locale.Settings.Access.OpenAI.Endpoint.SubTitle}
+        subTitle={
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.OpenAI.Endpoint.SubTitle}
+          </span>
+        }
       >
         <input
           aria-label={Locale.Settings.Access.OpenAI.Endpoint.Title}
@@ -965,7 +969,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.Azure.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.Azure.Endpoint.SubTitle + Azure.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Azure.Endpoint.SubTitle +
+              Azure.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1020,8 +1027,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.Google.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.Google.Endpoint.SubTitle +
-          Google.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Google.Endpoint.SubTitle +
+              Google.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1098,8 +1107,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.Anthropic.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.Anthropic.Endpoint.SubTitle +
-          Anthropic.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Anthropic.Endpoint.SubTitle +
+              Anthropic.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1154,8 +1165,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.ByteDance.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.ByteDance.Endpoint.SubTitle +
-          ByteDance.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.ByteDance.Endpoint.SubTitle +
+              ByteDance.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1194,8 +1207,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.Alibaba.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.Alibaba.Endpoint.SubTitle +
-          Alibaba.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Alibaba.Endpoint.SubTitle +
+              Alibaba.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1234,8 +1249,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.Moonshot.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.Moonshot.Endpoint.SubTitle +
-          Moonshot.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Moonshot.Endpoint.SubTitle +
+              Moonshot.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1274,8 +1291,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.DeepSeek.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.DeepSeek.Endpoint.SubTitle +
-          DeepSeek.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.DeepSeek.Endpoint.SubTitle +
+              DeepSeek.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1314,7 +1333,9 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.XAI.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint}
+          </span>
         }
       >
         <input
@@ -1353,8 +1374,10 @@ export function Settings() {
       <ListItem
         title={Locale.Settings.Access.SiliconFlow.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.SiliconFlow.Endpoint.SubTitle +
-          SiliconFlow.ExampleEndpoint
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.SiliconFlow.Endpoint.SubTitle +
+              SiliconFlow.ExampleEndpoint}
+          </span>
         }
       >
         <input

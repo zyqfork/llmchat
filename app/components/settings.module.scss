@@ -594,3 +594,7 @@
     background: var(--primary-dark);
   }
 }
+
+.long-text-wrap {
+  word-break: break-all;
+}
