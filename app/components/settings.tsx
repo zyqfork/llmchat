@@ -94,6 +94,7 @@ import { RealtimeConfigList } from "./realtime-chat/realtime-config";
 import { ModelManager } from "./model-manager";
 import { useAllModels } from "../utils/hooks";
 import { getModelProvider } from "../utils/model";
+import { useEnabledModels } from "../utils/hooks";
 
 // 设置页面的分类枚举
 enum SettingsTab {
@@ -2178,7 +2179,7 @@ export function Settings() {
   const allModels = useAllModels();
 
   // 只显示已启用服务商的已启用模型
-  const availableModels = useMemo(() => {
+  /*  const availableModels = useMemo(() => {
     const enabledProviders = accessStore.enabledProviders || {};
     const enabledModels = accessStore.enabledModels || {};
 
@@ -2217,7 +2218,9 @@ export function Settings() {
     accessStore.enabledProviders,
     accessStore.enabledModels,
     accessStore.customProviders,
-  ]);
+  ]);*/
+  // 临时解决方案
+  const availableModels = useEnabledModels();
 
   const groupModels = groupBy(availableModels, (model) => {
     const isCustomProvider = model.provider?.id?.startsWith("custom_");
