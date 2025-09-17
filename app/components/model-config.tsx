@@ -375,6 +375,7 @@ export function ModelConfigList(props: {
           className={styles["select-compress-model"]}
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
+          align="left"
           onChange={(e) => {
             const value = e.currentTarget.value;
             if (value === "") {
