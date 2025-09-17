@@ -2291,6 +2291,7 @@ export function Settings() {
       <List>
         <ListItem title={Locale.Settings.Model}>
           <Select
+            className={styles["select-compress-model"]}
             aria-label={Locale.Settings.Model}
             value={currentModelValue}
             align="left"
