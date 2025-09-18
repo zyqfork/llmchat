@@ -2199,7 +2199,7 @@ export function Settings() {
   );
 
   // 准备分组模型数据 - 基于启用的提供商和模型
-  const allModels = useAllModels();
+  //const allModels = useAllModels();
 
   // 只显示已启用服务商的已启用模型
   /*  const availableModels = useMemo(() => {
