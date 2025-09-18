@@ -1686,9 +1686,9 @@ export function Settings() {
             <div
               style={{
                 display: "flex",
+                justifyContent: "flex-end",
                 alignItems: "center",
                 gap: "10px",
-                width: "100%",
               }}
             >
               <PasswordInput
@@ -1706,7 +1706,6 @@ export function Settings() {
                 style={{
                   fontSize: "12px",
                   color: accessStore.accessCode ? "#4CAF50" : "#FF9800",
-                  whiteSpace: "nowrap",
                 }}
               >
                 {accessStore.accessCode
