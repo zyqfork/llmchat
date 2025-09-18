@@ -599,10 +599,11 @@
   word-break: break-all;
 }
 
-.select-compress-model {
+.select-default-model {
   width: 60%;
   select {
     max-width: 100%;
     white-space: normal;
+    word-break: break-all;
   }
 }

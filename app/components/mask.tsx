@@ -342,7 +342,7 @@ export function MaskConfig(props: {
               subTitle={Locale.Mask.DefaultModelDesc}
             >
               <Select
-                className={styles["select-compress-model"]}
+                className={styles["select-default-model"]}
                 aria-label={Locale.Mask.DefaultModel}
                 value={props.mask.defaultModel || ""}
                 align="left"

@@ -106,6 +106,7 @@ export function ModelConfigList(props: {
       {props.showModelSelector && (
         <ListItem title={Locale.Settings.Model}>
           <Select
+            className={styles["select-default-model"]}
             aria-label={Locale.Settings.Model}
             value={value}
             align="left"
