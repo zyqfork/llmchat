@@ -106,3 +106,11 @@
     }
   }
 }
+
+.select-compress-model {
+  width: 60%;
+  select {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
