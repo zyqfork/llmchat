@@ -2141,7 +2141,16 @@ export function Settings() {
                                     key={modelName}
                                     className={styles["model-tag"]}
                                   >
-                                    {modelName}
+                                    <span
+                                      className={styles["model-name"]}
+                                      title={modelName}
+                                    >
+                                      <span
+                                        className={styles["model-name-inner"]}
+                                      >
+                                        {modelName}
+                                      </span>
+                                    </span>
                                     <ModelCapabilityIcons
                                       capabilities={getModelCapabilitiesWithCustomConfig(
                                         modelName,
