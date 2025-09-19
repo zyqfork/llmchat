@@ -292,7 +292,6 @@
   font-weight: 500;
   white-space: nowrap;
   line-height: 1.2;
-  gap: 6px;
   max-width: 100%;
   // 移除文本截断，让标签自然显示完整内容
   // overflow: hidden;
@@ -632,6 +631,7 @@
     }
     scrollbar-width: none;
     -ms-overflow-style: none;
+    padding-right: 10px;
   }
 
   .model-name::after {
@@ -640,7 +640,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 20px;
+    width: 10px;
     background: linear-gradient(to left, var(--primary), transparent);
     pointer-events: none;
   }
