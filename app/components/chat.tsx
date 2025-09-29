@@ -53,6 +53,7 @@ import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
 import ConnectionIcon from "../icons/connection.svg";
 import MenuIcon from "../icons/menu.svg";
+import ChatSettingsIcon from "../icons/chat-settings.svg";
 import {
   BOT_HELLO,
   ChatMessage,
@@ -1148,6 +1149,8 @@ export function ChatActions(props: {
 
   const session = chatStore.currentSession();
 
+  const [showChatSettings, setShowChatSettings] = useState(false);
+
   // switch themes
   const theme = config.theme;
 
@@ -1328,6 +1331,11 @@ export function ChatActions(props: {
 
   const leftActions = (
     <>
+      <ChatAction
+        onClick={() => setShowChatSettings(true)}
+        text={Locale.ChatSettings.Name}
+        icon={<ChatSettingsIcon />}
+      />
       {couldStop && (
         <ChatAction
           onClick={stopAll}
@@ -1350,21 +1358,6 @@ export function ChatActions(props: {
           icon={props.uploading ? <LoadingButtonIcon /> : <ImageIcon />}
         />
       )}
-      <ChatAction
-        onClick={nextTheme}
-        text={Locale.Chat.InputActions.Theme[theme]}
-        icon={
-          <>
-            {theme === Theme.Auto ? (
-              <AutoIcon />
-            ) : theme === Theme.Light ? (
-              <LightIcon />
-            ) : theme === Theme.Dark ? (
-              <DarkIcon />
-            ) : null}
-          </>
-        }
-      />
 
       <ChatAction
         onClick={props.showPromptHints}
@@ -1738,6 +1731,9 @@ export function ChatActions(props: {
           {leftActions}
           <div className={styles["chat-input-actions-end"]}>{rightActions}</div>
         </>
+      )}
+      {showChatSettings && (
+        <SessionConfigModel onClose={() => setShowChatSettings(false)} />
       )}
     </div>
   );

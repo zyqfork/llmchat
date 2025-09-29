@@ -4,7 +4,9 @@ import styles from "./home.module.scss";
 
 import { IconButton } from "./button";
 import SettingsIcon from "../icons/settings.svg";
-import GithubIcon from "../icons/github.svg";
+import LightIcon from "../icons/light.svg";
+import DarkIcon from "../icons/dark.svg";
+import AutoIcon from "../icons/auto.svg";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import AddIcon from "../icons/add.svg";
 import DeleteIcon from "../icons/delete.svg";
@@ -12,12 +14,11 @@ import MaskIcon from "../icons/mask.svg";
 import McpIcon from "../icons/mcp.svg";
 import DragIcon from "../icons/drag.svg";
 import DiscoveryIcon from "../icons/discovery.svg";
-import ChatSettingsIcon from "../icons/chat-settings.svg";
 import MenuIcon from "../icons/menu.svg";
 
 import Locale from "../locales";
 
-import { useAppConfig, useChatStore } from "../store";
+import { useAppConfig, useChatStore, Theme } from "../store";
 import { useMaskStore } from "../store/mask";
 
 import {
@@ -26,7 +27,6 @@ import {
   MIN_SIDEBAR_WIDTH,
   NARROW_SIDEBAR_WIDTH,
   Path,
-  REPO_URL,
 } from "../constant";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -34,7 +34,6 @@ import { isIOS, useMobileScreen } from "../utils";
 import dynamic from "next/dynamic";
 import { showConfirm } from "./ui-lib";
 import clsx from "clsx";
-import { SessionConfigModel } from "./chat";
 
 const ChatList = dynamic(async () => (await import("./chat-list")).ChatList, {
   loading: () => null,
@@ -259,9 +258,17 @@ export function SideBar(props: { className?: string }) {
     useDragSideBar();
 
   const [showMaskList, setShowMaskList] = useState(false);
-  const [showChatSettings, setShowChatSettings] = useState(false);
   const navigate = useNavigate();
   const chatStore = useChatStore();
+  const config = useAppConfig();
+  const theme = config.theme;
+  function nextTheme() {
+    const themes = [Theme.Auto, Theme.Light, Theme.Dark];
+    const themeIndex = themes.indexOf(theme);
+    const nextIndex = (themeIndex + 1) % themes.length;
+    const nextTheme = themes[nextIndex];
+    config.update((config) => (config.theme = nextTheme));
+  }
 
   return (
     <SideBarContainer
@@ -279,23 +286,14 @@ export function SideBar(props: { className?: string }) {
         <div className={styles["sidebar-header-bar"]}>
           <IconButton
             icon={<MaskIcon />}
-            text={shouldNarrow ? undefined : Locale.Mask.Name}
+            text={shouldNarrow ? undefined : "助手"}
             className={styles["sidebar-bar-button"]}
             onClick={() => setShowMaskList(true)}
             shadow
           />
           <IconButton
-            icon={<ChatSettingsIcon />}
-            text={shouldNarrow ? undefined : Locale.ChatSettings.Name}
-            className={styles["sidebar-bar-button"]}
-            onClick={() => setShowChatSettings(true)}
-            shadow
-          />
-        </div>
-        <div className={styles["sidebar-header-bar"]}>
-          <IconButton
             icon={<McpIcon />}
-            text={shouldNarrow ? undefined : Locale.Mcp.Name}
+            text={shouldNarrow ? undefined : "MCP"}
             className={styles["sidebar-bar-button"]}
             onClick={() => {
               navigate(Path.McpMarket, { state: { fromHome: true } });
@@ -304,7 +302,7 @@ export function SideBar(props: { className?: string }) {
           />
           <IconButton
             icon={<DiscoveryIcon />}
-            text={shouldNarrow ? undefined : Locale.SearchChat.Page.Title}
+            text={shouldNarrow ? undefined : "搜索"}
             className={styles["sidebar-bar-button"]}
             onClick={() =>
               navigate(Path.SearchChat, { state: { fromHome: true } })
@@ -345,13 +343,22 @@ export function SideBar(props: { className?: string }) {
               </Link>
             </div>
             <div className={styles["sidebar-action"]}>
-              <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-                <IconButton
-                  aria={Locale.Export.MessageFromChatGPT}
-                  icon={<GithubIcon />}
-                  shadow
-                />
-              </a>
+              <IconButton
+                aria={Locale.Chat.InputActions.Theme[config.theme]}
+                icon={
+                  <>
+                    {config.theme === Theme.Auto ? (
+                      <AutoIcon />
+                    ) : config.theme === Theme.Light ? (
+                      <LightIcon />
+                    ) : config.theme === Theme.Dark ? (
+                      <DarkIcon />
+                    ) : null}
+                  </>
+                }
+                onClick={nextTheme}
+                shadow
+              />
             </div>
           </>
         }
@@ -384,9 +391,6 @@ export function SideBar(props: { className?: string }) {
         }
       />
       {showMaskList && <MaskList onClose={() => setShowMaskList(false)} />}
-      {showChatSettings && (
-        <SessionConfigModel onClose={() => setShowChatSettings(false)} />
-      )}
     </SideBarContainer>
   );
 }
