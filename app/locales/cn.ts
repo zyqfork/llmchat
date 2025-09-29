@@ -112,6 +112,8 @@ const cn = {
       Prompt: "快捷指令",
       Masks: "所有助手",
       Clear: "清除聊天",
+      Reset: "重置聊天",
+      ResetConfirm: "确认重置当前聊天窗口的所有内容？",
       Settings: "对话设置",
       UploadImage: "上传图片",
       Search: "搜索功能",

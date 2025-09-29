@@ -113,6 +113,8 @@ const tw = {
       Prompt: "快捷指令",
       Masks: "所有角色助手",
       Clear: "清除聊天",
+      Reset: "重置聊天",
+      ResetConfirm: "確認重置當前聊天視窗的所有內容？",
       Settings: "對話設定",
       UploadImage: "上傳圖片",
       Search: "搜尋功能",

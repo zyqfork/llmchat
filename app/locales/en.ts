@@ -115,6 +115,8 @@ const en: LocaleType = {
       Prompt: "Prompts",
       Masks: "Assistants",
       Clear: "Clear Context",
+      Reset: "Reset Chat",
+      ResetConfirm: "Are you sure to reset the current chat window content?",
       Settings: "Settings",
       UploadImage: "Upload Images",
       Search: "Search",

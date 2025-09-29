@@ -1372,21 +1372,6 @@ export function ChatActions(props: {
         icon={<PromptIcon />}
       />
 
-      <ChatAction
-        text={Locale.Chat.InputActions.Clear}
-        icon={<BreakIcon />}
-        onClick={() => {
-          chatStore.updateTargetSession(session, (session) => {
-            if (session.clearContextIndex === session.messages.length) {
-              session.clearContextIndex = undefined;
-            } else {
-              session.clearContextIndex = session.messages.length;
-              session.memoryPrompt = ""; // will clear memory
-            }
-          });
-        }}
-      />
-
       {supportsCustomSize(currentModel) && (
         <ChatAction
           onClick={() => setShowSizeSelector(true)}
@@ -1536,6 +1521,29 @@ export function ChatActions(props: {
         />
       )}
       <MultiModelAction onToggle={() => props.toggleMultiModelMode()} />
+      <ChatAction
+        text={Locale.Chat.InputActions.Clear}
+        icon={<BreakIcon />}
+        onClick={() => {
+          chatStore.updateTargetSession(session, (session) => {
+            if (session.clearContextIndex === session.messages.length) {
+              session.clearContextIndex = undefined;
+            } else {
+              session.clearContextIndex = session.messages.length;
+              session.memoryPrompt = ""; // will clear memory
+            }
+          });
+        }}
+      />
+      <ChatAction
+        text={Locale.Chat.InputActions.Reset}
+        icon={<ResetIcon />}
+        onClick={async () => {
+          if (await showConfirm(Locale.Chat.InputActions.ResetConfirm)) {
+            chatStore.resetSession(session);
+          }
+        }}
+      />
     </>
   );
   const rightActions = (
