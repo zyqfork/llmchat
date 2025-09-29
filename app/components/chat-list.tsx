@@ -213,6 +213,25 @@ export function ChatList(props: { narrow?: boolean }) {
                       (await showConfirm(Locale.Home.DeleteChat))
                     ) {
                       chatStore.deleteSession(originalIndex);
+                      // 如果当前助手下已无会话，自动新建一个该助手的会话
+                      setTimeout(() => {
+                        try {
+                          const currentId = chatStore.currentMaskId;
+                          const list =
+                            chatStore.getCurrentMaskSessions?.() ?? [];
+                          if (currentId && list.length === 0) {
+                            const selectedMask = maskStore
+                              .getAll()
+                              .find((m) => m.id === currentId);
+                            if (selectedMask) {
+                              chatStore.newSession(selectedMask);
+                              navigate(Path.Chat);
+                            }
+                          }
+                        } catch (e) {
+                          // noop
+                        }
+                      }, 0);
                     }
                   }}
                   narrow={props.narrow}

@@ -13,7 +13,8 @@ export class StreamUpdateOptimizer {
   >();
 
   private updateTimer: NodeJS.Timeout | null = null;
-  private readonly BATCH_DELAY = 100; // 100ms 批量更新延迟
+  // 降低批量延迟以获得更细粒度的“逐字”体验，同时保持性能
+  private readonly BATCH_DELAY = 20; // 20ms 批量更新延迟（原为 100ms）
 
   constructor(private onBatchUpdate: (updates: Map<string, any>) => void) {}
 
@@ -26,6 +27,10 @@ export class StreamUpdateOptimizer {
   ) {
     const key = `${sessionId}-${messageId}`;
 
+    // 计算与上次缓存内容的增量长度
+    const prev = this.pendingUpdates.get(key)?.content ?? "";
+    const deltaLen = Math.max(0, content.length - prev.length);
+
     // 缓存更新
     this.pendingUpdates.set(key, {
       session,
@@ -37,6 +42,13 @@ export class StreamUpdateOptimizer {
     // 防抖批量更新
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
+    }
+
+    // 非常小的增量（<=2 个字符）时，立即刷新，近似“逐字吐出”
+    if (deltaLen > 0 && deltaLen <= 2) {
+      // 使用微任务或最小延迟，避免阻塞当前调用栈
+      setTimeout(() => this.flushUpdates(), 0);
+      return;
     }
 
     this.updateTimer = setTimeout(() => {
