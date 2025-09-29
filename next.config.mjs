@@ -1,6 +1,7 @@
 import webpack from "webpack";
+import path from "path";
 
-const mode = "standalone";
+const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
 const disableChunk = false;
 
 /** @type {import('next').NextConfig} */
@@ -20,6 +21,15 @@ const nextConfig = {
     config.resolve.fallback = {
       child_process: false,
     };
+
+    if (mode === "export") {
+      // In static export builds, alias server-action module to a client-safe stub
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        "../mcp/actions": path.resolve("app/mcp/actions.client.ts"),
+        "app/mcp/actions": path.resolve("app/mcp/actions.client.ts"),
+      };
+    }
 
     return config;
   },
