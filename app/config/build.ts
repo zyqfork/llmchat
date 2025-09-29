@@ -8,8 +8,8 @@ export const getBuildConfig = () => {
     );
   }
 
-  const buildMode = "standalone";
-  const isApp = false;
+  const buildMode = process.env.BUILD_MODE || "standalone";
+  const isApp = process.env.BUILD_APP === "1";
   const version = "v" + tauriConfig.package.version;
 
   const commitInfo = (() => {
