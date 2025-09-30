@@ -44,16 +44,18 @@
 
 .chat-input-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-wrap: wrap; // 默认允许换行
+  justify-content: flex-start; // 改为左对齐，避免空间不足时的挤压
   align-items: flex-start;
   gap: 5px;
+  margin-bottom: 8px; // 增加底部间距，确保换行后与输入框有合适距离
 
   &-end {
     display: flex;
     margin-left: auto;
     gap: 5px;
     align-items: flex-end;
+    flex-shrink: 0; // 防止右侧元素被压缩
   }
 
   .model-selector-container {
@@ -81,6 +83,7 @@
     justify-content: center;
     width: auto;
     min-width: fit-content;
+    max-width: 200px; // 限制最大宽度
 
     &:hover {
       background-color: var(--hover-color);
@@ -103,12 +106,16 @@
 
     .model-name {
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       margin-left: 4px;
       font-weight: 500;
       color: var(--black);
       font-size: 13px;
       font-family: "Noto Sans", "SF Pro SC", "SF Pro Text", "SF Pro Icons",
         "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      flex: 1; // 允许文本占据剩余空间
+      min-width: 0; // 确保文本可以被压缩
     }
   }
 
@@ -1473,6 +1480,46 @@ height: 15vh;
     flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
+    margin-bottom: 6px; // 移动端稍微减少间距
+
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+    &::-webkit-scrollbar {
+      display: none;           /* Chrome, Safari, and Opera */
+    }
+  }
+
+  .model-selector-button {
+    max-width: 32px; // 移动端只显示图标
+    padding: 8px; // 减少内边距
+    gap: 0;
+
+    .model-name {
+      display: none; // 隐藏模型名称
+    }
+  }
+}
+
+// 优先隐藏模型名称避免换行 - 较大屏幕
+@media only screen and (max-width: 1100px) {
+  .model-selector-button {
+    max-width: 32px; // 只显示图标
+    padding: 8px; // 减少内边距
+    gap: 0;
+
+    .model-name {
+      display: none; // 隐藏模型名称
+    }
+  }
+}
+
+// 移动端处理 - 使用横向滚动避免换行
+@media only screen and (max-width: 600px) {
+  .chat-input-actions {
+    flex-wrap: nowrap; // 移动端使用横向滚动，不换行
+    overflow-x: auto;
+    justify-content: flex-start;
+    margin-bottom: 6px;
 
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;     /* Firefox */
