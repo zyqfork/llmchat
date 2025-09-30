@@ -1,7 +1,7 @@
 services:
-  qadchat:
-    container_name: qadchat
-    image: syferie/qadchat:latest
+  zyqfork:
+    container_name: llmchat
+    image: zyqfork/llmchat:latest
     ports:
       - 3000:3000
     # environment:

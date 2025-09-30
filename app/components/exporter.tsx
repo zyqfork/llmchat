@@ -536,9 +536,9 @@ export function ImagePreviewer(props: {
           </div>
 
           <div>
-            <div className={styles["main-title"]}>QADChat</div>
+            <div className={styles["main-title"]}>LLMChat</div>
             <div className={styles["sub-title"]}>
-              github.com/MoonWeSif/qadchat
+              github.com/zyqfork/llmchat
             </div>
             <div className={styles["icons"]}>
               <MaskAvatar avatar={config.avatar} />

@@ -1,7 +1,7 @@
 import { getModelContextTokens } from "./config/model-context-tokens";
 
-export const OWNER = "MoonWeSif";
-export const REPO = "qadchat";
+export const OWNER = "zyqfork";
+export const REPO = "llmchat";
 export const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
 
 export const ISSUE_URL = `https://github.com/${OWNER}/${REPO}/issues`;
@@ -805,6 +805,6 @@ export const internalAllowedWebDavEndpoints = [
 
 export const DEFAULT_GA_ID = "G-89WN60ZK2E";
 
-export const SAAS_CHAT_URL = "https://github.com/MoonWeSif/qadchat";
+export const SAAS_CHAT_URL = "https://github.com/zyqfork/llmchat";
 export const SAAS_CHAT_UTM_URL =
-  "https://github.com/MoonWeSif/qadchat?utm_source=github";
+  "https://github.com/zyqfork/llmchat?utm_source=github";

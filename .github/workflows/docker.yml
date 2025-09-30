@@ -24,7 +24,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: syferie/qadchat
+          images: syferie/llmchat
           tags: |
             type=raw,value=latest
             type=ref,event=tag

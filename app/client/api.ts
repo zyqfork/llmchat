@@ -178,7 +178,7 @@ export class ClientApi {
       .concat([
         {
           from: "human",
-          value: "Share from [QADChat]: https://github.com/MoonWeSif/qadchat",
+          value: "Share from [LLMChat]: https://github.com/zyqfork/llmchat",
         },
       ]);
 
