@@ -6,20 +6,6 @@ import { ServerConfig } from "./types";
 
 const logger = new MCPClientLogger("Transport Factory");
 
-function normalizeMcpBaseUrl(baseUrl: string): string {
-  try {
-    const u = new URL(baseUrl);
-    // Only rewrite known CORS-prone host to our proxy in browser runtime
-    if (typeof window !== "undefined" && u.hostname === "mcp.amap.com") {
-      const prefix = `${window.location.origin}/api/proxy/mcp`;
-      return `${prefix}${u.pathname}${u.search}`;
-    }
-    return baseUrl;
-  } catch {
-    return baseUrl;
-  }
-}
-
 // 网页端支持HTTP-based传输
 export type MCPTransport = SSEClientTransport | StreamableHTTPClientTransport;
 
@@ -57,11 +43,7 @@ export class TransportFactory {
     id: string,
     config: ServerConfig,
   ): SSEClientTransport {
-    // Normalize baseUrl to avoid browser CORS where possible
-    // Do NOT normalize (proxy) for manually added servers (which have `addedAt` set)
-    const baseUrl = config.addedAt
-      ? config.baseUrl
-      : normalizeMcpBaseUrl(config.baseUrl);
+    const baseUrl = config.baseUrl;
     config = { ...config, baseUrl };
     if (!config.baseUrl) {
       throw new Error(`Base URL is required for SSE transport`);
@@ -146,10 +128,7 @@ export class TransportFactory {
     config: ServerConfig,
   ): StreamableHTTPClientTransport {
     // Normalize baseUrl to avoid browser CORS where possible
-    // Do NOT normalize (proxy) for manually added servers (which have `addedAt` set)
-    const baseUrl = config.addedAt
-      ? config.baseUrl
-      : normalizeMcpBaseUrl(config.baseUrl);
+    const baseUrl = config.baseUrl;
     config = { ...config, baseUrl };
     if (!config.baseUrl) {
       throw new Error(`Base URL is required for StreamableHTTP transport`);

@@ -113,12 +113,7 @@ if (mode !== "export") {
       {
         source: "/api/proxy/alibaba/:path*",
         destination: "https://dashscope.aliyuncs.com/api/:path*",
-      },
-      {
-        // AMap MCP proxy to avoid CORS for browser SSE/HTTP requests
-        source: "/api/proxy/mcp/:path*",
-        destination: "https://mcp.amap.com/:path*",
-      },
+      }
     ];
 
     return {
