@@ -2986,14 +2986,16 @@ function _Chat() {
                                           )
                                         }
                                       />
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Debug}
-                                        icon={<DebugIcon />}
-                                        onClick={() => {
-                                          setDebugMessage(message as any);
-                                          setDebugModalOpen(true);
-                                        }}
-                                      />
+                                      {message.role === "assistant" && (
+                                        <ChatAction
+                                          text={Locale.Chat.Actions.Debug}
+                                          icon={<DebugIcon />}
+                                          onClick={() => {
+                                            setDebugMessage(message as any);
+                                            setDebugModalOpen(true);
+                                          }}
+                                        />
+                                      )}
                                       {config.ttsConfig.enable && (
                                         <ChatAction
                                           text={
@@ -3350,21 +3352,51 @@ function _Chat() {
                   const method = (req.method || "POST").toUpperCase();
                   const url = req.url || "";
                   const headers = req.headers || {};
-                  let cmd = `curl -X ${method} '${url}'`;
+
+                  const lines: string[] = [];
+                  // First line: URL
+                  lines.push(`curl '${url}'`);
+
+                  // Optional method line
+                  if (method && method !== "GET") {
+                    lines.push(`-X ${method}`);
+                  }
+
+                  // Header lines
                   try {
                     Object.keys(headers || {}).forEach((k) => {
                       const v = (headers as any)[k];
                       const sv = typeof v === "string" ? v : JSON.stringify(v);
-                      cmd += ` -H '${k}: ${sv}'`;
+                      lines.push(`-H '${k}: ${sv}'`);
                     });
                   } catch {}
+
+                  // Body line (pretty-printed JSON if possible)
                   const body = req.body;
                   if (typeof body !== "undefined") {
-                    const bodyStr =
-                      typeof body === "string" ? body : JSON.stringify(body);
-                    const escaped = bodyStr.replace(/'/g, "'\\''");
-                    cmd += ` --data '${escaped}'`;
+                    let bodyStr: string;
+                    try {
+                      if (typeof body === "string") {
+                        const parsed = JSON.parse(body);
+                        bodyStr = JSON.stringify(parsed, null, 2);
+                      } else {
+                        bodyStr = JSON.stringify(body, null, 2);
+                      }
+                    } catch {
+                      bodyStr =
+                        typeof body === "string" ? body : JSON.stringify(body);
+                    }
+                    // Escape single quotes for bash-safe single-quoted string
+                    const escaped = bodyStr.replace(/'/g, `'"'"'`);
+                    lines.push(`-d '${escaped}'`);
                   }
+
+                  // Add trailing backslashes to all but the last line
+                  const formatted = lines.map((line, idx) =>
+                    idx < lines.length - 1 ? `${line} \\` : line,
+                  );
+
+                  const cmd = formatted.join("\n");
                   copyToClipboard(cmd);
                 }}
               />,
