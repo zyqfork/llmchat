@@ -50,6 +50,7 @@ import StyleIcon from "../icons/palette.svg";
 
 import ShortcutkeyIcon from "../icons/shortcutkey.svg";
 import McpToolIcon from "../icons/tool.svg";
+import DebugIcon from "../icons/debug.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
 import ConnectionIcon from "../icons/connection.svg";
 import MenuIcon from "../icons/menu.svg";
@@ -2987,7 +2988,7 @@ function _Chat() {
                                       />
                                       <ChatAction
                                         text={Locale.Chat.Actions.Debug}
-                                        icon={<SearchIcon />}
+                                        icon={<DebugIcon />}
                                         onClick={() => {
                                           setDebugMessage(message as any);
                                           setDebugModalOpen(true);
