@@ -21,7 +21,9 @@ import {
   pauseMcpServer,
   restartAllClients,
   resumeMcpServer,
-} from "../mcp/actions";
+  removeMcpServer,
+  validateMcpServer,
+} from "../mcp/actions.client";
 import {
   ListToolsResponse,
   McpConfigData,
@@ -163,7 +165,7 @@ export function McpMarketPage() {
       // 构建SSE服务器配置
       // 注意：authProvider 已被移除，现在直接构建服务器配置
       const serverConfig: ServerConfig = {
-        type: "sse",
+        type: preset.transportType,
         baseUrl: preset.baseUrl,
         headers: preset.headers,
         timeout: preset.timeout,
@@ -216,7 +218,7 @@ export function McpMarketPage() {
     if (!preset.configurable) {
       try {
         const serverId = preset.id;
-        updateLoadingState(serverId, "Creating MCP client...");
+        updateLoadingState(serverId, "Validating CAI key...");
 
         // 构建HTTP服务器配置 (网页端专用)
         const serverConfig: ServerConfig = {
@@ -230,6 +232,16 @@ export function McpMarketPage() {
           tags: preset.tags,
         };
 
+        // 验证 CAI Key / 连接可用性
+        try {
+          await validateMcpServer(serverConfig);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast(`验证失败：${msg}`);
+          return;
+        }
+
+        updateLoadingState(serverId, "Creating MCP client...");
         const newConfig = await addMcpServer(preset.id, serverConfig);
         setConfig(newConfig);
 
@@ -243,6 +255,21 @@ export function McpMarketPage() {
       // 如果需要配置，打开配置对话框
       setEditingServerId(preset.id);
       setUserConfig({});
+    }
+  };
+
+  const removeServer = async (id: string) => {
+    try {
+      updateLoadingState(id, "Removing server...");
+      const newConfig = await removeMcpServer(id);
+      setConfig(newConfig);
+      const statuses = await getClientsStatus();
+      setClientStatuses(statuses);
+      showToast("Server removed");
+    } catch (error) {
+      showToast("Failed to remove server");
+    } finally {
+      updateLoadingState(id, null);
     }
   };
 
@@ -366,16 +393,29 @@ export function McpMarketPage() {
     const headers = parseHeaders(manualHeadersText);
 
     const serverConfig: ServerConfig = {
-      type: "sse",
+      type: "streamableHttp",
       baseUrl: url,
-      headers,
+      headers: headers ?? {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       timeout: timeoutNum,
       name: manualName.trim() || undefined,
       description: manualDesc.trim() || undefined,
       status: "active",
+      // Mark as manually added so transports avoid proxy normalization
+      addedAt: Date.now(),
     };
 
     try {
+      updateLoadingState(id, "Validating CAI key...");
+      try {
+        await validateMcpServer(serverConfig);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        showToast(`验证失败：${msg}`);
+        return;
+      }
       updateLoadingState(id, "Creating MCP client...");
       const newCfg = await addMcpServer(id, serverConfig);
       setConfig(newCfg);
@@ -532,57 +572,87 @@ export function McpMarketPage() {
       );
     }
 
-    // 使用优化的搜索功能
-    const filteredServers =
-      searchText.length === 0 ? presetServers : searchServers(searchText);
+    // 构建内置与手动添加的服务器分组（手动组放在最前，按添加时间倒序）
+    const builtinIds = new Set(presetServers.map((s) => s.id));
 
-    return filteredServers
-      .sort((a, b) => {
+    const manualRaw = Object.entries(
+      (config?.mcpServers ?? {}) as Record<string, ServerConfig>,
+    )
+      .filter(([id]) => !builtinIds.has(id))
+      .map(([id, sc]) => ({
+        id,
+        name: sc.name || id,
+        description: sc.description || "",
+        repo: sc.provider || sc.providerUrl || "",
+        tags: sc.tags && sc.tags.length > 0 ? sc.tags : ["manual"],
+        transportType: sc.type as PresetServer["transportType"],
+        baseUrl: sc.baseUrl,
+        headers: sc.headers,
+        timeout: sc.timeout,
+        configurable: false,
+        // 仅用于排序（不参与类型校验）
+        addedAt: (sc as any).addedAt as number | undefined,
+      }));
+
+    // 搜索过滤（分别对两个分组过滤）
+    const lower = searchText.toLowerCase();
+    const matches = (s: PresetServer & { addedAt?: number }) =>
+      searchText.length === 0 ||
+      s.name.toLowerCase().includes(lower) ||
+      s.description.toLowerCase().includes(lower) ||
+      (s.tags?.some((t) => t.toLowerCase().includes(lower)) ?? false);
+
+    const manualFiltered = manualRaw.filter(matches);
+    const builtinFiltered = presetServers.filter(matches as any);
+
+    // 排序：手动添加的按添加时间倒序；内置维持原有状态/名称排序
+    manualFiltered.sort((a, b) => {
+      const at = typeof a.addedAt === "number" ? a.addedAt : 0;
+      const bt = typeof b.addedAt === "number" ? b.addedAt : 0;
+      if (bt !== at) return bt - at;
+      return a.name.localeCompare(b.name);
+    });
+
+    const sortByStatusThenName = (list: PresetServer[]) =>
+      list.sort((a, b) => {
         const aStatus = checkServerStatus(a.id).status;
         const bStatus = checkServerStatus(b.id).status;
         const aLoading = loadingStates[a.id];
         const bLoading = loadingStates[b.id];
-
-        // 定义状态优先级
         const statusPriority: Record<string, number> = {
-          error: 0, // Highest priority for error status
-          active: 1, // Second for active
-          initializing: 2, // Initializing
-          starting: 3, // Starting
-          stopping: 4, // Stopping
-          paused: 5, // Paused
-          undefined: 6, // Lowest priority for undefined
+          error: 0,
+          active: 1,
+          initializing: 2,
+          starting: 3,
+          stopping: 4,
+          paused: 5,
+          undefined: 6,
         };
-
-        // Get actual status (including loading status)
         const getEffectiveStatus = (status: string, loading?: string) => {
           if (loading) {
             const operationType = getOperationStatusType(loading);
             return operationType === "default" ? status : operationType;
           }
-
           if (status === "initializing" && !loading) {
             return "active";
           }
-
           return status;
         };
-
-        const aEffectiveStatus = getEffectiveStatus(aStatus, aLoading);
-        const bEffectiveStatus = getEffectiveStatus(bStatus, bLoading);
-
-        // 首先按状态排序
-        if (aEffectiveStatus !== bEffectiveStatus) {
+        const aEffective = getEffectiveStatus(aStatus, aLoading);
+        const bEffective = getEffectiveStatus(bStatus, bLoading);
+        if (aEffective !== bEffective) {
           return (
-            (statusPriority[aEffectiveStatus] ?? 6) -
-            (statusPriority[bEffectiveStatus] ?? 6)
+            (statusPriority[aEffective] ?? 6) -
+            (statusPriority[bEffective] ?? 6)
           );
         }
-
-        // Sort by name when statuses are the same
         return a.name.localeCompare(b.name);
-      })
-      .map((server) => (
+      });
+
+    sortByStatusThenName(builtinFiltered);
+
+    const renderCards = (list: PresetServer[]) =>
+      list.map((server) => (
         <div
           className={clsx(styles["mcp-market-item"], {
             [styles["loading"]]: loadingStates[server.id],
@@ -649,12 +719,14 @@ export function McpMarketPage() {
                         onClick={() => restartServer(server.id)}
                         disabled={isLoading}
                       />
-                      {/* <IconButton
-                        icon={<DeleteIcon />}
-                        text="Remove"
-                        onClick={() => removeServer(server.id)}
-                        disabled={isLoading}
-                      /> */}
+                      {!builtinIds.has(server.id) && (
+                        <IconButton
+                          icon={<DeleteIcon />}
+                          text="Remove"
+                          onClick={() => removeServer(server.id)}
+                          disabled={isLoading}
+                        />
+                      )}
                     </>
                   ) : (
                     <>
@@ -676,6 +748,14 @@ export function McpMarketPage() {
                         onClick={() => pauseServer(server.id)}
                         disabled={isLoading}
                       />
+                      {!builtinIds.has(server.id) && (
+                        <IconButton
+                          icon={<DeleteIcon />}
+                          text="Remove"
+                          onClick={() => removeServer(server.id)}
+                          disabled={isLoading}
+                        />
+                      )}
                     </>
                   )}
                 </>
@@ -691,6 +771,21 @@ export function McpMarketPage() {
           </div>
         </div>
       ));
+
+    return (
+      <>
+        {manualFiltered.length > 0 && (
+          <div className={styles["server-group"]}>
+            <div className={styles["server-group-title"]}>手动添加的 MCP</div>
+            {renderCards(manualFiltered as unknown as PresetServer[])}
+          </div>
+        )}
+        <div className={styles["server-group"]}>
+          <div className={styles["server-group-title"]}>内置 MCP</div>
+          {renderCards(builtinFiltered)}
+        </div>
+      </>
+    );
   };
 
   return (

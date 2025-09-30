@@ -29,7 +29,7 @@ import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
 import { useAccessStore } from "../store";
 import clsx from "clsx";
-import { initializeMcpSystem } from "../mcp/actions";
+import { initializeMcpSystem } from "../mcp/actions.client";
 
 export function Loading(props: { noLogo?: boolean }) {
   return (

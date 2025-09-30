@@ -48,7 +48,7 @@ import { getModelCompressThreshold } from "../config/model-context-tokens";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
-import { executeMcpAction, getAllTools } from "../mcp/actions";
+import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 
 const localStorage = safeLocalStorage();

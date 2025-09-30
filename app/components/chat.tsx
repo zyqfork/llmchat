@@ -143,7 +143,7 @@ import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
-import { getAvailableClientsCount, getAllTools } from "../mcp/actions";
+import { getAvailableClientsCount, getAllTools } from "../mcp/actions.client";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import {
   getModelCapabilitiesWithCustomConfig,

@@ -136,6 +136,9 @@ export interface ServerConfig {
   logoUrl?: string;
   tags?: string[];
 
+  // 记录添加时间（用于手动添加的服务器排序）
+  addedAt?: number;
+
   // 禁用的工具列表
   disabledTools?: string[];
   disabledAutoApproveTools?: string[];

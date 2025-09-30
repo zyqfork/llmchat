@@ -149,6 +149,7 @@ export async function addMcpServer(
   const current = readConfig();
   const isNew = !(clientId in current.mcpServers);
   if (isNew && !config.status) config.status = "active";
+  if (isNew && typeof config.addedAt !== "number") config.addedAt = Date.now();
   const next: McpConfigData = {
     ...current,
     mcpServers: { ...current.mcpServers, [clientId]: config },
@@ -225,7 +226,21 @@ export async function removeMcpServer(
   return next;
 }
 
-export async function restartAllClients() {
+export async function validateMcpServer(config: ServerConfig): Promise<void> {
+  // Try to create a throwaway client and list tools to validate connectivity/credentials
+  try {
+    const client = await createClient("__validate__", config);
+    await listTools(client);
+    // cleanup if created; no need to keep in map
+    try {
+      await removeClient(client as any);
+    } catch {}
+  } catch (e) {
+    throw e;
+  }
+}
+
+export async function restartAllClients(): Promise<McpConfigData> {
   for (const runtime of clientsMap.values()) {
     if (runtime.client) await removeClient(runtime.client);
   }
@@ -234,6 +249,7 @@ export async function restartAllClients() {
   for (const [clientId, serverCfg] of Object.entries(cfg.mcpServers)) {
     await initializeSingleClient(clientId, serverCfg);
   }
+  return cfg;
 }
 
 export async function executeMcpAction(

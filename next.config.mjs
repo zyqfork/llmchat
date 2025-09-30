@@ -31,6 +31,13 @@ const nextConfig = {
       };
     }
 
+    // Ignore optional native deps used by ws in rt-client
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      bufferutil: false,
+      "utf-8-validate": false,
+    };
+
     return config;
   },
   output: mode,
@@ -106,6 +113,11 @@ if (mode !== "export") {
       {
         source: "/api/proxy/alibaba/:path*",
         destination: "https://dashscope.aliyuncs.com/api/:path*",
+      },
+      {
+        // AMap MCP proxy to avoid CORS for browser SSE/HTTP requests
+        source: "/api/proxy/mcp/:path*",
+        destination: "https://mcp.amap.com/:path*",
       },
     ];
 
