@@ -1,3 +1,5 @@
+"use client";
+
 import { IconButton } from "./button";
 import { ErrorBoundary } from "./error";
 import styles from "./mcp-market.module.scss";
@@ -57,6 +59,14 @@ export function McpMarketPage() {
   const [loadingStates, setLoadingStates] = useState<Record<string, string>>(
     {},
   );
+  // Manual add modal state
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [manualId, setManualId] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [manualDesc, setManualDesc] = useState("");
+  const [manualBaseUrl, setManualBaseUrl] = useState("");
+  const [manualHeadersText, setManualHeadersText] = useState("");
+  const [manualTimeout, setManualTimeout] = useState<string>("");
 
   // 添加状态轮询
   useEffect(() => {
@@ -277,6 +287,108 @@ export function McpMarketPage() {
       showToast("Failed to restart clients");
     } finally {
       updateLoadingState("all", null);
+    }
+  };
+
+  // ---- Manual Add (SSE) helpers ----
+  const parseHeaders = (text: string): Record<string, string> | undefined => {
+    const trimmed = text.trim();
+    if (!trimmed) return undefined;
+    try {
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        const obj = JSON.parse(trimmed);
+        if (Array.isArray(obj)) {
+          const res: Record<string, string> = {};
+          obj.forEach((pair) => {
+            if (pair && pair.key) res[pair.key] = String(pair.value ?? "");
+          });
+          return res;
+        }
+        return Object.fromEntries(
+          Object.entries(obj).map(([k, v]) => [k, String(v as any)]),
+        );
+      }
+    } catch (e) {
+      // fallback to line parsing
+    }
+    const headers: Record<string, string> = {};
+    trimmed
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const idx = line.indexOf(":");
+        if (idx > 0) {
+          const k = line.slice(0, idx).trim();
+          const v = line.slice(idx + 1).trim();
+          if (k) headers[k] = v;
+        }
+      });
+    return Object.keys(headers).length ? headers : undefined;
+  };
+
+  const openAddModal = () => {
+    setManualId("");
+    setManualName("");
+    setManualDesc("");
+    setManualBaseUrl("");
+    setManualHeadersText("");
+    setManualTimeout("");
+    setIsAddOpen(true);
+  };
+
+  const submitManualAdd = async () => {
+    // basic validation
+    const id = manualId.trim();
+    if (!id) {
+      showToast("请输入唯一的 Server ID");
+      return;
+    }
+    if (config?.mcpServers && id in config.mcpServers) {
+      showToast("该 Server ID 已存在");
+      return;
+    }
+    const url = manualBaseUrl.trim();
+    try {
+      // will throw if invalid
+      new URL(url);
+    } catch {
+      showToast("请输入有效的 Base URL");
+      return;
+    }
+    const timeoutNum = manualTimeout.trim()
+      ? Math.max(0, Number(manualTimeout.trim()))
+      : undefined;
+    if (timeoutNum !== undefined && Number.isNaN(timeoutNum)) {
+      showToast("超时时间必须是数字");
+      return;
+    }
+    const headers = parseHeaders(manualHeadersText);
+
+    const serverConfig: ServerConfig = {
+      type: "sse",
+      baseUrl: url,
+      headers,
+      timeout: timeoutNum,
+      name: manualName.trim() || undefined,
+      description: manualDesc.trim() || undefined,
+      status: "active",
+    };
+
+    try {
+      updateLoadingState(id, "Creating MCP client...");
+      const newCfg = await addMcpServer(id, serverConfig);
+      setConfig(newCfg);
+      const statuses = await getClientsStatus();
+      setClientStatuses(statuses);
+      setIsAddOpen(false);
+      showToast("Server added");
+    } catch (e) {
+      showToast(
+        e instanceof Error ? e.message : "Failed to add server, please check",
+      );
+    } finally {
+      updateLoadingState(id, null);
     }
   };
 
@@ -602,6 +714,15 @@ export function McpMarketPage() {
           <div className="window-actions">
             <div className="window-action-button">
               <IconButton
+                icon={<AddIcon />}
+                bordered
+                onClick={openAddModal}
+                text="Add Server"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="window-action-button">
+              <IconButton
                 icon={<RestartIcon />}
                 bordered
                 onClick={handleRestartAll}
@@ -633,6 +754,96 @@ export function McpMarketPage() {
 
           <div className={styles["server-list"]}>{renderServerList()}</div>
         </div>
+
+        {/*手动添加服务器*/}
+        {isAddOpen && (
+          <div className="modal-mask">
+            <Modal
+              title="Add MCP Server (SSE)"
+              onClose={() => setIsAddOpen(false)}
+              actions={[
+                <IconButton
+                  key="cancel"
+                  text="Cancel"
+                  onClick={() => setIsAddOpen(false)}
+                  bordered
+                  disabled={isLoading}
+                />,
+                <IconButton
+                  key="confirm"
+                  text="Add"
+                  type="primary"
+                  onClick={submitManualAdd}
+                  bordered
+                  disabled={isLoading}
+                />,
+              ]}
+            >
+              <List>
+                <ListItem
+                  title="Server ID"
+                  subTitle="唯一标识，建议使用英文数字小写"
+                >
+                  <input
+                    aria-label="server-id"
+                    type="text"
+                    placeholder="e.g. my-sse-server"
+                    value={manualId}
+                    onChange={(e) => setManualId(e.target.value)}
+                  />
+                </ListItem>
+                <ListItem title="Name" subTitle="可选，用于显示">
+                  <input
+                    aria-label="server-name"
+                    type="text"
+                    placeholder="Optional name"
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                  />
+                </ListItem>
+                <ListItem title="Description" subTitle="可选，简要说明">
+                  <input
+                    aria-label="server-desc"
+                    type="text"
+                    placeholder="Optional description"
+                    value={manualDesc}
+                    onChange={(e) => setManualDesc(e.target.value)}
+                  />
+                </ListItem>
+                <ListItem title="Base URL" subTitle="SSE 服务的事件流地址">
+                  <input
+                    aria-label="server-url"
+                    type="text"
+                    placeholder="https://example.com/mcp/sse"
+                    value={manualBaseUrl}
+                    onChange={(e) => setManualBaseUrl(e.target.value)}
+                  />
+                </ListItem>
+                <ListItem
+                  title="Headers"
+                  subTitle="可选，支持 JSON 或 每行 key:value"
+                >
+                  <textarea
+                    aria-label="server-headers"
+                    placeholder='{"Authorization":"Bearer ..."}'
+                    value={manualHeadersText}
+                    onChange={(e) => setManualHeadersText(e.target.value)}
+                    rows={4}
+                  />
+                </ListItem>
+                <ListItem title="Timeout" subTitle="可选，单位秒">
+                  <input
+                    aria-label="server-timeout"
+                    type="number"
+                    placeholder="30"
+                    value={manualTimeout}
+                    onChange={(e) => setManualTimeout(e.target.value)}
+                  />
+                </ListItem>
+              </List>
+            </Modal>
+          </div>
+        )}
 
         {/*编辑服务器配置*/}
         {editingServerId && (
