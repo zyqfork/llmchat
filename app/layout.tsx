@@ -4,7 +4,6 @@ import "./styles/markdown.scss";
 import "./styles/highlight.scss";
 import { getClientConfig } from "./config/client";
 import type { Metadata, Viewport } from "next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "LLMChat",
@@ -47,10 +46,7 @@ export default function RootLayout({
         ></link>
         <script src="/serviceWorkerRegister.js" defer></script>
       </head>
-      <body>
-        {children}
-        {!isExport && <SpeedInsights />}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
