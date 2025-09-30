@@ -290,6 +290,19 @@ export function stream(
       }
       console.debug("[ChatAPI] end");
       finished = true;
+      // attach debug info to response
+      try {
+        const debugBody = {
+          ...requestPayload,
+          tools: tools && tools.length ? tools : undefined,
+        };
+        (responseRes as any).__requestDebug = {
+          url: chatPath,
+          method: "POST",
+          headers,
+          body: debugBody,
+        };
+      } catch {}
       options.onFinish(responseText + remainText, responseRes); // 将res传递给onFinish
     }
   };
@@ -521,6 +534,18 @@ export function streamWithThink(
       }
 
       finished = true;
+      try {
+        const debugBody = {
+          ...requestPayload,
+          tools: tools && tools.length ? tools : undefined,
+        };
+        (responseRes as any).__requestDebug = {
+          url: chatPath,
+          method: "POST",
+          headers,
+          body: debugBody,
+        };
+      } catch {}
       options.onFinish(responseText + remainText, responseRes);
     }
   };

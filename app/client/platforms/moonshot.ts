@@ -190,6 +190,15 @@ export class MoonshotApi implements LLMApi {
 
         const resJson = await res.json();
         const message = this.extractMessage(resJson);
+        try {
+          const debugBody = JSON.parse(chatPayload.body as any);
+          (res as any).__requestDebug = {
+            url: chatPath,
+            method: chatPayload.method,
+            headers: chatPayload.headers,
+            body: debugBody,
+          };
+        } catch {}
         options.onFinish(message, res);
       }
     } catch (e) {

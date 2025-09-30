@@ -1888,6 +1888,9 @@ function _Chat() {
   const fontFamily = config.fontFamily;
   const [ratio, setRatio] = useState<number>(1); // 預設正方形
   const [showExport, setShowExport] = useState(false);
+  // Debug modal state
+  const [debugModalOpen, setDebugModalOpen] = useState(false);
+  const [debugMessage, setDebugMessage] = useState<ChatMessage | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
@@ -2982,6 +2985,14 @@ function _Chat() {
                                           )
                                         }
                                       />
+                                      <ChatAction
+                                        text={Locale.Chat.Actions.Debug}
+                                        icon={<SearchIcon />}
+                                        onClick={() => {
+                                          setDebugMessage(message as any);
+                                          setDebugModalOpen(true);
+                                        }}
+                                      />
                                       {config.ttsConfig.enable && (
                                         <ChatAction
                                           text={
@@ -3317,6 +3328,69 @@ function _Chat() {
 
       {showShortcutKeyModal && (
         <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />
+      )}
+
+      {debugModalOpen && (
+        <div className="modal-mask">
+          <Modal
+            title={Locale.Chat.Actions.Debug}
+            onClose={() => {
+              setDebugModalOpen(false);
+              setDebugMessage(null);
+            }}
+            actions={[
+              <IconButton
+                text={Locale.Chat.Actions.CopyAsCurl}
+                icon={<CopyIcon />}
+                key="copycurl"
+                onClick={() => {
+                  const req = (debugMessage as any)?.debug?.request;
+                  if (!req) return;
+                  const method = (req.method || "POST").toUpperCase();
+                  const url = req.url || "";
+                  const headers = req.headers || {};
+                  let cmd = `curl -X ${method} '${url}'`;
+                  try {
+                    Object.keys(headers || {}).forEach((k) => {
+                      const v = (headers as any)[k];
+                      const sv = typeof v === "string" ? v : JSON.stringify(v);
+                      cmd += ` -H '${k}: ${sv}'`;
+                    });
+                  } catch {}
+                  const body = req.body;
+                  if (typeof body !== "undefined") {
+                    const bodyStr =
+                      typeof body === "string" ? body : JSON.stringify(body);
+                    const escaped = bodyStr.replace(/'/g, "'\\''");
+                    cmd += ` --data '${escaped}'`;
+                  }
+                  copyToClipboard(cmd);
+                }}
+              />,
+            ]}
+          >
+            <div style={{ maxHeight: "60vh", overflow: "auto" }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Request</div>
+                <pre style={{ whiteSpace: "pre-wrap" }}>
+                  {(() => {
+                    const req = (debugMessage as any)?.debug?.request;
+                    return req ? JSON.stringify(req, null, 2) : "<empty>";
+                  })()}
+                </pre>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Response</div>
+                <pre style={{ whiteSpace: "pre-wrap" }}>
+                  {(() => {
+                    const res = (debugMessage as any)?.debug?.response;
+                    return res ? JSON.stringify(res, null, 2) : "<empty>";
+                  })()}
+                </pre>
+              </div>
+            </div>
+          </Modal>
+        </div>
       )}
     </>
   );

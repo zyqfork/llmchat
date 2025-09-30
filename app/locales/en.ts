@@ -94,6 +94,8 @@ const en: LocaleType = {
       StopSpeech: "Stop",
       PreviousVersion: "Previous Version",
       NextVersion: "Next Version",
+      Debug: "Debug",
+      CopyAsCurl: "Copy as cURL",
     },
     Commands: {
       new: "Start a new chat",

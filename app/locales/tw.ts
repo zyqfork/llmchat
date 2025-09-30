@@ -92,6 +92,8 @@ const tw = {
       StopSpeech: "停止",
       PreviousVersion: "上一版本",
       NextVersion: "下一版本",
+      Debug: "調試",
+      CopyAsCurl: "複製為 cURL",
     },
     Commands: {
       new: "新建聊天",

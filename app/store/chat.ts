@@ -66,6 +66,20 @@ export type ChatMessageTool = {
   errorMsg?: string;
 };
 
+export type ChatMessageDebug = {
+  request?: {
+    url?: string;
+    method?: string;
+    headers?: any;
+    body?: any;
+  };
+  response?: {
+    status?: number;
+    headers?: Record<string, string>;
+    body?: any;
+  };
+};
+
 export type ChatMessage = RequestMessage & {
   date: string;
   streaming?: boolean;
@@ -92,6 +106,8 @@ export type ChatMessage = RequestMessage & {
   // 重试版本管理 - 简化版本
   versions?: string[]; // 存储所有版本的内容
   currentVersionIndex?: number; // 当前显示的版本索引
+  // 调试信息（HTTP 请求与响应）
+  debug?: ChatMessageDebug;
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -643,9 +659,18 @@ export const useChatStore = createPersistStore(
               );
             }
           },
-          async onFinish(message) {
+          async onFinish(message, responseRes) {
             // 立即刷新任何待处理的更新
             streamOptimizer.flushUpdates();
+
+            // 收集调试信息
+            const reqDebug = (responseRes as any)?.__requestDebug;
+            const respHeaders: Record<string, string> = {};
+            try {
+              responseRes?.headers?.forEach?.((v, k) => {
+                respHeaders[k] = v as any;
+              });
+            } catch {}
 
             get().updateTargetSession(session, (session) => {
               const messageIndex = session.messages.findIndex(
@@ -658,7 +683,15 @@ export const useChatStore = createPersistStore(
                   streaming: false,
                   content: message,
                   date: new Date().toLocaleString(),
-                };
+                  debug: {
+                    request: reqDebug,
+                    response: {
+                      status: responseRes?.status,
+                      headers: respHeaders,
+                      body: message,
+                    },
+                  },
+                } as ChatMessage;
 
                 session.messages[messageIndex] = finalBotMessage;
                 get().onNewMessage(finalBotMessage, session);
@@ -823,7 +856,7 @@ export const useChatStore = createPersistStore(
                 );
               }
             },
-            async onFinish(message) {
+            async onFinish(message, responseRes) {
               // 立即刷新待处理的更新
               streamOptimizer.flushUpdates();
 
@@ -831,6 +864,23 @@ export const useChatStore = createPersistStore(
               if (message) {
                 botMessage.content = message;
                 botMessage.date = new Date().toLocaleString();
+
+                // 调试信息
+                const reqDebug = (responseRes as any)?.__requestDebug;
+                const respHeaders: Record<string, string> = {};
+                try {
+                  responseRes?.headers?.forEach?.((v, k) => {
+                    respHeaders[k] = v as any;
+                  });
+                } catch {}
+                botMessage.debug = {
+                  request: reqDebug,
+                  response: {
+                    status: responseRes?.status,
+                    headers: respHeaders,
+                    body: message,
+                  },
+                };
 
                 // 更新该模型的独立消息历史
                 multiModelMode.modelMessages[modelKey].push(botMessage);
@@ -1259,7 +1309,7 @@ export const useChatStore = createPersistStore(
                 }
               });
             },
-            onFinish(message) {
+            onFinish(message, responseRes) {
               // 立即刷新待处理的更新
               streamOptimizer.flushUpdates();
 
@@ -1269,6 +1319,22 @@ export const useChatStore = createPersistStore(
                 if (currentMessage) {
                   currentMessage.streaming = false;
                   currentMessage.content = message;
+                  // 调试信息
+                  const reqDebug = (responseRes as any)?.__requestDebug;
+                  const respHeaders: Record<string, string> = {};
+                  try {
+                    responseRes?.headers?.forEach?.((v, k) => {
+                      respHeaders[k] = v as any;
+                    });
+                  } catch {}
+                  currentMessage.debug = {
+                    request: reqDebug,
+                    response: {
+                      status: responseRes?.status,
+                      headers: respHeaders,
+                      body: message,
+                    },
+                  };
                   finishedMessage = currentMessage;
                 }
               });

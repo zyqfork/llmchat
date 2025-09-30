@@ -381,6 +381,15 @@ export class ClaudeApi implements LLMApi {
         const resJson = await res.json();
 
         const message = this.extractMessage(resJson);
+        try {
+          const debugBody = JSON.parse(payload.body as any);
+          (res as any).__requestDebug = {
+            url: path,
+            method: payload.method,
+            headers: payload.headers,
+            body: debugBody,
+          };
+        } catch {}
         options.onFinish(message, res);
       } catch (e) {
         console.error("failed to chat", e);

@@ -91,6 +91,8 @@ const cn = {
       StopSpeech: "停止",
       PreviousVersion: "上一版本",
       NextVersion: "下一版本",
+      Debug: "调试",
+      CopyAsCurl: "复制为 cURL",
     },
     Commands: {
       new: "新建聊天",
