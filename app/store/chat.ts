@@ -698,6 +698,8 @@ export const useChatStore = createPersistStore(
               }
             });
 
+            // 标记控制器为完成状态
+            ChatControllerPool.markCompleted(session.id, botMessage.id);
             ChatControllerPool.remove(session.id, botMessage.id);
           },
           onBeforeTool(tool: ChatMessageTool) {
@@ -826,7 +828,7 @@ export const useChatStore = createPersistStore(
           });
         });
 
-        // 为每个模型发送请求
+        // 为每个模型发送请求，使用独立的错误处理
         const promises = multiModelMode.selectedModels.map(async (modelKey) => {
           const modelConfig = modelConfigs[modelKey];
           const botMessage = botMessages[modelKey];
@@ -840,77 +842,186 @@ export const useChatStore = createPersistStore(
 
           const api: ClientApi = getClientApi(modelConfig.providerName);
 
-          return api.llm.chat({
-            messages: recentMessages,
-            config: { ...modelConfig, stream: true },
-            onUpdate(message) {
-              botMessage.streaming = true;
-              if (message) {
-                botMessage.content = message;
-                // 多模型模式也使用流式优化器
+          try {
+            return await api.llm.chat({
+              messages: recentMessages,
+              config: { ...modelConfig, stream: true },
+              onUpdate(message) {
+                botMessage.streaming = true;
+                if (message) {
+                  botMessage.content = message;
+                  // 修复：确保多模型消息的流式更新能够及时反映
+                  streamOptimizer.updateStreamingMessage(
+                    session.id,
+                    botMessage.id,
+                    message,
+                    session,
+                  );
+                  // 立即刷新关键更新，避免界面延迟
+                  if (message.length > 0 && message.length % 100 < 20) {
+                    streamOptimizer.flushUpdates();
+                  }
+                }
+              },
+              async onFinish(message, responseRes) {
+                // 立即刷新待处理的更新
+                streamOptimizer.flushUpdates();
+
+                // 关键修复：确保消息状态正确更新
+                botMessage.streaming = false;
+                if (message) {
+                  botMessage.content = message;
+                  botMessage.date = new Date().toLocaleString();
+
+                  // 调试信息
+                  const reqDebug = (responseRes as any)?.__requestDebug;
+                  const respHeaders: Record<string, string> = {};
+                  try {
+                    responseRes?.headers?.forEach?.((v, k) => {
+                      respHeaders[k] = v as any;
+                    });
+                  } catch {}
+                  botMessage.debug = {
+                    request: reqDebug,
+                    response: {
+                      status: responseRes?.status,
+                      headers: respHeaders,
+                      body: message,
+                    },
+                  };
+
+                  // 更新该模型的独立消息历史
+                  multiModelMode.modelMessages[modelKey].push(botMessage);
+
+                  // 关键修复：确保消息状态正确反映在会话中
+                  get().updateTargetSession(session, (session) => {
+                    const messageIndex = session.messages.findIndex(
+                      (m) => m.id === botMessage.id,
+                    );
+                    if (messageIndex >= 0) {
+                      session.messages[messageIndex] = { ...botMessage };
+                    }
+                  });
+
+                  get().onNewMessage(botMessage, session);
+                }
+
+                // 标记控制器为完成状态
+                ChatControllerPool.markCompleted(session.id, botMessage.id);
+                ChatControllerPool.remove(session.id, botMessage.id);
+              },
+              onBeforeTool(tool: ChatMessageTool) {
+                (botMessage.tools = botMessage?.tools || []).push(tool);
+                // 多模型工具调用也使用优化更新
                 streamOptimizer.updateStreamingMessage(
                   session.id,
                   botMessage.id,
-                  message,
+                  getMessageTextContent(botMessage),
                   session,
                 );
-              }
-            },
-            async onFinish(message, responseRes) {
-              // 立即刷新待处理的更新
-              streamOptimizer.flushUpdates();
+              },
+              onError(error) {
+                // 为每个模型提供独立的错误处理
+                console.error(`[MultiModel] Model ${modelKey} error:`, error);
 
-              botMessage.streaming = false;
-              if (message) {
-                botMessage.content = message;
-                botMessage.date = new Date().toLocaleString();
+                // 检查是否是用户主动中止的错误
+                const isAborted =
+                  error.message?.includes?.("aborted") ||
+                  error.message?.includes?.("AbortError");
 
-                // 调试信息
-                const reqDebug = (responseRes as any)?.__requestDebug;
-                const respHeaders: Record<string, string> = {};
-                try {
-                  responseRes?.headers?.forEach?.((v, k) => {
-                    respHeaders[k] = v as any;
+                // 只有在非中止错误时才更新消息内容
+                if (!isAborted) {
+                  // 确保消息状态正确更新
+                  botMessage.streaming = false;
+                  botMessage.isError = true;
+                  botMessage.content = prettyObject({
+                    error: true,
+                    message: `模型 ${modelKey} 响应出错: ${error.message}`,
                   });
-                } catch {}
-                botMessage.debug = {
-                  request: reqDebug,
-                  response: {
-                    status: responseRes?.status,
-                    headers: respHeaders,
-                    body: message,
-                  },
-                };
 
-                // 更新该模型的独立消息历史
-                multiModelMode.modelMessages[modelKey].push(botMessage);
+                  // 立即刷新更新
+                  streamOptimizer.flushUpdates();
 
-                get().onNewMessage(botMessage, session);
+                  // 更新会话状态
+                  get().updateTargetSession(session, (session) => {
+                    const messageIndex = session.messages.findIndex(
+                      (m) => m.id === botMessage.id,
+                    );
+                    if (messageIndex >= 0) {
+                      session.messages[messageIndex] = { ...botMessage };
+                    }
+                  });
+                }
+
+                ChatControllerPool.remove(session.id, botMessage.id);
+
+                // 继续让其他模型运行，不抛出错误
+                return null;
+              },
+              onController(controller) {
+                ChatControllerPool.addController(
+                  session.id,
+                  botMessage.id ?? session.messages.length,
+                  controller,
+                );
+              },
+            });
+          } catch (error) {
+            console.error(
+              `[MultiModel] Model ${modelKey} request failed:`,
+              error,
+            );
+
+            // 确保消息状态正确更新
+            botMessage.streaming = false;
+            botMessage.isError = true;
+            botMessage.content = prettyObject({
+              error: true,
+              message: `模型 ${modelKey} 请求失败: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            });
+
+            // 立即刷新更新
+            streamOptimizer.flushUpdates();
+
+            // 更新会话状态
+            get().updateTargetSession(session, (session) => {
+              const messageIndex = session.messages.findIndex(
+                (m) => m.id === botMessage.id,
+              );
+              if (messageIndex >= 0) {
+                session.messages[messageIndex] = { ...botMessage };
               }
-              ChatControllerPool.remove(session.id, botMessage.id);
-            },
-            onBeforeTool(tool: ChatMessageTool) {
-              (botMessage.tools = botMessage?.tools || []).push(tool);
-              // 多模型工具调用也使用优化更新
-              streamOptimizer.updateStreamingMessage(
-                session.id,
-                botMessage.id,
-                getMessageTextContent(botMessage),
-                session,
-              );
-            },
-            onController(controller) {
-              ChatControllerPool.addController(
-                session.id,
-                botMessage.id ?? session.messages.length,
-                controller,
-              );
-            },
-          });
+            });
+
+            ChatControllerPool.remove(session.id, botMessage.id);
+
+            // 继续让其他模型运行，不抛出错误
+            return null;
+          }
         });
 
-        // 等待所有模型完成响应
-        await Promise.allSettled(promises);
+        // 等待所有模型完成响应，但不中断其他模型的执行
+        const results = await Promise.allSettled(promises);
+
+        // 记录完成的模型数量
+        const completedModels = results.filter(
+          (r) => r.status === "fulfilled",
+        ).length;
+        const failedModels = results.filter(
+          (r) => r.status === "rejected",
+        ).length;
+
+        if (completedModels === 0 && failedModels > 0) {
+          // 如果所有模型都失败了，显示错误提示
+          showToast(`多模型对话失败，${failedModels}个模型响应出错`);
+        } else if (failedModels > 0) {
+          // 部分模型失败，显示警告
+          console.warn(
+            `[MultiModel] ${failedModels}个模型响应出错，${completedModels}个模型正常完成`,
+          );
+        }
       },
 
       getMemoryPrompt() {

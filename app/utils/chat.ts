@@ -370,14 +370,15 @@ export function stream(
         }
       },
       onmessage(msg) {
-        if (msg.data === "[DONE]" || finished) {
+        if (msg.data === "[DONE]") {
           return finish();
         }
-        const text = msg.data;
-        // Skip empty messages
-        if (!text || text.trim().length === 0) {
+        if (finished) {
           return;
         }
+        const text = msg.data;
+        // 修复：不要跳过空消息，这可能导致过早结束
+        // 即使消息为空也要继续处理流程
         try {
           const chunk = parseSSE(text, runTools);
           if (chunk) {
@@ -432,11 +433,21 @@ export function streamWithThink(
   let isInThinkingMode = false;
   let lastIsThinking = false;
   let lastIsThinkingTagged = false; //between <think> and </think> tags
+  let messageCount = 0; // 添加消息计数器
+  const MIN_MESSAGE_INTERVAL = 20; // 增加最小消息间隔到20毫秒，避免过于频繁的更新
+  let lastMessageTime = 0; // 最后消息时间
+  let consecutiveEmptyMessages = 0; // 连续空消息计数
+  const MAX_CONSECUTIVE_EMPTY_MESSAGES = 50; // 最大连续空消息数
 
-  // animate response to make it looks smooth
+  // 修复：动画机制的根本问题 - 确保所有内容都能显示
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
-      responseText += remainText;
+      // 关键修复：确保所有剩余内容都被处理
+      if (remainText.length > 0) {
+        responseText += remainText;
+        options.onUpdate?.(responseText, remainText);
+        remainText = "";
+      }
       if (responseText?.length === 0) {
         options.onError?.(new Error("empty response from server"));
       }
@@ -444,11 +455,23 @@ export function streamWithThink(
     }
 
     if (remainText.length > 0) {
-      const fetchCount = Math.max(1, Math.round(remainText.length / 60));
-      const fetchText = remainText.slice(0, fetchCount);
-      responseText += fetchText;
-      remainText = remainText.slice(fetchCount);
-      options.onUpdate?.(responseText, fetchText);
+      const currentTime = Date.now();
+      const timeSinceLastMessage = currentTime - lastMessageTime;
+
+      // 关键修复：确保内容能够及时显示，避免积压
+      if (timeSinceLastMessage >= MIN_MESSAGE_INTERVAL) {
+        // 修复：处理小内容块，避免内容卡在remainText中
+        const fetchCount = Math.max(
+          1,
+          Math.min(remainText.length, Math.round(remainText.length / 60)),
+        );
+        const fetchText = remainText.slice(0, fetchCount);
+        responseText += fetchText;
+        remainText = remainText.slice(fetchCount);
+        options.onUpdate?.(responseText, fetchText);
+        lastMessageTime = currentTime;
+        messageCount++;
+      }
     }
 
     requestAnimationFrame(animateResponseText);
@@ -617,64 +640,65 @@ export function streamWithThink(
           return finish();
         }
         const text = msg.data;
-        // Skip empty messages
-        if (!text || text.trim().length === 0) {
-          return;
-        }
+        // 关键修复：不要跳过任何消息，包括空消息
+        // 在多模型模式下，即使空消息也可能包含重要信息
         try {
           const chunk = parseSSE(text, runTools);
-          // Skip if content is empty
-          if (!chunk?.content || chunk.content.length === 0) {
-            return;
-          }
-
-          // deal with <think> and </think> tags start
-          // 只有当模型具有推理能力时才处理思考内容
-          if (modelHasReasoningCapability && !chunk.isThinking) {
-            if (chunk.content.startsWith("<think>")) {
-              chunk.isThinking = true;
-              chunk.content = chunk.content.slice(7).trim();
-              lastIsThinkingTagged = true;
-            } else if (chunk.content.endsWith("</think>")) {
-              chunk.isThinking = false;
-              chunk.content = chunk.content.slice(0, -8).trim();
-              lastIsThinkingTagged = false;
-            } else if (lastIsThinkingTagged) {
-              chunk.isThinking = true;
-            }
-          }
-          // deal with <think> and </think> tags end
-
-          // Check if thinking mode changed
-          const isThinkingChanged = lastIsThinking !== chunk.isThinking;
-          lastIsThinking = chunk.isThinking;
-
-          if (modelHasReasoningCapability && chunk.isThinking) {
-            // If in thinking mode and model has reasoning capability
-            if (!isInThinkingMode || isThinkingChanged) {
-              // If this is a new thinking block or mode changed, add opening tag
-              isInThinkingMode = true;
-              if (remainText.length > 0) {
-                remainText += "\n";
+          // 修复：确保所有内容都被正确处理，避免内容丢失
+          if (chunk) {
+            // deal with <think> and </think> tags start
+            // 只有当模型具有推理能力时才处理思考内容
+            if (
+              modelHasReasoningCapability &&
+              !chunk.isThinking &&
+              chunk.content
+            ) {
+              if (chunk.content.startsWith("<think>")) {
+                chunk.isThinking = true;
+                chunk.content = chunk.content.slice(7).trim();
+                lastIsThinkingTagged = true;
+              } else if (chunk.content.endsWith("</think>")) {
+                chunk.isThinking = false;
+                chunk.content = chunk.content.slice(0, -8).trim();
+                lastIsThinkingTagged = false;
+              } else if (lastIsThinkingTagged) {
+                chunk.isThinking = true;
               }
-              remainText += "<think>\n" + chunk.content;
-            } else {
-              // Continue adding thinking content
-              remainText += chunk.content;
             }
-          } else {
-            // If in normal mode or model doesn't have reasoning capability
-            if (isInThinkingMode || isThinkingChanged) {
-              // If switching from thinking mode to normal mode, add closing tag
-              isInThinkingMode = false;
-              remainText += "\n</think>\n\n" + chunk.content;
+            // deal with <think> and </think> tags end
+
+            // Check if thinking mode changed
+            const isThinkingChanged = lastIsThinking !== chunk.isThinking;
+            lastIsThinking = chunk.isThinking;
+
+            if (modelHasReasoningCapability && chunk.isThinking) {
+              // If in thinking mode and model has reasoning capability
+              if (!isInThinkingMode || isThinkingChanged) {
+                // If this is a new thinking block or mode changed, add opening tag
+                isInThinkingMode = true;
+                if (remainText.length > 0) {
+                  remainText += "\n";
+                }
+                remainText += "<think>\n" + (chunk.content || "");
+              } else {
+                // Continue adding thinking content
+                remainText += chunk.content || "";
+              }
             } else {
-              remainText += chunk.content;
+              // If in normal mode or model doesn't have reasoning capability
+              if (isInThinkingMode || isThinkingChanged) {
+                // If switching from thinking mode to normal mode, add closing tag
+                isInThinkingMode = false;
+                remainText += "\n</think>\n\n" + (chunk.content || "");
+              } else {
+                remainText += chunk.content || "";
+              }
             }
           }
         } catch (e) {
           console.error("[Request] parse error", text, msg, e);
           // Don't throw error for parse failures, just log them
+          // 在多模型场景下，一个模型的解析错误不应该影响其他模型
         }
       },
       onclose() {
@@ -682,7 +706,10 @@ export function streamWithThink(
       },
       onerror(e) {
         options?.onError?.(e);
-        throw e;
+        // 在多模型场景下，避免抛出错误影响其他模型
+        console.error("[ChatAPI] Stream error:", e);
+        // 不抛出错误，让流自然结束
+        finish();
       },
       openWhenHidden: true,
     });

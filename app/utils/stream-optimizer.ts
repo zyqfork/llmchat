@@ -13,8 +13,13 @@ export class StreamUpdateOptimizer {
   >();
 
   private updateTimer: NodeJS.Timeout | null = null;
-  // 降低批量延迟以获得更细粒度的“逐字”体验，同时保持性能
-  private readonly BATCH_DELAY = 20; // 20ms 批量更新延迟（原为 100ms）
+  // 增加批量延迟以避免多模型并发时的冲突
+  private readonly BATCH_DELAY = 100; // 100ms 批量更新延迟，更好地处理多模型并发
+  // 添加最小内容长度阈值，避免过频繁的更新
+  private readonly MIN_CONTENT_LENGTH = 1; // 降低阈值，确保小更新也能及时显示
+  // 添加最大等待时间，避免更新延迟过长
+  private readonly MAX_WAIT_TIME = 500; // 最大等待时间500ms
+  private lastFlushTime = 0;
 
   constructor(private onBatchUpdate: (updates: Map<string, any>) => void) {}
 
@@ -44,10 +49,28 @@ export class StreamUpdateOptimizer {
       clearTimeout(this.updateTimer);
     }
 
-    // 非常小的增量（<=2 个字符）时，立即刷新，近似“逐字吐出”
+    // 多模型模式下的优化：更频繁的更新以确保界面响应性
+    const isMultiModel = session.multiModelMode?.enabled;
+
+    // 关键修复：多模型模式下，确保及时的状态更新
+    if (isMultiModel) {
+      // 多模型模式下，任何增量都立即刷新，确保按钮状态及时更新
+      if (deltaLen > 0) {
+        setTimeout(() => this.flushUpdates(), 5);
+        return;
+      }
+    }
+
+    // 非常小的增量（<=2 个字符）时，立即刷新，近似"逐字吐出"
     if (deltaLen > 0 && deltaLen <= 2) {
       // 使用微任务或最小延迟，避免阻塞当前调用栈
       setTimeout(() => this.flushUpdates(), 0);
+      return;
+    }
+
+    // 普通模式下，中等增量也立即刷新
+    if (deltaLen > 0 && deltaLen <= 10) {
+      setTimeout(() => this.flushUpdates(), 10);
       return;
     }
 
@@ -65,8 +88,22 @@ export class StreamUpdateOptimizer {
       this.updateTimer = null;
     }
 
-    this.onBatchUpdate(new Map(this.pendingUpdates));
-    this.pendingUpdates.clear();
+    const currentTime = Date.now();
+    const timeSinceLastFlush = currentTime - this.lastFlushTime;
+
+    // 关键修复：确保更新能够及时执行，避免界面延迟
+    if (timeSinceLastFlush < 30) {
+      // 减少延迟时间，确保关键更新能够及时反映
+      setTimeout(() => {
+        this.onBatchUpdate(new Map(this.pendingUpdates));
+        this.pendingUpdates.clear();
+        this.lastFlushTime = Date.now();
+      }, 30 - timeSinceLastFlush);
+    } else {
+      this.onBatchUpdate(new Map(this.pendingUpdates));
+      this.pendingUpdates.clear();
+      this.lastFlushTime = currentTime;
+    }
   }
 
   // 清理资源

@@ -2902,123 +2902,145 @@ function _Chat() {
                             {showActions && (
                               <div className={styles["chat-message-actions"]}>
                                 <div className={styles["chat-input-actions"]}>
-                                  {message.streaming ? (
-                                    <ChatAction
-                                      text={Locale.Chat.Actions.Stop}
-                                      icon={<StopIcon />}
-                                      onClick={() =>
-                                        onUserStop(message.id ?? i)
-                                      }
-                                    />
-                                  ) : (
-                                    <>
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Retry}
-                                        icon={<ResetIcon />}
-                                        onClick={() => onResend(message)}
-                                      />
+                                  {(() => {
+                                    // 修复：更准确地判断消息是否应该显示停止按钮
+                                    const shouldShowStop =
+                                      message.streaming &&
+                                      (message.role === "assistant" ||
+                                        message.role === "user") &&
+                                      ChatControllerPool.hasPendingInSession(
+                                        session.id,
+                                      );
 
-                                      {/* 版本切换按钮 - 只对 assistant 消息显示 */}
-                                      {(() => {
-                                        const shouldShowVersionControls =
-                                          message.role === "assistant" &&
-                                          message.versions &&
-                                          message.versions.length >= 1;
-
-                                        return (
-                                          shouldShowVersionControls && (
-                                            <>
-                                              {(message.currentVersionIndex ??
-                                                0) > 0 && (
-                                                <ChatAction
-                                                  text={
-                                                    Locale.Chat.Actions
-                                                      .PreviousVersion
-                                                  }
-                                                  icon={<LeftIcon />}
-                                                  onClick={() =>
-                                                    onPreviousVersion(message)
-                                                  }
-                                                />
-                                              )}
-
-                                              {(message.currentVersionIndex ??
-                                                0) <
-                                                (message.versions?.length ??
-                                                  0) && (
-                                                <ChatAction
-                                                  text={
-                                                    Locale.Chat.Actions
-                                                      .NextVersion
-                                                  }
-                                                  icon={<RightIcon />}
-                                                  onClick={() =>
-                                                    onNextVersion(message)
-                                                  }
-                                                />
-                                              )}
-                                            </>
-                                          )
-                                        );
-                                      })()}
-
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Delete}
-                                        icon={<DeleteIcon />}
-                                        onClick={() =>
-                                          onDelete(message.id ?? i)
-                                        }
-                                      />
-
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Pin}
-                                        icon={<PinIcon />}
-                                        onClick={() => onPinMessage(message)}
-                                      />
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Copy}
-                                        icon={<CopyIcon />}
-                                        onClick={() =>
-                                          copyToClipboard(
-                                            getMessageTextContentWithoutThinking(
-                                              message,
-                                            ),
-                                          )
-                                        }
-                                      />
-                                      {message.role === "assistant" && (
+                                    if (shouldShowStop) {
+                                      return (
                                         <ChatAction
-                                          text={Locale.Chat.Actions.Debug}
-                                          icon={<DebugIcon />}
-                                          onClick={() => {
-                                            setDebugMessage(message as any);
-                                            setDebugModalOpen(true);
-                                          }}
-                                        />
-                                      )}
-                                      {config.ttsConfig.enable && (
-                                        <ChatAction
-                                          text={
-                                            speechStatus
-                                              ? Locale.Chat.Actions.StopSpeech
-                                              : Locale.Chat.Actions.Speech
-                                          }
-                                          icon={
-                                            speechStatus ? (
-                                              <SpeakStopIcon />
-                                            ) : (
-                                              <SpeakIcon />
-                                            )
-                                          }
+                                          text={Locale.Chat.Actions.Stop}
+                                          icon={<StopIcon />}
                                           onClick={() =>
-                                            openaiSpeech(
-                                              getMessageTextContent(message),
-                                            )
+                                            onUserStop(message.id ?? i)
                                           }
                                         />
-                                      )}
-                                    </>
-                                  )}
+                                      );
+                                    } else {
+                                      return (
+                                        <>
+                                          <ChatAction
+                                            text={Locale.Chat.Actions.Retry}
+                                            icon={<ResetIcon />}
+                                            onClick={() => onResend(message)}
+                                          />
+
+                                          {/* 版本切换按钮 - 只对 assistant 消息显示 */}
+                                          {(() => {
+                                            const shouldShowVersionControls =
+                                              message.role === "assistant" &&
+                                              message.versions &&
+                                              message.versions.length >= 1;
+
+                                            return (
+                                              shouldShowVersionControls && (
+                                                <>
+                                                  {(message.currentVersionIndex ??
+                                                    0) > 0 && (
+                                                    <ChatAction
+                                                      text={
+                                                        Locale.Chat.Actions
+                                                          .PreviousVersion
+                                                      }
+                                                      icon={<LeftIcon />}
+                                                      onClick={() =>
+                                                        onPreviousVersion(
+                                                          message,
+                                                        )
+                                                      }
+                                                    />
+                                                  )}
+
+                                                  {(message.currentVersionIndex ??
+                                                    0) <
+                                                    (message.versions?.length ??
+                                                      0) && (
+                                                    <ChatAction
+                                                      text={
+                                                        Locale.Chat.Actions
+                                                          .NextVersion
+                                                      }
+                                                      icon={<RightIcon />}
+                                                      onClick={() =>
+                                                        onNextVersion(message)
+                                                      }
+                                                    />
+                                                  )}
+                                                </>
+                                              )
+                                            );
+                                          })()}
+
+                                          <ChatAction
+                                            text={Locale.Chat.Actions.Delete}
+                                            icon={<DeleteIcon />}
+                                            onClick={() =>
+                                              onDelete(message.id ?? i)
+                                            }
+                                          />
+
+                                          <ChatAction
+                                            text={Locale.Chat.Actions.Pin}
+                                            icon={<PinIcon />}
+                                            onClick={() =>
+                                              onPinMessage(message)
+                                            }
+                                          />
+                                          <ChatAction
+                                            text={Locale.Chat.Actions.Copy}
+                                            icon={<CopyIcon />}
+                                            onClick={() =>
+                                              copyToClipboard(
+                                                getMessageTextContentWithoutThinking(
+                                                  message,
+                                                ),
+                                              )
+                                            }
+                                          />
+                                          {message.role === "assistant" && (
+                                            <ChatAction
+                                              text={Locale.Chat.Actions.Debug}
+                                              icon={<DebugIcon />}
+                                              onClick={() => {
+                                                setDebugMessage(message as any);
+                                                setDebugModalOpen(true);
+                                              }}
+                                            />
+                                          )}
+                                          {config.ttsConfig.enable && (
+                                            <ChatAction
+                                              text={
+                                                speechStatus
+                                                  ? Locale.Chat.Actions
+                                                      .StopSpeech
+                                                  : Locale.Chat.Actions.Speech
+                                              }
+                                              icon={
+                                                speechStatus ? (
+                                                  <SpeakStopIcon />
+                                                ) : (
+                                                  <SpeakIcon />
+                                                )
+                                              }
+                                              onClick={() =>
+                                                openaiSpeech(
+                                                  getMessageTextContent(
+                                                    message,
+                                                  ),
+                                                )
+                                              }
+                                            />
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                  })()}
                                 </div>
                               </div>
                             )}
@@ -3053,9 +3075,21 @@ function _Chat() {
                             <Markdown
                               key={message.streaming ? "loading" : "done"}
                               content={(() => {
-                                // 获取当前显示的消息内容
-                                const messageContent =
-                                  getCurrentMessageContent(message);
+                                // 修复：确保多模型消息内容正确获取和显示
+                                let messageContent;
+
+                                if (message.isMultiModel) {
+                                  // 多模型消息：直接使用原始内容，避免版本管理干扰
+                                  messageContent =
+                                    typeof message.content === "string"
+                                      ? message.content
+                                      : getMessageTextContent(message);
+                                } else {
+                                  // 普通消息：使用版本管理
+                                  messageContent =
+                                    getCurrentMessageContent(message);
+                                }
+
                                 const isThinking = isThinkingModel(
                                   message.model,
                                 );
@@ -3072,7 +3106,9 @@ function _Chat() {
                               })()}
                               loading={
                                 (message.preview || message.streaming) &&
-                                message.content.length === 0 &&
+                                (!message.content ||
+                                  (typeof message.content === "string" &&
+                                    message.content.length === 0)) &&
                                 !isUser
                               }
                               //   onContextMenu={(e) => onRightClick(e, message)} // hard to use
