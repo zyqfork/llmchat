@@ -169,39 +169,10 @@ export class ClientApi {
 
   masks() {}
 
+  // ShareGPT功能已被移除，替换为打印功能
   async share(messages: ChatMessage[], avatarUrl: string | null = null) {
-    const msgs = messages
-      .map((m) => ({
-        from: m.role === "user" ? "human" : "gpt",
-        value: m.content,
-      }))
-      .concat([
-        {
-          from: "human",
-          value: "Share from [LLMChat]: https://github.com/zyqfork/llmchat",
-        },
-      ]);
-
-    const clientConfig = getClientConfig();
-    const proxyUrl = "/sharegpt";
-    const rawUrl = "https://sharegpt.com/api/conversations";
-    const shareUrl = clientConfig?.isApp ? rawUrl : proxyUrl;
-    const res = await fetch(shareUrl, {
-      body: JSON.stringify({
-        avatarUrl,
-        items: msgs,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-
-    const resJson = await res.json();
-
-    if (resJson.id) {
-      return `https://shareg.pt/${resJson.id}`;
-    }
+    // 打印功能已在UI组件中实现，此方法保留用于兼容性
+    return null;
   }
 }
 

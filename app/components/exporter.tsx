@@ -321,56 +321,404 @@ export function PreviewActions(props: {
 }) {
   const [loading, setLoading] = useState(false);
   const [shouldExport, setShouldExport] = useState(false);
-  const config = useAppConfig();
-  const onRenderMsgs = (msgs: ChatMessage[]) => {
-    setShouldExport(false);
 
-    const api: ClientApi = getClientApi(config.modelConfig.providerName);
-
-    api
-      .share(msgs)
-      .then((res) => {
-        if (!res) return;
-        showModal({
-          title: Locale.Export.Share,
-          children: [
-            <input
-              type="text"
-              value={res}
-              key="input"
-              style={{
-                width: "100%",
-                maxWidth: "unset",
-              }}
-              readOnly
-              onClick={(e) => e.currentTarget.select()}
-            ></input>,
-          ],
-          actions: [
-            <IconButton
-              icon={<CopyIcon />}
-              text={Locale.Chat.Actions.Copy}
-              key="copy"
-              onClick={() => copyToClipboard(res)}
-            />,
-          ],
-        });
-        setTimeout(() => {
-          window.open(res, "_blank");
-        }, 800);
-      })
-      .catch((e) => {
-        console.error("[Share]", e);
-        showToast(prettyObject(e));
-      })
-      .finally(() => setLoading(false));
-  };
-
-  const share = async () => {
+  const print = async () => {
     if (props.messages?.length) {
       setLoading(true);
       setShouldExport(true);
     }
+  };
+
+  const onRenderMsgs = (msgs: ChatMessage[]) => {
+    setShouldExport(false);
+
+    // 创建打印窗口
+    const printWindow = window.open("", "_blank", "width=1000,height=700");
+    if (!printWindow) {
+      showToast("无法打开打印窗口，请检查浏览器设置");
+      setLoading(false);
+      return;
+    }
+
+    // 构建更丰富的打印内容
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>LLMChat 聊天记录</title>
+          <meta charset="utf-8">
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              min-height: 100vh;
+              padding: 20px;
+              line-height: 1.6;
+            }
+            
+            .container {
+              max-width: 900px;
+              margin: 0 auto;
+              background: white;
+              border-radius: 20px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+              overflow: hidden;
+            }
+            
+            .header {
+              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+              color: white;
+              padding: 40px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+            }
+            
+            .header::before {
+              content: '';
+              position: absolute;
+              top: -50%;
+              left: -50%;
+              width: 200%;
+              height: 200%;
+              background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+              animation: shimmer 3s infinite;
+            }
+            
+            @keyframes shimmer {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            
+            .logo {
+              font-size: 32px;
+              font-weight: 800;
+              margin-bottom: 10px;
+              position: relative;
+              z-index: 1;
+              text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            }
+            
+            .subtitle {
+              font-size: 16px;
+              opacity: 0.9;
+              margin-bottom: 5px;
+              position: relative;
+              z-index: 1;
+            }
+            
+            .print-info {
+              font-size: 14px;
+              opacity: 0.8;
+              position: relative;
+              z-index: 1;
+            }
+            
+            .content {
+              padding: 40px;
+              background: #fafbfc;
+            }
+            
+            .message-wrapper {
+              margin-bottom: 25px;
+              display: flex;
+              align-items: flex-start;
+            }
+            
+            .message-user {
+              justify-content: flex-end;
+            }
+            
+            .message-assistant {
+              justify-content: flex-start;
+            }
+            
+            .avatar {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 18px;
+              margin: 0 15px;
+              flex-shrink: 0;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+            
+            .avatar-user {
+              background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+              color: white;
+            }
+            
+            .avatar-assistant {
+              background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+              color: white;
+            }
+            
+            .message-bubble {
+              max-width: 70%;
+              padding: 16px 20px;
+              border-radius: 18px;
+              position: relative;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+              transition: transform 0.2s ease;
+            }
+            
+            .message-bubble:hover {
+              transform: translateY(-2px);
+            }
+            
+            .message-user .message-bubble {
+              background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+              color: white;
+              border-bottom-right-radius: 4px;
+            }
+            
+            .message-assistant .message-bubble {
+              background: white;
+              color: #374151;
+              border: 1px solid #e5e7eb;
+              border-bottom-left-radius: 4px;
+            }
+            
+            .message-content {
+              font-size: 15px;
+              line-height: 1.5;
+              white-space: pre-wrap;
+              word-wrap: break-word;
+            }
+            
+            .message-time {
+              font-size: 12px;
+              opacity: 0.7;
+              margin-top: 8px;
+            }
+            
+            .stats {
+              background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+            }
+            
+            .stats-title {
+              font-size: 18px;
+              font-weight: 600;
+              color: #374151;
+              margin-bottom: 15px;
+            }
+            
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 20px;
+              margin-top: 20px;
+            }
+            
+            .stat-item {
+              background: white;
+              padding: 20px;
+              border-radius: 12px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            
+            .stat-value {
+              font-size: 24px;
+              font-weight: 700;
+              color: #4f46e5;
+              margin-bottom: 5px;
+            }
+            
+            .stat-label {
+              font-size: 14px;
+              color: #6b7280;
+            }
+            
+            .footer {
+              background: #1f2937;
+              color: white;
+              padding: 20px;
+              text-align: center;
+              font-size: 14px;
+            }
+            
+            .footer a {
+              color: #60a5fa;
+              text-decoration: none;
+            }
+            
+            .footer a:hover {
+              text-decoration: underline;
+            }
+            
+            @media print {
+              body {
+                background: white !important;
+                padding: 0 !important;
+              }
+              
+              .container {
+                box-shadow: none !important;
+                border-radius: 0 !important;
+              }
+              
+              .header {
+                background: #4f46e5 !important;
+                color: white !important;
+              }
+              
+              .message-user .message-bubble {
+                background: #3b82f6 !important;
+                color: white !important;
+              }
+              
+              .message-assistant .message-bubble {
+                background: white !important;
+                color: #374151 !important;
+                border: 1px solid #e5e7eb !important;
+              }
+              
+              .stats {
+                background: #f3f4f6 !important;
+              }
+              
+              .stat-value {
+                color: #4f46e5 !important;
+              }
+            }
+            
+            @media (max-width: 768px) {
+              .message-wrapper {
+                margin-bottom: 20px;
+              }
+              
+              .message-bubble {
+                max-width: 85%;
+              }
+              
+              .avatar {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+              }
+              
+              .header {
+                padding: 30px 20px;
+              }
+              
+              .content {
+                padding: 20px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🤖 LLMChat</div>
+              <div class="subtitle">智能对话记录</div>
+              <div class="print-info">打印时间：${new Date().toLocaleString()}</div>
+            </div>
+            
+            <div class="content">
+              ${msgs
+                .map((msg, index) => {
+                  const content =
+                    typeof msg.content === "string"
+                      ? msg.content
+                      : JSON.stringify(msg.content);
+                  const isUser = msg.role === "user";
+                  const avatar = isUser ? "👤" : "🤖";
+                  const time = new Date().toLocaleString();
+
+                  return `
+                  <div class="message-wrapper message-${msg.role}">
+                    ${
+                      isUser
+                        ? ""
+                        : `<div class="avatar avatar-assistant">${avatar}</div>`
+                    }
+                    <div class="message-bubble">
+                      <div class="message-content">
+                        ${content.replace(/</g, "<").replace(/>/g, ">")}
+                      </div>
+                      <div class="message-time">${time}</div>
+                    </div>
+                    ${
+                      isUser
+                        ? `<div class="avatar avatar-user">${avatar}</div>`
+                        : ""
+                    }
+                  </div>
+                `;
+                })
+                .join("")}
+            </div>
+            
+            <div class="stats">
+              <div class="stats-title">📊 对话统计</div>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <div class="stat-value">${msgs.length}</div>
+                  <div class="stat-label">总消息数</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value">${
+                    msgs.filter((m) => m.role === "user").length
+                  }</div>
+                  <div class="stat-label">用户消息</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value">${
+                    msgs.filter((m) => m.role === "assistant").length
+                  }</div>
+                  <div class="stat-label">助手回复</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>由 <a href="https://github.com/zyqfork/llmchat" target="_blank">LLMChat</a> 生成</p>
+              <p>© ${new Date().getFullYear()} - 保留所有权利</p>
+            </div>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              // 添加淡入动画
+              document.body.style.opacity = '0';
+              document.body.style.transition = 'opacity 0.5s ease';
+              
+              setTimeout(function() {
+                document.body.style.opacity = '1';
+              }, 100);
+              
+              // 延迟打印以确保样式加载完成
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 2000);
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    setTimeout(() => {
+      setLoading(false);
+    }, 3000);
   };
 
   return (
@@ -393,11 +741,11 @@ export function PreviewActions(props: {
           onClick={props.download}
         ></IconButton>
         <IconButton
-          text={Locale.Export.Share}
+          text="打印"
           bordered
           shadow
           icon={loading ? <LoadingIcon /> : <ShareIcon />}
-          onClick={share}
+          onClick={print}
         ></IconButton>
       </div>
       <div

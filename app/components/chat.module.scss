@@ -48,7 +48,7 @@
   justify-content: space-between; // 保持两端对齐
   align-items: flex-start;
   gap: 5px;
-  margin-bottom: 8px; // 增加底部间距，确保换行后与输入框有合适距离
+  margin-bottom: 0px; // 增加底部间距，确保换行后与输入框有合适距离
 
   &-end {
     display: flex;
