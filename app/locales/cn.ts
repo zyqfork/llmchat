@@ -218,8 +218,8 @@ const cn = {
       Modal: "长按或右键保存图片",
     },
     Artifacts: {
-      Title: "分享页面",
-      Error: "分享失败",
+      Title: "打印页面",
+      Error: "打印失败",
     },
   },
   Select: {

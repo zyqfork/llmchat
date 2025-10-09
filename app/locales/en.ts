@@ -224,8 +224,8 @@ const en: LocaleType = {
       Modal: "Long press or right click to save image",
     },
     Artifacts: {
-      Title: "Share Artifacts",
-      Error: "Share Error",
+      Title: "Print Artifacts",
+      Error: "Print Error",
     },
   },
   Select: {
