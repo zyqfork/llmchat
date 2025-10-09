@@ -45,7 +45,7 @@
 .chat-input-actions {
   display: flex;
   flex-wrap: wrap; // 默认允许换行
-  justify-content: flex-start; // 改为左对齐，避免空间不足时的挤压
+  justify-content: space-between; // 保持两端对齐
   align-items: flex-start;
   gap: 5px;
   margin-bottom: 8px; // 增加底部间距，确保换行后与输入框有合适距离
@@ -56,6 +56,7 @@
     gap: 5px;
     align-items: flex-end;
     flex-shrink: 0; // 防止右侧元素被压缩
+    margin-left: auto; // 确保右侧元素保持在右边
   }
 
   .model-selector-container {
@@ -1518,13 +1519,19 @@ height: 15vh;
   .chat-input-actions {
     flex-wrap: nowrap; // 移动端使用横向滚动，不换行
     overflow-x: auto;
-    justify-content: flex-start;
+    justify-content: space-between; // 保持两端对齐
     margin-bottom: 6px;
 
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;     /* Firefox */
     &::-webkit-scrollbar {
       display: none;           /* Chrome, Safari, and Opera */
+    }
+
+    // 确保右侧元素在移动端仍然右对齐
+    &-end {
+      margin-left: auto;
+      justify-content: flex-end;
     }
   }
 }
