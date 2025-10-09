@@ -24,7 +24,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: syferie/llmchat
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
           tags: |
             type=raw,value=latest
             type=ref,event=tag
