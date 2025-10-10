@@ -2328,13 +2328,7 @@ function _Chat() {
           ]
         : [],
     );
-  }, [
-    config.sendPreviewBubble,
-    context,
-    isLoading,
-    session.messages,
-    userInput,
-  ]);
+  }, [config.sendPreviewBubble, context, session.messages, userInput]);
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
     Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
