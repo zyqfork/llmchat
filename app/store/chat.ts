@@ -603,7 +603,7 @@ export const useChatStore = createPersistStore(
 
         if (!isMcpResponse && attachImages && attachImages.length > 0) {
           mContent = [
-            ...(content ? [{ type: "text" as const, text: content }] : []),
+            { type: "text" as const, text: content },
             ...attachImages.map((url) => ({
               type: "image_url" as const,
               image_url: { url },
@@ -771,7 +771,7 @@ export const useChatStore = createPersistStore(
 
         if (!isMcpResponse && attachImages && attachImages.length > 0) {
           mContent = [
-            ...(content ? [{ type: "text" as const, text: content }] : []),
+            { type: "text" as const, text: content },
             ...attachImages.map((url) => ({
               type: "image_url" as const,
               image_url: { url },

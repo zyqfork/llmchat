@@ -2214,19 +2214,19 @@ function _Chat() {
   // 获取当前显示的消息内容
   const getCurrentMessageContent = (message: ChatMessage): string => {
     if (!message.versions || message.versions.length < 1) {
-      return typeof message.content === "string" ? message.content : "";
+      return getMessageTextContent(message);
     }
 
     const currentIndex = message.currentVersionIndex ?? 0;
     if (currentIndex === message.versions.length) {
       // 显示最新版本（当前消息内容）
-      return typeof message.content === "string" ? message.content : "";
+      return getMessageTextContent(message);
     } else if (currentIndex >= 0 && currentIndex < message.versions.length) {
       // 显示历史版本
       return message.versions[currentIndex];
     }
 
-    return typeof message.content === "string" ? message.content : "";
+    return getMessageTextContent(message);
   };
 
   const onPinMessage = (message: ChatMessage) => {

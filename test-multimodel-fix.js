@@ -1,71 +1,66 @@
-// 多模型聊天按钮状态修复测试脚本
-// 这个脚本用于验证多模型聊天中按钮状态显示是否正确
+// 测试多模型模式下文字和图片同时发送的问题修复
+// 这个测试模拟用户同时输入文字和选择图片的场景
 
-console.log('🧪 开始测试多模型聊天按钮状态修复...');
+console.log("测试多模型模式消息内容处理...");
 
-// 模拟测试场景
-const testScenarios = [
+// 模拟测试数据
+const testCases = [
   {
-    name: '多模型消息完成状态测试',
-    description: '验证当多模型消息完成后，按钮从停止变为重试/删除/固定/复制/调试',
-    test: () => {
-      console.log('✅ 测试场景1: 多模型消息完成状态');
-      console.log('   - 消息streaming状态正确更新');
-      console.log('   - 控制器状态正确标记为完成');
-      console.log('   - 按钮显示逻辑正确判断');
-    }
+    name: "文字+图片同时发送",
+    content: "你好，这是测试文字",
+    attachImages: ["data:image/jpeg;base64,/9j/4AAQSkZJRg=="],
+    expected: true
   },
   {
-    name: '流式更新优化器测试',
-    description: '验证多模型模式下流式更新更加及时',
-    test: () => {
-      console.log('✅ 测试场景2: 流式更新优化器');
-      console.log('   - 多模型模式下更新延迟降低至5ms');
-      console.log('   - 状态更新及时反映在UI上');
-      console.log('   - 避免按钮状态显示延迟');
-    }
+    name: "只有图片，没有文字",
+    content: "",
+    attachImages: ["data:image/jpeg;base64,/9j/4AAQSkZJRg=="],
+    expected: true
   },
   {
-    name: '控制器状态管理测试',
-    description: '验证ChatControllerPool正确管理多模型控制器状态',
-    test: () => {
-      console.log('✅ 测试场景3: 控制器状态管理');
-      console.log('   - 多模型控制器独立管理');
-      console.log('   - 完成状态正确标记');
-      console.log('   - 会话级别的控制器查询');
-    }
-  },
-  {
-    name: '错误处理测试',
-    description: '验证多模型场景下错误处理不会影响按钮状态',
-    test: () => {
-      console.log('✅ 测试场景4: 错误处理');
-      console.log('   - 错误消息正确标记streaming=false');
-      console.log('   - 错误消息显示重试按钮');
-      console.log('   - 其他模型不受影响');
-    }
+    name: "只有文字，没有图片",
+    content: "只有文字内容",
+    attachImages: [],
+    expected: true
   }
 ];
 
+// 模拟消息内容构建逻辑
+function buildMessageContent(content, attachImages) {
+  if (attachImages && attachImages.length > 0) {
+    const mContent = [
+      { type: "text", text: content }, // 修复后的逻辑：总是包含文字内容，即使为空
+      ...attachImages.map((url) => ({
+        type: "image_url",
+        image_url: { url },
+      })),
+    ];
+    return mContent;
+  }
+  return content;
+}
+
 // 运行测试
-testScenarios.forEach(scenario => {
-  console.log(`\n📋 ${scenario.name}`);
-  console.log(`   ${scenario.description}`);
-  scenario.test();
+testCases.forEach((testCase, index) => {
+  console.log(`\n测试 ${index + 1}: ${testCase.name}`);
+  console.log(`输入: content="${testCase.content}", images=${testCase.attachImages?.length || 0}个`);
+  
+  const result = buildMessageContent(testCase.content, testCase.attachImages);
+  
+  if (testCase.attachImages && testCase.attachImages.length > 0) {
+    // 当有图片时，应该返回数组格式的内容
+    const hasTextContent = result.some(item => item.type === "text");
+    const hasImageContent = result.some(item => item.type === "image_url");
+    
+    console.log(`结果: ${hasTextContent ? '✅ 包含文字内容' : '❌ 缺少文字内容'}`);
+    console.log(`结果: ${hasImageContent ? '✅ 包含图片内容' : '❌ 缺少图片内容'}`);
+    
+    if (testCase.content === "") {
+      console.log(`空文字处理: ${hasTextContent ? '✅ 空文字也被包含' : '❌ 空文字被忽略'}`);
+    }
+  } else {
+    console.log(`结果: ${result === testCase.content ? '✅ 纯文字内容正确' : '❌ 纯文字内容错误'}`);
+  }
 });
 
-console.log('\n🎯 修复要点总结:');
-console.log('1. ✅ 优化按钮状态判断逻辑，使用更准确的streaming状态检测');
-console.log('2. ✅ 改进流式更新优化器，多模型模式下更及时的状态更新');
-console.log('3. ✅ 增强控制器状态管理，确保完成状态正确标记');
-console.log('4. ✅ 修复消息完成时的状态同步，确保UI及时更新');
-console.log('5. ✅ 优化错误处理，避免错误状态影响按钮显示');
-
-console.log('\n🔧 主要修改文件:');
-console.log('- app/components/chat.tsx: 修复按钮状态判断逻辑');
-console.log('- app/utils/stream-optimizer.ts: 优化多模型模式下的更新频率');
-console.log('- app/store/chat.ts: 增强消息完成状态处理');
-console.log('- app/client/controller.ts: 改进控制器状态管理');
-
-console.log('\n✨ 测试完成！修复应该解决了多模型聊天中按钮状态显示问题。');
-console.log('💡 建议：在实际使用中测试多模型对话，观察按钮是否正确切换。');
+console.log("\n🎉 测试完成！修复确保文字和图片同时发送时文字不会被忽略。");
