@@ -613,6 +613,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  
+  &[style*="cursor: pointer"] {
+    transition: opacity 0.2s ease;
+    
+    &:hover {
+      opacity: 0.8;
+      text-decoration: underline;
+    }
+  }
 }
 
 @media (max-width: 600px) {

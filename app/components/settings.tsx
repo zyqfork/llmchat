@@ -37,7 +37,10 @@ import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 import { normalizeProviderName } from "../client/api";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import {
+  getModelCompressThreshold,
+  getModelContextTokens,
+} from "../config/model-context-tokens";
 
 import { IconButton } from "./button";
 import {
@@ -821,6 +824,18 @@ export function Settings() {
     ServiceProvider | string | null
   >(null);
   const [showAddCustomProvider, setShowAddCustomProvider] = useState(false);
+  const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
+  const [modelConfigForm, setModelConfigForm] = useState({
+    modelId: "",
+    category: "",
+    capabilities: {
+      vision: false,
+      web: false,
+      reasoning: false,
+      tools: false,
+    },
+    contextTokens: undefined as number | undefined,
+  });
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<ServiceProvider, boolean>
   >({
@@ -2144,6 +2159,14 @@ export function Settings() {
                                     <span
                                       className={styles["model-name"]}
                                       title={modelName}
+                                      onClick={() => {
+                                        // 直接打开模型配置弹窗
+                                        openModelConfig(
+                                          config.provider,
+                                          modelName,
+                                        );
+                                      }}
+                                      style={{ cursor: "pointer" }}
                                     >
                                       <span
                                         className={styles["model-name-inner"]}
@@ -2263,6 +2286,55 @@ export function Settings() {
     }
     return model.provider?.providerName;
   });
+
+  // 打开模型配置弹窗
+  const openModelConfig = (
+    provider: ServiceProvider | string,
+    modelName: string,
+  ) => {
+    const currentCapabilities = getModelCapabilitiesWithCustomConfig(modelName);
+
+    // 获取当前上下文Token数配置
+    const currentContextConfig = getModelContextTokens(modelName);
+    const currentContextTokens = currentContextConfig?.contextTokens;
+
+    setModelConfigForm({
+      modelId: modelName,
+      category: "", // 在设置页面中不显示分组
+      capabilities: {
+        vision: currentCapabilities.vision || false,
+        web: currentCapabilities.web || false,
+        reasoning: currentCapabilities.reasoning || false,
+        tools: currentCapabilities.tools || false,
+      },
+      contextTokens: currentContextTokens,
+    });
+    setShowModelConfig(modelName);
+  };
+
+  // 保存模型配置
+  const saveModelConfig = () => {
+    const modelName = modelConfigForm.modelId;
+
+    // 保存能力配置到本地存储
+    const capabilitiesKey = `model_capabilities_${modelName}`;
+    localStorage.setItem(
+      capabilitiesKey,
+      JSON.stringify(modelConfigForm.capabilities),
+    );
+
+    // 保存上下文Token数配置
+    if (modelConfigForm.contextTokens !== undefined) {
+      const {
+        saveCustomContextTokens,
+      } = require("../config/model-context-tokens");
+      saveCustomContextTokens(modelName, modelConfigForm.contextTokens);
+    }
+
+    // 关闭配置面板
+    setShowModelConfig(null);
+    showToast("模型配置已保存");
+  };
 
   // 模型配置设置
   const renderModelConfigSettings = () => {
@@ -2439,6 +2511,231 @@ export function Settings() {
             setShowAddCustomProvider(false);
           }}
         />
+      )}
+
+      {/* 模型配置弹窗 */}
+      {showModelConfig && (
+        <div className="modal-mask">
+          <div className={styles["modal-container"]}>
+            <div className={styles["modal-header"]}>
+              <div className={styles["modal-title"]}>
+                模型配置 - {modelConfigForm.modelId}
+              </div>
+              <button
+                className={styles["modal-close-button"]}
+                onClick={() => setShowModelConfig(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={styles["modal-content"]}>
+              {/* 基本信息 */}
+              <div className={styles["form-group"]}>
+                <label>模型 ID</label>
+                <input
+                  type="text"
+                  value={modelConfigForm.modelId}
+                  disabled
+                  className={styles["config-input"]}
+                />
+              </div>
+
+              <div className={styles["form-group"]}>
+                <label>上下文Token数</label>
+                <input
+                  type="number"
+                  placeholder="例如: 128000"
+                  min="1024"
+                  max="10000000"
+                  value={modelConfigForm.contextTokens || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setModelConfigForm((prev) => ({
+                      ...prev,
+                      contextTokens: value ? parseInt(value, 10) : undefined,
+                    }));
+                  }}
+                  className={styles["config-input"]}
+                />
+                <small
+                  style={{
+                    color: "#666",
+                    fontSize: "12px",
+                    marginTop: "4px",
+                    display: "block",
+                  }}
+                >
+                  设置模型支持的最大上下文Token数量，留空使用默认值
+                </small>
+              </div>
+
+              {/* 模型能力 */}
+              <div className={styles["form-group"]}>
+                <label>模型能力</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "12px",
+                    marginTop: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px",
+                      border: "1px solid var(--border-in-light)",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setModelConfigForm((prev) => ({
+                        ...prev,
+                        capabilities: {
+                          ...prev.capabilities,
+                          vision: !prev.capabilities.vision,
+                        },
+                      }))
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor: modelConfigForm.capabilities.vision
+                          ? "var(--primary)"
+                          : "#ccc",
+                        transition: "background-color 0.2s ease",
+                      }}
+                    />
+                    <span>👁️ 视觉</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px",
+                      border: "1px solid var(--border-in-light)",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setModelConfigForm((prev) => ({
+                        ...prev,
+                        capabilities: {
+                          ...prev.capabilities,
+                          web: !prev.capabilities.web,
+                        },
+                      }))
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor: modelConfigForm.capabilities.web
+                          ? "var(--primary)"
+                          : "#ccc",
+                        transition: "background-color 0.2s ease",
+                      }}
+                    />
+                    <span>🌐 联网</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px",
+                      border: "1px solid var(--border-in-light)",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setModelConfigForm((prev) => ({
+                        ...prev,
+                        capabilities: {
+                          ...prev.capabilities,
+                          reasoning: !prev.capabilities.reasoning,
+                        },
+                      }))
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor: modelConfigForm.capabilities.reasoning
+                          ? "var(--primary)"
+                          : "#ccc",
+                        transition: "background-color 0.2s ease",
+                      }}
+                    />
+                    <span>🧠 推理</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px",
+                      border: "1px solid var(--border-in-light)",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setModelConfigForm((prev) => ({
+                        ...prev,
+                        capabilities: {
+                          ...prev.capabilities,
+                          tools: !prev.capabilities.tools,
+                        },
+                      }))
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor: modelConfigForm.capabilities.tools
+                          ? "var(--primary)"
+                          : "#ccc",
+                        transition: "background-color 0.2s ease",
+                      }}
+                    />
+                    <span>🔧 工具</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles["modal-footer"]}>
+              <button
+                className={styles["cancel-button"]}
+                onClick={() => setShowModelConfig(null)}
+              >
+                取消
+              </button>
+              <button
+                className={styles["confirm-button"]}
+                onClick={saveModelConfig}
+              >
+                保存配置
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </ErrorBoundary>
   );
