@@ -1,10 +1,10 @@
-import { SubmitKey } from "../store/config";
-import type { PartialLocaleType } from "./index";
 import { getClientConfig } from "../config/client";
+import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+
 const isApp = !!getClientConfig()?.isApp;
 
-const tr: PartialLocaleType = {
+const tr = {
   WIP: "Çalışma devam ediyor...",
   Error: {
     Unauthorized: isApp
@@ -25,14 +25,47 @@ const tr: PartialLocaleType = {
     Confirm: "Onayla",
     Later: "Sonra",
     Return: "Geri",
-    SaasTips: "Ayarlar çok karmaşık, hemen kullanmak istiyorum",
-    TopTips:
-      "🥳 NextChat AI lansman teklifi, OpenAI o1, GPT-4o, Claude-3.5 ve en son büyük modelleri şimdi açın",
+    SaasTips: "",
+    TopTips: "",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} konuşma`,
   },
   Chat: {
+    MultiModel: {
+      Title: "Çoklu Model Sohbet Ayarları",
+      Enabled: "Çoklu Model (Etkin)",
+      Disabled: "Çoklu Model (Devre Dışı)",
+      Count: (count: number) => `${count} model`,
+      Description:
+        "🎯 Çoklu Model Arenası modu etkinleştirildi! Model seçiciye tıklayarak sohbet için birden fazla model seçin.",
+      OpenSelector: "Model Seçiciyi Aç",
+      AlreadySelected: (count: number) => `(${count} seçildi)`,
+      Tips: "💡 İpucu: Çoklu model modunda, aynı anda birden fazla model seçebilirsiniz ve her model mesajlarınıza bağımsız olarak yanıt verir, bu da farklı modellerin yanıtlarını karşılaştırmanıza olanak tanır.",
+      EnableToast:
+        "🎯 Çoklu Model Arenası modu etkinleştirildi! Sohbet arenası için birden fazla model seçmek üzere model seçiciye tıklayın",
+      DisableToast: "Çoklu model modu devre dışı bırakıldı",
+      MinimumModelsError:
+        "Çoklu model sohbetlerini etkinleştirmek için lütfen en az iki model seçin",
+      ModelsSelectedToast: (count: number) =>
+        `${count} model sohbet için seçildi`,
+    },
+    UI: {
+      SidebarToggle: "Kenar çubuğunu daralt/genişlet",
+      SearchModels: "Modellerde ara...",
+      SelectModel: "Model seç",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `Mevcut bağlam: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `Mevcut tokenlar: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `Mevcut tokenlar: ${current.toLocaleString()} / bilinmiyor`,
+        EstimatedTokens: (estimated: number) =>
+          `Tahmini tokenlar: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `Bağlam: ${tokens} token`,
+      },
+    },
     SubTitle: (count: number) => `Toplam ${count} konuşma`,
     EditMessage: {
       Title: "Mesaj Kayıtlarını Düzenle",
@@ -53,15 +86,23 @@ const tr: PartialLocaleType = {
       PinToastAction: "Görünüm",
       Delete: "Sil",
       Edit: "Düzenle",
+      FullScreen: "Tam ekran",
       RefreshTitle: "Başlığı Yenile",
       RefreshToast: "Başlık yenileme isteği gönderildi",
+      Speech: "Oynat",
+      StopSpeech: "Durdur",
+      PreviousVersion: "Önceki sürüm",
+      NextVersion: "Sonraki sürüm",
+      Debug: "Hata ayıkla",
+      CopyAsCurl: "cURL olarak kopyala",
     },
     Commands: {
       new: "Yeni sohbet",
       newm: "Maske ile yeni sohbet oluştur",
       next: "Sonraki sohbet",
       prev: "Önceki sohbet",
-      clear: "Konteksti temizle",
+      clear: "Bağlamı temizle",
+      fork: "Sohbeti çatalla",
       del: "Sohbeti sil",
     },
     InputActions: {
@@ -75,24 +116,92 @@ const tr: PartialLocaleType = {
       Prompt: "Kısayol komutu",
       Masks: "Tüm maskeler",
       Clear: "Sohbeti temizle",
+      Reset: "Sohbeti sıfırla",
+      ResetConfirm:
+        "Mevcut sohbet penceresinin tüm içeriğini sıfırlamak istediğinizden emin misiniz?",
       Settings: "Sohbet ayarları",
       UploadImage: "Resim yükle",
+      Search: "Ara",
+      SearchOn: "Arama etkin",
+      SearchOff: "Arama devre dışı",
+      SearchEnabledToast:
+        "🔍 Arama özelliği etkinleştirildi! Artık web'de arama yapabilirsiniz",
+      SearchDisabledToast: "❌ Arama özelliği devre dışı bırakıldı",
+    },
+    MCP: {
+      Title: "MCP Araç Yönetimi",
+      Enable: "MCP özelliklerini etkinleştir",
+      EnableDesc:
+        "Etkinleştirildiğinde, MCP araçları kullanılabilir olur. Devre dışı bırakıldığında, MCP ile ilgili istekler gönderilmez",
+      NoTools: "Kullanılabilir MCP aracı yok",
+      Loading: "Yükleniyor...",
+      ClientFailed: "MCP istemcisi yüklenemedi, sessiz işlem",
+      ToolsCount: (count: number) => `${count} araç`,
     },
     Rename: "Sohbeti yeniden adlandır",
     Typing: "Yazıyor…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} gönder`;
       if (submitKey === String(SubmitKey.Enter)) {
-        inputHints += " Shift + Enter satır sonu için";
+        inputHints += "，Shift + Enter satır sonu için";
       }
-      return inputHints + " / tamamlama için, : komutlar için";
+      return inputHints + "，/ tamamlama için, : komutlar için";
     },
     Send: "Gönder",
+    TokenUsage: "Kullanım",
+    TokenTooltip: {
+      Context: "Mevcut bağlam",
+      CurrentToken: "Mevcut tokenlar",
+      EstimatedToken: "Tahmini tokenlar",
+      Unknown: "Bilinmiyor",
+    },
+    StartSpeak: "Konuşmaya başla",
+    StopSpeak: "Konuşmayı durdur",
     Config: {
       Reset: "Hafızayı temizle",
       SaveAs: "Maske olarak kaydet",
     },
     IsContext: "Varsayılan ifade",
+    ShortcutKey: {
+      Title: "Kısayol tuşları",
+      newChat: "Yeni sohbet aç",
+      focusInput: "Giriş alanına odaklan",
+      copyLastMessage: "Son mesajı kopyala",
+      copyLastCode: "Son kodu kopyala",
+      showShortcutKey: "Kısayol tuşlarını göster",
+      clearContext: "Bağlamı temizle",
+    },
+    Thinking: {
+      Title: "Düşünme Derinliği",
+      Dynamic: "Dinamik düşünme",
+      DynamicDesc: "Model düşünme derinliğini otomatik olarak ayarlar",
+      Off: "Düşünme devre dışı",
+      OffDesc: "Düşünme süreci yok",
+      Light: "Hafif düşünme",
+      LightDesc: "1024 token",
+      Medium: "Orta düşünme",
+      MediumDesc: "4096 token",
+      Deep: "Derin düşünme",
+      DeepDesc: "8192 token",
+      VeryDeep: "Çok derin düşünme",
+      VeryDeepDesc: "16384 token",
+      Notice:
+        "Sadece thinkingBudget destekleyen modeller düşünme derinliğini ayarlayabilir",
+      ClaudeNotice:
+        "Sadece Claude serisi modeller düşünme derinliğini ayarlayabilir",
+      GeminiNotice:
+        "Sadece Gemini serisi modeller düşünme derinliğini ayarlayabilir",
+      ClaudeLight: "Düşünme",
+      ClaudeLightDesc: "5000 token",
+      ClaudeMedium: "Ciddi düşünme",
+      ClaudeMediumDesc: "10000 token",
+      ClaudeDeep: "Daha ciddi düşünme",
+      ClaudeDeepDesc: "20000 token",
+      ClaudeVeryDeep: "Aşırı düşünme",
+      ClaudeVeryDeepDesc: "32000 token",
+      ClaudeDynamicDesc:
+        "Düşünme derinliğini otomatik olarak ayarla (varsayılan 10000 token)",
+    },
   },
   Export: {
     Title: "Sohbet kayıtlarını paylaş",
@@ -103,7 +212,7 @@ const tr: PartialLocaleType = {
     MessageFromChatGPT: "ChatGPT",
     Format: {
       Title: "Dışa aktarma formatı",
-      SubTitle: "Markdown metni veya PNG resmi olarak dışa aktarabilirsiniz",
+      SubTitle: "Metni Markdown veya PNG resmi olarak dışa aktarabilirsiniz",
     },
     IncludeContext: {
       Title: "Maske bağlamını dahil et",
@@ -115,11 +224,15 @@ const tr: PartialLocaleType = {
     },
     Image: {
       Toast: "Ekran görüntüsü oluşturuluyor",
-      Modal: "Resmi uzun basın veya sağ tıklayın ve kaydedin",
+      Modal: "Uzun basın veya sağ tıklayın ve resmi kaydedin",
+    },
+    Artifacts: {
+      Title: "Sayfa yazdır",
+      Error: "Yazdırma hatası",
     },
   },
   Select: {
-    Search: "Mesajları ara",
+    Search: "Mesajlarda ara",
     All: "Hepsini seç",
     Latest: "Son birkaç mesaj",
     Clear: "Seçimi temizle",
@@ -141,6 +254,17 @@ const tr: PartialLocaleType = {
   Settings: {
     Title: "Ayarlar",
     SubTitle: "Tüm ayar seçenekleri",
+    ShowPassword: "Şifreyi göster",
+
+    Tab: {
+      General: "Genel Ayarlar",
+      Sync: "Bulut Senkronizasyonu",
+      Mask: "Maske",
+      Prompt: "İpucu",
+      ModelService: "Model Hizmeti",
+      ModelConfig: "Model Yapılandırması",
+      Voice: "Ses",
+    },
 
     Danger: {
       Reset: {
@@ -188,6 +312,8 @@ const tr: PartialLocaleType = {
       IsChecking: "Güncellemeler kontrol ediliyor...",
       FoundUpdate: (x: string) => `Yeni sürüm bulundu: ${x}`,
       GoToUpdate: "Güncellemeye git",
+      Success: "Güncelleme başarılı!",
+      Failed: "Güncelleme başarısız",
     },
     SendKey: "Gönderme Tuşu",
     Theme: "Tema",
@@ -245,14 +371,20 @@ const tr: PartialLocaleType = {
       ImportFailed: "İçeri aktarma başarısız",
     },
     Mask: {
-      Splash: {
-        Title: "Maske Başlangıç Sayfası",
+      ModelIcon: {
+        Title: "Model ikonunu yapay zeka avatarı olarak kullan",
         SubTitle:
-          "Yeni sohbet başlatıldığında maske başlangıç sayfasını göster",
+          "Etkinleştirildiğinde, sohbetlerde yapay zeka avatarı olarak geçerli modelin ikonu kullanılır, emoji yerine",
       },
-      Builtin: {
-        Title: "Yerleşik Maskeleri Gizle",
-        SubTitle: "Tüm maskeler listesindeki yerleşik maskeleri gizle",
+    },
+    AccessCode: {
+      Title: "Erişim Kodu",
+      SubTitle: "Erişim kontrolü etkinleştirildi, lütfen erişim kodunu girin",
+      Placeholder: "Erişim kodunu girin",
+      Status: {
+        Enabled: "Erişim kontrolü etkinleştirildi",
+        Valid: "Erişim kodu geçerli",
+        Invalid: "Erişim kodu geçersiz",
       },
     },
     Prompt: {
@@ -284,26 +416,13 @@ const tr: PartialLocaleType = {
         "Sıkıştırılmamış geçmiş mesaj bu değeri aştığında sıkıştırma yapılır",
     },
 
-    Usage: {
-      Title: "Bakiye Sorgulama",
-      SubTitle(used: any, total: any) {
-        return `Bu ay kullanılan $${used}, toplam abonelik ücreti $${total}`;
-      },
-      IsChecking: "Kontrol ediliyor…",
-      Check: "Yeniden kontrol et",
-      NoAccess:
-        "Bakiye görüntülemek için API Anahtarı veya erişim şifresi girin",
-    },
-
     Access: {
       SaasStart: {
-        Title: "NextChat AI kullanın",
-        Label: "(En maliyet etkin çözüm)",
-        SubTitle:
-          "NextChat tarafından resmi olarak yönetilmektedir, yapılandırma olmadan hemen kullanıma hazırdır, OpenAI o1, GPT-4o, Claude-3.5 gibi en son büyük modelleri destekler",
-        ChatNow: "Şimdi sohbet et",
+        Title: "",
+        Label: "",
+        SubTitle: "",
+        ChatNow: "",
       },
-
       AccessCode: {
         Title: "Erişim Şifresi",
         SubTitle: "Yönetici şifreli erişimi etkinleştirdi",
@@ -317,6 +436,36 @@ const tr: PartialLocaleType = {
       Provider: {
         Title: "Model Sağlayıcısı",
         SubTitle: "Farklı sağlayıcılara geçiş yapın",
+        Name: {
+          ByteDance: "ByteDance",
+          Alibaba: "Alibaba Cloud",
+          Moonshot: "Moonshot",
+        },
+        Status: {
+          Enabled: "Etkin",
+        },
+        Models: {
+          Title: "Etkin Modeller",
+          SubTitle: "Geçerli sağlayıcı için etkin model listesi",
+          NoModels: "Etkin model yok",
+          Manage: "Yönet",
+        },
+        Description: {
+          OpenAI: "OpenAI GPT serisi modelleri",
+          Azure: "Microsoft Azure OpenAI hizmeti",
+          Google: "Google Gemini serisi modelleri",
+          Anthropic: "Anthropic Claude serisi modelleri",
+          ByteDance: "ByteDance Doubao serisi modelleri",
+          Alibaba: "Alibaba Cloud Qwen serisi modelleri",
+          Moonshot: "Moonshot Kimi serisi modelleri",
+          DeepSeek: "DeepSeek serisi modelleri",
+          XAI: "xAI Grok serisi modelleri",
+          SiliconFlow: "SiliconFlow",
+          Custom: "Özel",
+        },
+        Terms: {
+          Provider: "Sağlayıcı",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -426,6 +575,77 @@ const tr: PartialLocaleType = {
           SubTitle: "Örnek:",
         },
       },
+      Moonshot: {
+        ApiKey: {
+          Title: "API Anahtarı",
+          SubTitle: "Özelleştirilmiş Moonshot API Anahtarı kullanın",
+          Placeholder: "Moonshot API Anahtarı",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
+      DeepSeek: {
+        ApiKey: {
+          Title: "API Anahtarı",
+          SubTitle: "Özelleştirilmiş DeepSeek API Anahtarı kullanın",
+          Placeholder: "DeepSeek API Anahtarı",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
+      XAI: {
+        ApiKey: {
+          Title: "API Anahtarı",
+          SubTitle: "Özelleştirilmiş XAI API Anahtarı kullanın",
+          Placeholder: "XAI API Anahtarı",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
+      SiliconFlow: {
+        ApiKey: {
+          Title: "API Anahtarı",
+          SubTitle: "Özelleştirilmiş SiliconFlow API Anahtarı kullanın",
+          Placeholder: "SiliconFlow API Anahtarı",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
+      ChatGLM: {
+        ApiKey: {
+          Title: "API Anahtarı",
+          SubTitle: "Özelleştirilmiş ChatGLM API Anahtarı kullanın",
+          Placeholder: "ChatGLM API Anahtarı",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
+      Iflytek: {
+        ApiKey: {
+          Title: "ApiKey",
+          SubTitle: "iFlytek Spark konsolundan ApiKey alın",
+          Placeholder: "ApiKey",
+        },
+        ApiSecret: {
+          Title: "ApiSecret",
+          SubTitle: "iFlytek Spark konsolundan ApiSecret alın",
+          Placeholder: "ApiSecret",
+        },
+        Endpoint: {
+          Title: "API Adresi",
+          SubTitle: "Örnek:",
+        },
+      },
       AI302: {
         ApiKey: {
           Title: "API Anahtarı",
@@ -437,10 +657,53 @@ const tr: PartialLocaleType = {
           SubTitle: "Örnek:",
         },
       },
-      CustomModel: {
-        Title: "Özelleştirilmiş Model Adı",
-        SubTitle:
-          "Özelleştirilmiş model seçenekleri ekleyin, İngilizce virgül ile ayırın",
+      CustomProvider: {
+        Add: {
+          Title: "Özel Sağlayıcı Ekle",
+          Button: "Özel Sağlayıcı Ekle",
+          Description: "Mevcut sağlayıcı türlerine göre özel kanal ekle",
+        },
+        Modal: {
+          Title: "Özel Sağlayıcı Ekle",
+          Name: {
+            Title: "Sağlayıcı Adı",
+            Placeholder: "Özel sağlayıcı adı girin",
+            Required: "Lütfen sağlayıcı adı girin",
+            Unique: "Sağlayıcı adı zaten var, lütfen başka bir ad kullanın",
+          },
+          Type: {
+            Title: "Sağlayıcı Türü",
+            OpenAI: "OpenAI - OpenAI API ile uyumlu hizmetler",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Anahtarı",
+            Placeholder: "API anahtarını girin",
+            Required: "Lütfen API anahtarını girin",
+          },
+          Endpoint: {
+            Title: "Özel Uç Nokta",
+            Placeholder: "Varsayılan uç noktayı kullanmak için boş bırakın",
+            Optional: "(İsteğe bağlı)",
+          },
+          Cancel: "İptal",
+          Confirm: "Ekle",
+        },
+        Config: {
+          Type: "Sağlayıcı Türü",
+          BasedOn: "Şuna göre",
+          ApiKeyDescription: "Özel sağlayıcı için API anahtarı",
+          EndpointDescription: "Özel API uç nokta adresi",
+          EndpointPlaceholder: "API uç nokta adresi",
+          Delete: {
+            Title: "Sağlayıcıyı Sil",
+            SubTitle: "Bu özel sağlayıcıyı ve tüm ayarlarını sil",
+            Button: "Sil",
+            Confirm: "Bu özel sağlayıcıyı silmek istediğinizden emin misiniz",
+            ConfirmSuffix: "?",
+          },
+        },
       },
     },
 
@@ -471,6 +734,65 @@ const tr: PartialLocaleType = {
       SubTitle:
         "Değer arttıkça, tekrar eden kelimelerin azalması olasılığı artar",
     },
+    TTS: {
+      Enable: {
+        Title: "TTS'yi Etkinleştir",
+        SubTitle: "Metinden konuşmaya dönüştürme hizmetini etkinleştir",
+      },
+      Autoplay: {
+        Title: "Otomatik Oynatmayı Etkinleştir",
+        SubTitle:
+          "Konuşmayı otomatik olarak oluştur ve oynat, önce metinden konuşmaya dönüştürme anahtarını etkinleştirmeniz gerekir",
+      },
+      Model: "Model",
+      Engine: "Dönüştürme Motoru",
+      EngineConfig: {
+        Title: "Yapılandırma Notu",
+        SubTitle:
+          "OpenAI-TTS, model hizmetlerindeki OpenAI sağlayıcı yapılandırmasını kullanacaktır. Lütfen kullanmadan önce karşılık gelen API anahtarını OpenAI sağlayıcısına ekleyin",
+      },
+      Voice: {
+        Title: "Ses",
+        SubTitle: "Ses oluşturulurken kullanılacak ses",
+      },
+      Speed: {
+        Title: "Hız",
+        SubTitle: "Oluşturulan sesin hızı",
+      },
+    },
+    Realtime: {
+      Enable: {
+        Title: "Gerçek Zamanlı Sohbet",
+        SubTitle: "Gerçek zamanlı sohbet özelliğini etkinleştir",
+      },
+      Provider: {
+        Title: "Model Sağlayıcısı",
+        SubTitle: "Farklı sağlayıcılar arasında geçiş yap",
+      },
+      Model: {
+        Title: "Model",
+        SubTitle: "Bir model seçin",
+      },
+      ApiKey: {
+        Title: "API Anahtarı",
+        SubTitle: "API Anahtarı",
+        Placeholder: "API Anahtarı",
+      },
+      Azure: {
+        Endpoint: {
+          Title: "Uç Nokta",
+          SubTitle: "Uç Nokta",
+        },
+        Deployment: {
+          Title: "Dağıtım Adı",
+          SubTitle: "Dağıtım Adı",
+        },
+      },
+      Temperature: {
+        Title: "Rastgelelik (temperature)",
+        SubTitle: "Daha yüksek değerler daha rastgele yanıtlar üretir",
+      },
+    },
   },
   Store: {
     DefaultTopic: "Yeni Sohbet",
@@ -500,6 +822,12 @@ const tr: PartialLocaleType = {
     Revert: "Bağlamı geri getir",
   },
 
+  ChatSettings: {
+    Name: "Sohbet Ayarları",
+  },
+  Mcp: {
+    Name: "MCP",
+  },
   FineTuned: {
     Sysmessage: "Sen bir asistansın",
   },
@@ -520,12 +848,20 @@ const tr: PartialLocaleType = {
   },
   Mask: {
     Name: "Maske",
+    DefaultName: "Varsayılan Maske",
+    Management: "Maske Yönetimi",
+    NewMask: "Yeni Maske",
+    DefaultModel: "Varsayılan Model",
+    DefaultModelDesc: "Yeni sohbetler için varsayılan model",
+    UseGlobalModel: "Global varsayılan modeli kullan",
+    ConversationCount: (count: number) =>
+      `${count} konuşma${count !== 1 ? "" : ""}`,
     Page: {
       Title: "Önceden Tanımlı Karakter Maskeleri",
       SubTitle: (count: number) =>
         `${count} tane önceden tanımlı karakter tanımı`,
       Search: "Karakter maskesi ara",
-      Create: "Yeni oluştur",
+      Create: "Oluştur",
     },
     Item: {
       Info: (count: number) => `${count} tane önceden tanımlı sohbet içeriyor`,
@@ -533,11 +869,10 @@ const tr: PartialLocaleType = {
       View: "Görüntüle",
       Edit: "Düzenle",
       Delete: "Sil",
-      DeleteConfirm: "Silmek istediğinizden emin misiniz?",
+      DeleteConfirm: "Silmek istediğinize emin misiniz?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Önceden Tanımlı Maskeyi Düzenle ${readonly ? " (Salt Okunur)" : ""}`,
+      Title: "Yardımcıyı Düzenle",
       Download: "Önceden Tanımlı Maskeyi İndir",
       Clone: "Önceden Tanımlı Maskeyi Kopyala",
     },
@@ -555,6 +890,16 @@ const tr: PartialLocaleType = {
         SubTitle:
           "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
       },
+      Artifacts: {
+        Title: "Yapıtları Etkinleştir",
+        SubTitle:
+          "Etkinleştirildiğinde, doğrudan HTML sayfalarının görüntülenmesine izin verilir",
+      },
+      CodeFold: {
+        Title: "Kod Katlamayı Etkinleştir",
+        SubTitle:
+          "Etkinleştirildiğinde, uzun kod blokları otomatik olarak katlanabilir/açılabilir",
+      },
       Share: {
         Title: "Bu Maskeyi Paylaş",
         SubTitle: "Bu maskenin doğrudan bağlantısını oluştur",
@@ -565,13 +910,30 @@ const tr: PartialLocaleType = {
   NewChat: {
     Return: "Geri dön",
     Skip: "Doğrudan başla",
-    NotShow: "Bir daha gösterme",
-    ConfirmNoShow:
-      "Devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra ayarlardan tekrar etkinleştirebilirsiniz.",
     Title: "Bir Maske Seçin",
     SubTitle:
       "Şimdi başlayın ve maskenin arkasındaki zihinle etkileşimde bulunun",
     More: "Tümünü Gör",
+    Less: "Kodu Katla",
+    ShowCode: "Kodu Göster",
+    Preview: "Önizleme",
+    NotShow: "Bir daha gösterme",
+    ConfirmNoShow:
+      "Devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra ayarlardan tekrar etkinleştirebilirsiniz.",
+    Searching: "Aranıyor...",
+    Search: "Ara",
+    NoSearch: "Arama sonucu yok",
+    SearchFormat: (SearchTime?: number) =>
+      SearchTime !== undefined
+        ? `(Arama ${Math.round(SearchTime / 1000)} saniye sürdü)`
+        : "",
+    Thinking: "Düşünülüyor...",
+    Think: "Düşünme İçeriği",
+    NoThink: "Düşünme içeriği yok",
+    ThinkFormat: (thinkingTime?: number) =>
+      thinkingTime !== undefined
+        ? `(Düşünme ${Math.round(thinkingTime / 1000)} saniye sürdü)`
+        : "",
   },
 
   URLCommand: {
@@ -601,5 +963,14 @@ const tr: PartialLocaleType = {
     Time: "Zaman",
   },
 };
+
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+export type LocaleType = typeof tr;
+export type PartialLocaleType = DeepPartial<typeof tr>;
 
 export default tr;

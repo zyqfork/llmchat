@@ -1,24 +1,20 @@
 import cn from "./cn";
 import en from "./en";
 import tw from "./tw";
-// 暂时注释掉其他语言支持，避免类型错误
-// import pt from "./pt";
-// import da from "./da";
-// import id from "./id";
-// import fr from "./fr";
-// import es from "./es";
-// import it from "./it";
-// import tr from "./tr";
-// import jp from "./jp";
-// import de from "./de";
-// import vi from "./vi";
-// import ru from "./ru";
-// import no from "./no";
-// import cs from "./cs";
-// import ko from "./ko";
-// import ar from "./ar";
-// import bn from "./bn";
-// import sk from "./sk";
+import pt from "./pt";
+import fr from "./fr";
+import es from "./es";
+import it from "./it";
+import jp from "./jp";
+import de from "./de";
+import ru from "./ru";
+import ko from "./ko";
+import ar from "./ar";
+import tr from "./tr";
+import vi from "./vi";
+import bn from "./bn";
+import cs from "./cs";
+import da from "./da";
 import { merge } from "../utils/merge";
 import { safeLocalStorage } from "@/app/utils";
 
@@ -31,24 +27,20 @@ const ALL_LANGS = {
   cn,
   en,
   tw,
-  // 暂时注释掉其他语言支持
-  // pt,
-  // da,
-  // jp,
-  // ko,
-  // id,
-  // fr,
-  // es,
-  // it,
-  // tr,
-  // de,
-  // vi,
-  // ru,
-  // cs,
-  // no,
-  // ar,
-  // bn,
-  // sk,
+  pt,
+  fr,
+  es,
+  it,
+  jp,
+  de,
+  ru,
+  ko,
+  ar,
+  tr,
+  vi,
+  bn,
+  cs,
+  da,
 };
 
 export type Lang = keyof typeof ALL_LANGS;
@@ -59,24 +51,20 @@ export const ALL_LANG_OPTIONS: Record<Lang, string> = {
   cn: "简体中文",
   en: "English",
   tw: "繁體中文",
-  // 暂时注释掉其他语言支持
-  // pt: "Português",
-  // da: "Dansk",
-  // jp: "日本語",
-  // ko: "한국어",
-  // id: "Indonesia",
-  // fr: "Français",
-  // es: "Español",
-  // it: "Italiano",
-  // tr: "Türkçe",
-  // de: "Deutsch",
-  // vi: "Tiếng Việt",
-  // ru: "Русский",
-  // cs: "Čeština",
-  // no: "Nynorsk",
-  // ar: "العربية",
-  // bn: "বাংলা",
-  // sk: "Slovensky",
+  pt: "Português",
+  fr: "Français",
+  es: "Español",
+  it: "Italiano",
+  jp: "日本語",
+  de: "Deutsch",
+  ru: "Русский",
+  ko: "한국어",
+  ar: "العربية",
+  tr: "Türkçe",
+  vi: "Tiếng Việt",
+  bn: "বাংলা",
+  cs: "Čeština",
+  da: "Dansk",
 };
 
 const LANG_KEY = "lang";
@@ -146,24 +134,20 @@ export const STT_LANG_MAP: Record<Lang, string> = {
   cn: "zh-CN",
   en: "en-US",
   tw: "zh-TW",
-  // 暂时注释掉其他语言支持
-  // pt: "pt-BR",
-  // da: "da-DK",
-  // jp: "ja-JP",
-  // ko: "ko-KR",
-  // id: "id-ID",
-  // fr: "fr-FR",
-  // es: "es-ES",
-  // it: "it-IT",
-  // tr: "tr-TR",
-  // de: "de-DE",
-  // vi: "vi-VN",
-  // ru: "ru-RU",
-  // cs: "cs-CZ",
-  // no: "no-NO",
-  // ar: "ar-SA",
-  // bn: "bn-BD",
-  // sk: "sk-SK",
+  pt: "pt-BR",
+  fr: "fr-FR",
+  es: "es-ES",
+  it: "it-IT",
+  jp: "ja-JP",
+  de: "de-DE",
+  ru: "ru-RU",
+  ko: "ko-KR",
+  ar: "ar-SA",
+  tr: "tr-TR",
+  vi: "vi-VN",
+  bn: "bn-BD",
+  cs: "cs-CZ",
+  da: "da-DK",
 };
 
 export function getSTTLang(): string {

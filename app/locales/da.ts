@@ -1,10 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
-import { PartialLocaleType } from "./index";
 
 const isApp = !!getClientConfig()?.isApp;
-const da: PartialLocaleType = {
+
+const da = {
   WIP: "Der kommer snart mere...",
   Error: {
     Unauthorized: isApp
@@ -26,11 +26,47 @@ const da: PartialLocaleType = {
     Confirm: "OK",
     Later: "Senere",
     SaasTips: "Hvis det er for svært, kan du starte nu",
+    TopTips:
+      "🥳 Velkommen til NextChat AI, lås op for OpenAI o1, GPT-4o, Claude-3.5 og de nyeste store modeller med det samme",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} beskeder`,
   },
   Chat: {
+    MultiModel: {
+      Title: "Flere model chat indstillinger",
+      Enabled: "Flere modeller (til)",
+      Disabled: "Flere modeller (fra)",
+      Count: (count: number) => `${count} modeller`,
+      Description:
+        "🎯 Flere model arena tilstand er tændt! Klik på modelvalg for at vælge flere modeller til chat.",
+      OpenSelector: "Åbn modelvalg",
+      AlreadySelected: (count: number) => `(${count} valgt)`,
+      Tips: "💡 Tip: I flere model chat-tilstand kan du vælge flere modeller på én gang, og hver model vil uafhængigt svare på din besked, så du kan sammenligne forskellige modellers svar.",
+      EnableToast:
+        "🎯 Flere model arena tilstand er tændt! Klik på modelvalg for at vælge flere modeller til chat arena",
+      DisableToast: "Flere model tilstand er slukket",
+      MinimumModelsError:
+        "Vælg venligst mindst to modeller for at aktivere flere model chat",
+      ModelsSelectedToast: (count: number) =>
+        `${count} modeller er blevet valgt til chat`,
+    },
+    UI: {
+      SidebarToggle: "Skjul/vis sidepanel",
+      SearchModels: "Søg efter modeller...",
+      SelectModel: "Vælg model",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `Nuværende kontekst: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `Nuværende tokens: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `Nuværende tokens: ${current.toLocaleString()} / Ukendt`,
+        EstimatedTokens: (estimated: number) =>
+          `Estimerede tokens: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `Kontekst: ${tokens} tokens`,
+      },
+    },
     SubTitle: (count: number) => `${count} beskeder`,
     EditMessage: {
       Title: "Rediger beskeder",
@@ -56,6 +92,10 @@ const da: PartialLocaleType = {
       RefreshToast: "Anmodning om ny titel sendt",
       Speech: "Afspil",
       StopSpeech: "Stop",
+      PreviousVersion: "Forrige version",
+      NextVersion: "Næste version",
+      Debug: "Fejlfind",
+      CopyAsCurl: "Kopiér som cURL",
     },
     Commands: {
       new: "Ny chat",
@@ -67,7 +107,7 @@ const da: PartialLocaleType = {
       del: "Slet chat",
     },
     InputActions: {
-      Stop: "Stop",
+      Stop: "Stop svar",
       ToBottom: "Ned til nyeste",
       Theme: {
         auto: "Automatisk",
@@ -77,8 +117,28 @@ const da: PartialLocaleType = {
       Prompt: "Prompts",
       Masks: "Personaer",
       Clear: "Ryd kontekst",
+      Reset: "Nulstil chat",
+      ResetConfirm:
+        "Er du sikker på, at du vil nulstille hele indholdet af det aktuelle chatvindue?",
       Settings: "Indstillinger",
       UploadImage: "Upload billeder",
+      Search: "Søg",
+      SearchOn: "Søgning til",
+      SearchOff: "Søgning fra",
+      SearchEnabledToast:
+        "🔍 Søgefunktionen er tændt! Du kan nu søge på nettet",
+      SearchDisabledToast: "❌ Søgefunktionen er slukket",
+    },
+    MCP: {
+      Title: "MCP værktøjsadministration",
+      Enable: "Aktivér MCP-funktion",
+      EnableDesc:
+        "Når den er aktiveret, vil MCP-værktøjer være tilgængelige. Når den er deaktiveret, vil ingen MCP-relaterede anmodninger blive sendt",
+      NoTools: "Ingen MCP-værktøjer tilgængelige",
+      Loading: "Indlæser...",
+      ClientFailed:
+        "Kunne ikke indlæse MCP-klient, behandler i stille tilstand",
+      ToolsCount: (count: number) => `${count} værktøjer`,
     },
     Rename: "Omdøb chat",
     Typing: "Skriver…",
@@ -92,6 +152,13 @@ const da: PartialLocaleType = {
       );
     },
     Send: "Send",
+    TokenUsage: "Token forbrug",
+    TokenTooltip: {
+      Context: "Nuværende kontekst",
+      CurrentToken: "Nuværende tokens",
+      EstimatedToken: "Estimerede tokens",
+      Unknown: "Ukendt",
+    },
     StartSpeak: "Start oplæsning",
     StopSpeak: "Stop oplæsning",
     Config: {
@@ -108,14 +175,43 @@ const da: PartialLocaleType = {
       showShortcutKey: "Vis hurtigtaster",
       clearContext: "Ryd kontekst",
     },
+    Thinking: {
+      Title: "Tænkedybde",
+      Dynamic: "Dynamisk tænkning",
+      DynamicDesc: "Modellen justerer automatisk tænkedybden",
+      Off: "Slå tænkning fra",
+      OffDesc: "Ingen tænkningsproces",
+      Light: "Let tænkning",
+      LightDesc: "1024 tokens",
+      Medium: "Middel tænkning",
+      MediumDesc: "4096 tokens",
+      Deep: "Dyb tænkning",
+      DeepDesc: "8192 tokens",
+      VeryDeep: "Meget dyb tænkning",
+      VeryDeepDesc: "16384 tokens",
+      Notice:
+        "Kun modeller, der understøtter tænkningsbudget, kan justere tænkedybden",
+      ClaudeNotice: "Kun Claude-serien modeller kan justere tænkedybden",
+      GeminiNotice: "Kun Gemini-serien modeller kan justere tænkedybden",
+      ClaudeLight: "Tænke",
+      ClaudeLightDesc: "5000 tokens",
+      ClaudeMedium: "Tænke seriøst",
+      ClaudeMediumDesc: "10000 tokens",
+      ClaudeDeep: "Tænke dybere",
+      ClaudeDeepDesc: "20000 tokens",
+      ClaudeVeryDeep: "Tænke ekstremt",
+      ClaudeVeryDeepDesc: "32000 tokens",
+      ClaudeDynamicDesc:
+        "Justerer automatisk tænkedybden (standard 10000 tokens)",
+    },
   },
   Export: {
     Title: "Eksportér beskeder",
     Copy: "Kopiér alt",
     Download: "Download",
+    Share: "Del til ShareGPT",
     MessageFromYou: "Fra dig",
     MessageFromChatGPT: "Fra ChatGPT",
-    Share: "Del til ShareGPT",
     Format: {
       Title: "Filformat",
       SubTitle: "Vælg enten Markdown eller PNG-billede",
@@ -162,6 +258,15 @@ const da: PartialLocaleType = {
     Title: "Indstillinger",
     SubTitle: "Alle indstillinger",
     ShowPassword: "Vis kodeord",
+    Tab: {
+      General: "Generelle indstillinger",
+      Sync: "Cloud synkronisering",
+      Mask: "Persona",
+      Prompt: "Prompt",
+      ModelService: "Model service",
+      ModelConfig: "Model konfiguration",
+      Voice: "Stemme",
+    },
     Danger: {
       Reset: {
         Title: "Nulstil alle indstillinger",
@@ -258,13 +363,20 @@ const da: PartialLocaleType = {
       ImportFailed: "Import mislykkedes",
     },
     Mask: {
-      Splash: {
-        Title: "Persona-forside",
-        SubTitle: "Vis denne side, når du opretter ny chat",
+      ModelIcon: {
+        Title: "Brug modelikon som AI-avatar",
+        SubTitle:
+          "Når den er tændt, vil AI-avatar i chatten bruge ikonet for den aktuelle model i stedet for emoji",
       },
-      Builtin: {
-        Title: "Skjul indbyggede personaer",
-        SubTitle: "Vis ikke de indbyggede personaer i listen",
+    },
+    AccessCode: {
+      Title: "Adgangskode",
+      SubTitle: "Adgangskontrol er slået til",
+      Placeholder: "Skriv kode her",
+      Status: {
+        Enabled: "Adgangskontrol er slået til",
+        Valid: "Adgangskode er gyldig",
+        Invalid: "Adgangskode er ugyldig",
       },
     },
     Prompt: {
@@ -304,6 +416,13 @@ const da: PartialLocaleType = {
       NoAccess: "Indtast API-nøgle for at se forbrug",
     },
     Access: {
+      SaasStart: {
+        Title: "Brug NextChat AI",
+        Label: "(Mest omkostningseffektiv løsning)",
+        SubTitle:
+          "Officielt vedligeholdt af NextChat, klar til brug uden konfiguration, understøtter de nyeste store modeller som OpenAI o1, GPT-4o, Claude-3.5",
+        ChatNow: "Start chat nu",
+      },
       AccessCode: {
         Title: "Adgangskode",
         SubTitle: "Adgangskontrol er slået til",
@@ -316,6 +435,36 @@ const da: PartialLocaleType = {
       Provider: {
         Title: "Model-udbyder",
         SubTitle: "Vælg Azure eller OpenAI",
+        Name: {
+          ByteDance: "ByteDance",
+          Alibaba: "Alibaba Cloud",
+          Moonshot: "Moonshot",
+        },
+        Status: {
+          Enabled: "Aktiveret",
+        },
+        Models: {
+          Title: "Aktiverede modeller",
+          SubTitle: "Liste over aktiverede modeller for denne udbyder",
+          NoModels: "Ingen modeller er aktiveret",
+          Manage: "Administrer",
+        },
+        Description: {
+          OpenAI: "OpenAI GPT serie modeller",
+          Azure: "Microsoft Azure OpenAI service",
+          Google: "Google Gemini serie modeller",
+          Anthropic: "Anthropic Claude serie modeller",
+          ByteDance: "ByteDance Doubao serie modeller",
+          Alibaba: "Alibaba Cloud Qwen serie modeller",
+          Moonshot: "Moonshot Kimi serie modeller",
+          DeepSeek: "DeepSeek serie modeller",
+          XAI: "xAI Grok serie modeller",
+          SiliconFlow: "SiliconFlow",
+          Custom: "Brugerdefineret",
+        },
+        Terms: {
+          Provider: "Udbyder",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -518,7 +667,60 @@ const da: PartialLocaleType = {
           SubTitle: "Eksempel: ",
         },
       },
+      CustomProvider: {
+        Add: {
+          Title: "Tilføj brugerdefineret udbyder",
+          Button: "Tilføj brugerdefineret udbyder",
+          Description:
+            "Tilføj en brugerdefineret kanal baseret på en eksisterende udbydertype",
+        },
+        Modal: {
+          Title: "Tilføj brugerdefineret udbyder",
+          Name: {
+            Title: "Udbydernavn",
+            Placeholder: "Indtast navnet på den brugerdefinerede udbyder",
+            Required: "Indtast venligst udbydernavn",
+            Unique:
+              "Udbydernavnet findes allerede, brug venligst et andet navn",
+          },
+          Type: {
+            Title: "Udbydertype",
+            OpenAI: "OpenAI - OpenAI API-kompatibel service",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Key",
+            Placeholder: "Indtast API Key",
+            Required: "Indtast venligst API Key",
+          },
+          Endpoint: {
+            Title: "Brugerdefineret endpoint",
+            Placeholder: "Efterlad tom for at bruge standard endpoint",
+            Optional: "(valgfrit)",
+          },
+          Cancel: "Fortryd",
+          Confirm: "Tilføj",
+        },
+        Config: {
+          Type: "Udbydertype",
+          BasedOn: "Baseret på",
+          ApiKeyDescription: "API Key for brugerdefineret udbyder",
+          EndpointDescription: "Adresse på brugerdefineret API endpoint",
+          EndpointPlaceholder: "API endpoint adresse",
+          Delete: {
+            Title: "Slet udbyder",
+            SubTitle:
+              "Slet denne brugerdefinerede udbyder og alle dens indstillinger",
+            Button: "Slet",
+            Confirm:
+              "Er du sikker på, at du vil slette den brugerdefinerede udbyder",
+            ConfirmSuffix: "?",
+          },
+        },
+      },
     },
+
     Model: "Model",
     CompressModel: {
       Title: "Opsummeringsmodel",
@@ -627,6 +829,9 @@ const da: PartialLocaleType = {
     Revert: "Fortryd",
   },
 
+  ChatSettings: {
+    Name: "Chat indstillinger",
+  },
   Mcp: {
     Name: "MCP",
   },
@@ -650,6 +855,14 @@ const da: PartialLocaleType = {
 
   Mask: {
     Name: "Persona",
+    DefaultName: "Standard persona",
+    Management: "Persona administration",
+    NewMask: "Ny persona",
+    DefaultModel: "Standard model",
+    DefaultModelDesc: "Standard model til nye chats",
+    UseGlobalModel: "Brug global standard model",
+    ConversationCount: (count: number) =>
+      `${count} samtaler${count !== 1 ? "" : ""}`,
     Page: {
       Title: "Prompts som personaer",
       SubTitle: (count: number) => `${count} skabeloner`,
@@ -703,10 +916,33 @@ const da: PartialLocaleType = {
     Title: "Vælg en persona",
     SubTitle: "Chat med den persona, du vælger",
     More: "Se flere",
+    Less: "Fold kode sammen",
+    ShowCode: "Vis kode",
+    Preview: "Forhåndsvisning",
     NotShow: "Vis ikke igen",
     ConfirmNoShow:
       "Er du sikker på, at du ikke vil se det igen? Du kan altid slå det til under indstillinger.",
+    Searching: "Søger...",
+    Search: "Søg",
+    NoSearch: "Ingen søgeresultater",
+    SearchFormat: (SearchTime?: number) =>
+      SearchTime !== undefined
+        ? `(søgning tog ${Math.round(SearchTime / 1000)} sekunder)`
+        : "",
+    Thinking: "Tænker...",
+    Think: "Tænkeindhold",
+    NoThink: "Intet tænkeindhold",
+    ThinkFormat: (thinkingTime?: number) =>
+      thinkingTime !== undefined
+        ? `(tænkning tog ${Math.round(thinkingTime / 1000)} sekunder)`
+        : "",
   },
+
+  URLCommand: {
+    Code: "Så ud til, at der var en kode i linket. Vil du bruge den?",
+    Settings: "Så ud til, at der var indstillinger i linket. Vil du bruge dem?",
+  },
+
   UI: {
     Confirm: "OK",
     Cancel: "Fortryd",
@@ -727,10 +963,15 @@ const da: PartialLocaleType = {
     Topic: "Emne",
     Time: "Tid",
   },
-  URLCommand: {
-    Code: "Så ud til, at der var en kode i linket. Vil du bruge den?",
-    Settings: "Så ud til, at der var indstillinger i linket. Vil du bruge dem?",
-  },
 };
+
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+export type LocaleType = typeof da;
+export type PartialLocaleType = DeepPartial<typeof da>;
 
 export default da;

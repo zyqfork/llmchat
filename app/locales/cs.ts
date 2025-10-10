@@ -1,10 +1,10 @@
-import { SubmitKey } from "../store/config";
-import type { PartialLocaleType } from "./index";
 import { getClientConfig } from "../config/client";
+import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+
 const isApp = !!getClientConfig()?.isApp;
 
-const cs: PartialLocaleType = {
+const cs = {
   WIP: "V přípravě...",
   Error: {
     Unauthorized: isApp
@@ -33,6 +33,40 @@ const cs: PartialLocaleType = {
     ChatItemCount: (count: number) => `${count} konverzací`,
   },
   Chat: {
+    MultiModel: {
+      Title: "Nastavení vícemodelového chatu",
+      Enabled: "Vícemodelový (zapnuto)",
+      Disabled: "Vícemodelový (vypnuto)",
+      Count: (count: number) => `${count} modelů`,
+      Description:
+        "🎯 Vícemodelová aréna mód je zapnut! Klikněte na výběr modelů pro výběr více modelů pro chat.",
+      OpenSelector: "Otevřít výběr modelů",
+      AlreadySelected: (count: number) => `(${count} vybráno)`,
+      Tips: "💡 Tip: V režimu vícemodelového chatu můžete vybrat více modelů najednou a každý model bude nezávisle odpovídat na vaši zprávu, což vám umožní porovnat reakce různých modelů.",
+      EnableToast:
+        "🎯 Vícemodelová aréna mód je zapnut! Klikněte na výběr modelů pro výběr více modelů pro chat arénu",
+      DisableToast: "Vícemodelový mód je vypnut",
+      MinimumModelsError:
+        "Pro zapnutí vícemodelového chatu prosím vyberte alespoň dva modely",
+      ModelsSelectedToast: (count: number) =>
+        `${count} modelů bylo vybráno pro chat`,
+    },
+    UI: {
+      SidebarToggle: "Sbalit/rozbalit postranní panel",
+      SearchModels: "Hledat modely...",
+      SelectModel: "Vybrat model",
+      ContextTooltip: {
+        Current: (current: number, max: number) =>
+          `Aktuální kontext: ${current} / ${max}`,
+        CurrentTokens: (current: number, max: number) =>
+          `Aktuální tokeny: ${current.toLocaleString()} / ${max.toLocaleString()}`,
+        CurrentTokensUnknown: (current: number) =>
+          `Aktuální tokeny: ${current.toLocaleString()} / Neznámé`,
+        EstimatedTokens: (estimated: number) =>
+          `Odhadované tokeny: ${estimated.toLocaleString()}`,
+        ContextTokens: (tokens: string) => `Kontext: ${tokens} tokenů`,
+      },
+    },
     SubTitle: (count: number) => `Celkem ${count} konverzací`,
     EditMessage: {
       Title: "Upravit zprávy",
@@ -53,8 +87,15 @@ const cs: PartialLocaleType = {
       PinToastAction: "Zobrazit",
       Delete: "Smazat",
       Edit: "Upravit",
+      FullScreen: "Celá obrazovka",
       RefreshTitle: "Obnovit název",
       RefreshToast: "Požadavek na obnovení názvu byl odeslán",
+      Speech: "Řeč",
+      StopSpeech: "Zastavit",
+      PreviousVersion: "Předchozí verze",
+      NextVersion: "Další verze",
+      Debug: "Ladit",
+      CopyAsCurl: "Kopírovat jako cURL",
     },
     Commands: {
       new: "Nová konverzace",
@@ -62,6 +103,7 @@ const cs: PartialLocaleType = {
       next: "Další konverzace",
       prev: "Předchozí konverzace",
       clear: "Vymazat kontext",
+      fork: "Rozdvojit konverzaci",
       del: "Smazat konverzaci",
     },
     InputActions: {
@@ -75,8 +117,28 @@ const cs: PartialLocaleType = {
       Prompt: "Rychlé příkazy",
       Masks: "Všechny masky",
       Clear: "Vymazat konverzaci",
+      Reset: "Resetovat konverzaci",
+      ResetConfirm:
+        "Opravdu chcete resetovat celý obsah aktuálního chatovacího okna?",
       Settings: "Nastavení konverzace",
       UploadImage: "Nahrát obrázek",
+      Search: "Hledat",
+      SearchOn: "Hledání zapnuto",
+      SearchOff: "Hledání vypnuto",
+      SearchEnabledToast:
+        "🔍 Funkce vyhledávání je zapnutá! Nyní můžete vyhledávat na webu",
+      SearchDisabledToast: "❌ Funkce vyhledávání je vypnutá",
+    },
+    MCP: {
+      Title: "Správa MCP nástrojů",
+      Enable: "Zapnout funkci MCP",
+      EnableDesc:
+        "Po zapnutí budou k dispozici MCP nástroje. Po vypnutí nebudou odesílány žádné MCP související požadavky",
+      NoTools: "Nejsou k dispozici žádné MCP nástroje",
+      Loading: "Načítání...",
+      ClientFailed:
+        "Nepodařilo se načíst MCP klienta, zpracování v tichém režimu",
+      ToolsCount: (count: number) => `${count} nástrojů`,
     },
     Rename: "Přejmenovat konverzaci",
     Typing: "Píše se…",
@@ -88,11 +150,58 @@ const cs: PartialLocaleType = {
       return inputHints + "，/ pro doplnění, : pro příkaz";
     },
     Send: "Odeslat",
+    TokenUsage: "Využití",
+    TokenTooltip: {
+      Context: "Aktuální kontext",
+      CurrentToken: "Aktuální tokeny",
+      EstimatedToken: "Odhadované tokeny",
+      Unknown: "Neznámé",
+    },
+    StartSpeak: "Začít mluvit",
+    StopSpeak: "Zastavit mluvení",
     Config: {
       Reset: "Vymazat paměť",
       SaveAs: "Uložit jako masku",
     },
     IsContext: "Přednastavené prompty",
+    ShortcutKey: {
+      Title: "Zkratky",
+      newChat: "Otevřít nový chat",
+      focusInput: "Zaměřit se na vstupní pole",
+      copyLastMessage: "Kopírovat poslední zprávu",
+      copyLastCode: "Kopírovat poslední kód",
+      showShortcutKey: "Zobrazit zkratky",
+      clearContext: "Vymazat kontext",
+    },
+    Thinking: {
+      Title: "Hloubka přemýšlení",
+      Dynamic: "Dynamické přemýšlení",
+      DynamicDesc: "Model automaticky upravuje hloubku přemýšlení",
+      Off: "Vypnout přemýšlení",
+      OffDesc: "Žádný proces přemýšlení",
+      Light: "Lehké přemýšlení",
+      LightDesc: "1024 tokenů",
+      Medium: "Střední přemýšlení",
+      MediumDesc: "4096 tokenů",
+      Deep: "Hluboké přemýšlení",
+      DeepDesc: "8192 tokenů",
+      VeryDeep: "Velmi hluboké přemýšlení",
+      VeryDeepDesc: "16384 tokenů",
+      Notice:
+        "Pouze modely podporující rozpočet přemýšlení mohou upravit hloubku přemýšlení",
+      ClaudeNotice: "Pouze modely řady Claude mohou upravit hloubku přemýšlení",
+      GeminiNotice: "Pouze modely řady Gemini mohou upravit hloubku přemýšlení",
+      ClaudeLight: "Přemýšlet",
+      ClaudeLightDesc: "5000 tokenů",
+      ClaudeMedium: "Přemýšlet vážně",
+      ClaudeMediumDesc: "10000 tokenů",
+      ClaudeDeep: "Přemýšlet hlouběji",
+      ClaudeDeepDesc: "20000 tokenů",
+      ClaudeVeryDeep: "Přemýšlet extrémně",
+      ClaudeVeryDeepDesc: "32000 tokenů",
+      ClaudeDynamicDesc:
+        "Automaticky upravuje hloubku přemýšlení (výchozí 10000 tokenů)",
+    },
   },
   Export: {
     Title: "Sdílet konverzace",
@@ -116,6 +225,10 @@ const cs: PartialLocaleType = {
     Image: {
       Toast: "Generování screenshotu",
       Modal: "Dlouhým stiskem nebo pravým tlačítkem myši uložte obrázek",
+    },
+    Artifacts: {
+      Title: "Tisk stránky",
+      Error: "Chyba tisku",
     },
   },
   Select: {
@@ -141,11 +254,22 @@ const cs: PartialLocaleType = {
   Settings: {
     Title: "Nastavení",
     SubTitle: "Všechny možnosti nastavení",
+    ShowPassword: "Zobrazit heslo",
+
+    Tab: {
+      General: "Obecná nastavení",
+      Sync: "Cloudová synchronizace",
+      Mask: "Maska",
+      Prompt: "Prompt",
+      ModelService: "Modelová služba",
+      ModelConfig: "Konfigurace modelu",
+      Voice: "Hlas",
+    },
 
     Danger: {
       Reset: {
         Title: "Obnovit všechna nastavení",
-        SubTitle: "Obnovit všechny nastavení na výchozí hodnoty",
+        SubTitle: "Obnovit všechna nastavení na výchozí hodnoty",
         Action: "Okamžitě obnovit",
         Confirm: "Opravdu chcete obnovit všechna nastavení?",
       },
@@ -188,6 +312,8 @@ const cs: PartialLocaleType = {
       IsChecking: "Kontrola aktualizací...",
       FoundUpdate: (x: string) => `Nalezena nová verze: ${x}`,
       GoToUpdate: "Přejít na aktualizaci",
+      Success: "Aktualizace úspěšná!",
+      Failed: "Aktualizace selhala",
     },
     SendKey: "Klávesa pro odeslání",
     Theme: "Téma",
@@ -245,13 +371,20 @@ const cs: PartialLocaleType = {
       ImportFailed: "Import selhal",
     },
     Mask: {
-      Splash: {
-        Title: "Úvodní stránka masky",
-        SubTitle: "Při zahájení nové konverzace zobrazit úvodní stránku masky",
+      ModelIcon: {
+        Title: "Použít ikonu modelu jako AI avatar",
+        SubTitle:
+          "Po zapnutí bude AI avatar v chatu používat ikonu aktuálního modelu místo emotikonu",
       },
-      Builtin: {
-        Title: "Skrýt vestavěné masky",
-        SubTitle: "Skrýt vestavěné masky v seznamu všech masek",
+    },
+    AccessCode: {
+      Title: "Přístupový kód",
+      SubTitle: "Řízení přístupu je zapnuto, prosím zadejte přístupový kód",
+      Placeholder: "Zadejte přístupový kód",
+      Status: {
+        Enabled: "Řízení přístupu je zapnuto",
+        Valid: "Přístupový kód je platný",
+        Invalid: "Přístupový kód je neplatný",
       },
     },
     Prompt: {
@@ -283,16 +416,6 @@ const cs: PartialLocaleType = {
         "Když nekomprimované historické zprávy překročí tuto hodnotu, dojde ke kompresi",
     },
 
-    Usage: {
-      Title: "Kontrola zůstatku",
-      SubTitle(used: any, total: any) {
-        return `Tento měsíc použito $${used}, celkový předplatný objem $${total}`;
-      },
-      IsChecking: "Probíhá kontrola…",
-      Check: "Znovu zkontrolovat",
-      NoAccess: "Zadejte API Key nebo přístupové heslo pro zobrazení zůstatku",
-    },
-
     Access: {
       SaasStart: {
         Title: "Použití NextChat AI",
@@ -301,7 +424,6 @@ const cs: PartialLocaleType = {
           "Oficiálně udržováno NextChat, připraveno k použití bez konfigurace, podporuje nejnovější velké modely jako OpenAI o1, GPT-4o, Claude-3.5",
         ChatNow: "Začněte chatovat nyní",
       },
-
       AccessCode: {
         Title: "Přístupový kód",
         SubTitle: "Administrátor aktivoval šifrovaný přístup",
@@ -314,6 +436,36 @@ const cs: PartialLocaleType = {
       Provider: {
         Title: "Poskytovatel modelu",
         SubTitle: "Přepnout mezi různými poskytovateli",
+        Name: {
+          ByteDance: "ByteDance",
+          Alibaba: "Alibaba Cloud",
+          Moonshot: "Moonshot",
+        },
+        Status: {
+          Enabled: "Zapnuto",
+        },
+        Models: {
+          Title: "Zapnuté modely",
+          SubTitle: "Seznam zapnutých modelů pro aktuálního poskytovatele",
+          NoModels: "Žádné modely nejsou zapnuty",
+          Manage: "Spravovat",
+        },
+        Description: {
+          OpenAI: "Modely řady OpenAI GPT",
+          Azure: "Služba Microsoft Azure OpenAI",
+          Google: "Modely řady Google Gemini",
+          Anthropic: "Modely řady Anthropic Claude",
+          ByteDance: "Modely řady ByteDance Doubao",
+          Alibaba: "Modely řady Alibaba Cloud Qwen",
+          Moonshot: "Modely řady Moonshot Kimi",
+          DeepSeek: "Modely řady DeepSeek",
+          XAI: "Modely řady xAI Grok",
+          SiliconFlow: "SiliconFlow",
+          Custom: "Vlastní",
+        },
+        Terms: {
+          Provider: "Poskytovatel",
+        },
       },
       OpenAI: {
         ApiKey: {
@@ -423,6 +575,77 @@ const cs: PartialLocaleType = {
           SubTitle: "Příklad:",
         },
       },
+      Moonshot: {
+        ApiKey: {
+          Title: "Rozhraní klíč",
+          SubTitle: "Použijte vlastní Moonshot API Key",
+          Placeholder: "Moonshot API Key",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
+      DeepSeek: {
+        ApiKey: {
+          Title: "Rozhraní klíč",
+          SubTitle: "Použijte vlastní DeepSeek API Key",
+          Placeholder: "DeepSeek API Key",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
+      XAI: {
+        ApiKey: {
+          Title: "Rozhraní klíč",
+          SubTitle: "Použijte vlastní XAI API Key",
+          Placeholder: "XAI API Key",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
+      SiliconFlow: {
+        ApiKey: {
+          Title: "Rozhraní klíč",
+          SubTitle: "Použijte vlastní SiliconFlow API Key",
+          Placeholder: "SiliconFlow API Key",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
+      ChatGLM: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Použijte vlastní ChatGLM API Key",
+          Placeholder: "ChatGLM API Key",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
+      Iflytek: {
+        ApiKey: {
+          Title: "ApiKey",
+          SubTitle: "Získejte ApiKey z konzole iFlytek Spark",
+          Placeholder: "ApiKey",
+        },
+        ApiSecret: {
+          Title: "ApiSecret",
+          SubTitle: "Získejte ApiSecret z konzole iFlytek Spark",
+          Placeholder: "ApiSecret",
+        },
+        Endpoint: {
+          Title: "Adresa rozhraní",
+          SubTitle: "Příklad:",
+        },
+      },
       AI302: {
         ApiKey: {
           Title: "Rozhraní klíč",
@@ -434,9 +657,56 @@ const cs: PartialLocaleType = {
           SubTitle: "Příklad:",
         },
       },
-      CustomModel: {
-        Title: "Vlastní názvy modelů",
-        SubTitle: "Přidejte možnosti vlastních modelů, oddělené čárkami",
+      CustomProvider: {
+        Add: {
+          Title: "Přidat vlastního poskytovatele",
+          Button: "Přidat vlastního poskytovatele",
+          Description:
+            "Přidejte vlastní kanál na základě existujícího typu poskytovatele",
+        },
+        Modal: {
+          Title: "Přidat vlastního poskytovatele",
+          Name: {
+            Title: "Název poskytovatele",
+            Placeholder: "Zadejte název vlastního poskytovatele",
+            Required: "Prosím zadejte název poskytovatele",
+            Unique:
+              "Název poskytovatele již existuje, použijte prosím jiný název",
+          },
+          Type: {
+            Title: "Typ poskytovatele",
+            OpenAI: "OpenAI - služba kompatibilní s OpenAI API",
+            Google: "Google - Google Gemini API",
+            Anthropic: "Anthropic - Anthropic Claude API",
+          },
+          ApiKey: {
+            Title: "API Key",
+            Placeholder: "Zadejte API Key",
+            Required: "Prosím zadejte API Key",
+          },
+          Endpoint: {
+            Title: "Vlastní endpoint",
+            Placeholder: "Ponechte prázdné pro použití výchozího endpointu",
+            Optional: "(volitelné)",
+          },
+          Cancel: "Zrušit",
+          Confirm: "Přidat",
+        },
+        Config: {
+          Type: "Typ poskytovatele",
+          BasedOn: "Založeno na",
+          ApiKeyDescription: "API Key pro vlastního poskytovatele",
+          EndpointDescription: "Adresa vlastního API endpointu",
+          EndpointPlaceholder: "Adresa API endpointu",
+          Delete: {
+            Title: "Smazat poskytovatele",
+            SubTitle:
+              "Smazat tohoto vlastního poskytovatele a všechna jeho nastavení",
+            Button: "Smazat",
+            Confirm: "Opravdu chcete smazat vlastního poskytovatele",
+            ConfirmSuffix: "?",
+          },
+        },
       },
     },
 
@@ -467,18 +737,78 @@ const cs: PartialLocaleType = {
       SubTitle:
         "Čím vyšší hodnota, tím větší pravděpodobnost snížení opakování slov",
     },
+    TTS: {
+      Enable: {
+        Title: "Zapnout TTS",
+        SubTitle: "Zapnout text-to-speech službu",
+      },
+      Autoplay: {
+        Title: "Zapnout automatické přehrávání",
+        SubTitle:
+          "Automaticky generovat a přehrávat hlas, musí být zapnutý přepínač text-to-speech",
+      },
+      Model: "Model",
+      Engine: "Převodní engine",
+      EngineConfig: {
+        Title: "Poznámka ke konfiguraci",
+        SubTitle:
+          "Pro OpenAI-TTS modelovou službu bude použita konfigurace OpenAI poskytovatele. Před použitím přidejte odpovídající API Key do konfigurace OpenAI poskytovatele",
+      },
+      Voice: {
+        Title: "Hlas",
+        SubTitle: "Hlas použitý při generování hlasu",
+      },
+      Speed: {
+        Title: "Rychlost",
+        SubTitle: "Rychlost generovaného hlasu",
+      },
+    },
+    Realtime: {
+      Enable: {
+        Title: "Zapnout reálný časový rozhovor",
+        SubTitle: "Zapnout funkci reálného časového rozhovoru",
+      },
+      Provider: {
+        Title: "Poskytovatel modelu",
+        SubTitle: "Přepnout mezi různými poskytovateli",
+      },
+      Model: {
+        Title: "Model",
+        SubTitle: "Vyberte model",
+      },
+      ApiKey: {
+        Title: "API Key",
+        SubTitle: "API Key",
+        Placeholder: "API Key",
+      },
+      Azure: {
+        Endpoint: {
+          Title: "Endpoint",
+          SubTitle: "Endpoint",
+        },
+        Deployment: {
+          Title: "Název nasazení",
+          SubTitle: "Název nasazení",
+        },
+      },
+      Temperature: {
+        Title: "Náhodnost (temperature)",
+        SubTitle: "Vyšší hodnota vytváří náhodnější odpovědi",
+      },
+    },
   },
   Store: {
-    DefaultTopic: "Nový chat",
+    DefaultTopic: "Výchozí téma",
     BotHello: "Jak vám mohu pomoci?",
     Error: "Došlo k chybě, zkuste to prosím znovu později.",
     Prompt: {
       History: (content: string) =>
-        "Toto je shrnutí historie chatu jako kontext: " + content,
+        "Toto bude použito jako shrnutí předchozího chatu jako kontext: " +
+        content,
       Topic:
-        "Použijte čtyři až pět slov pro stručné téma této věty, bez vysvětlení, interpunkce, citoslovcí, nadbytečného textu, bez tučného písma. Pokud téma neexistuje, vraťte pouze 'neformální chat'.",
+        "Vytvořte stručné téma této věty pomocí čtyř až pěti slov, bez vysvětlení, interpunkce, citoslovcí, nadbytečného textu nebo tučného písma. Pokud téma neexistuje, vraťte pouze 'neformální chat'.",
       Summarize:
-        "Stručně shrňte obsah konverzace jako kontextový prompt pro budoucí použití, do 200 slov",
+        "Stručně shrňte obsah konverzace jako kontextový prompt pro budoucí použití, omezte se na 200 slov",
     },
   },
   Copy: {
@@ -497,6 +827,12 @@ const cs: PartialLocaleType = {
     Revert: "Obnovit kontext",
   },
 
+  ChatSettings: {
+    Name: "Nastavení chatu",
+  },
+  Mcp: {
+    Name: "MCP",
+  },
   FineTuned: {
     Sysmessage: "Jste asistent",
   },
@@ -517,6 +853,14 @@ const cs: PartialLocaleType = {
   },
   Mask: {
     Name: "Maska",
+    DefaultName: "Výchozí maska",
+    Management: "Správa masek",
+    NewMask: "Nová maska",
+    DefaultModel: "Výchozí model",
+    DefaultModelDesc: "Výchozí model pro nový chat",
+    UseGlobalModel: "Použít globální výchozí model",
+    ConversationCount: (count: number) =>
+      `${count} konverzací${count !== 1 ? "" : ""}`,
     Page: {
       Title: "Přednastavené role masky",
       SubTitle: (count: number) => `${count} definovaných rolí`,
@@ -547,13 +891,21 @@ const cs: PartialLocaleType = {
           "Vaše vlastní nastavení konverzace bude automaticky přepsáno, opravdu chcete použít globální nastavení?",
       },
       HideContext: {
-        Title: "Skrýt přednastavené konverzace",
+        Title: "Skrýt kontextové prompty",
+        SubTitle: "Kontextové prompty nebudou zobrazeny v chatu",
+      },
+      Artifacts: {
+        Title: "Zapnout artefakty",
+        SubTitle: "Po zapnutí umožňuje přímé zobrazení HTML stránek",
+      },
+      CodeFold: {
+        Title: "Zapnout skládání kódu",
         SubTitle:
-          "Po skrytí se přednastavené konverzace nebudou zobrazovat v chatovém rozhraní",
+          "Po zapnutí lze dlouhé bloky kódu automaticky sbalit/rozbalit",
       },
       Share: {
         Title: "Sdílet tuto masku",
-        SubTitle: "Generovat přímý odkaz na tuto masku",
+        SubTitle: "Vygenerovat přímý odkaz na tuto masku",
         Action: "Kopírovat odkaz",
       },
     },
@@ -561,12 +913,29 @@ const cs: PartialLocaleType = {
   NewChat: {
     Return: "Zpět",
     Skip: "Začít hned",
-    NotShow: "Zobrazit už nikdy",
-    ConfirmNoShow:
-      "Opravdu chcete zakázat? Zakázání můžete kdykoli znovu povolit v nastavení.",
     Title: "Vyberte masku",
     SubTitle: "Začněte nyní a konfrontujte se s myslí za maskou",
     More: "Zobrazit vše",
+    Less: "Sbalit kód",
+    ShowCode: "Zobrazit kód",
+    Preview: "Náhled",
+    NotShow: "Již nezobrazovat",
+    ConfirmNoShow:
+      "Opravdu chcete zakázat? Po zakázání můžete kdykoli znovu povolit v nastavení.",
+    Searching: "Hledání...",
+    Search: "Hledat",
+    NoSearch: "Žádné výsledky vyhledávání",
+    SearchFormat: (SearchTime?: number) =>
+      SearchTime !== undefined
+        ? `(vyhledávání trvalo ${Math.round(SearchTime / 1000)} sekund)`
+        : "",
+    Thinking: "Přemýšlení...",
+    Think: "Obsah přemýšlení",
+    NoThink: "Žádný obsah přemýšlení",
+    ThinkFormat: (thinkingTime?: number) =>
+      thinkingTime !== undefined
+        ? `(přemýšlení trvalo ${Math.round(thinkingTime / 1000)} sekund)`
+        : "",
   },
 
   URLCommand: {
@@ -596,5 +965,14 @@ const cs: PartialLocaleType = {
     Time: "Čas",
   },
 };
+
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+export type LocaleType = typeof cs;
+export type PartialLocaleType = DeepPartial<typeof cs>;
 
 export default cs;
