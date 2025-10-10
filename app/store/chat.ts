@@ -5,6 +5,7 @@ import {
   isDalle3,
   safeLocalStorage,
   trimTopic,
+  isVisionModel,
 } from "../utils";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
@@ -835,7 +836,22 @@ export const useChatStore = createPersistStore(
 
           // 获取该模型的独立消息历史
           const modelMessages = multiModelMode.modelMessages[modelKey] || [];
-          const recentMessages = [...modelMessages, userMessage];
+
+          // 关键修复：检查当前模型是否支持视觉，如果不支持则移除图片内容
+          let processedUserMessage = userMessage;
+          if (
+            attachImages &&
+            attachImages.length > 0 &&
+            !isVisionModel(modelConfig.model)
+          ) {
+            // 模型不支持视觉，需要创建纯文本版本的用户消息
+            processedUserMessage = {
+              ...userMessage,
+              content: content, // 只保留文本内容
+            };
+          }
+
+          const recentMessages = [...modelMessages, processedUserMessage];
 
           // 更新该模型的消息历史
           multiModelMode.modelMessages[modelKey] = recentMessages;
