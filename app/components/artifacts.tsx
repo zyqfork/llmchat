@@ -17,6 +17,7 @@ import LoadingButtonIcon from "../icons/loading.svg";
 import ReloadButtonIcon from "../icons/reload.svg";
 import Locale from "../locales";
 import { Modal, showToast } from "./ui-lib";
+import { HTMLPreviewModal } from "./html-preview-modal";
 import { copyToClipboard, downloadAs } from "../utils";
 import { Path, ApiPath, REPO_URL } from "@/app/constant";
 import { Loading } from "./home";
@@ -483,6 +484,9 @@ export function Artifacts() {
         />
         <div className={styles["artifacts-title"]}>LLMChat Artifacts</div>
         <ArtifactsPrintButton getCode={() => code} fileName={fileName} />
+        {code && (
+          <HTMLPreviewModal code={code} title={fileName || "Artifacts 预览"} />
+        )}
       </div>
       <div className={styles["artifacts-content"]}>
         {loading && <Loading />}

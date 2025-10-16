@@ -16,6 +16,7 @@ import ReloadButtonIcon from "../icons/reload.svg";
 import React from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { showImageModal, FullScreen } from "./ui-lib";
+import { HTMLPreviewModal } from "./html-preview-modal";
 import {
   ArtifactsPrintButton,
   HTMLPreview,
@@ -306,17 +307,27 @@ export function PreCode(props: { children: any }) {
       )}
       {htmlCode.length > 0 && enableArtifacts && (
         <FullScreen className="no-dark html" right={70}>
-          <ArtifactsPrintButton
-            style={{ position: "absolute", right: 20, top: 10 }}
-            getCode={() => htmlCode}
-          />
-          <IconButton
-            style={{ position: "absolute", right: 120, top: 10 }}
-            bordered
-            icon={<ReloadButtonIcon />}
-            shadow
-            onClick={() => previewRef.current?.reload()}
-          />
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              position: "absolute",
+              right: 20,
+              top: 10,
+            }}
+          >
+            <ArtifactsPrintButton
+              style={{ position: "static" }}
+              getCode={() => htmlCode}
+            />
+            <IconButton
+              bordered
+              icon={<ReloadButtonIcon />}
+              shadow
+              onClick={() => previewRef.current?.reload()}
+            />
+            <HTMLPreviewModal code={htmlCode} title="HTML 预览" />
+          </div>
           <HTMLPreview
             ref={previewRef}
             code={htmlCode}
