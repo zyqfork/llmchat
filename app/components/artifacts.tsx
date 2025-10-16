@@ -433,14 +433,12 @@ export function ArtifactsPrintButton({
   };
 
   return (
-    <div className="window-action-button" style={style}>
-      <IconButton
-        icon={loading ? <LoadingButtonIcon /> : <ShareIcon />}
-        bordered
-        title="打印页面"
-        onClick={printArtifacts}
-      />
-    </div>
+    <IconButton
+      icon={loading ? <LoadingButtonIcon /> : <ShareIcon />}
+      bordered
+      title="打印页面"
+      onClick={printArtifacts}
+    />
   );
 }
 

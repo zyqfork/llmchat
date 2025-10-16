@@ -32,9 +32,8 @@ export const HTMLPreviewModal = React.forwardRef<
             flexDirection: "column",
           }}
         >
-          <FullScreen
+          <div
             className="no-dark html"
-            right={70}
             style={{
               flex: 1,
               display: "flex",
@@ -60,6 +59,7 @@ export const HTMLPreviewModal = React.forwardRef<
                 onClick={() => previewRef.current?.reload()}
                 title="刷新预览"
               />
+              c{" "}
             </div>
             {/* 内容容器 - 占据全部空间 */}
             <div
@@ -77,7 +77,7 @@ export const HTMLPreviewModal = React.forwardRef<
                 height="100%"
               />
             </div>
-          </FullScreen>
+          </div>
         </div>
       ),
     });

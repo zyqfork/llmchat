@@ -306,7 +306,7 @@ export function PreCode(props: { children: any }) {
         <Mermaid code={mermaidCode} key={mermaidCode} />
       )}
       {htmlCode.length > 0 && enableArtifacts && (
-        <FullScreen className="no-dark html" right={70}>
+        <div className="no-dark html" style={{ position: "relative" }}>
           <div
             style={{
               display: "flex",
@@ -314,6 +314,7 @@ export function PreCode(props: { children: any }) {
               position: "absolute",
               right: 20,
               top: 10,
+              zIndex: 1000,
             }}
           >
             <ArtifactsPrintButton
@@ -331,10 +332,10 @@ export function PreCode(props: { children: any }) {
           <HTMLPreview
             ref={previewRef}
             code={htmlCode}
-            autoHeight={!document.fullscreenElement}
-            height={!document.fullscreenElement ? 600 : height}
+            autoHeight={true}
+            height={600}
           />
-        </FullScreen>
+        </div>
       )}
     </>
   );
