@@ -32,8 +32,9 @@ export const HTMLPreviewModal = React.forwardRef<
             flexDirection: "column",
           }}
         >
-          <div
+          <FullScreen
             className="no-dark html"
+            right={80}
             style={{
               flex: 1,
               display: "flex",
@@ -77,7 +78,7 @@ export const HTMLPreviewModal = React.forwardRef<
                 height="100%"
               />
             </div>
-          </div>
+          </FullScreen>
         </div>
       ),
     });
@@ -90,7 +91,6 @@ export const HTMLPreviewModal = React.forwardRef<
       bordered
       shadow
       title="弹窗查看"
-      style={{ marginLeft: "10px" }}
     />
   );
 });

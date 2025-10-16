@@ -324,6 +324,7 @@ export function PreCode(props: { children: any }) {
             <IconButton
               bordered
               icon={<ReloadButtonIcon />}
+              title="刷新页面"
               shadow
               onClick={() => previewRef.current?.reload()}
             />
