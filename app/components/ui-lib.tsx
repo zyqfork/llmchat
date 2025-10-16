@@ -465,7 +465,11 @@ export function showImageModal(
         style={{
           display: "flex",
           justifyContent: "center",
+          alignItems: "center",
           position: "relative",
+          width: "100%",
+          height: "60vh",
+          minHeight: "400px",
           ...boxStyle,
         }}
       >
@@ -477,6 +481,7 @@ export function showImageModal(
           style={
             style ?? {
               maxWidth: "100%",
+              maxHeight: "100%",
               objectFit: "contain",
             }
           }
