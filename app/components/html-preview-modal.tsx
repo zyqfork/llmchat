@@ -4,6 +4,7 @@ import { IconButton } from "./button";
 import { HTMLPreview, HTMLPreviewHander } from "./artifacts";
 import EyeIcon from "../icons/eye.svg";
 import ReloadButtonIcon from "../icons/reload.svg";
+import styles from "./html-preview-modal.module.scss";
 
 export interface HTMLPreviewModalProps {
   code: string;
@@ -34,7 +35,7 @@ export const HTMLPreviewModal = React.forwardRef<
         >
           <FullScreen
             className="no-dark html"
-            right={80}
+            right={75}
             style={{
               flex: 1,
               display: "flex",
@@ -43,16 +44,7 @@ export const HTMLPreviewModal = React.forwardRef<
             }}
           >
             {/* 浮动按钮容器 */}
-            <div
-              style={{
-                position: "absolute",
-                right: 20,
-                top: 10,
-                zIndex: 1000,
-                display: "flex",
-                gap: "10px",
-              }}
-            >
+            <div className={styles["floating-buttons"]}>
               <IconButton
                 bordered
                 icon={<ReloadButtonIcon />}
@@ -60,7 +52,6 @@ export const HTMLPreviewModal = React.forwardRef<
                 onClick={() => previewRef.current?.reload()}
                 title="刷新预览"
               />
-              c{" "}
             </div>
             {/* 内容容器 - 占据全部空间 */}
             <div

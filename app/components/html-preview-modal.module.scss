@@ -1,0 +1,27 @@
+.preview-actions {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+
+  button {
+    flex-grow: 1;
+
+    &:not(:last-child) {
+      margin-right: 10px;
+    }
+  }
+}
+
+.floating-buttons {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  z-index: 1000;
+  display: flex;
+
+  button {
+    &:not(:last-child) {
+      margin-right: 10px;
+    }
+  }
+}
