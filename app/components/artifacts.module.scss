@@ -28,4 +28,13 @@
   border: var(--border-in-light);
   border-radius: 6px;
   background-color: var(--gray);
+  display: block;
+  border: none;
+}
+
+// 为弹窗预览添加特殊样式
+:global(.no-dark.html) .artifacts-iframe {
+  flex: 1;
+  min-height: 0; // 允许iframe收缩
+  height: 100%;
 }

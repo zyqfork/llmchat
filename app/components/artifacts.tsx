@@ -74,9 +74,8 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
         return props.height;
       }
       const parentHeight = props.height || 600;
-      return iframeHeight + 40 > parentHeight
-        ? parentHeight
-        : iframeHeight + 40;
+      // 在弹窗预览中，不需要额外添加边距，直接使用iframe的实际高度
+      return iframeHeight > parentHeight ? parentHeight : iframeHeight;
     }, [props.autoHeight, props.height, iframeHeight]);
 
     const srcDoc = useMemo(() => {
