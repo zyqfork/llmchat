@@ -469,6 +469,7 @@ function _MarkDownContent(props: {
   thinkingTime?: number;
   fontSize?: number;
   status?: boolean;
+  isUserMessage?: boolean;
 }) {
   // 预处理base64图片，将长base64 URL替换为占位符
   const { processedContent, imageMap } = useMemo(() => {
@@ -501,21 +502,41 @@ function _MarkDownContent(props: {
     return { processedContent: content, imageMap };
   }, [props.content, props.thinkingTime]);
 
+  // 对于用户消息，直接原样渲染内容，不做任何Markdown处理
+  if (props.isUserMessage) {
+    return (
+      <div
+        className="user-message-content"
+        style={{
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "break-word", // +1
+          tabSize: 4,
+        }}
+      >
+        {props.content}
+      </div>
+    );
+  }
+
+  // 对于AI消息，使用原有的Markdown处理逻辑
+  const rehypePlugins = [
+    RehypeRaw,
+    RehypeKatex as any,
+    [rehypeSanitize, sanitizeOptions],
+    [
+      RehypeHighlight,
+      {
+        detect: false,
+        ignoreMissing: true,
+      },
+    ],
+  ];
+
   return (
     <ReactMarkdown
       remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
-      rehypePlugins={[
-        RehypeRaw,
-        RehypeKatex as any,
-        [rehypeSanitize, sanitizeOptions],
-        [
-          RehypeHighlight,
-          {
-            detect: false,
-            ignoreMissing: true,
-          },
-        ],
-      ]}
+      rehypePlugins={rehypePlugins}
       components={
         {
           pre: PreCode,
@@ -601,6 +622,7 @@ export function Markdown(
     defaultShow?: boolean;
     thinkingTime?: number;
     status?: boolean;
+    isUserMessage?: boolean;
   } & React.DOMAttributes<HTMLDivElement>,
 ) {
   const mdRef = useRef<HTMLDivElement>(null);
@@ -625,6 +647,7 @@ export function Markdown(
           thinkingTime={props.thinkingTime}
           fontSize={props.fontSize}
           status={props.status}
+          isUserMessage={props.isUserMessage}
         />
       )}
     </div>

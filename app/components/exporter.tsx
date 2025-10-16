@@ -306,6 +306,7 @@ export function RenderExport(props: {
                 : getMessageTextContentWithoutThinking(m)
             }
             defaultShow
+            isUserMessage={m.role === "user"}
           />
         </div>
       ))}
@@ -944,6 +945,7 @@ export function ImagePreviewer(props: {
                   fontSize={config.fontSize}
                   fontFamily={config.fontFamily}
                   defaultShow
+                  isUserMessage={m.role === "user"}
                 />
                 {getMessageImages(m).length == 1 && (
                   <div className={styles["message-image-container"]}>

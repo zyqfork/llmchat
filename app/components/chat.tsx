@@ -3116,6 +3116,7 @@ function _Chat() {
                               defaultShow={i >= messages.length - 6}
                               thinkingTime={message.statistic?.reasoningLatency}
                               status={message.streaming}
+                              isUserMessage={message.role === "user"}
                             />
                             {getMessageImages(message).length == 1 && (
                               <div
