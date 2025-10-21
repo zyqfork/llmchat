@@ -319,6 +319,17 @@ const pt = {
     },
     SendKey: "Tecla de Envio",
     Theme: "Tema",
+    ColorScheme: {
+      Title: "Esquema de Cores",
+      Options: {
+        default: "Azul Padrão",
+        ocean: "Azul Oceano",
+        forest: "Verde Floresta",
+        sunset: "Laranja Pôr do Sol",
+        purple: "Roxo Sonho",
+        rose: "Rosa",
+      },
+    },
     TightBorder: "Borda Ajustada",
     SendPreviewBubble: {
       Title: "Bolha de Pré-visualização de Envio",

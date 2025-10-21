@@ -323,6 +323,17 @@ const fr = {
     },
     SendKey: "Touche d'envoi",
     Theme: "Thème",
+    ColorScheme: {
+      Title: "Schéma de Couleurs",
+      Options: {
+        default: "Bleu par Défaut",
+        ocean: "Bleu Océan",
+        forest: "Vert Forêt",
+        sunset: "Orange Coucher de Soleil",
+        purple: "Violet Rêve",
+        rose: "Rose",
+      },
+    },
     TightBorder: "Mode sans bordure",
     SendPreviewBubble: {
       Title: "Bulle d'aperçu",

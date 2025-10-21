@@ -318,6 +318,17 @@ const ru = {
     },
     SendKey: "Кнопка отправки",
     Theme: "Тема",
+    ColorScheme: {
+      Title: "Цветовая схема",
+      Options: {
+        default: "Синий по умолчанию",
+        ocean: "Океанский синий",
+        forest: "Лесной зеленый",
+        sunset: "Закатный оранжевый",
+        purple: "Фиолетовая мечта",
+        rose: "Розовый",
+      },
+    },
     TightBorder: "Режим без границ",
     SendPreviewBubble: {
       Title: "Предварительный просмотр пузырьков",

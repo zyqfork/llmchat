@@ -315,6 +315,17 @@ const da = {
     },
     SendKey: "Tast for send",
     Theme: "Tema",
+    ColorScheme: {
+      Title: "Farveskema",
+      Options: {
+        default: "Standard Blå",
+        ocean: "Ocean Blå",
+        forest: "Skov Grøn",
+        sunset: "Solnedgang Orange",
+        purple: "Lilla Drøm",
+        rose: "Rose",
+      },
+    },
     TightBorder: "Stram kant",
     SendPreviewBubble: {
       Title: "Forhåndsvisnings-boble",

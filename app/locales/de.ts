@@ -318,6 +318,17 @@ const de = {
     },
     SendKey: "Sende-Taste",
     Theme: "Thema",
+    ColorScheme: {
+      Title: "Farbschema",
+      Options: {
+        default: "Standard Blau",
+        ocean: "Ozean Blau",
+        forest: "Wald Grün",
+        sunset: "Sonnenuntergang Orange",
+        purple: "Lila Traum",
+        rose: "Rosa",
+      },
+    },
     TightBorder: "Randloser Modus",
     SendPreviewBubble: {
       Title: "Vorschau-Bubble",

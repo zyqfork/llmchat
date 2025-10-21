@@ -306,6 +306,17 @@ const tw = {
     },
     SendKey: "傳送鍵",
     Theme: "主題",
+    ColorScheme: {
+      Title: "配色方案",
+      Options: {
+        default: "預設藍調",
+        ocean: "海洋藍綠",
+        forest: "森林綠",
+        sunset: "日落橙紅",
+        purple: "紫色夢幻",
+        rose: "玫瑰粉",
+      },
+    },
     TightBorder: "緊湊邊框",
     SendPreviewBubble: {
       Title: "預覽氣泡",

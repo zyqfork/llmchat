@@ -3,11 +3,6 @@
 
 @mixin light {
   --theme: light;
-
-  /* 现代蓝调主题配色 */
-  --primary: #3b82f6;        /* 现代蓝色 */
-  --primary-light: #60a5fa;  /* 浅色变体 */
-  --primary-dark: #2563eb;   /* 深色变体 */
   
   /* 中性色 - 更柔和的灰度 */
   --white: #ffffff;
@@ -23,12 +18,6 @@
   --gray-900: #111827;
   --black: #030712;
   
-  /* 语义化颜色 */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --info: #06b6d4;
-  
   /* 应用特定颜色 */
   --gray: var(--gray-50);
   --second: var(--gray-50);
@@ -42,15 +31,20 @@
 
   /* 现代边框 */
   --border-in-light: 1px solid var(--gray-200);
+  
+  /* 默认配色 */
+  --primary: #3b82f6;
+  --primary-light: #60a5fa;
+  --primary-dark: #2563eb;
+  
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #06b6d4;
 }
 
 @mixin dark {
   --theme: dark;
-
-  /* 现代蓝调深色主题 */
-  --primary: #60a5fa;        /* 浅色模式主色调的亮色版本 */
-  --primary-light: #93c5fd;  /* 更亮的蓝色 */
-  --primary-dark: #3b82f6;   /* 深色蓝色 */
   
   /* 深色中性色 */
   --white: #0f172a;          /* 深蓝黑色背景 */
@@ -66,12 +60,6 @@
   --gray-900: #ffffff;
   --black: #f8fafc;          /* 浅色文字 */
   
-  /* 语义化颜色 - 深色模式调整 */
-  --success: #34d399;
-  --warning: #fbbf24;
-  --error: #f87171;
-  --info: #22d3ee;
-  
   /* 应用特定颜色 */
   --gray: var(--gray-50);
   --second: var(--gray-50);
@@ -82,6 +70,16 @@
   --border-in-light: 1px solid var(--gray-200);
 
   --theme-color: var(--gray);
+  
+  /* 默认配色 */
+  --primary: #60a5fa;
+  --primary-light: #93c5fd;
+  --primary-dark: #3b82f6;
+  
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
 
   div:not(.no-dark) > svg {
     filter: invert(0.5);
@@ -122,12 +120,6 @@
 
   .no-mobile {
     display: none;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    @include dark;
   }
 }
 
@@ -470,3 +462,6 @@ pre {
     }
   }
 }
+
+// 导入配色方案（必须在最后，以便覆盖默认配色）
+@import "./color-schemes.scss";

@@ -81,11 +81,24 @@ export function useSwitchTheme() {
     document.body.classList.remove("light");
     document.body.classList.remove("dark");
 
+    // 移除所有配色方案类
+    document.body.classList.remove(
+      "color-scheme-default",
+      "color-scheme-ocean",
+      "color-scheme-forest",
+      "color-scheme-sunset",
+      "color-scheme-purple",
+      "color-scheme-rose",
+    );
+
     if (config.theme === "dark") {
       document.body.classList.add("dark");
     } else if (config.theme === "light") {
       document.body.classList.add("light");
     }
+
+    // 添加配色方案类
+    document.body.classList.add(`color-scheme-${config.colorScheme}`);
 
     const metaDescriptionDark = document.querySelector(
       'meta[name="theme-color"][media*="dark"]',
@@ -102,7 +115,7 @@ export function useSwitchTheme() {
       metaDescriptionDark?.setAttribute("content", themeColor);
       metaDescriptionLight?.setAttribute("content", themeColor);
     }
-  }, [config.theme]);
+  }, [config.theme, config.colorScheme]);
 }
 
 function useHtmlLang() {

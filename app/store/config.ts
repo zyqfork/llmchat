@@ -13,6 +13,7 @@ import {
   DEFAULT_TTS_VOICES,
   StoreKey,
   ServiceProvider,
+  ColorScheme,
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import type { Voice } from "rt-client";
@@ -37,6 +38,8 @@ export enum Theme {
   Light = "light",
 }
 
+export type ColorSchemeType = `${ColorScheme}`;
+
 const config = getClientConfig();
 
 export const DEFAULT_CONFIG = {
@@ -47,6 +50,7 @@ export const DEFAULT_CONFIG = {
   fontSize: 14,
   fontFamily: "",
   theme: Theme.Auto as Theme,
+  colorScheme: ColorScheme.Default as ColorSchemeType,
   tightBorder: !!config?.isApp,
   sendPreviewBubble: true,
   enableAutoGenerateTitle: true,

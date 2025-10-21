@@ -306,6 +306,17 @@ const cn = {
     },
     SendKey: "发送键",
     Theme: "主题",
+    ColorScheme: {
+      Title: "配色方案",
+      Options: {
+        default: "默认蓝调",
+        ocean: "海洋蓝绿",
+        forest: "森林绿",
+        sunset: "日落橙红",
+        purple: "紫色梦幻",
+        rose: "玫瑰粉",
+      },
+    },
     TightBorder: "无边框模式",
     SendPreviewBubble: {
       Title: "预览气泡",

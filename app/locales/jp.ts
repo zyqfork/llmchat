@@ -314,6 +314,17 @@ const jp = {
     },
     SendKey: "送信キー",
     Theme: "テーマ",
+    ColorScheme: {
+      Title: "カラースキーム",
+      Options: {
+        default: "デフォルトブルー",
+        ocean: "オーシャンブルー",
+        forest: "フォレストグリーン",
+        sunset: "サンセットオレンジ",
+        purple: "パープルドリーム",
+        rose: "ローズピンク",
+      },
+    },
     TightBorder: "ボーダーレスモード",
     SendPreviewBubble: {
       Title: "プレビューバブル",

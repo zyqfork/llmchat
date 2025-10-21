@@ -318,6 +318,17 @@ const bn = {
     },
     SendKey: "পাঠানোর কী",
     Theme: "থিম",
+    ColorScheme: {
+      Title: "রঙের স্কিম",
+      Options: {
+        default: "ডিফল্ট নীল",
+        ocean: "সমুদ্র নীল",
+        forest: "বন সবুজ",
+        sunset: "সূর্যাস্ত কমলা",
+        purple: "বেগুনি স্বপ্ন",
+        rose: "গোলাপী",
+      },
+    },
     TightBorder: "বর্ডার-বিহীন মোড",
     SendPreviewBubble: {
       Title: "প্রিভিউ বুদবুদ",

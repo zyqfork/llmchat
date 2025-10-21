@@ -312,6 +312,17 @@ const ko = {
     },
     SendKey: "전송 키",
     Theme: "테마",
+    ColorScheme: {
+      Title: "색상 테마",
+      Options: {
+        default: "기본 블루",
+        ocean: "오션 블루",
+        forest: "포레스트 그린",
+        sunset: "선셋 오렌지",
+        purple: "퍼플 드림",
+        rose: "로즈 핑크",
+      },
+    },
     TightBorder: "테두리 없는 모드",
     SendPreviewBubble: {
       Title: "미리보기 버블",

@@ -1,0 +1,205 @@
+// 配色方案定义
+// 每个配色方案都有 light 和 dark 两种模式
+
+// ============ Default 配色（现代蓝调） ============
+@mixin color-scheme-default-light {
+  --primary: #3b82f6;
+  --primary-light: #60a5fa;
+  --primary-dark: #2563eb;
+  
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #06b6d4;
+}
+
+@mixin color-scheme-default-dark {
+  --primary: #60a5fa;
+  --primary-light: #93c5fd;
+  --primary-dark: #3b82f6;
+  
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
+}
+
+// ============ Ocean 配色（海洋蓝绿） ============
+@mixin color-scheme-ocean-light {
+  --primary: #0891b2;
+  --primary-light: #06b6d4;
+  --primary-dark: #0e7490;
+  
+  --success: #14b8a6;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+}
+
+@mixin color-scheme-ocean-dark {
+  --primary: #22d3ee;
+  --primary-light: #67e8f9;
+  --primary-dark: #06b6d4;
+  
+  --success: #2dd4bf;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #60a5fa;
+}
+
+// ============ Forest 配色（森林绿） ============
+@mixin color-scheme-forest-light {
+  --primary: #059669;
+  --primary-light: #10b981;
+  --primary-dark: #047857;
+  
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #06b6d4;
+}
+
+@mixin color-scheme-forest-dark {
+  --primary: #34d399;
+  --primary-light: #6ee7b7;
+  --primary-dark: #10b981;
+  
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
+}
+
+// ============ Sunset 配色（日落橙红） ============
+@mixin color-scheme-sunset-light {
+  --primary: #f97316;
+  --primary-light: #fb923c;
+  --primary-dark: #ea580c;
+  
+  --success: #10b981;
+  --warning: #eab308;
+  --error: #dc2626;
+  --info: #06b6d4;
+}
+
+@mixin color-scheme-sunset-dark {
+  --primary: #fb923c;
+  --primary-light: #fdba74;
+  --primary-dark: #f97316;
+  
+  --success: #34d399;
+  --warning: #facc15;
+  --error: #f87171;
+  --info: #22d3ee;
+}
+
+// ============ Purple 配色（紫色梦幻） ============
+@mixin color-scheme-purple-light {
+  --primary: #9333ea;
+  --primary-light: #a855f7;
+  --primary-dark: #7e22ce;
+  
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #06b6d4;
+}
+
+@mixin color-scheme-purple-dark {
+  --primary: #a855f7;
+  --primary-light: #c084fc;
+  --primary-dark: #9333ea;
+  
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
+}
+
+// ============ Rose 配色（玫瑰粉） ============
+@mixin color-scheme-rose-light {
+  --primary: #e11d48;
+  --primary-light: #f43f5e;
+  --primary-dark: #be123c;
+  
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #dc2626;
+  --info: #06b6d4;
+}
+
+@mixin color-scheme-rose-dark {
+  --primary: #fb7185;
+  --primary-light: #fda4af;
+  --primary-dark: #f43f5e;
+  
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
+}
+
+// ============ 配色方案应用类 ============
+
+// Light 模式配色
+.light {
+  &.color-scheme-default {
+    @include color-scheme-default-light;
+  }
+  
+  &.color-scheme-ocean {
+    @include color-scheme-ocean-light;
+  }
+  
+  &.color-scheme-forest {
+    @include color-scheme-forest-light;
+  }
+  
+  &.color-scheme-sunset {
+    @include color-scheme-sunset-light;
+  }
+  
+  &.color-scheme-purple {
+    @include color-scheme-purple-light;
+  }
+  
+  &.color-scheme-rose {
+    @include color-scheme-rose-light;
+  }
+}
+
+// Dark 模式配色
+.dark {
+  &.color-scheme-default {
+    @include color-scheme-default-dark;
+  }
+  
+  &.color-scheme-ocean {
+    @include color-scheme-ocean-dark;
+  }
+  
+  &.color-scheme-forest {
+    @include color-scheme-forest-dark;
+  }
+  
+  &.color-scheme-sunset {
+    @include color-scheme-sunset-dark;
+  }
+  
+  &.color-scheme-purple {
+    @include color-scheme-purple-dark;
+  }
+  
+  &.color-scheme-rose {
+    @include color-scheme-rose-dark;
+  }
+}
+
+// 默认配色（用于 :root）
+:root {
+  @include color-scheme-default-light;
+  
+  @media (prefers-color-scheme: dark) {
+    @include color-scheme-default-dark;
+  }
+}

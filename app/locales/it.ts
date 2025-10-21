@@ -326,6 +326,17 @@ const it = {
     },
     SendKey: "Tasto di invio",
     Theme: "Tema",
+    ColorScheme: {
+      Title: "Schema Colori",
+      Options: {
+        default: "Blu Predefinito",
+        ocean: "Blu Oceano",
+        forest: "Verde Foresta",
+        sunset: "Arancione Tramonto",
+        purple: "Viola Sogno",
+        rose: "Rosa",
+      },
+    },
     TightBorder: "Modalità senza bordi",
     SendPreviewBubble: {
       Title: "Bolla di anteprima",

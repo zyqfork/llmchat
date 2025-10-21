@@ -52,6 +52,7 @@ import {
   useAppConfig,
   CustomProviderType,
 } from "../store";
+import { ColorScheme } from "../constant";
 
 import Locale, {
   AllLangs,
@@ -1566,6 +1567,24 @@ export function Settings() {
             {Object.values(Theme).map((v) => (
               <option value={v} key={v}>
                 {v}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+
+        <ListItem title={Locale.Settings.ColorScheme?.Title || "Color Scheme"}>
+          <Select
+            aria-label={Locale.Settings.ColorScheme?.Title || "Color Scheme"}
+            value={config.colorScheme}
+            onChange={(e) => {
+              updateConfig(
+                (config) => (config.colorScheme = e.target.value as any),
+              );
+            }}
+          >
+            {Object.values(ColorScheme).map((v) => (
+              <option value={v} key={v}>
+                {Locale.Settings.ColorScheme?.Options?.[v] || v}
               </option>
             ))}
           </Select>

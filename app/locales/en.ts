@@ -314,6 +314,17 @@ const en: LocaleType = {
     },
     SendKey: "Send Key",
     Theme: "Theme",
+    ColorScheme: {
+      Title: "Color Scheme",
+      Options: {
+        default: "Default Blue",
+        ocean: "Ocean Blue",
+        forest: "Forest Green",
+        sunset: "Sunset Orange",
+        purple: "Purple Dream",
+        rose: "Rose Pink",
+      },
+    },
     TightBorder: "Tight Border",
     SendPreviewBubble: {
       Title: "Send Preview Bubble",

@@ -318,6 +318,17 @@ const vi = {
     },
     SendKey: "Phím gửi",
     Theme: "Giao diện",
+    ColorScheme: {
+      Title: "Bảng màu",
+      Options: {
+        default: "Xanh mặc định",
+        ocean: "Xanh đại dương",
+        forest: "Xanh rừng",
+        sunset: "Cam hoàng hôn",
+        purple: "Tím mộng mơ",
+        rose: "Hồng",
+      },
+    },
     TightBorder: "Chế độ không viền",
     SendPreviewBubble: {
       Title: "Bong bóng xem trước",

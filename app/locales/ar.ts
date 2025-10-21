@@ -310,6 +310,17 @@ const ar = {
     },
     SendKey: "زر الإرسال",
     Theme: "السمة",
+    ColorScheme: {
+      Title: "نظام الألوان",
+      Options: {
+        default: "الأزرق الافتراضي",
+        ocean: "أزرق المحيط",
+        forest: "أخضر الغابة",
+        sunset: "برتقالي الغروب",
+        purple: "حلم أرجواني",
+        rose: "وردي",
+      },
+    },
     TightBorder: "وضع بدون حدود",
     SendPreviewBubble: {
       Title: "فقاعة المعاينة",

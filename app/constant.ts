@@ -31,6 +31,15 @@ export const SILICONFLOW_BASE_URL = "https://api.siliconflow.cn";
 export const CACHE_URL_PREFIX = "/api/cache";
 export const UPLOAD_URL = `${CACHE_URL_PREFIX}/upload`;
 
+export enum ColorScheme {
+  Default = "default",
+  Ocean = "ocean",
+  Forest = "forest",
+  Sunset = "sunset",
+  Purple = "purple",
+  Rose = "rose",
+}
+
 export enum Path {
   Home = "/",
   Chat = "/chat",

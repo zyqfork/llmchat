@@ -317,6 +317,17 @@ const tr = {
     },
     SendKey: "Gönderme Tuşu",
     Theme: "Tema",
+    ColorScheme: {
+      Title: "Renk Şeması",
+      Options: {
+        default: "Varsayılan Mavi",
+        ocean: "Okyanus Mavisi",
+        forest: "Orman Yeşili",
+        sunset: "Gün Batımı Turuncu",
+        purple: "Mor Rüya",
+        rose: "Gül Pembesi",
+      },
+    },
     TightBorder: "Sınır Yok Modu",
     SendPreviewBubble: {
       Title: "Önizleme Balonu",

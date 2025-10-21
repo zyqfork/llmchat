@@ -317,6 +317,17 @@ const cs = {
     },
     SendKey: "Klávesa pro odeslání",
     Theme: "Téma",
+    ColorScheme: {
+      Title: "Barevné Schéma",
+      Options: {
+        default: "Výchozí Modrá",
+        ocean: "Oceánská Modrá",
+        forest: "Lesní Zelená",
+        sunset: "Západ Slunce Oranžová",
+        purple: "Fialový Sen",
+        rose: "Růžová",
+      },
+    },
     TightBorder: "Režim bez okrajů",
     SendPreviewBubble: {
       Title: "Náhledová bublina",
