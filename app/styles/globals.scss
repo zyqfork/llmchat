@@ -4,38 +4,82 @@
 @mixin light {
   --theme: light;
 
-  /* color */
-  --white: white;
-  --black: rgb(48, 48, 48);
-  --gray: rgb(250, 250, 250);
-  --primary: rgb(29, 147, 171);
-  --second: rgb(243, 243, 246);
-  --hover-color: #f3f3f3;
-  --bar-color: rgba(0, 0, 0, 0.1);
-  --theme-color: var(--gray);
+  /* 现代蓝调主题配色 */
+  --primary: #3b82f6;        /* 现代蓝色 */
+  --primary-light: #60a5fa;  /* 浅色变体 */
+  --primary-dark: #2563eb;   /* 深色变体 */
+  
+  /* 中性色 - 更柔和的灰度 */
+  --white: #ffffff;
+  --gray-50: #f9fafb;       /* 更亮的背景 */
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --black: #030712;
+  
+  /* 语义化颜色 */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #06b6d4;
+  
+  /* 应用特定颜色 */
+  --gray: var(--gray-50);
+  --second: var(--gray-50);
+  --hover-color: var(--gray-100);
+  --bar-color: rgba(0, 0, 0, 0.08);
+  --theme-color: var(--gray-50);
 
-  /* shadow */
-  --shadow: 50px 50px 100px 10px rgb(0, 0, 0, 0.1);
-  --card-shadow: 0px 2px 4px 0px rgb(0, 0, 0, 0.05);
+  /* 现代阴影系统 */
+  --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 
-  /* stroke */
-  --border-in-light: 1px solid rgb(222, 222, 222);
+  /* 现代边框 */
+  --border-in-light: 1px solid var(--gray-200);
 }
 
 @mixin dark {
   --theme: dark;
 
-  /* color */
-  --white: rgb(30, 30, 30);
-  --black: rgb(187, 187, 187);
-  --gray: rgb(21, 21, 21);
-  --primary: rgb(29, 147, 171);
-  --second: rgb(38, 38, 44);
-  --hover-color: #323232;
-
+  /* 现代蓝调深色主题 */
+  --primary: #60a5fa;        /* 浅色模式主色调的亮色版本 */
+  --primary-light: #93c5fd;  /* 更亮的蓝色 */
+  --primary-dark: #3b82f6;   /* 深色蓝色 */
+  
+  /* 深色中性色 */
+  --white: #0f172a;          /* 深蓝黑色背景 */
+  --gray-50: #1e293b;        /* 次要背景 */
+  --gray-100: #334155;
+  --gray-200: #475569;
+  --gray-300: #64748b;
+  --gray-400: #94a3b8;
+  --gray-500: #cbd5e1;
+  --gray-600: #e2e8f0;
+  --gray-700: #f1f5f9;
+  --gray-800: #f8fafc;
+  --gray-900: #ffffff;
+  --black: #f8fafc;          /* 浅色文字 */
+  
+  /* 语义化颜色 - 深色模式调整 */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #22d3ee;
+  
+  /* 应用特定颜色 */
+  --gray: var(--gray-50);
+  --second: var(--gray-50);
+  --hover-color: var(--gray-100);
   --bar-color: rgba(255, 255, 255, 0.1);
-
-  --border-in-light: 1px solid rgba(255, 255, 255, 0.192);
+  
+  /* 深色模式边框 */
+  --border-in-light: 1px solid var(--gray-200);
 
   --theme-color: var(--gray);
 

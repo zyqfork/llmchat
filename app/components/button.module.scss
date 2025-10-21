@@ -28,17 +28,47 @@
   }
 
   &.danger {
-    color: rgba($color: red, $alpha: 0.8);
-    border-color: rgba($color: red, $alpha: 0.5);
-    background-color: rgba($color: red, $alpha: 0.05);
+    color: var(--error);
+    border-color: var(--error);
+    background-color: rgba(239, 68, 68, 0.05);
 
     &:hover {
-      border-color: red;
-      background-color: rgba($color: red, $alpha: 0.1);
+      border-color: var(--error);
+      background-color: rgba(239, 68, 68, 0.1);
     }
 
     path {
-      fill: red !important;
+      fill: var(--error) !important;
+    }
+  }
+
+  &.success {
+    color: var(--success);
+    border-color: var(--success);
+    background-color: rgba(16, 185, 129, 0.05);
+
+    &:hover {
+      border-color: var(--success);
+      background-color: rgba(16, 185, 129, 0.1);
+    }
+
+    path {
+      fill: var(--success) !important;
+    }
+  }
+
+  &.warning {
+    color: var(--warning);
+    border-color: var(--warning);
+    background-color: rgba(245, 158, 11, 0.05);
+
+    &:hover {
+      border-color: var(--warning);
+      background-color: rgba(245, 158, 11, 0.1);
+    }
+
+    path {
+      fill: var(--warning) !important;
     }
   }
 
