@@ -71,6 +71,15 @@ export function createWebDavClient(store: SyncStore) {
         path = path.slice(1);
       }
 
+      // 如果没有启用代理或代理 URL 为空，直接使用 WebDAV 端点
+      if (!proxyUrl) {
+        let endpoint = config.endpoint;
+        if (!endpoint.endsWith("/")) {
+          endpoint += "/";
+        }
+        return endpoint + path;
+      }
+
       if (proxyUrl.endsWith("/")) {
         proxyUrl = proxyUrl.slice(0, -1);
       }
