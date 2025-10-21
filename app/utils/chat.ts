@@ -439,10 +439,10 @@ export function streamWithThink(
   let consecutiveEmptyMessages = 0; // 连续空消息计数
   const MAX_CONSECUTIVE_EMPTY_MESSAGES = 50; // 最大连续空消息数
 
-  // 修复：动画机制的根本问题 - 确保所有内容都能显示
+  // 优化动画机制以提高响应速度
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
-      // 关键修复：确保所有剩余内容都被处理
+      // 确保所有剩余内容都被处理
       if (remainText.length > 0) {
         responseText += remainText;
         options.onUpdate?.(responseText, remainText);
@@ -458,13 +458,11 @@ export function streamWithThink(
       const currentTime = Date.now();
       const timeSinceLastMessage = currentTime - lastMessageTime;
 
-      // 关键修复：确保内容能够及时显示，避免积压
-      if (timeSinceLastMessage >= MIN_MESSAGE_INTERVAL) {
-        // 修复：处理小内容块，避免内容卡在remainText中
-        const fetchCount = Math.max(
-          1,
-          Math.min(remainText.length, Math.round(remainText.length / 60)),
-        );
+      // 优化：减少最小间隔，提高响应速度
+      if (timeSinceLastMessage >= 10) {
+        // 从20ms降低到10ms
+        // 优化：处理所有可用内容，避免内容积压
+        const fetchCount = Math.max(1, remainText.length); // 处理所有可用内容
         const fetchText = remainText.slice(0, fetchCount);
         responseText += fetchText;
         remainText = remainText.slice(fetchCount);

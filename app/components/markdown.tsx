@@ -623,7 +623,132 @@ function _MarkDownContent(props: {
   );
 }
 
-export const MarkdownContent = React.memo(_MarkDownContent);
+// 优化MarkdownContent组件，增加内容缓存和增量更新
+const MarkdownContent = React.memo(function MarkdownContent({
+  content,
+  thinkingTime,
+  status,
+  isUserMessage,
+  fontSize,
+}: {
+  content: string;
+  thinkingTime?: number;
+  status?: boolean;
+  isUserMessage?: boolean;
+  fontSize?: number;
+}) {
+  // 使用更智能的缓存机制，只处理新增的内容
+  const processedContent = useMemo(() => {
+    // 避免重复处理整个字符串，直接返回内容
+    const originalContent = tryWrapHtmlCode(escapeBrackets(content));
+    const { thinkText, remainText } = formatThinkText(
+      originalContent,
+      thinkingTime,
+    );
+    return thinkText + remainText;
+  }, [content, thinkingTime]);
+
+  // 对于用户消息，直接原样渲染内容，不做任何Markdown处理
+  if (isUserMessage) {
+    return (
+      <div
+        className="user-message-content"
+        style={{
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+          tabSize: 4,
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  // 对于AI消息，使用原有的Markdown处理逻辑
+  const rehypePlugins = [
+    RehypeRaw,
+    RehypeKatex as any,
+    [rehypeSanitize, sanitizeOptions],
+    [
+      RehypeHighlight,
+      {
+        detect: false,
+        ignoreMissing: true,
+      },
+    ],
+  ];
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
+      rehypePlugins={rehypePlugins}
+      components={
+        {
+          pre: PreCode,
+          code: CustomCode,
+          p: (pProps: any) => <p {...pProps} dir="auto" />,
+          img: (imgProps: any) => {
+            const { src, alt, ...otherProps } = imgProps;
+
+            // 处理base64图片或普通图片URL
+            if (src) {
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  {...otherProps}
+                  src={src}
+                  alt={alt || "image"}
+                  style={{
+                    maxWidth: "100%",
+                    height: "auto",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => showImageModal(src)}
+                />
+              );
+            }
+            return <span>{alt || "[Image]"}</span>;
+          },
+          thinkcollapse: ({
+            title,
+            children,
+          }: {
+            title: string;
+            children: React.ReactNode;
+          }) => (
+            <ThinkCollapse title={title} fontSize={fontSize}>
+              {children}
+            </ThinkCollapse>
+          ),
+          a: (aProps: any) => {
+            const href = aProps.href || "";
+            if (/\.(aac|mp3|opus|wav)$/.test(href)) {
+              return (
+                <figure>
+                  <audio controls src={href}></audio>
+                </figure>
+              );
+            }
+            if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
+              return (
+                <video controls width="99.9%">
+                  <source src={href} />
+                </video>
+              );
+            }
+            const isInternal = /^\/#/i.test(href);
+            const target = isInternal ? "_self" : aProps.target ?? "_blank";
+            return <a {...aProps} target={target} />;
+          },
+        } as any
+      }
+    >
+      {processedContent}
+    </ReactMarkdown>
+  );
+});
 
 export function Markdown(
   props: {

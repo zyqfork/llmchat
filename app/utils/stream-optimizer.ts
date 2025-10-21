@@ -13,13 +13,15 @@ export class StreamUpdateOptimizer {
   >();
 
   private updateTimer: NodeJS.Timeout | null = null;
-  // 增加批量延迟以避免多模型并发时的冲突
-  private readonly BATCH_DELAY = 100; // 100ms 批量更新延迟，更好地处理多模型并发
+  // 优化批量延迟以提高响应速度
+  private readonly BATCH_DELAY = 50; // 从100ms降低到50ms，提高响应速度
   // 添加最小内容长度阈值，避免过频繁的更新
-  private readonly MIN_CONTENT_LENGTH = 1; // 降低阈值，确保小更新也能及时显示
+  private readonly MIN_CONTENT_LENGTH = 1; // 保持低阈值，确保小更新也能及时显示
   // 添加最大等待时间，避免更新延迟过长
-  private readonly MAX_WAIT_TIME = 500; // 最大等待时间500ms
+  private readonly MAX_WAIT_TIME = 200; // 从500ms降低到200ms，减少延迟
   private lastFlushTime = 0;
+  // 为每个模型维护独立的更新队列
+  private modelUpdateQueues = new Map<string, any[]>();
 
   constructor(private onBatchUpdate: (updates: Map<string, any>) => void) {}
 

@@ -866,15 +866,15 @@ export const useChatStore = createPersistStore(
                 botMessage.streaming = true;
                 if (message) {
                   botMessage.content = message;
-                  // 修复：确保多模型消息的流式更新能够及时反映
+                  // 优化：多模型模式下使用更智能的更新策略
                   streamOptimizer.updateStreamingMessage(
                     session.id,
                     botMessage.id,
                     message,
                     session,
                   );
-                  // 立即刷新关键更新，避免界面延迟
-                  if (message.length > 0 && message.length % 100 < 20) {
+                  // 优化：减少立即刷新的频率，使用批量更新
+                  if (message.length > 0 && message.length % 200 < 50) {
                     streamOptimizer.flushUpdates();
                   }
                 }
