@@ -331,6 +331,7 @@ export function SideBar(props: { className?: string }) {
                     chatStore.deleteSession(chatStore.currentSessionIndex);
                   }
                 }}
+                shadow
               />
             </div>
             <div className={styles["sidebar-action"]}>
