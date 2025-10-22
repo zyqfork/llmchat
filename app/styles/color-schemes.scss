@@ -142,7 +142,8 @@
 // ============ 配色方案应用类 ============
 
 // Light 模式配色
-.light {
+.light,
+body:not(.dark):not(.light) {
   &.color-scheme-default {
     @include color-scheme-default-light;
   }
@@ -165,6 +166,33 @@
   
   &.color-scheme-rose {
     @include color-scheme-rose-light;
+  }
+  
+  // Auto 模式下的 light 配色（通过媒体查询）
+  @media (prefers-color-scheme: light) {
+    &.color-scheme-default {
+      @include color-scheme-default-light;
+    }
+    
+    &.color-scheme-ocean {
+      @include color-scheme-ocean-light;
+    }
+    
+    &.color-scheme-forest {
+      @include color-scheme-forest-light;
+    }
+    
+    &.color-scheme-sunset {
+      @include color-scheme-sunset-light;
+    }
+    
+    &.color-scheme-purple {
+      @include color-scheme-purple-light;
+    }
+    
+    &.color-scheme-rose {
+      @include color-scheme-rose-light;
+    }
   }
 }
 
@@ -192,6 +220,35 @@
   
   &.color-scheme-rose {
     @include color-scheme-rose-dark;
+  }
+}
+
+// Auto 模式下的 dark 配色（通过媒体查询）
+body:not(.dark):not(.light) {
+  @media (prefers-color-scheme: dark) {
+    &.color-scheme-default {
+      @include color-scheme-default-dark;
+    }
+    
+    &.color-scheme-ocean {
+      @include color-scheme-ocean-dark;
+    }
+    
+    &.color-scheme-forest {
+      @include color-scheme-forest-dark;
+    }
+    
+    &.color-scheme-sunset {
+      @include color-scheme-sunset-dark;
+    }
+    
+    &.color-scheme-purple {
+      @include color-scheme-purple-dark;
+    }
+    
+    &.color-scheme-rose {
+      @include color-scheme-rose-dark;
+    }
   }
 }
 
