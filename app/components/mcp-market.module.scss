@@ -528,7 +528,8 @@
   .input-item {
     width: 100%;
 
-    input {
+    input,
+    textarea {
       width: 100%;
       padding: 10px;
       border: var(--border-in-light);
@@ -537,6 +538,8 @@
       font-size: 14px;
       background-color: var(--white);
       color: var(--black);
+      font-family: inherit;
+      resize: vertical;
 
       &:hover {
         border-color: var(--gray-300);
