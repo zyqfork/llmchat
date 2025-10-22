@@ -1886,27 +1886,62 @@ function _Chat() {
   const session = chatStore.currentSession();
   const config = useAppConfig();
 
-  // 过滤 MCP 相关的消息（MCP 响应和 MCP 调用请求）
+  // 过滤和处理 MCP 相关的消息
   const filterMcpMessages = (messages: ChatMessage[]): ChatMessage[] => {
-    return messages.filter((m) => {
-      // 隐藏 MCP 响应消息
-      if (m.isMcpResponse) return false;
+    return messages
+      .filter((m) => {
+        // 只隐藏 MCP 响应消息（用户看不懂的原始响应）
+        if (m.isMcpResponse) return false;
+        return true;
+      })
+      .map((m) => {
+        // 对于包含 MCP 调用的 AI 消息，处理其内容
+        if (m.role === "assistant") {
+          const content =
+            typeof m.content === "string"
+              ? m.content
+              : Array.isArray(m.content)
+              ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
+              : "";
 
-      // 隐藏包含 MCP 调用请求的 AI 消息
-      const content =
-        typeof m.content === "string"
-          ? m.content
-          : Array.isArray(m.content)
-          ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
-          : "";
+          // 如果包含 MCP 调用代码块，替换为友好提示
+          if (content.includes("```json:mcp:")) {
+            // 提取所有 MCP 调用信息
+            const mcpMatches = Array.from(
+              content.matchAll(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/g),
+            );
+            const mcpCalls: Array<{
+              toolName: string;
+              clientId: string;
+              rawJson: string;
+            }> = [];
 
-      // 检查是否包含 MCP 调用代码块
-      if (content.includes("```json:mcp:") && m.role === "assistant") {
-        return false;
-      }
+            mcpMatches.forEach((match) => {
+              try {
+                const clientId = match[1];
+                const rawJson = match[2];
+                const mcpData = JSON.parse(rawJson);
+                const toolName = mcpData.params?.name || "工具";
+                mcpCalls.push({ toolName, clientId, rawJson });
+              } catch (e) {
+                // 解析失败，忽略
+              }
+            });
 
-      return true;
-    });
+            // 移除 JSON 代码块，保留其他内容
+            const cleanContent = content
+              .replace(/```json:mcp:[\s\S]*?```/g, "")
+              .trim();
+
+            return {
+              ...m,
+              content: cleanContent,
+              mcpCalls, // 保存 MCP 调用信息
+            } as any;
+          }
+        }
+        return m;
+      });
   };
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
@@ -3135,6 +3170,32 @@ function _Chat() {
                             status={message.streaming}
                             isUserMessage={message.role === "user"}
                           />
+                          {/* MCP 工具调用展示 */}
+                          {(message as any).mcpCalls &&
+                            (message as any).mcpCalls.length > 0 && (
+                              <div className={styles["mcp-tool-calls"]}>
+                                {(message as any).mcpCalls.map(
+                                  (call: any, idx: number) => (
+                                    <details
+                                      key={idx}
+                                      className={styles["mcp-tool-call"]}
+                                    >
+                                      <summary
+                                        className={styles["mcp-tool-summary"]}
+                                      >
+                                        🔧 调用工具:{" "}
+                                        <code>{call.toolName}</code>
+                                      </summary>
+                                      <pre
+                                        className={styles["mcp-tool-details"]}
+                                      >
+                                        <code>{call.rawJson}</code>
+                                      </pre>
+                                    </details>
+                                  ),
+                                )}
+                              </div>
+                            )}
                           {getMessageImages(message).length == 1 && (
                             <div
                               className={
@@ -3447,7 +3508,18 @@ function _Chat() {
             <div style={{ maxHeight: "60vh", overflow: "auto" }}>
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Request</div>
-                <pre style={{ whiteSpace: "pre-wrap" }}>
+                <pre
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    userSelect: "text",
+                    cursor: "text",
+                    backgroundColor: "var(--hover-color)",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    lineHeight: "1.5",
+                  }}
+                >
                   {(() => {
                     const req = (debugMessage as any)?.debug?.request;
                     return req ? JSON.stringify(req, null, 2) : "<empty>";
@@ -3456,7 +3528,18 @@ function _Chat() {
               </div>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Response</div>
-                <pre style={{ whiteSpace: "pre-wrap" }}>
+                <pre
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    userSelect: "text",
+                    cursor: "text",
+                    backgroundColor: "var(--hover-color)",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    lineHeight: "1.5",
+                  }}
+                >
                   {(() => {
                     const res = (debugMessage as any)?.debug?.response;
                     return res ? JSON.stringify(res, null, 2) : "<empty>";

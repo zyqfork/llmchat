@@ -7,7 +7,7 @@
 1. AI 发送的 MCP 调用请求（JSON 格式）
 2. 系统返回的 MCP 响应（`json:mcp-response` 代码块）
 
-这些技术细节对用户来说是不必要的，应该被隐藏，只显示 AI 处理后的最终结果。
+这些技术细节对用户来说难以理解，应该用更友好的方式展示。
 
 ### 示例问题
 
@@ -43,47 +43,69 @@ AI：根据搜索结果，以下是今天的主要热点新闻：...
 ```
 用户：今天的热点新闻
 
+AI：我来为您搜索今天的热点新闻。
+
+🔧 正在调用工具: search...
+
 AI：根据搜索结果，以下是今天的主要热点新闻：...
 ```
 
 ## 解决方案
 
-### 1. 消息过滤机制
+### 1. 消息过滤和转换机制
 
-在 `app/components/chat.tsx` 中添加了 `filterMcpMessages` 函数，用于过滤掉：
+在 `app/components/chat.tsx` 中添加了 `filterMcpMessages` 函数，用于：
 
-- 标记为 `isMcpResponse: true` 的消息（MCP 工具响应）
-- 包含 `json:mcp:` 代码块的 AI 消息（MCP 工具调用请求）
+- **过滤**：隐藏标记为 `isMcpResponse: true` 的消息（原始 MCP 工具响应）
+- **转换**：将包含 `json:mcp:` 代码块的 AI 消息转换为友好提示
 
 ```typescript
 const filterMcpMessages = (messages: ChatMessage[]): ChatMessage[] => {
-  return messages.filter((m) => {
-    // 隐藏 MCP 响应消息
-    if (m.isMcpResponse) return false;
-    
-    // 隐藏包含 MCP 调用请求的 AI 消息
-    const content = typeof m.content === "string" 
-      ? m.content 
-      : Array.isArray(m.content) 
-        ? m.content.map(c => c.type === "text" ? c.text : "").join("")
-        : "";
-    
-    // 检查是否包含 MCP 调用代码块
-    if (content.includes("```json:mcp:") && m.role === "assistant") {
-      return false;
-    }
-    
-    return true;
-  });
+  return messages
+    .filter((m) => {
+      // 只隐藏 MCP 响应消息（用户看不懂的原始响应）
+      if (m.isMcpResponse) return false;
+      return true;
+    })
+    .map((m) => {
+      // 对于包含 MCP 调用的 AI 消息，处理其内容
+      if (m.role === "assistant") {
+        const content = typeof m.content === "string" ? m.content : ...;
+        
+        // 如果包含 MCP 调用代码块，替换为友好提示
+        if (content.includes("```json:mcp:")) {
+          // 提取工具名称
+          const mcpMatch = content.match(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/);
+          let toolInfo = "";
+          
+          if (mcpMatch) {
+            const mcpData = JSON.parse(mcpMatch[2]);
+            const toolName = mcpData.params?.name || "工具";
+            toolInfo = `\n\n🔧 *正在调用工具: ${toolName}...*\n`;
+          }
+          
+          // 移除 JSON 代码块，保留其他内容，添加友好提示
+          return {
+            ...m,
+            content: content.replace(/```json:mcp:[\s\S]*?```/g, toolInfo)
+          };
+        }
+      }
+      return m;
+    });
 };
 ```
 
-### 2. 应用过滤
+### 2. 应用过滤和转换
 
-在以下位置应用了消息过滤：
+在以下位置应用了消息处理：
 
-1. **消息渲染列表** (`renderMessages`)：过滤掉 MCP 相关消息，只显示用户和 AI 的正常对话
-2. **消息数量显示**：使用过滤后的消息数量，准确反映可见消息数
+1. **消息渲染列表** (`renderMessages`)：
+   - 过滤掉原始 MCP 响应消息
+   - 将 MCP 调用 JSON 转换为友好提示
+   - 保留 AI 的说明文字和上下文
+   
+2. **消息数量显示**：使用处理后的消息数量，准确反映可见消息数
 
 ### 3. 现有基础设施
 
@@ -98,7 +120,7 @@ const filterMcpMessages = (messages: ChatMessage[]): ChatMessage[] => {
 ### 消息流程
 
 1. **用户发送问题** → 正常显示
-2. **AI 决定使用 MCP 工具** → 发送包含 `json:mcp:` 的消息 → **被过滤，不显示**
+2. **AI 决定使用 MCP 工具** → 发送包含说明文字和 `json:mcp:` 的消息 → **说明文字保留，JSON 转换为 "🔧 正在调用工具..."**
 3. **系统执行 MCP 工具** → 创建 `isMcpResponse: true` 的消息 → **被过滤，不显示**
 4. **AI 处理 MCP 响应** → 生成最终答案 → 正常显示
 
