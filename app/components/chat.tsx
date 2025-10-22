@@ -3101,22 +3101,70 @@ function _Chat() {
                         {/*@ts-ignore*/}
                         {message?.tools?.length > 0 && (
                           <div className={styles["chat-message-tools"]}>
-                            {message?.tools?.map((tool) => (
-                              <div
-                                key={tool.id}
-                                title={tool?.errorMsg}
-                                className={styles["chat-message-tool"]}
-                              >
-                                {tool.isError === false ? (
-                                  <ConfirmIcon />
-                                ) : tool.isError === true ? (
-                                  <CloseIcon />
-                                ) : (
-                                  <LoadingButtonIcon />
-                                )}
-                                <span>{tool?.function?.name}</span>
-                              </div>
-                            ))}
+                            {message?.tools?.map((tool) => {
+                              // 解析工具名称，格式可能是 "clientId__toolName" 或 "toolName"
+                              const fullName = tool?.function?.name || "";
+
+                              // 尝试多种分隔符格式
+                              let toolName = fullName;
+                              let clientName = "";
+
+                              // 格式1: clientId__toolName (双下划线)
+                              if (fullName.includes("__")) {
+                                const parts = fullName.split("__");
+                                if (parts.length >= 2) {
+                                  clientName = parts[0];
+                                  toolName = parts.slice(1).join("__");
+                                }
+                              }
+                              // 格式2: clientId_toolName (单下划线，但只分割第一个)
+                              else if (fullName.includes("_")) {
+                                const firstUnderscoreIndex =
+                                  fullName.indexOf("_");
+                                clientName = fullName.substring(
+                                  0,
+                                  firstUnderscoreIndex,
+                                );
+                                toolName = fullName.substring(
+                                  firstUnderscoreIndex + 1,
+                                );
+                              }
+                              // 格式3: clientId-toolName (短横线)
+                              else if (fullName.includes("-")) {
+                                const firstDashIndex = fullName.indexOf("-");
+                                clientName = fullName.substring(
+                                  0,
+                                  firstDashIndex,
+                                );
+                                toolName = fullName.substring(
+                                  firstDashIndex + 1,
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={tool.id}
+                                  title={tool?.errorMsg || fullName}
+                                  className={styles["chat-message-tool"]}
+                                >
+                                  {tool.isError === false ? (
+                                    <ConfirmIcon />
+                                  ) : tool.isError === true ? (
+                                    <CloseIcon />
+                                  ) : (
+                                    <LoadingButtonIcon />
+                                  )}
+                                  <span className={styles["tool-name"]}>
+                                    {toolName}
+                                  </span>
+                                  {clientName && (
+                                    <span className={styles["tool-client"]}>
+                                      {clientName}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                         <div className={styles["chat-message-item"]}>
@@ -3185,6 +3233,11 @@ function _Chat() {
                                       >
                                         🔧 调用工具:{" "}
                                         <code>{call.toolName}</code>
+                                        <span
+                                          className={styles["mcp-client-name"]}
+                                        >
+                                          {call.clientId}
+                                        </span>
                                       </summary>
                                       <pre
                                         className={styles["mcp-tool-details"]}
@@ -3266,6 +3319,19 @@ function _Chat() {
                               <span className={styles["chat-message-version"]}>
                                 {(message.currentVersionIndex ?? 0) + 1}/
                                 {(message.versions?.length ?? 0) + 1}
+                              </span>
+                            )}
+                          {/* TPS 显示 - 只对 assistant 消息显示 */}
+                          {message.role === "assistant" &&
+                            message.statistic?.completionTokens &&
+                            message.statistic?.totalReplyLatency && (
+                              <span className={styles["chat-message-tps"]}>
+                                {(
+                                  (message.statistic.completionTokens /
+                                    message.statistic.totalReplyLatency) *
+                                  1000
+                                ).toFixed(1)}{" "}
+                                t/s
                               </span>
                             )}
                           {isContext
