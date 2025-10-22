@@ -30,6 +30,9 @@ import {
   PresetServer,
   ServerConfig,
   ServerStatusResponse,
+  MCPTransportType,
+  TRANSPORT_TYPE_LABELS,
+  TRANSPORT_TYPE_DESCRIPTIONS,
 } from "../mcp/types";
 import { getAllBuiltinServers, searchServers } from "../mcp/builtin-servers";
 import clsx from "clsx";
@@ -66,8 +69,12 @@ export function McpMarketPage() {
   const [manualId, setManualId] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualDesc, setManualDesc] = useState("");
+  const [manualTransportType, setManualTransportType] =
+    useState<MCPTransportType>("streamableHttp");
   const [manualBaseUrl, setManualBaseUrl] = useState("");
-  const [manualHeadersText, setManualHeadersText] = useState("");
+  const [manualHeaders, setManualHeaders] = useState<
+    Array<{ key: string; value: string }>
+  >([{ key: "", value: "" }]);
   const [manualTimeout, setManualTimeout] = useState<string>("");
 
   // 添加状态轮询
@@ -317,49 +324,14 @@ export function McpMarketPage() {
     }
   };
 
-  // ---- Manual Add (SSE) helpers ----
-  const parseHeaders = (text: string): Record<string, string> | undefined => {
-    const trimmed = text.trim();
-    if (!trimmed) return undefined;
-    try {
-      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-        const obj = JSON.parse(trimmed);
-        if (Array.isArray(obj)) {
-          const res: Record<string, string> = {};
-          obj.forEach((pair) => {
-            if (pair && pair.key) res[pair.key] = String(pair.value ?? "");
-          });
-          return res;
-        }
-        return Object.fromEntries(
-          Object.entries(obj).map(([k, v]) => [k, String(v as any)]),
-        );
-      }
-    } catch (e) {
-      // fallback to line parsing
-    }
-    const headers: Record<string, string> = {};
-    trimmed
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .forEach((line) => {
-        const idx = line.indexOf(":");
-        if (idx > 0) {
-          const k = line.slice(0, idx).trim();
-          const v = line.slice(idx + 1).trim();
-          if (k) headers[k] = v;
-        }
-      });
-    return Object.keys(headers).length ? headers : undefined;
-  };
-
+  // ---- Manual Add helpers ----
   const openAddModal = () => {
     setManualId("");
     setManualName("");
     setManualDesc("");
+    setManualTransportType("streamableHttp");
     setManualBaseUrl("");
-    setManualHeadersText("");
+    setManualHeaders([{ key: "", value: "" }]);
     setManualTimeout("");
     setIsAddOpen(true);
   };
@@ -390,43 +362,63 @@ export function McpMarketPage() {
       showToast("超时时间必须是数字");
       return;
     }
-    const headers = parseHeaders(manualHeadersText);
+
+    // 构建 headers 对象
+    const headers: Record<string, string> = {};
+    manualHeaders.forEach((h) => {
+      const k = h.key.trim();
+      const v = h.value.trim();
+      if (k) headers[k] = v;
+    });
+
+    // 根据传输类型设置默认 headers
+    const defaultHeaders: Record<string, string> =
+      manualTransportType === "sse"
+        ? {
+            Accept: "text/event-stream",
+            "Cache-Control": "no-cache",
+          }
+        : {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          };
 
     const serverConfig: ServerConfig = {
-      type: "streamableHttp",
+      type: manualTransportType,
       baseUrl: url,
-      headers: headers ?? {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers: Object.keys(headers).length > 0 ? headers : defaultHeaders,
       timeout: timeoutNum,
       name: manualName.trim() || undefined,
       description: manualDesc.trim() || undefined,
       status: "active",
-      // Mark as manually added so transports avoid proxy normalization
+      // Mark as manually added
       addedAt: Date.now(),
     };
 
     try {
-      updateLoadingState(id, "Validating CAI key...");
+      updateLoadingState(id, "正在验证连接...");
       try {
         await validateMcpServer(serverConfig);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        showToast(`验证失败：${msg}`);
-        return;
+        // 验证失败时，询问用户是否跳过验证
+        const skipValidation = window.confirm(
+          `验证失败：${msg}\n\n某些 MCP 服务器可能需要特殊的初始化流程，验证可能会失败。\n\n是否跳过验证直接添加服务器？`,
+        );
+        if (!skipValidation) {
+          updateLoadingState(id, null);
+          return;
+        }
       }
-      updateLoadingState(id, "Creating MCP client...");
+      updateLoadingState(id, "正在创建 MCP 客户端...");
       const newCfg = await addMcpServer(id, serverConfig);
       setConfig(newCfg);
       const statuses = await getClientsStatus();
       setClientStatuses(statuses);
       setIsAddOpen(false);
-      showToast("Server added");
+      showToast("服务器添加成功");
     } catch (e) {
-      showToast(
-        e instanceof Error ? e.message : "Failed to add server, please check",
-      );
+      showToast(e instanceof Error ? e.message : "添加服务器失败，请检查配置");
     } finally {
       updateLoadingState(id, null);
     }
@@ -706,7 +698,7 @@ export function McpMarketPage() {
                   {server.configurable && (
                     <IconButton
                       icon={<EditIcon />}
-                      text="Configure"
+                      text="配置"
                       onClick={() => setEditingServerId(server.id)}
                       disabled={isLoading}
                     />
@@ -715,14 +707,14 @@ export function McpMarketPage() {
                     <>
                       <IconButton
                         icon={<PlayIcon />}
-                        text="Start"
+                        text="启动"
                         onClick={() => restartServer(server.id)}
                         disabled={isLoading}
                       />
                       {!builtinIds.has(server.id) && (
                         <IconButton
                           icon={<DeleteIcon />}
-                          text="Remove"
+                          text="移除"
                           onClick={() => removeServer(server.id)}
                           disabled={isLoading}
                         />
@@ -732,7 +724,7 @@ export function McpMarketPage() {
                     <>
                       <IconButton
                         icon={<EyeIcon />}
-                        text="Tools"
+                        text="工具"
                         onClick={async () => {
                           setViewingServerId(server.id);
                           await loadTools(server.id);
@@ -744,14 +736,14 @@ export function McpMarketPage() {
                       />
                       <IconButton
                         icon={<StopIcon />}
-                        text="Stop"
+                        text="停止"
                         onClick={() => pauseServer(server.id)}
                         disabled={isLoading}
                       />
                       {!builtinIds.has(server.id) && (
                         <IconButton
                           icon={<DeleteIcon />}
-                          text="Remove"
+                          text="移除"
                           onClick={() => removeServer(server.id)}
                           disabled={isLoading}
                         />
@@ -762,7 +754,7 @@ export function McpMarketPage() {
               ) : (
                 <IconButton
                   icon={<AddIcon />}
-                  text="Add"
+                  text="添加"
                   onClick={() => addServer(server)}
                   disabled={isLoading}
                 />
@@ -812,7 +804,7 @@ export function McpMarketPage() {
                 icon={<AddIcon />}
                 bordered
                 onClick={openAddModal}
-                text="Add Server"
+                text="添加服务器"
                 disabled={isLoading}
               />
             </div>
@@ -821,7 +813,7 @@ export function McpMarketPage() {
                 icon={<RestartIcon />}
                 bordered
                 onClick={handleRestartAll}
-                text="Restart All"
+                text="重启全部"
                 disabled={isLoading}
               />
             </div>
@@ -854,19 +846,19 @@ export function McpMarketPage() {
         {isAddOpen && (
           <div className="modal-mask">
             <Modal
-              title="Add MCP Server (SSE)"
+              title="添加 MCP 服务器"
               onClose={() => setIsAddOpen(false)}
               actions={[
                 <IconButton
                   key="cancel"
-                  text="Cancel"
+                  text="取消"
                   onClick={() => setIsAddOpen(false)}
                   bordered
                   disabled={isLoading}
                 />,
                 <IconButton
                   key="confirm"
-                  text="Add"
+                  text="添加"
                   type="primary"
                   onClick={submitManualAdd}
                   bordered
@@ -882,51 +874,132 @@ export function McpMarketPage() {
                   <input
                     aria-label="server-id"
                     type="text"
-                    placeholder="e.g. my-sse-server"
+                    placeholder="例如: my-mcp-server"
                     value={manualId}
                     onChange={(e) => setManualId(e.target.value)}
                   />
                 </ListItem>
-                <ListItem title="Name" subTitle="可选，用于显示">
+                <ListItem title="名称" subTitle="可选，用于显示">
                   <input
                     aria-label="server-name"
                     type="text"
-                    placeholder="Optional name"
+                    placeholder="可选的显示名称"
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
                   />
                 </ListItem>
-                <ListItem title="Description" subTitle="可选，简要说明">
+                <ListItem title="描述" subTitle="可选，简要说明">
                   <input
                     aria-label="server-desc"
                     type="text"
-                    placeholder="Optional description"
+                    placeholder="可选的服务器描述"
                     value={manualDesc}
                     onChange={(e) => setManualDesc(e.target.value)}
                   />
                 </ListItem>
-                <ListItem title="Base URL" subTitle="SSE 服务的事件流地址">
+                <ListItem
+                  title="传输类型"
+                  subTitle={TRANSPORT_TYPE_DESCRIPTIONS[manualTransportType]}
+                >
+                  <select
+                    aria-label="transport-type"
+                    value={manualTransportType}
+                    onChange={(e) =>
+                      setManualTransportType(e.target.value as MCPTransportType)
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "10px",
+                      border: "var(--border-in-light)",
+                      backgroundColor: "var(--white)",
+                      color: "var(--black)",
+                    }}
+                  >
+                    <option value="streamableHttp">
+                      {TRANSPORT_TYPE_LABELS.streamableHttp}
+                    </option>
+                    <option value="sse">{TRANSPORT_TYPE_LABELS.sse}</option>
+                  </select>
+                </ListItem>
+                <ListItem
+                  title="Base URL"
+                  subTitle={
+                    manualTransportType === "sse"
+                      ? "SSE 服务的事件流地址"
+                      : "MCP 服务的 HTTP 端点地址"
+                  }
+                >
                   <input
                     aria-label="server-url"
                     type="text"
-                    placeholder="https://example.com/mcp/sse"
+                    placeholder={
+                      manualTransportType === "sse"
+                        ? "https://example.com/mcp/sse"
+                        : "https://example.com/mcp"
+                    }
                     value={manualBaseUrl}
                     onChange={(e) => setManualBaseUrl(e.target.value)}
                   />
                 </ListItem>
                 <ListItem
-                  title="Headers"
-                  subTitle="可选，支持 JSON 或 每行 key:value"
+                  title="请求头 (Headers)"
+                  subTitle="可选，添加自定义 HTTP 请求头"
+                  vertical
                 >
-                  <textarea
-                    aria-label="server-headers"
-                    placeholder='{"Authorization":"Bearer ..."}'
-                    value={manualHeadersText}
-                    onChange={(e) => setManualHeadersText(e.target.value)}
-                    rows={4}
-                  />
+                  <div className={styles["path-list"]}>
+                    {manualHeaders.map((header, index) => (
+                      <div key={index} className={styles["path-item"]}>
+                        <input
+                          type="text"
+                          placeholder="Header 名称"
+                          value={header.key}
+                          onChange={(e) => {
+                            const newHeaders = [...manualHeaders];
+                            newHeaders[index].key = e.target.value;
+                            setManualHeaders(newHeaders);
+                          }}
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Header 值"
+                          value={header.value}
+                          onChange={(e) => {
+                            const newHeaders = [...manualHeaders];
+                            newHeaders[index].value = e.target.value;
+                            setManualHeaders(newHeaders);
+                          }}
+                          style={{ flex: 1 }}
+                        />
+                        {manualHeaders.length > 1 && (
+                          <IconButton
+                            icon={<DeleteIcon />}
+                            className={styles["delete-button"]}
+                            onClick={() => {
+                              const newHeaders = [...manualHeaders];
+                              newHeaders.splice(index, 1);
+                              setManualHeaders(newHeaders);
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <IconButton
+                      icon={<AddIcon />}
+                      text="添加 Header"
+                      className={styles["add-button"]}
+                      bordered
+                      onClick={() => {
+                        setManualHeaders([
+                          ...manualHeaders,
+                          { key: "", value: "" },
+                        ]);
+                      }}
+                    />
+                  </div>
                 </ListItem>
-                <ListItem title="Timeout" subTitle="可选，单位秒">
+                <ListItem title="超时时间" subTitle="可选，单位秒">
                   <input
                     aria-label="server-timeout"
                     type="number"
@@ -944,19 +1017,19 @@ export function McpMarketPage() {
         {editingServerId && (
           <div className="modal-mask">
             <Modal
-              title={`Configure Server - ${editingServerId}`}
+              title={`配置服务器 - ${editingServerId}`}
               onClose={() => !isLoading && setEditingServerId(undefined)}
               actions={[
                 <IconButton
                   key="cancel"
-                  text="Cancel"
+                  text="取消"
                   onClick={() => setEditingServerId(undefined)}
                   bordered
                   disabled={isLoading}
                 />,
                 <IconButton
                   key="confirm"
-                  text="Save"
+                  text="保存"
                   type="primary"
                   onClick={saveServerConfig}
                   bordered
@@ -972,12 +1045,12 @@ export function McpMarketPage() {
         {viewingServerId && (
           <div className="modal-mask">
             <Modal
-              title={`Server Details - ${viewingServerId}`}
+              title={`服务器详情 - ${viewingServerId}`}
               onClose={() => setViewingServerId(undefined)}
               actions={[
                 <IconButton
                   key="close"
-                  text="Close"
+                  text="关闭"
                   onClick={() => setViewingServerId(undefined)}
                   bordered
                 />,
@@ -985,7 +1058,7 @@ export function McpMarketPage() {
             >
               <div className={styles["tools-list"]}>
                 {isLoading ? (
-                  <div>Loading...</div>
+                  <div>加载中...</div>
                 ) : tools?.tools ? (
                   tools.tools.map(
                     (tool: ListToolsResponse["tools"], index: number) => (
@@ -998,7 +1071,7 @@ export function McpMarketPage() {
                     ),
                   )
                 ) : (
-                  <div>No tools available</div>
+                  <div>暂无可用工具</div>
                 )}
               </div>
             </Modal>

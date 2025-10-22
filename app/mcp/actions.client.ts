@@ -227,16 +227,38 @@ export async function removeMcpServer(
 }
 
 export async function validateMcpServer(config: ServerConfig): Promise<void> {
-  // Try to create a throwaway client and list tools to validate connectivity/credentials
+  // 验证基本配置
+  if (!config.baseUrl) {
+    throw new Error("Base URL is required");
+  }
+
+  // 验证 URL 格式
   try {
-    const client = await createClient("__validate__", config);
-    await listTools(client);
-    // cleanup if created; no need to keep in map
-    try {
-      await removeClient(client as any);
-    } catch {}
-  } catch (e) {
-    throw e;
+    new URL(config.baseUrl);
+  } catch {
+    throw new Error("Invalid Base URL format");
+  }
+
+  // 注意：浏览器环境中的 fetch API 对某些 headers 有限制
+  // 特别是 Accept header，可能被浏览器修改或忽略，导致 406 错误
+  // 我们只做基本的 URL 格式验证，实际的连接验证在 MCP SDK 初始化时进行
+
+  if (config.type === "sse") {
+    logger.info(`Validating SSE server at ${config.baseUrl}...`);
+    logger.warn(
+      "Skipping fetch validation for SSE (browser fetch API limitations with Accept headers)",
+    );
+    logger.success(
+      "SSE server URL format validated, actual connection will be tested during SDK initialization",
+    );
+  } else if (config.type === "streamableHttp") {
+    logger.info(`Validating Streamable HTTP server at ${config.baseUrl}...`);
+    logger.warn(
+      "Skipping fetch validation for Streamable HTTP (browser fetch API limitations)",
+    );
+    logger.success(
+      "Streamable HTTP server URL format validated, actual connection will be tested during SDK initialization",
+    );
   }
 }
 

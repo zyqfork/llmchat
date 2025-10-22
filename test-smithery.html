@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Smithery MCP Server</title>
+</head>
+<body>
+    <h1>Test Smithery MCP Server</h1>
+    <button onclick="testServer()">Test Server</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testServer() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...\n';
+
+            const url = 'https://server.smithery.ai/@Aas-ee/open-websearch/mcp?api_key=244f14f9-df04-4990-b2b3-86fa3d88995f&profile=average-canid-vfO9m9';
+            
+            const initRequest = {
+                jsonrpc: "2.0",
+                id: 1,
+                method: "initialize",
+                params: {
+                    protocolVersion: "2024-11-05",
+                    capabilities: {
+                        roots: {
+                            listChanged: true
+                        }
+                    },
+                    clientInfo: {
+                        name: "test-client",
+                        version: "1.0.0"
+                    }
+                }
+            };
+
+            const headers = {
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream, application/json"
+            };
+
+            output.textContent += `URL: ${url}\n`;
+            output.textContent += `Headers: ${JSON.stringify(headers, null, 2)}\n`;
+            output.textContent += `Body: ${JSON.stringify(initRequest, null, 2)}\n\n`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(initRequest)
+                });
+
+                output.textContent += `Status: ${response.status} ${response.statusText}\n`;
+                output.textContent += `Content-Type: ${response.headers.get('content-type')}\n\n`;
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    output.textContent += `Error Response:\n${text}\n`;
+                } else {
+                    const text = await response.text();
+                    output.textContent += `Success Response:\n${text}\n`;
+                }
+            } catch (error) {
+                output.textContent += `Error: ${error.message}\n`;
+                output.textContent += `Stack: ${error.stack}\n`;
+            }
+        }
+    </script>
+</body>
+</html>

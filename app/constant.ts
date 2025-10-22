@@ -228,9 +228,21 @@ Latex block: $$e=mc^2$$
 `;
 
 export const MCP_TOOLS_TEMPLATE = `
-### {{ clientId }} Tools
-Available tools from {{ clientId }}:
+### MCP Server: {{ clientId }}
+**Server ID (clientId)**: {{ clientId }}
+**Available Tools**:
 {{ tools }}
+
+**IMPORTANT**: When calling these tools, you MUST use the Server ID "{{ clientId }}" in the code block format:
+\`\`\`json:mcp:{{ clientId }}
+{
+  "method": "tools/call",
+  "params": {
+    "name": "tool_name_here",
+    "arguments": {...}
+  }
+}
+\`\`\`
 
 **Usage Note**: These tools are immediately available for use. When users request actions that match these tools, use them directly without asking for permission.
 `;
@@ -261,11 +273,12 @@ Remember: Always respond in the user's language and take immediate action when t
 3. HOW TO USE TOOLS:
    A. Tool Call Format:
       - Use markdown code blocks with format: \`\`\`json:mcp:{clientId}\`\`\`
+      - **CRITICAL**: {clientId} is the MCP Server ID (e.g., "smithery-websearch", "filesystem"), NOT the tool name!
       - Always include:
         * method: "tools/call"（Only this method is supported）
         * params: 
-          - name: must match an available primitive name
-          - arguments: required parameters for the primitive
+          - name: must match an available tool name (e.g., "search", "write_file")
+          - arguments: required parameters for the tool
 
    B. Response Format:
       - Tool responses will come as user messages
@@ -276,8 +289,9 @@ Remember: Always respond in the user's language and take immediate action when t
       - Only use tools/call method
       - Only ONE tool call per message
       - ALWAYS TAKE ACTION instead of just describing what you could do
-      - Include the correct clientId in code block language tag
-      - Verify arguments match the primitive's requirements
+      - **CRITICAL**: Use the Server ID (clientId) in the code block, NOT the tool name!
+      - Example: If using "search" tool from "smithery-websearch" server, use \`\`\`json:mcp:smithery-websearch\`\`\`
+      - Verify arguments match the tool's requirements
 
 4. INTERACTION FLOW:
    A. When user makes a request:
@@ -291,73 +305,80 @@ Remember: Always respond in the user's language and take immediate action when t
       - Explain the error
       - Try alternative approach immediately
 
-5. EXAMPLE INTERACTION:
+5. EXAMPLE INTERACTIONS:
 
-  good example:
-
-   \`\`\`json:mcp:filesystem
+   ✅ CORRECT Example 1 - Using "search" tool from "smithery-websearch" server:
+   
+   \`\`\`json:mcp:smithery-websearch
    {
      "method": "tools/call",
      "params": {
-       "name": "list_allowed_directories",
-       "arguments": {}
+       "name": "search",
+       "arguments": {
+         "query": "today's news",
+         "limit": 10
+       }
      }
    }
-   \`\`\`"
-
-
-  \`\`\`json:mcp-response:filesystem
-  {
-  "method": "tools/call",
-  "params": {
-    "name": "write_file",
-    "arguments": {
-      "path": "/Users/river/dev/nextchat/test/joke.txt",
-      "content": "为什么数学书总是感到忧伤？因为它有太多的问题。"
-    }
-  }
-  }
-\`\`\`
-
-   follwing is the wrong! mcp json example:
-
-   \`\`\`json:mcp:filesystem
-   {
-      "method": "write_file",
-      "params": {
-        "path": "NextChat_Information.txt",
-        "content": "1"
-    }
-   }
    \`\`\`
-
-   This is wrong because the method is not tools/call.
    
-   \`\`\`{
-  "method": "search_repositories",
-  "params": {
-    "query": "2oeee"
-  }
-}
-   \`\`\`
-
-   This is wrong because the method is not tools/call.!!!!!!!!!!!
-
-   the right format is:
+   ✅ CORRECT Example 2 - Using "write_file" tool from "filesystem" server:
+   
    \`\`\`json:mcp:filesystem
    {
      "method": "tools/call",
      "params": {
        "name": "write_file",
        "arguments": {
-         "path": "/path/to/file.txt",
-         "content": "file content"
+         "path": "/Users/river/dev/nextchat/test/joke.txt",
+         "content": "为什么数学书总是感到忧伤？因为它有太多的问题。"
        }
      }
    }
    \`\`\`
+
+   ❌ WRONG Example 1 - Using tool name instead of server ID:
    
-   please follow the format strictly ONLY use tools/call method!!!!!!!!!!!
+   \`\`\`json:mcp:search
+   {
+     "method": "tools/call",
+     "params": {
+       "name": "search",
+       "arguments": {...}
+     }
+   }
+   \`\`\`
+   This is WRONG because "search" is the tool name, NOT the server ID!
+   You MUST use the server ID (e.g., "smithery-websearch") in the code block!
+
+   ❌ WRONG Example 2 - Missing "method": "tools/call":
+   
+   \`\`\`json:mcp:filesystem
+   {
+     "method": "write_file",
+     "params": {
+       "path": "NextChat_Information.txt",
+       "content": "1"
+     }
+   }
+   \`\`\`
+   This is WRONG because the method must be "tools/call", not the tool name!
+
+   ❌ WRONG Example 3 - Missing code block format:
+   
+   {
+     "method": "search_repositories",
+     "params": {
+       "query": "2oeee"
+     }
+   }
+   This is WRONG because it's missing the \`\`\`json:mcp:{clientId}\`\`\` wrapper!
+
+   REMEMBER:
+   - ALWAYS use \`\`\`json:mcp:{SERVER_ID}\`\`\` format
+   - ALWAYS use "method": "tools/call"
+   - ALWAYS put tool name in "params.name"
+   - ALWAYS put tool arguments in "params.arguments"
    
 `;
 

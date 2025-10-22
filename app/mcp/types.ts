@@ -117,7 +117,7 @@ export interface ServerConfig {
   // 传输协议类型
   type: MCPTransportType;
 
-  // SSE 协议配置
+  // HTTP 协议配置 (SSE 和 Streamable HTTP 共用)
   baseUrl: string;
   headers?: Record<string, string>;
   timeout?: number; // 超时时间（秒）
@@ -144,6 +144,18 @@ export interface ServerConfig {
   disabledAutoApproveTools?: string[];
 }
 
+// 传输类型显示名称映射
+export const TRANSPORT_TYPE_LABELS: Record<MCPTransportType, string> = {
+  sse: "SSE (Server-Sent Events)",
+  streamableHttp: "Streamable HTTP",
+};
+
+// 传输类型描述
+export const TRANSPORT_TYPE_DESCRIPTIONS: Record<MCPTransportType, string> = {
+  sse: "基于 Server-Sent Events 的单向流式传输，适合服务器主动推送数据",
+  streamableHttp: "基于 HTTP 的双向流式传输，支持请求-响应模式",
+};
+
 export interface McpConfigData {
   // MCP Server 的配置
   mcpServers: Record<string, ServerConfig>;
@@ -162,7 +174,18 @@ export interface SSETransportConfig {
   // authProvider?: AuthConfig;
 }
 
-export type AnyTransportConfig = SSETransportConfig;
+// Streamable HTTP传输协议配置类型 (网页端专用)
+export interface StreamableHTTPTransportConfig {
+  type: "streamableHttp";
+  baseUrl: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+  // authProvider?: AuthConfig;
+}
+
+export type AnyTransportConfig =
+  | SSETransportConfig
+  | StreamableHTTPTransportConfig;
 
 // 向后兼容的类型别名
 export type TransportType = MCPTransportType;
