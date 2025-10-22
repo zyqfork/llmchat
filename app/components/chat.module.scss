@@ -1561,9 +1561,9 @@
 
 .mcp-tool-call {
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background-color: rgba(59, 130, 246, 0.05); // primary 颜色的半透明背景
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.12);
   overflow: hidden;
   transition: all 0.2s ease;
 
@@ -1595,29 +1595,30 @@
   }
 
   &[open] {
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
 
     summary {
       background-color: rgba(59, 130, 246, 0.08);
-      border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+      border-bottom: 1px solid rgba(59, 130, 246, 0.15);
     }
   }
 }
 
 .mcp-tool-details {
   margin: 0;
-  padding: 12px;
-  background-color: var(--white);
+  padding: 16px;
+  background-color: #1a1b26;
   overflow-x: auto;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
 
   code {
-    font-family: "Courier New", Courier, monospace;
-    color: var(--gray-700);
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    color: #cbd2ea;
     white-space: pre-wrap;
     word-break: break-all;
     user-select: text; // 允许选中复制
+    display: block;
   }
 }
 
@@ -1625,7 +1626,7 @@
 .dark {
   .mcp-tool-call {
     background-color: rgba(96, 165, 250, 0.08);
-    box-shadow: 0 2px 8px rgba(96, 165, 250, 0.25);
+    box-shadow: 0 1px 3px rgba(96, 165, 250, 0.15);
 
     summary {
       &:hover {
@@ -1634,7 +1635,7 @@
     }
 
     &[open] {
-      box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+      box-shadow: 0 2px 6px rgba(96, 165, 250, 0.2);
 
       summary {
         background-color: rgba(96, 165, 250, 0.12);
@@ -1643,8 +1644,10 @@
   }
 
   .mcp-tool-details {
+    background-color: #1a1b26;
+    
     code {
-      color: var(--gray-300);
+      color: #cbd2ea;
     }
   }
 }
