@@ -100,7 +100,8 @@
       justify-content: center;
 
       // 确保彩色提供商图标正常显示，不受暗夜模式影响
-      svg, div {
+      svg,
+      div {
         filter: none !important;
         opacity: 1;
       }
@@ -125,8 +126,10 @@
   :global(.dark) & {
     .model-selector-button {
       .model-icon {
+
         // 彩色提供商图标在暗夜模式下保持原色，不需要额外处理
-        svg, div {
+        svg,
+        div {
           filter: none !important;
           opacity: 1;
         }
@@ -260,6 +263,7 @@
 
     .token-progress-container {
       border-top: 1px solid var(--border-in-light);
+
       .token-progress-info {
         display: flex;
         margin-bottom: 6px;
@@ -293,14 +297,12 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(
-              90deg,
-              transparent 0%,
-              transparent 20%,
-              rgba(255, 255, 255, 0.4) 50%,
-              transparent 80%,
-              transparent 100%
-            );
+            background: linear-gradient(90deg,
+                transparent 0%,
+                transparent 20%,
+                rgba(255, 255, 255, 0.4) 50%,
+                transparent 80%,
+                transparent 100%);
             animation: progress-shine 3s ease-in-out infinite;
             opacity: 0.8;
           }
@@ -313,12 +315,15 @@
         transform: translateX(-120%);
         opacity: 0;
       }
+
       10% {
         opacity: 0.8;
       }
+
       90% {
         opacity: 0.8;
       }
+
       100% {
         transform: translateX(120%);
         opacity: 0;
@@ -464,12 +469,10 @@
 
   animation: slide-in ease 0.3s;
 
-  $linear: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 1),
-    rgba(0, 0, 0, 0)
-  );
+  $linear: linear-gradient(to right,
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 1),
+      rgba(0, 0, 0, 0));
   mask-image: $linear;
 
   @mixin show {
@@ -771,7 +774,7 @@
   }
 }
 
-.chat-message-user > .chat-message-container {
+.chat-message-user>.chat-message-container {
   align-items: flex-end;
 }
 
@@ -818,9 +821,11 @@
   opacity: 0.6;
   line-height: 1.5;
   margin-top: 5px;
+
   .chat-message-tool {
     display: flex;
     align-items: flex-end;
+
     svg {
       margin-left: 5px;
       margin-right: 5px;
@@ -859,15 +864,18 @@
   word-break: break-word;
   box-sizing: border-box;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
   audio {
-    height: 30px; /* 调整高度 */
+    height: 30px;
+    /* 调整高度 */
   }
 }
 
-.chat-message-item-image-container{
-position: relative;
-width:15vw; /* 你可以改成百分比，例如 100% */
-height: 15vh;
+.chat-message-item-image-container {
+  position: relative;
+  width: 15vw;
+  /* 你可以改成百分比，例如 100% */
+  height: 15vh;
 }
 
 .chat-message-item-image {
@@ -875,7 +883,8 @@ height: 15vh;
 }
 
 .chat-message-item-images {
-  object-fit: cover; /* 或 contain，看你要裁切還是完整顯示 */
+  object-fit: cover;
+  /* 或 contain，看你要裁切還是完整顯示 */
   border-radius: 10px;
   border: rgba(136, 136, 136, 0.2) 1px solid;
 }
@@ -909,13 +918,8 @@ height: 15vh;
 }
 
 @media screen and (min-width: 600px) {
-  $max-image-width: calc(
-    calc(1200px - var(--sidebar-width)) / 3 * 2 / var(--image-count)
-  );
-  $image-width: calc(
-    calc(var(--window-width) - var(--sidebar-width)) / 3 * 2 /
-      var(--image-count)
-  );
+  $max-image-width: calc(calc(1200px - var(--sidebar-width)) / 3 * 2 / var(--image-count));
+  $image-width: calc(calc(var(--window-width) - var(--sidebar-width)) / 3 * 2 / var(--image-count));
 
   .chat-message-item-image-multi {
     width: $image-width;
@@ -950,7 +954,7 @@ height: 15vh;
   white-space: nowrap;
 }
 
-.chat-message-user > .chat-message-container > .chat-message-item {
+.chat-message-user>.chat-message-container>.chat-message-item {
   background-color: var(--second);
 
   &:hover {
@@ -1285,7 +1289,7 @@ height: 15vh;
           width: 0;
           height: 0;
 
-          &:checked + .toggle-slider {
+          &:checked+.toggle-slider {
             background-color: var(--primary);
 
             &:before {
@@ -1455,6 +1459,7 @@ height: 15vh;
   width: 100%;
   position: relative;
   overflow: hidden;
+
   .chat-body-container {
     height: 100%;
     display: flex;
@@ -1462,6 +1467,7 @@ height: 15vh;
     flex: 1;
     width: 100%;
   }
+
   .chat-side-panel {
     position: absolute;
     inset: 0;
@@ -1470,6 +1476,7 @@ height: 15vh;
     z-index: 10;
     transform: translateX(100%);
     transition: all ease 0.3s;
+
     &-show {
       transform: translateX(0);
     }
@@ -1483,10 +1490,14 @@ height: 15vh;
     justify-content: flex-start;
     margin-bottom: 6px; // 移动端稍微减少间距
 
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+
+    /* Firefox */
     &::-webkit-scrollbar {
-      display: none;           /* Chrome, Safari, and Opera */
+      display: none;
+      /* Chrome, Safari, and Opera */
     }
   }
 
@@ -1522,10 +1533,14 @@ height: 15vh;
     justify-content: space-between; // 保持两端对齐
     margin-bottom: 6px;
 
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+
+    /* Firefox */
     &::-webkit-scrollbar {
-      display: none;           /* Chrome, Safari, and Opera */
+      display: none;
+      /* Chrome, Safari, and Opera */
     }
 
     // 确保右侧元素在移动端仍然右对齐
@@ -1545,11 +1560,12 @@ height: 15vh;
 }
 
 .mcp-tool-call {
-  border: 1px solid var(--border-in-light);
+  border: 1px solid var(--primary);
   border-radius: 8px;
-  background-color: var(--hover-color);
+  background-color: rgba(59, 130, 246, 0.05); // primary 颜色的半透明背景
   overflow: hidden;
-  
+  transition: all 0.2s ease;
+
   summary {
     cursor: pointer;
     padding: 8px 12px;
@@ -1558,24 +1574,33 @@ height: 15vh;
     align-items: center;
     gap: 6px;
     font-size: 13px;
-    color: var(--black);
-    
+    color: var(--primary);
+    font-weight: 500;
+    transition: all 0.2s ease;
+
     &:hover {
-      background-color: var(--gray);
+      background-color: rgba(59, 130, 246, 0.1);
     }
-    
+
     code {
-      background-color: var(--black);
+      background-color: var(--primary);
       color: var(--white);
-      padding: 2px 6px;
+      padding: 2px 8px;
       border-radius: 4px;
       font-size: 12px;
       font-family: monospace;
+      font-weight: 600;
     }
   }
-  
-  &[open] summary {
-    border-bottom: 1px solid var(--border-in-light);
+
+  &[open] {
+    border-color: var(--primary-dark);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+
+    summary {
+      background-color: rgba(59, 130, 246, 0.08);
+      border-bottom: 1px solid var(--primary);
+    }
   }
 }
 
@@ -1586,12 +1611,39 @@ height: 15vh;
   overflow-x: auto;
   font-size: 12px;
   line-height: 1.5;
-  
+
   code {
     font-family: "Courier New", Courier, monospace;
-    color: var(--black);
+    color: var(--gray-700);
     white-space: pre-wrap;
     word-break: break-all;
     user-select: text; // 允许选中复制
+  }
+}
+
+// 深色模式适配
+.dark {
+  .mcp-tool-call {
+    background-color: rgba(96, 165, 250, 0.08);
+
+    summary {
+      &:hover {
+        background-color: rgba(96, 165, 250, 0.15);
+      }
+    }
+
+    &[open] {
+      box-shadow: 0 2px 8px rgba(96, 165, 250, 0.2);
+
+      summary {
+        background-color: rgba(96, 165, 250, 0.12);
+      }
+    }
+  }
+
+  .mcp-tool-details {
+    code {
+      color: var(--gray-300);
+    }
   }
 }

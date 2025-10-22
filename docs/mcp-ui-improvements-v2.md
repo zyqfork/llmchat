@@ -132,41 +132,41 @@ AI：我来为您搜索今天的 AI 新闻。
 ### MCP 工具调用样式
 
 ```scss
-.mcp-tool-calls {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .mcp-tool-call {
-  border: 1px solid var(--border-in-light);
+  border: 1px solid var(--primary);           // 使用主题 primary 颜色
   border-radius: 8px;
-  background-color: var(--hover-color);
+  background-color: rgba(59, 130, 246, 0.05); // 半透明背景
+  transition: all 0.2s ease;
   
   summary {
     cursor: pointer;
     padding: 8px 12px;
-    user-select: none;
+    color: var(--primary);                    // 文字使用 primary 颜色
+    font-weight: 500;
+    
+    &:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
     
     code {
-      background-color: var(--black);
+      background-color: var(--primary);       // 工具名称背景
       color: var(--white);
-      padding: 2px 6px;
+      padding: 2px 8px;
       border-radius: 4px;
-      font-family: monospace;
+      font-weight: 600;
     }
+  }
+  
+  &[open] {
+    border-color: var(--primary-dark);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
   }
 }
 
-.mcp-tool-details {
-  padding: 12px;
-  background-color: var(--white);
-  
-  code {
-    user-select: text; // 允许选中复制
-    white-space: pre-wrap;
-  }
+// 深色模式自动适配
+.dark .mcp-tool-call {
+  background-color: rgba(96, 165, 250, 0.08);
+  // 使用深色模式的 primary 颜色
 }
 ```
 
