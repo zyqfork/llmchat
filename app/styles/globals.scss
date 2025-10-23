@@ -46,7 +46,7 @@
 @mixin dark {
   --theme: dark;
   
-  /* 深色中性色 */
+  /* 深色中性色 - 优化对比度 */
   --white: #0f172a;          /* 深蓝黑色背景 */
   --gray-50: #1e293b;        /* 次要背景 */
   --gray-100: #334155;
@@ -58,20 +58,20 @@
   --gray-700: #f1f5f9;
   --gray-800: #f8fafc;
   --gray-900: #ffffff;
-  --black: #f8fafc;          /* 浅色文字 */
+  --black: #f1f5f9;          /* 浅色文字 - 提高对比度 */
   
   /* 应用特定颜色 */
   --gray: var(--gray-50);
   --second: var(--gray-50);
   --hover-color: var(--gray-100);
-  --bar-color: rgba(255, 255, 255, 0.1);
+  --bar-color: rgba(255, 255, 255, 0.12);
   
-  /* 深色模式边框 */
-  --border-in-light: 1px solid var(--gray-200);
+  /* 深色模式边框 - 提高可见度 */
+  --border-in-light: 1px solid rgba(148, 163, 184, 0.2);
 
   --theme-color: var(--gray);
   
-  /* 默认配色 */
+  /* 深色模式配色 - 优化可读性 */
   --primary: #60a5fa;
   --primary-light: #93c5fd;
   --primary-dark: #3b82f6;
@@ -80,6 +80,10 @@
   --warning: #fbbf24;
   --error: #f87171;
   --info: #22d3ee;
+
+  /* 深色模式阴影 */
+  --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
 
   div:not(.no-dark) > svg {
     filter: invert(0.5);
@@ -172,13 +176,26 @@ body {
 
 select {
   border: var(--border-in-light);
-  padding: 10px;
-  border-radius: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
   appearance: none;
   cursor: pointer;
   background-color: var(--white);
   color: var(--black);
   text-align: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--gray-300);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
 }
 
 label {
@@ -264,15 +281,27 @@ input[type="number"],
 input[type="text"],
 input[type="password"] {
   appearance: none;
-  border-radius: 10px;
+  border-radius: 8px;
   border: var(--border-in-light);
-  min-height: 36px;
+  min-height: 40px;
   box-sizing: border-box;
   background: var(--white);
   color: var(--black);
-  padding: 0 10px;
+  padding: 0 14px;
   max-width: 50%;
   font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--gray-300);
+  }
+
+  &:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
 }
 
 div.math {
@@ -375,12 +404,21 @@ pre {
 
 .clickable {
   cursor: pointer;
+  transition: all 0.2s ease;
 
   &:hover {
     filter: brightness(0.9);
+    transform: translateY(-1px);
   }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
   &:focus {
     filter: brightness(0.95);
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
 

@@ -12,7 +12,7 @@ import EyeIcon from "../icons/eye.svg";
 import GithubIcon from "../icons/github.svg";
 import { List, ListItem, Modal, showToast } from "./ui-lib";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   addMcpServer,
   getClientsStatus,
@@ -80,6 +80,9 @@ export function McpMarketPage() {
   const [isEditingManual, setIsEditingManual] = useState(false);
   const [editingManualId, setEditingManualId] = useState<string>("");
 
+  // 搜索框引用
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // 添加状态轮询
   useEffect(() => {
     if (!config) return;
@@ -132,6 +135,19 @@ export function McpMarketPage() {
       }
     };
     loadInitialState();
+  }, []);
+
+  // 搜索快捷键支持 (Ctrl/Cmd + K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // 加载当前编辑服务器的配置 (简化版 - 当前内置服务器都不需要配置)
@@ -592,22 +608,52 @@ export function McpMarketPage() {
     return "default";
   };
 
+  // 渲染骨架屏
+  const renderSkeleton = () => (
+    <div className={styles["server-group"]}>
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className={clsx(styles["mcp-market-item"], styles["skeleton"])}
+        >
+          <div className={styles["mcp-market-header"]}>
+            <div className={styles["mcp-market-title"]}>
+              <div
+                className={styles["skeleton-line"]}
+                style={{ width: "60%", height: "20px", marginBottom: "12px" }}
+              />
+              <div
+                className={styles["skeleton-line"]}
+                style={{ width: "40%", height: "14px", marginBottom: "8px" }}
+              />
+              <div
+                className={styles["skeleton-line"]}
+                style={{ width: "80%", height: "14px" }}
+              />
+            </div>
+            <div className={styles["mcp-market-actions"]}>
+              <div className={styles["skeleton-button"]} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   // 渲染服务器列表
   const renderServerList = () => {
     if (loadingPresets) {
-      return (
-        <div className={styles["loading-container"]}>
-          <div className={styles["loading-text"]}>
-            Loading preset server list...
-          </div>
-        </div>
-      );
+      return renderSkeleton();
     }
 
     if (!Array.isArray(presetServers) || presetServers.length === 0) {
       return (
         <div className={styles["empty-container"]}>
+          <div className={styles["empty-icon"]}>📦</div>
           <div className={styles["empty-text"]}>No servers available</div>
+          <div className={styles["empty-hint"]}>
+            Try adding a custom MCP server
+          </div>
         </div>
       );
     }
@@ -644,6 +690,25 @@ export function McpMarketPage() {
 
     const manualFiltered = manualRaw.filter(matches);
     const builtinFiltered = presetServers.filter(matches as any);
+
+    // 如果搜索无结果
+    if (
+      searchText &&
+      manualFiltered.length === 0 &&
+      builtinFiltered.length === 0
+    ) {
+      return (
+        <div className={styles["empty-container"]}>
+          <div className={styles["empty-icon"]}>🔍</div>
+          <div className={styles["empty-text"]}>
+            No results found for &quot;{searchText}&quot;
+          </div>
+          <div className={styles["empty-hint"]}>
+            Try a different search term
+          </div>
+        </div>
+      );
+    }
 
     // 排序：手动添加的按添加时间倒序；内置维持原有状态/名称排序
     manualFiltered.sort((a, b) => {
@@ -888,12 +953,24 @@ export function McpMarketPage() {
         <div className={styles["mcp-market-page-body"]}>
           <div className={styles["mcp-market-filter"]}>
             <input
+              ref={searchInputRef}
               type="text"
               className={styles["search-bar"]}
-              placeholder={"Search MCP Server"}
+              placeholder="Search MCP Server (Ctrl/⌘ + K)"
               autoFocus
+              value={searchText}
               onInput={(e) => setSearchText(e.currentTarget.value)}
+              aria-label="Search MCP servers"
             />
+            {searchText && (
+              <button
+                className={styles["search-clear"]}
+                onClick={() => setSearchText("")}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           <div className={styles["server-list"]}>{renderServerList()}</div>

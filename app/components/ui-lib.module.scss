@@ -38,10 +38,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   border-bottom: var(--border-in-light);
-  padding: 10px 20px;
+  padding: 12px 20px;
   animation: slide-in ease 0.6s;
+  transition: background-color 0.2s ease;
 
   .list-header {
     display: flex;
@@ -78,11 +79,12 @@
 
 .list {
   border: var(--border-in-light);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--card-shadow);
   margin-bottom: 20px;
   animation: slide-in ease 0.3s;
   background: var(--white);
+  overflow: hidden;
 }
 
 .list .list-item:last-child {
@@ -90,13 +92,14 @@
 }
 
 .modal-container {
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
   background-color: var(--white);
-  border-radius: 12px;
+  border-radius: 16px;
   width: 80vw;
   max-width: 900px;
   min-width: 300px;
   animation: slide-in ease 0.3s;
+  border: 1px solid var(--gray-200);
 
   --modal-padding: 20px;
 
@@ -210,16 +213,19 @@
     max-width: 80vw;
     word-break: break-all;
     font-size: 14px;
+    font-weight: 500;
     background-color: var(--white);
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
     border: var(--border-in-light);
     color: var(--black);
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: 50px;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
     pointer-events: all;
+    backdrop-filter: blur(10px);
+    animation: toast-in 0.3s ease;
 
     .toast-action {
       padding-left: 20px;
@@ -675,6 +681,17 @@
   from {
     opacity: 0;
     transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
   }
   to {
     opacity: 1;
