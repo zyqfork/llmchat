@@ -82,6 +82,7 @@ import {
   SAAS_CHAT_URL,
   DeepSeek,
   SiliconFlow,
+  Ollama,
 } from "../constant";
 import { Prompt, SearchService, usePromptStore } from "../store/prompt";
 import { ErrorBoundary } from "./error";
@@ -549,7 +550,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
             title={Locale.Settings.Sync.Config.SyncType.Title}
             subTitle={Locale.Settings.Sync.Config.SyncType.SubTitle}
           >
-            <select
+            <Select
               value={syncStore.provider}
               onChange={(e) => {
                 syncStore.update(
@@ -563,7 +564,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                   {k}
                 </option>
               ))}
-            </select>
+            </Select>
           </ListItem>
 
           <ListItem
@@ -850,6 +851,7 @@ export function Settings() {
     [ServiceProvider.XAI]: true,
     [ServiceProvider.DeepSeek]: true,
     [ServiceProvider.SiliconFlow]: true,
+    [ServiceProvider.Ollama]: true,
   });
 
   // 自定义服务商的折叠状态 - 默认全部折叠
@@ -1427,6 +1429,48 @@ export function Settings() {
     </>
   );
 
+  const ollamaConfigComponent = (
+    <>
+      <ListItem
+        title={Locale.Settings.Access.Ollama.Endpoint.Title}
+        subTitle={
+          <span className={styles["long-text-wrap"]}>
+            {Locale.Settings.Access.Ollama.Endpoint.SubTitle +
+              Ollama.ExampleEndpoint}
+          </span>
+        }
+      >
+        <input
+          aria-label={Locale.Settings.Access.Ollama.Endpoint.Title}
+          type="text"
+          value={accessStore.ollamaUrl}
+          placeholder={Ollama.ExampleEndpoint}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.ollamaUrl = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Ollama.ApiKey.Title}
+        subTitle={Locale.Settings.Access.Ollama.ApiKey.SubTitle}
+      >
+        <PasswordInput
+          aria-label={Locale.Settings.Access.Ollama.ApiKey.Title}
+          value={accessStore.ollamaApiKey}
+          type="text"
+          placeholder={Locale.Settings.Access.Ollama.ApiKey.Placeholder}
+          onChange={(e) => {
+            accessStore.update(
+              (access) => (access.ollamaApiKey = e.currentTarget.value),
+            );
+          }}
+        />
+      </ListItem>
+    </>
+  );
+
   // 分页标签配置
   const tabConfig = [
     {
@@ -1978,6 +2022,13 @@ export function Settings() {
       configComponent: siliconflowConfigComponent,
       isCustom: false,
     },
+    {
+      provider: ServiceProvider.Ollama,
+      name: "Ollama",
+      description: Locale.Settings.Access.Provider.Description.Ollama,
+      configComponent: ollamaConfigComponent,
+      isCustom: false,
+    },
   ];
 
   // 合并内置服务商和自定义服务商
@@ -2103,6 +2154,7 @@ export function Settings() {
                                   [ServiceProvider.XAI]: false,
                                   [ServiceProvider.DeepSeek]: false,
                                   [ServiceProvider.SiliconFlow]: false,
+                                  [ServiceProvider.Ollama]: false,
                                 } as Record<ServiceProvider, boolean>;
                               }
                               access.enabledProviders[

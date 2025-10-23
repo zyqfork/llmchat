@@ -120,6 +120,7 @@ export enum ServiceProvider {
   XAI = "XAI",
   DeepSeek = "DeepSeek",
   SiliconFlow = "SiliconFlow",
+  Ollama = "Ollama",
 }
 
 // Google API safety settings, see https://ai.google.dev/gemini-api/docs/safety-settings
@@ -207,6 +208,12 @@ export const SiliconFlow = {
   ExampleEndpoint: SILICONFLOW_BASE_URL,
   ChatPath: "v1/chat/completions",
   ListModelPath: "v1/models?&sub_type=chat",
+};
+
+export const Ollama = {
+  ExampleEndpoint: "http://localhost:11434",
+  ChatPath: "v1/chat/completions",
+  ListModelPath: "v1/models",
 };
 
 export const DEFAULT_INPUT_TEMPLATE = `{{input}}`; // input / time / model / lang

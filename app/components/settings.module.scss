@@ -86,23 +86,12 @@
   border: var(--border-in-light);
   border-radius: 12px;
   background: var(--white);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   overflow: hidden;
   box-shadow: var(--card-shadow);
 
   &:hover {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
-    border-color: var(--gray-300);
-  }
-}
-
-.provider-card-active {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-
-  &:hover {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 8px 16px rgba(0, 0, 0, 0.12);
   }
 }
 
@@ -550,17 +539,23 @@
     max-width: none !important; // 覆盖全局样式中的max-width: 50%限制
     padding: 12px 16px; // 增加左右内边距，让输入更舒适
     border: var(--border-in-light);
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 14px;
     background: var(--white);
     color: var(--black);
-    transition: border-color 0.2s ease;
+    transition: all 0.2s ease;
     box-sizing: border-box; // 确保padding不会影响总宽度
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+    &:hover {
+      border-color: var(--primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    }
 
     &:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(29, 147, 171, 0.2);
+      box-shadow: 0 0 0 3px rgba(29, 147, 171, 0.1);
     }
 
     &.error {
@@ -570,6 +565,20 @@
 
   select {
     cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+    font-weight: 500;
+
+    option {
+      padding: 8px 12px;
+      background-color: var(--white);
+      color: var(--black);
+      font-weight: normal;
+    }
   }
 }
 
@@ -623,10 +632,12 @@
 
 .select-default-model {
   width: 60%;
-  select {
+  
+  :global(.select-with-icon-select) {
     max-width: 100%;
     white-space: normal;
     word-break: break-all;
+    min-width: 200px;
   }
 }
 
@@ -674,5 +685,18 @@
     width: 10px;
     background: linear-gradient(to left, var(--primary), transparent);
     pointer-events: none;
+  }
+}
+
+// 暗色模式下的 select 优化
+.dark {
+  .form-group {
+    select {
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+
+      &:hover {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
   }
 }

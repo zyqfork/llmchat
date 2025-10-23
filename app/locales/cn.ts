@@ -456,6 +456,7 @@ const cn = {
           DeepSeek: "DeepSeek 系列模型",
           XAI: "xAI Grok 系列模型",
           SiliconFlow: "SiliconFlow 硅基流动",
+          Ollama: "Ollama 本地模型服务",
           Custom: "自定义",
         },
         Terms: {
@@ -632,6 +633,18 @@ const cn = {
           Title: "接口密钥",
           SubTitle: "使用自定义硅基流动 API Key",
           Placeholder: "硅基流动 API Key",
+        },
+        Endpoint: {
+          Title: "接口地址",
+          SubTitle: "样例：",
+        },
+      },
+
+      Ollama: {
+        ApiKey: {
+          Title: "接口密钥",
+          SubTitle: "Ollama 通常不需要 API Key",
+          Placeholder: "可选",
         },
         Endpoint: {
           Title: "接口地址",

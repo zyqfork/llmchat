@@ -167,6 +167,10 @@ const DEFAULT_ACCESS_STATE = {
   siliconflowUrl: DEFAULT_SILICONFLOW_URL,
   siliconflowApiKey: "",
 
+  // ollama
+  ollamaUrl: "http://localhost:11434",
+  ollamaApiKey: "",
+
   // 自定义服务商
   customProviders: [] as CustomProvider[],
 
@@ -306,6 +310,7 @@ export type AccessControlStore = typeof DEFAULT_ACCESS_STATE & {
   isValidDeepSeek: () => boolean;
   isValidXAI: () => boolean;
   isValidSiliconFlow: () => boolean;
+  isValidOllama: () => boolean;
   addCustomProvider: (
     provider: Omit<CustomProvider, "id" | "created">,
   ) => string;
@@ -477,6 +482,13 @@ export const useAccessStore = createPersistStore(
             };
           }
           break;
+        case "ollama":
+          frontendConfig = {
+            apiKey: state.ollamaApiKey || "",
+            baseUrl: state.ollamaUrl || "http://localhost:11434",
+            source: "frontend" as const,
+          };
+          break;
       }
 
       // 如果有前端配置，优先使用
@@ -554,6 +566,11 @@ export const useAccessStore = createPersistStore(
 
     isValidSiliconFlow() {
       return ensure(get(), ["siliconflowApiKey"]);
+    },
+
+    isValidOllama() {
+      // Ollama 通常不需要 API Key，只要有 URL 就可以
+      return true;
     },
 
     // 自定义服务商管理方法
@@ -703,6 +720,7 @@ export const useAccessStore = createPersistStore(
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
         this.isValidSiliconFlow() ||
+        this.isValidOllama() ||
         hasValidCustomProvider
       );
     },

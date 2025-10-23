@@ -285,6 +285,27 @@ export function ProviderIcon({
           // SiliconFlow 是聚合服务，显示 SiliconCloud 彩色图标
           return <SiliconCloud.Color {...iconProps} />;
 
+        case ServiceProvider.Ollama:
+          // Ollama 本地模型服务，显示一个简单的图标
+          return (
+            <div
+              style={{
+                width: size,
+                height: size,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #000000 0%, #434343 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontSize: size * 0.6,
+                fontWeight: "bold",
+              }}
+            >
+              🦙
+            </div>
+          );
+
         default:
           // 返回一个通用的AI图标
           return (

@@ -467,6 +467,7 @@ const en: LocaleType = {
           DeepSeek: "DeepSeek Series Models",
           XAI: "xAI Grok Series Models",
           SiliconFlow: "SiliconFlow",
+          Ollama: "Ollama Local Model Service",
           Custom: "Custom",
         },
         Terms: {
@@ -581,6 +582,17 @@ const en: LocaleType = {
           Title: "SiliconFlow API Key",
           SubTitle: "Use a custom SiliconFlow API Key",
           Placeholder: "SiliconFlow API Key",
+        },
+        Endpoint: {
+          Title: "Endpoint Address",
+          SubTitle: "Example: ",
+        },
+      },
+      Ollama: {
+        ApiKey: {
+          Title: "API Key",
+          SubTitle: "Ollama usually doesn't require an API Key",
+          Placeholder: "Optional",
         },
         Endpoint: {
           Title: "Endpoint Address",
