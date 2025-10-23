@@ -29,6 +29,7 @@ import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
 import BotIconQwen from "../icons/llm-icons/qwen.svg";
 import BotIconGrok from "../icons/llm-icons/grok.svg";
 import BotIconDoubao from "../icons/llm-icons/doubao.svg";
+import BotIconOllama from "../icons/llm-icons/ollama.svg";
 
 // 根据模型名称判断应该使用的图标类型
 function getModelIconType(
@@ -286,25 +287,8 @@ export function ProviderIcon({
           return <SiliconCloud.Color {...iconProps} />;
 
         case ServiceProvider.Ollama:
-          // Ollama 本地模型服务，显示一个简单的图标
-          return (
-            <div
-              style={{
-                width: size,
-                height: size,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #000000 0%, #434343 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontSize: size * 0.6,
-                fontWeight: "bold",
-              }}
-            >
-              🦙
-            </div>
-          );
+          // Ollama 本地模型服务
+          return <BotIconOllama width={size} height={size} />;
 
         default:
           // 返回一个通用的AI图标

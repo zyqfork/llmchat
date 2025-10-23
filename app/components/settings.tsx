@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 import styles from "./settings.module.scss";
 
@@ -2051,57 +2051,35 @@ export function Settings() {
   // 模型服务设置
   const renderModelServiceSettings = () => (
     <>
-      <List id={SlotID.CustomModel}>{accessCodeComponent}</List>
+      <List id={SlotID.CustomModel}>
+        {accessCodeComponent}
 
-      {!accessStore.hideUserApiKey && (
-        <div className={styles["provider-cards"]}>
-          {providerConfigs.map((config) => {
-            // 对于自定义服务商，使用不同的启用状态逻辑
-            const isEnabled = config.isCustom
-              ? accessStore.customProviders.find(
-                  (p) => p.id === config.provider,
-                )?.enabled || false
-              : accessStore.enabledProviders?.[
-                  config.provider as ServiceProvider
-                ] || false;
-            const isCollapsed = config.isCustom
-              ? collapsedCustomProviders[config.provider as string] ?? true // 自定义服务商默认折叠
-              : collapsedProviders[config.provider as ServiceProvider] || false;
+        {!accessStore.hideUserApiKey && (
+          <>
+            {providerConfigs.map((config) => {
+              // 对于自定义服务商，使用不同的启用状态逻辑
+              const isEnabled = config.isCustom
+                ? accessStore.customProviders.find(
+                    (p) => p.id === config.provider,
+                  )?.enabled || false
+                : accessStore.enabledProviders?.[
+                    config.provider as ServiceProvider
+                  ] || false;
+              const isCollapsed = config.isCustom
+                ? collapsedCustomProviders[config.provider as string] ?? true
+                : collapsedProviders[config.provider as ServiceProvider] ||
+                  false;
 
-            return (
-              <div
-                key={config.provider}
-                className={`${styles["provider-card"]} ${
-                  isEnabled ? styles["provider-card-active"] : ""
-                }`}
-              >
-                <div
-                  className={styles["provider-card-header"]}
-                  onClick={() => {
-                    if (isEnabled) {
-                      if (config.isCustom) {
-                        // 自定义服务商折叠逻辑
-                        setCollapsedCustomProviders((prev) => ({
-                          ...prev,
-                          [config.provider as string]:
-                            !prev[config.provider as string],
-                        }));
-                      } else {
-                        // 内置服务商折叠逻辑
-                        setCollapsedProviders((prev) => ({
-                          ...prev,
-                          [config.provider as ServiceProvider]:
-                            !prev[config.provider as ServiceProvider],
-                        }));
-                      }
-                    }
-                  }}
-                >
-                  <div className={styles["provider-info"]}>
-                    <span className={styles["provider-icon"]}>
+              return (
+                <React.Fragment key={config.provider}>
+                  {/* 服务商标题行 */}
+                  <ListItem
+                    title={config.name}
+                    subTitle={config.description}
+                    icon={
                       <ProviderIcon
                         provider={config.provider}
-                        size={24}
+                        size={20}
                         customProviderType={
                           config.isCustom
                             ? accessStore.customProviders.find(
@@ -2110,37 +2088,18 @@ export function Settings() {
                             : undefined
                         }
                       />
-                    </span>
-                    <div>
-                      <div className={styles["provider-name-container"]}>
-                        <h3 className={styles["provider-name"]}>
-                          {config.name}
-                        </h3>
-                        {isEnabled && (
-                          <span className={styles["provider-badge"]}>
-                            {Locale.Settings.Access.Provider.Status.Enabled}
-                          </span>
-                        )}
-                      </div>
-                      <p className={styles["provider-description"]}>
-                        {config.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={styles["provider-controls"]}>
-                    <div className={styles["provider-toggle"]}>
+                    }
+                  >
+                    <div className={styles["provider-controls"]}>
                       <input
                         type="checkbox"
                         checked={isEnabled}
                         onChange={(e) => {
-                          e.stopPropagation();
                           if (config.isCustom) {
-                            // 自定义服务商的启用状态处理
                             accessStore.updateCustomProvider(config.provider, {
                               enabled: e.target.checked,
                             });
                           } else {
-                            // 内置服务商的启用状态处理
                             accessStore.update((access) => {
                               if (!access.enabledProviders) {
                                 access.enabledProviders = {
@@ -2163,49 +2122,39 @@ export function Settings() {
                             });
                           }
                         }}
-                        className={styles["provider-checkbox"]}
                       />
+                      {isEnabled && (
+                        <IconButton
+                          icon={<DownIcon />}
+                          className={`${styles["collapse-icon-button"]} ${
+                            isCollapsed ? styles["collapsed"] : ""
+                          }`}
+                          onClick={() => {
+                            if (config.isCustom) {
+                              setCollapsedCustomProviders((prev) => ({
+                                ...prev,
+                                [config.provider as string]:
+                                  !prev[config.provider as string],
+                              }));
+                            } else {
+                              setCollapsedProviders((prev) => ({
+                                ...prev,
+                                [config.provider as ServiceProvider]:
+                                  !prev[config.provider as ServiceProvider],
+                              }));
+                            }
+                          }}
+                        />
+                      )}
                     </div>
-                    {isEnabled && (
-                      <button
-                        className={`${styles["collapse-button"]} ${
-                          isCollapsed ? styles["collapsed"] : ""
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (config.isCustom) {
-                            // 自定义服务商折叠逻辑
-                            setCollapsedCustomProviders((prev) => ({
-                              ...prev,
-                              [config.provider as string]:
-                                !prev[config.provider as string],
-                            }));
-                          } else {
-                            // 内置服务商折叠逻辑
-                            setCollapsedProviders((prev) => ({
-                              ...prev,
-                              [config.provider as ServiceProvider]:
-                                !prev[config.provider as ServiceProvider],
-                            }));
-                          }
-                        }}
-                      >
-                        <DownIcon />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  </ListItem>
 
-                {isEnabled && (
-                  <div
-                    className={`${styles["provider-config"]} ${
-                      isCollapsed ? styles["collapsed"] : styles["expanded"]
-                    }`}
-                  >
-                    <List>
+                  {/* 展开的配置项 */}
+                  {isEnabled && !isCollapsed && (
+                    <div className={styles["provider-config-section"]}>
                       {config.configComponent}
 
-                      {/* 启用模型列表 - 支持所有服务商 */}
+                      {/* 启用模型列表 */}
                       <ListItem
                         title={Locale.Settings.Access.Provider.Models.Title}
                         subTitle={
@@ -2231,7 +2180,6 @@ export function Settings() {
                                       className={styles["model-name"]}
                                       title={modelName}
                                       onClick={() => {
-                                        // 直接打开模型配置弹窗
                                         openModelConfig(
                                           config.provider,
                                           modelName,
@@ -2239,11 +2187,7 @@ export function Settings() {
                                       }}
                                       style={{ cursor: "pointer" }}
                                     >
-                                      <span
-                                        className={styles["model-name-inner"]}
-                                      >
-                                        {modelName}
-                                      </span>
+                                      {modelName}
                                     </span>
                                     <ModelCapabilityIcons
                                       capabilities={getModelCapabilitiesWithCustomConfig(
@@ -2275,28 +2219,27 @@ export function Settings() {
                           </button>
                         </div>
                       </ListItem>
-                    </List>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
 
-          {/* 添加自定义服务商按钮 */}
-          <div className={styles["add-custom-provider"]}>
-            <button
-              className={styles["add-custom-provider-button"]}
-              onClick={() => setShowAddCustomProvider(true)}
+            {/* 添加自定义服务商 */}
+            <ListItem
+              title={Locale.Settings.Access.CustomProvider.Add.Title}
+              subTitle={Locale.Settings.Access.CustomProvider.Add.Description}
             >
-              <span className={styles["add-icon"]}>+</span>
-              <div className={styles["add-text"]}>
-                <h3>{Locale.Settings.Access.CustomProvider.Add.Title}</h3>
-                <p>{Locale.Settings.Access.CustomProvider.Add.Description}</p>
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
+              <IconButton
+                icon={<AddIcon />}
+                text={Locale.Settings.Access.CustomProvider.Add.Title}
+                onClick={() => setShowAddCustomProvider(true)}
+                bordered
+              />
+            </ListItem>
+          </>
+        )}
+      </List>
     </>
   );
 
