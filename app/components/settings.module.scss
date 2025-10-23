@@ -136,6 +136,7 @@
 .model-tag {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 6px 12px;
   background: var(--primary);
   color: white;
@@ -149,6 +150,27 @@
   // overflow: hidden;
   // text-overflow: ellipsis;
   // max-width: 120px;
+}
+
+.model-delete-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  color: #ff4d4f;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  user-select: none;
+
+  &:hover {
+    color: #ff7875;
+    transform: scale(1.2);
+  }
 }
 
 .no-models {

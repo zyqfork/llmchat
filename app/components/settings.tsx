@@ -2177,6 +2177,26 @@ export function Settings() {
                                     className={styles["model-tag"]}
                                   >
                                     <span
+                                      className={styles["model-delete-icon"]}
+                                      onClick={(
+                                        e: React.MouseEvent<HTMLSpanElement>,
+                                      ) => {
+                                        e.stopPropagation();
+                                        accessStore.update((state) => {
+                                          const currentModels =
+                                            state.enabledModels[
+                                              config.provider
+                                            ] || [];
+                                          state.enabledModels[config.provider] =
+                                            currentModels.filter(
+                                              (m) => m !== modelName,
+                                            );
+                                        });
+                                      }}
+                                    >
+                                      −
+                                    </span>
+                                    <span
                                       className={styles["model-name"]}
                                       title={modelName}
                                       onClick={() => {
