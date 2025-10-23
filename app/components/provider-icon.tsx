@@ -287,8 +287,12 @@ export function ProviderIcon({
           return <SiliconCloud.Color {...iconProps} />;
 
         case ServiceProvider.Ollama:
-          // Ollama 本地模型服务
-          return <BotIconOllama width={size} height={size} />;
+          // Ollama 本地模型服务，使用项目自带的 SVG 图标
+          return (
+            <div className="no-dark">
+              <BotIconOllama width={size} height={size} />
+            </div>
+          );
 
         default:
           // 返回一个通用的AI图标

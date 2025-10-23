@@ -1252,6 +1252,13 @@ export const useChatStore = createPersistStore(
               startIndex < messages.length ? startIndex : messages.length - 1,
               messages.length,
             )
+            .map((msg) => ({
+              ...msg,
+              content:
+                typeof msg.content === "string"
+                  ? getMessageTextContentWithoutThinking(msg)
+                  : msg.content,
+            }))
             .concat(
               createMessage({
                 role: "user",
@@ -1267,11 +1274,17 @@ export const useChatStore = createPersistStore(
             },
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
+                // 过滤掉思考内容
+                const filteredMessage = message
+                  .replace(/<think>[\s\S]*?<\/think>/g, "")
+                  .trim();
                 get().updateTargetSession(
                   session,
                   (session) =>
                     (session.topic =
-                      message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
+                      filteredMessage.length > 0
+                        ? trimTopic(filteredMessage)
+                        : DEFAULT_TOPIC),
                 );
               }
             },
@@ -1310,13 +1323,21 @@ export const useChatStore = createPersistStore(
            **/
           const { max_tokens, ...modelcfg } = modelConfig;
           api.llm.chat({
-            messages: toBeSummarizedMsgs.concat(
-              createMessage({
-                role: "system",
-                content: Locale.Store.Prompt.Summarize,
-                date: "",
-              }),
-            ),
+            messages: toBeSummarizedMsgs
+              .map((msg) => ({
+                ...msg,
+                content:
+                  typeof msg.content === "string"
+                    ? getMessageTextContentWithoutThinking(msg)
+                    : msg.content,
+              }))
+              .concat(
+                createMessage({
+                  role: "system",
+                  content: Locale.Store.Prompt.Summarize,
+                  date: "",
+                }),
+              ),
             config: {
               ...modelcfg,
               stream: true,
@@ -1324,13 +1345,21 @@ export const useChatStore = createPersistStore(
               providerName,
             },
             onUpdate(message) {
-              session.memoryPrompt = message;
+              // 过滤掉思考内容
+              const filteredMessage = message
+                .replace(/<think>[\s\S]*?<\/think>/g, "")
+                .trim();
+              session.memoryPrompt = filteredMessage;
             },
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
+                // 过滤掉思考内容
+                const filteredMessage = message
+                  .replace(/<think>[\s\S]*?<\/think>/g, "")
+                  .trim();
                 get().updateTargetSession(session, (session) => {
                   session.lastSummarizeIndex = lastSummarizeIndex;
-                  session.memoryPrompt = message; // Update the memory prompt for stored it in local storage
+                  session.memoryPrompt = filteredMessage; // Update the memory prompt for stored it in local storage
                 });
               }
             },
