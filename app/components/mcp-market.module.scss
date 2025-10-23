@@ -56,7 +56,21 @@
     .server-list {
       display: flex;
       flex-direction: column;
+      gap: 20px;
+    }
+
+    .server-group {
+      display: flex;
+      flex-direction: column;
       gap: 1px;
+
+      .server-group-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--black);
+        margin-bottom: 12px;
+        padding-left: 4px;
+      }
     }
 
     .mcp-market-item {

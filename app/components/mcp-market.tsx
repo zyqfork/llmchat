@@ -76,6 +76,9 @@ export function McpMarketPage() {
     Array<{ key: string; value: string }>
   >([{ key: "", value: "" }]);
   const [manualTimeout, setManualTimeout] = useState<string>("");
+  // Manual edit modal state
+  const [isEditingManual, setIsEditingManual] = useState(false);
+  const [editingManualId, setEditingManualId] = useState<string>("");
 
   // 添加状态轮询
   useEffect(() => {
@@ -334,6 +337,35 @@ export function McpMarketPage() {
     setManualHeaders([{ key: "", value: "" }]);
     setManualTimeout("");
     setIsAddOpen(true);
+    setIsEditingManual(false);
+  };
+
+  // ---- Manual Edit helpers ----
+  const openEditModal = (serverId: string) => {
+    const serverConfig = config?.mcpServers[serverId];
+    if (!serverConfig) return;
+
+    setEditingManualId(serverId);
+    setManualId(serverId);
+    setManualName(serverConfig.name || "");
+    setManualDesc(serverConfig.description || "");
+    setManualTransportType(serverConfig.type as MCPTransportType);
+    setManualBaseUrl(serverConfig.baseUrl || "");
+
+    // 转换 headers 对象为数组
+    const headersArray = serverConfig.headers
+      ? Object.entries(serverConfig.headers).map(([key, value]) => ({
+          key,
+          value,
+        }))
+      : [{ key: "", value: "" }];
+    setManualHeaders(
+      headersArray.length > 0 ? headersArray : [{ key: "", value: "" }],
+    );
+
+    setManualTimeout(serverConfig.timeout ? String(serverConfig.timeout) : "");
+    setIsAddOpen(true);
+    setIsEditingManual(true);
   };
 
   const submitManualAdd = async () => {
@@ -343,7 +375,8 @@ export function McpMarketPage() {
       showToast("请输入唯一的 Server ID");
       return;
     }
-    if (config?.mcpServers && id in config.mcpServers) {
+    // 编辑模式下，允许使用当前 ID
+    if (!isEditingManual && config?.mcpServers && id in config.mcpServers) {
       showToast("该 Server ID 已存在");
       return;
     }
@@ -403,22 +436,37 @@ export function McpMarketPage() {
         const msg = e instanceof Error ? e.message : String(e);
         // 验证失败时，询问用户是否跳过验证
         const skipValidation = window.confirm(
-          `验证失败：${msg}\n\n某些 MCP 服务器可能需要特殊的初始化流程，验证可能会失败。\n\n是否跳过验证直接添加服务器？`,
+          `验证失败：${msg}\n\n某些 MCP 服务器可能需要特殊的初始化流程，验证可能会失败。\n\n是否跳过验证直接${
+            isEditingManual ? "保存" : "添加"
+          }服务器？`,
         );
         if (!skipValidation) {
           updateLoadingState(id, null);
           return;
         }
       }
-      updateLoadingState(id, "正在创建 MCP 客户端...");
+      updateLoadingState(
+        id,
+        isEditingManual ? "正在更新配置..." : "正在创建 MCP 客户端...",
+      );
+
+      // 如果是编辑模式且 ID 改变了，需要先删除旧的
+      if (isEditingManual && editingManualId && editingManualId !== id) {
+        await removeMcpServer(editingManualId);
+      }
+
       const newCfg = await addMcpServer(id, serverConfig);
       setConfig(newCfg);
       const statuses = await getClientsStatus();
       setClientStatuses(statuses);
       setIsAddOpen(false);
-      showToast("服务器添加成功");
+      showToast(isEditingManual ? "服务器配置已更新" : "服务器添加成功");
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "添加服务器失败，请检查配置");
+      showToast(
+        e instanceof Error
+          ? e.message
+          : `${isEditingManual ? "更新" : "添加"}服务器失败，请检查配置`,
+      );
     } finally {
       updateLoadingState(id, null);
     }
@@ -703,6 +751,15 @@ export function McpMarketPage() {
                       disabled={isLoading}
                     />
                   )}
+                  {/* 手动添加的服务器显示编辑按钮 */}
+                  {!builtinIds.has(server.id) && (
+                    <IconButton
+                      icon={<EditIcon />}
+                      text="编辑"
+                      onClick={() => openEditModal(server.id)}
+                      disabled={isLoading}
+                    />
+                  )}
                   {checkServerStatus(server.id).status === "paused" ? (
                     <>
                       <IconButton
@@ -842,11 +899,11 @@ export function McpMarketPage() {
           <div className={styles["server-list"]}>{renderServerList()}</div>
         </div>
 
-        {/*手动添加服务器*/}
+        {/*手动添加/编辑服务器*/}
         {isAddOpen && (
           <div className="modal-mask">
             <Modal
-              title="添加 MCP 服务器"
+              title={isEditingManual ? "编辑 MCP 服务器" : "添加 MCP 服务器"}
               onClose={() => setIsAddOpen(false)}
               actions={[
                 <IconButton
@@ -858,7 +915,7 @@ export function McpMarketPage() {
                 />,
                 <IconButton
                   key="confirm"
-                  text="添加"
+                  text={isEditingManual ? "保存" : "添加"}
                   type="primary"
                   onClick={submitManualAdd}
                   bordered
@@ -869,7 +926,11 @@ export function McpMarketPage() {
               <List>
                 <ListItem
                   title="Server ID"
-                  subTitle="唯一标识，建议使用英文数字小写"
+                  subTitle={
+                    isEditingManual
+                      ? "服务器唯一标识（修改后将创建新服务器）"
+                      : "唯一标识，建议使用英文数字小写"
+                  }
                 >
                   <input
                     aria-label="server-id"
@@ -877,6 +938,7 @@ export function McpMarketPage() {
                     placeholder="例如: my-mcp-server"
                     value={manualId}
                     onChange={(e) => setManualId(e.target.value)}
+                    disabled={isEditingManual}
                   />
                 </ListItem>
                 <ListItem title="名称" subTitle="可选，用于显示">
