@@ -20,6 +20,7 @@ import { MoonshotApi } from "./platforms/moonshot";
 import { DeepSeekApi } from "./platforms/deepseek";
 import { XAIApi } from "./platforms/xai";
 import { SiliconflowApi } from "./platforms/siliconflow";
+import { OllamaApi } from "./platforms/ollama";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -157,6 +158,9 @@ export class ClientApi {
         break;
       case ModelProvider.SiliconFlow:
         this.llm = new SiliconflowApi();
+        break;
+      case ModelProvider.Ollama:
+        this.llm = new OllamaApi();
         break;
       default:
         this.llm = new ChatGPTApi();
@@ -361,6 +365,9 @@ export function getClientApi(provider: ServiceProvider | string): ClientApi {
     case ServiceProvider.SiliconFlow:
       selectedApi = new ClientApi(ModelProvider.SiliconFlow);
       break;
+    case ServiceProvider.Ollama:
+      selectedApi = new ClientApi(ModelProvider.Ollama);
+      break;
     default:
       selectedApi = new ClientApi(ModelProvider.GPT);
       break;
@@ -405,6 +412,7 @@ export function normalizeProviderName(provider: string): ServiceProvider {
     xai: ServiceProvider.XAI,
     deepseek: ServiceProvider.DeepSeek,
     siliconflow: ServiceProvider.SiliconFlow,
+    ollama: ServiceProvider.Ollama,
   };
 
   // 如果provider已经是ServiceProvider枚举值，直接返回

@@ -93,6 +93,9 @@ export class ModelFetcher {
         case ServiceProvider.SiliconFlow:
           return await this.fetchSiliconFlowModels();
 
+        case ServiceProvider.Ollama:
+          return await this.fetchOllamaModels();
+
         default:
           // 处理自定义服务商
           if (typeof provider === "string" && provider.startsWith("custom_")) {
@@ -246,6 +249,13 @@ export class ModelFetcher {
    */
   private static async fetchSiliconFlowModels(): Promise<ModelFetchResponse> {
     return await this.fetchOpenAICompatibleModels(ServiceProvider.SiliconFlow);
+  }
+
+  /**
+   * 获取Ollama模型
+   */
+  private static async fetchOllamaModels(): Promise<ModelFetchResponse> {
+    return await this.fetchOpenAICompatibleModels(ServiceProvider.Ollama);
   }
 
   /**

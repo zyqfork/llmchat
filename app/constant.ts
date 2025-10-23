@@ -142,6 +142,7 @@ export enum ModelProvider {
   XAI = "XAI",
   DeepSeek = "DeepSeek",
   SiliconFlow = "SiliconFlow",
+  Ollama = "Ollama",
 }
 
 export const Anthropic = {
@@ -212,8 +213,8 @@ export const SiliconFlow = {
 
 export const Ollama = {
   ExampleEndpoint: "http://localhost:11434",
-  ChatPath: "v1/chat/completions",
-  ListModelPath: "v1/models",
+  ChatPath: "api/chat",
+  ListModelPath: "api/tags",
 };
 
 export const DEFAULT_INPUT_TEMPLATE = `{{input}}`; // input / time / model / lang
