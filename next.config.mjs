@@ -1,12 +1,50 @@
 import webpack from "webpack";
 import path from "path";
+import crypto from "crypto";
 
 const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
 const disableChunk = false;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack(config) {
+  // 启用 SWC 压缩（比 Terser 快 7 倍）
+  swcMinify: true,
+
+  // 编译器优化
+  compiler: {
+    // 生产环境移除 console（保留 error 和 warn）
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? {
+            exclude: ["error", "warn"],
+          }
+        : false,
+  },
+
+  // 实验性功能
+  experimental: {
+    forceSwcTransforms: true,
+    // 优化包导入（减少打包体积）
+    optimizePackageImports: [
+      "@lobehub/icons",
+      "lodash-es",
+      "react-icons",
+      "framer-motion",
+    ],
+  },
+
+  // 生产环境禁用 source maps（减少构建时间和体积）
+  productionBrowserSourceMaps: false,
+
+  // 图片优化
+  images: {
+    unoptimized: mode === "export",
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+
+  webpack(config, { dev, isServer }) {
     config.module.rules.push({
       test: /\.svg$/,
       use: ["@svgr/webpack"],
@@ -38,15 +76,59 @@ const nextConfig = {
       "utf-8-validate": false,
     };
 
+    // 生产环境优化
+    if (!dev && !isServer) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: "deterministic",
+        runtimeChunk: "single",
+        splitChunks: {
+          chunks: "all",
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            // React 框架代码单独打包
+            framework: {
+              name: "framework",
+              chunks: "all",
+              test: /[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+            // 大型库单独打包
+            lib: {
+              test(module) {
+                return (
+                  module.size() > 160000 &&
+                  /node_modules[/\\]/.test(module.identifier())
+                );
+              },
+              name(module) {
+                const hash = crypto
+                  .createHash("sha1")
+                  .update(module.identifier())
+                  .digest("hex")
+                  .substring(0, 8);
+                return `lib-${hash}`;
+              },
+              priority: 30,
+              minChunks: 1,
+              reuseExistingChunk: true,
+            },
+            // 公共组件
+            commons: {
+              name: "commons",
+              minChunks: 2,
+              priority: 20,
+            },
+          },
+        },
+      };
+    }
+
     return config;
   },
   output: mode,
-  images: {
-    unoptimized: mode === "export",
-  },
-  experimental: {
-    forceSwcTransforms: true,
-  },
 };
 
 const CorsHeaders = [

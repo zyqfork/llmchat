@@ -160,7 +160,7 @@ interface ProviderIconProps {
   customProviderType?: string; // 新增：自定义服务商的兼容类型
 }
 
-export function ProviderIcon({
+export const ProviderIcon = React.memo(function ProviderIcon({
   provider,
   size = 24,
   modelName,
@@ -316,10 +316,10 @@ export function ProviderIcon({
           );
       }
   }
-}
+});
 
 // 使用项目自带 SVG 图标的 Avatar 组件（用于模型管理器）
-function ModelAvatar({
+const ModelAvatar = React.memo(function ModelAvatar({
   modelName,
   size = 32,
 }: {
@@ -415,10 +415,10 @@ function ModelAvatar({
       <LlmIcon width={size} height={size} />
     </div>
   );
-}
+});
 
 // 为模型管理页面提供更大的图标，支持传入模型名称
-export function ModelProviderIcon({
+export const ModelProviderIcon = React.memo(function ModelProviderIcon({
   provider,
   size = 32,
   modelName,
@@ -429,4 +429,4 @@ export function ModelProviderIcon({
 }) {
   // 使用项目自带的 SVG 图标
   return <ModelAvatar modelName={modelName} size={size} />;
-}
+});
