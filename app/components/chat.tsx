@@ -502,16 +502,6 @@ function ImagePreviewModal(props: {
     <div className={styles["image-preview-modal"]} onClick={onClose}>
       <div className={styles["image-preview-backdrop"]} />
       <div className={styles["image-preview-content"]}>
-        <button
-          className={styles["image-preview-close"]}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          aria-label="Close"
-        >
-          <CloseIcon />
-        </button>
         {!imageLoaded && !imageError && (
           <div
             style={{
