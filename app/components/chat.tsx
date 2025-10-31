@@ -467,6 +467,95 @@ function ShortcutKeyPanel(props: { showPanel: boolean; onClose: () => void }) {
   );
 }
 
+function ImagePreviewModal(props: {
+  show: boolean;
+  src: string;
+  onClose: () => void;
+}) {
+  const { show, src, onClose } = props;
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    if (show) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+      setImageLoaded(false);
+      setImageError(false);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [show, onClose]);
+
+  if (!show || !src) return null;
+
+  return (
+    <div className={styles["image-preview-modal"]} onClick={onClose}>
+      <div className={styles["image-preview-backdrop"]} />
+      <div className={styles["image-preview-content"]}>
+        <button
+          className={styles["image-preview-close"]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          aria-label="Close"
+        >
+          <CloseIcon />
+        </button>
+        {!imageLoaded && !imageError && (
+          <div
+            style={{
+              color: "white",
+              fontSize: "16px",
+              zIndex: 10001,
+              position: "relative",
+            }}
+          >
+            加载中...
+          </div>
+        )}
+        {imageError && (
+          <div
+            style={{
+              color: "white",
+              fontSize: "16px",
+              zIndex: 10001,
+              position: "relative",
+            }}
+          >
+            图片加载失败
+          </div>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Preview"
+          className={styles["image-preview-img"]}
+          onClick={(e) => e.stopPropagation()}
+          onError={(e) => {
+            console.error("Image failed to load:", src);
+            setImageError(true);
+          }}
+          onLoad={() => {
+            console.log("Image loaded successfully:", src);
+            setImageLoaded(true);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function MCPPanel(props: { showPanel: boolean; onClose: () => void }) {
   const { showPanel, onClose } = props;
   const chatStore = useChatStore();
@@ -1949,6 +2038,11 @@ function _Chat() {
   const [showExport, setShowExport] = useState(false);
   // Debug modal state
   const [debugModalOpen, setDebugModalOpen] = useState(false);
+  // Image preview state
+  const [imagePreview, setImagePreview] = useState<{
+    show: boolean;
+    src: string;
+  }>({ show: false, src: "" });
   const [debugMessage, setDebugMessage] = useState<ChatMessage | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -3254,19 +3348,22 @@ function _Chat() {
                               className={
                                 styles["chat-message-item-image-container"]
                               }
-                              style={{ aspectRatio: ratio }}
+                              style={{ cursor: "pointer" }}
+                              onClick={() =>
+                                setImagePreview({
+                                  show: true,
+                                  src: getMessageImages(message)[0],
+                                })
+                              }
                             >
                               <Image
                                 className={styles["chat-message-item-image"]}
                                 src={getMessageImages(message)[0]}
                                 alt=""
-                                fill
+                                width={0}
+                                height={0}
+                                sizes="100vw"
                                 unoptimized
-                                onLoadingComplete={(img) => {
-                                  setRatio(
-                                    img.naturalWidth / img.naturalHeight,
-                                  );
-                                }}
                               />
                             </div>
                           )}
@@ -3289,6 +3386,13 @@ function _Chat() {
                                       ]
                                     }
                                     key={index}
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() =>
+                                      setImagePreview({
+                                        show: true,
+                                        src: image,
+                                      })
+                                    }
                                   >
                                     <Image
                                       className={
@@ -3296,7 +3400,9 @@ function _Chat() {
                                       }
                                       src={image}
                                       alt=""
-                                      fill
+                                      width={0}
+                                      height={0}
+                                      sizes="100vw"
                                       unoptimized
                                     />
                                   </div>
@@ -3616,6 +3722,11 @@ function _Chat() {
           </Modal>
         </div>
       )}
+      <ImagePreviewModal
+        show={imagePreview.show}
+        src={imagePreview.src}
+        onClose={() => setImagePreview({ show: false, src: "" })}
+      />
     </>
   );
 }
