@@ -910,7 +910,7 @@
   display: inline-block;
   max-width: 100%;
   width: fit-content;
-  
+
   img {
     position: relative !important;
     width: auto !important;
@@ -939,7 +939,7 @@
   position: relative;
   flex: 0 0 auto;
   display: inline-block;
-  
+
   img {
     position: relative !important;
     width: auto !important;
@@ -1699,12 +1699,13 @@
 
   .mcp-tool-details {
     background-color: #1a1b26;
-    
+
     code {
       color: #cbd2ea;
     }
   }
 }
+
 // Image Preview Modal
 .image-preview-modal {
   position: fixed !important;
@@ -1789,26 +1790,8 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
 }
-
-// 图片预览模态框样式
-.image-preview-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fade-in 0.2s ease;
-}
-
-.image-preview-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
