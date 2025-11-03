@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "example-sse-server": {
+      "type": "sse",
+      "baseUrl": "https://your-mcp-server.com/sse",
+      "useProxy": true,
+      "proxyUrl": "http://localhost:8080",
+      "headers": {
+        "Authorization": "Bearer your-api-token"
+      },
+      "timeout": 30,
+      "status": "active",
+      "name": "示例SSE服务器",
+      "description": "通过代理访问的MCP SSE服务器"
+    },
+    "example-http-server": {
+      "type": "streamableHttp",
+      "baseUrl": "https://your-mcp-server.com/http",
+      "useProxy": true,
+      "proxyUrl": "http://localhost:8080",
+      "headers": {
+        "X-API-Key": "your-api-key"
+      },
+      "timeout": 60,
+      "status": "active",
+      "name": "示例HTTP服务器",
+      "description": "通过代理访问的MCP StreamableHTTP服务器"
+    },
+    "local-server-no-proxy": {
+      "type": "sse",
+      "baseUrl": "http://localhost:3001/sse",
+      "useProxy": false,
+      "timeout": 30,
+      "status": "active",
+      "name": "本地服务器",
+      "description": "不使用代理的本地MCP服务器"
+    }
+  }
+}

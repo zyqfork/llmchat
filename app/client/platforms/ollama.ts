@@ -75,6 +75,26 @@ export class OllamaApi implements LLMApi {
 
     console.log("[Ollama Endpoint] ", baseUrl, path);
 
+    // 检查是否启用代理
+    if (accessStore.ollamaUseProxy) {
+      const configuredProxyUrl = accessStore.ollamaProxyUrl;
+      const proxyUrl =
+        configuredProxyUrl && configuredProxyUrl.length > 0
+          ? configuredProxyUrl
+          : window.location.origin;
+      const endpoint = [baseUrl, path].join("/");
+      const proxyPath = "/api/ollama/";
+
+      try {
+        const u = new URL(proxyUrl + proxyPath + path);
+        u.searchParams.append("endpoint", endpoint);
+        return u.toString();
+      } catch (e) {
+        console.error("[Ollama] Failed to build proxy URL:", e);
+        return [baseUrl, path].join("/");
+      }
+    }
+
     return [baseUrl, path].join("/");
   }
 

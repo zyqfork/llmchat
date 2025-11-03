@@ -116,6 +116,34 @@ export class ChatGPTApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
+    // 检查是否启用代理
+    const useProxy = isAzure
+      ? accessStore.azureUseProxy
+      : accessStore.openaiUseProxy;
+
+    if (useProxy) {
+      // 使用代理模式，类似云同步的实现
+      const configuredProxyUrl = isAzure
+        ? accessStore.azureProxyUrl
+        : accessStore.openaiProxyUrl;
+      const proxyUrl =
+        configuredProxyUrl && configuredProxyUrl.length > 0
+          ? configuredProxyUrl
+          : window.location.origin;
+      const endpoint = [baseUrl, path].join("/");
+      const proxyPath = isAzure ? "/api/azure/" : "/api/openai/";
+
+      try {
+        const u = new URL(proxyUrl + proxyPath + path);
+        u.searchParams.append("endpoint", endpoint);
+        return cloudflareAIGatewayUrl(u.toString());
+      } catch (e) {
+        console.error("[OpenAI] Failed to build proxy URL:", e);
+        // 如果代理URL构建失败，回退到直接URL
+        return cloudflareAIGatewayUrl([baseUrl, path].join("/"));
+      }
+    }
+
     const finalUrl = cloudflareAIGatewayUrl([baseUrl, path].join("/"));
 
     return finalUrl;
@@ -463,11 +491,21 @@ export class ChatGPTApi implements LLMApi {
       return DEFAULT_MODELS.slice();
     }
 
+    const accessStore = useAccessStore.getState();
+    const apiKey = accessStore.openaiApiKey;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
     const res = await fetch(this.path(OpenaiPath.ListModelPath), {
       method: "GET",
-      headers: {
-        ...getHeaders(),
-      },
+      headers,
     });
 
     if (!res.ok) {

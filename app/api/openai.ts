@@ -22,6 +22,15 @@ export async function handle(
     return NextResponse.json({ body: "OK" }, { status: 200 });
   }
 
+  // 检查是否有endpoint参数，如果有则使用代理模式
+  const endpoint = req.nextUrl.searchParams.get("endpoint");
+  if (endpoint) {
+    console.log("[OpenAI Route] Using proxy mode with endpoint:", endpoint);
+    // 使用代理逻辑
+    const { handle: proxyHandler } = await import("./proxy");
+    return proxyHandler(req, { params });
+  }
+
   const subpath = params.path.join("/");
 
   if (!ALLOWED_PATH.has(subpath)) {

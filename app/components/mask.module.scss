@@ -60,10 +60,8 @@
       }
 
       &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        border-color: var(--gray-300);
-        z-index: 1;
+        background: var(--hover-color);
+        box-shadow: var(--card-shadow);
       }
 
       .mask-header {

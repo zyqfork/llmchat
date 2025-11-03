@@ -485,6 +485,16 @@ const en: LocaleType = {
           Title: "OpenAI Endpoint",
           SubTitle: "Must start with http(s):// or use /api/openai as default",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
       Azure: {
         ApiKey: {
@@ -501,6 +511,16 @@ const en: LocaleType = {
         ApiVerion: {
           Title: "Azure Api Version",
           SubTitle: "Check your api version from azure console",
+        },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
         },
       },
       Anthropic: {
@@ -520,6 +540,16 @@ const en: LocaleType = {
           Title: "API Version (claude api version)",
           SubTitle: "Select and input a specific API version",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
 
       ByteDance: {
@@ -532,6 +562,16 @@ const en: LocaleType = {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
       Alibaba: {
         ApiKey: {
@@ -542,6 +582,16 @@ const en: LocaleType = {
         Endpoint: {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
+        },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
         },
       },
       Moonshot: {
@@ -554,6 +604,16 @@ const en: LocaleType = {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
       DeepSeek: {
         ApiKey: {
@@ -564,6 +624,16 @@ const en: LocaleType = {
         Endpoint: {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
+        },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
         },
       },
       XAI: {
@@ -576,6 +646,16 @@ const en: LocaleType = {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
       SiliconFlow: {
         ApiKey: {
@@ -587,6 +667,16 @@ const en: LocaleType = {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
         },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
+        },
       },
       Ollama: {
         ApiKey: {
@@ -597,6 +687,16 @@ const en: LocaleType = {
         Endpoint: {
           Title: "Endpoint Address",
           SubTitle: "Example: ",
+        },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
         },
       },
       CustomModel: {
@@ -622,6 +722,16 @@ const en: LocaleType = {
         GoogleSafetySettings: {
           Title: "Google Safety Settings",
           SubTitle: "Select a safety filtering level",
+        },
+
+        UseProxy: {
+          Title: "Enable Proxy",
+          SubTitle: "Use server-side proxy in standalone mode",
+        },
+
+        ProxyUrl: {
+          Title: "Proxy Address",
+          SubTitle: "Proxy server address, defaults to localhost",
         },
       },
       Baidu: {

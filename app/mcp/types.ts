@@ -122,6 +122,10 @@ export interface ServerConfig {
   headers?: Record<string, string>;
   timeout?: number; // 超时时间（秒）
 
+  // 代理配置
+  useProxy?: boolean; // 是否启用代理
+  proxyUrl?: string; // 代理服务器地址
+
   // 认证配置（预留）
   // authProvider?: AuthConfig;
 

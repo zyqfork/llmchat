@@ -76,7 +76,23 @@ export class TransportFactory {
             }
           }
 
-          // Headers are already set above
+          // 处理代理配置
+          let finalUrl = url;
+          if (config.useProxy) {
+            const proxyUrl =
+              config.proxyUrl && config.proxyUrl.length > 0
+                ? config.proxyUrl
+                : window.location.origin;
+            const urlString = typeof url === "string" ? url : url.toString();
+            try {
+              const u = new URL(`${proxyUrl}/api/mcp-proxy`);
+              u.searchParams.append("endpoint", urlString);
+              finalUrl = u.toString();
+              logger.debug(`Using proxy for MCP request: ${finalUrl}`);
+            } catch (e) {
+              logger.error(`Failed to build proxy URL: ${e}`);
+            }
+          }
 
           // 添加超时支持
           const controller = new AbortController();
@@ -88,7 +104,7 @@ export class TransportFactory {
           );
 
           try {
-            const response = await fetch(url, {
+            const response = await fetch(finalUrl, {
               ...init,
               headers,
               signal: controller.signal,
@@ -138,6 +154,23 @@ export class TransportFactory {
       `Creating StreamableHTTP transport with URL: ${config.baseUrl}`,
     );
 
+    // 处理代理配置
+    let finalUrl = config.baseUrl;
+    if (config.useProxy) {
+      const proxyUrl =
+        config.proxyUrl && config.proxyUrl.length > 0
+          ? config.proxyUrl
+          : window.location.origin;
+      try {
+        const u = new URL(`${proxyUrl}/api/mcp-proxy`);
+        u.searchParams.append("endpoint", config.baseUrl);
+        finalUrl = u.toString();
+        logger.debug(`Using proxy for MCP StreamableHTTP: ${finalUrl}`);
+      } catch (e) {
+        logger.error(`Failed to build proxy URL: ${e}`);
+      }
+    }
+
     let headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -154,7 +187,7 @@ export class TransportFactory {
 
     // Headers are configured above
 
-    return new StreamableHTTPClientTransport(new URL(config.baseUrl), options);
+    return new StreamableHTTPClientTransport(new URL(finalUrl), options);
   }
 
   /**

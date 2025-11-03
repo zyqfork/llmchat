@@ -275,8 +275,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -365,7 +370,7 @@
 
 .category-section {
   margin-bottom: 24px;
-  
+
   &:last-child {
     margin-bottom: 0;
   }
@@ -373,7 +378,7 @@
 
 .category-header {
   margin-bottom: 12px;
-  
+
   h3 {
     margin: 0;
     font-size: 16px;
@@ -400,7 +405,7 @@
   border-radius: 8px;
   background: var(--white);
   transition: all 0.2s ease;
-  
+
   &:hover {
     background: var(--hover-color);
     box-shadow: var(--card-shadow);
@@ -442,9 +447,9 @@
   min-width: 0;
   // 确保在暗夜模式下文字清晰可见
   opacity: 1;
-  
+
   // 模型名称文本部分
-  > span:first-child,
+  >span:first-child,
   > :first-child:not(.capability-icons) {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -466,6 +471,7 @@
     font-weight: 500;
     opacity: 0.9;
   }
+
   white-space: nowrap;
   // 在暗夜模式下提高副标题的可见度
 }
@@ -592,6 +598,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -1239,53 +1246,53 @@
   }
 }
 
-  .category-tabs {
-    gap: 8px;
-  }
+.category-tabs {
+  gap: 8px;
+}
 
-  .category-tab {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
+.category-tab {
+  padding: 6px 12px;
+  font-size: 12px;
+}
 
-  .custom-model-form {
-    padding: 16px;
-  }
+.custom-model-form {
+  padding: 16px;
+}
 
-  .form-actions {
-    flex-direction: column;
+.form-actions {
+  flex-direction: column;
 
-    .form-cancel,
-    .form-submit {
-      width: 100%;
-    }
+  .form-cancel,
+  .form-submit {
+    width: 100%;
   }
+}
 
 /* 响应式设计 */
 @media screen and (max-width: 600px) {
   .model-manager {
     height: 60vh;
   }
-  
+
   .category-tabs {
     gap: 6px;
   }
-  
+
   .category-tab {
     padding: 4px 8px;
     font-size: 11px;
   }
-  
+
   .model-item {
     padding: 10px 12px;
   }
-  
+
   .model-icon {
     width: 28px;
     height: 28px;
     font-size: 16px;
   }
-  
+
   .toggle-button {
     width: 28px;
     height: 28px;
@@ -1322,6 +1329,7 @@
 
 /* 确保模型管理器中的能力图标不受暗夜模式影响 */
 .custom-modal {
+
   // 覆盖全局的 div:not(.no-dark) > svg 规则
   .no-dark svg {
     filter: none !important;

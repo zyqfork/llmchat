@@ -76,6 +76,8 @@ export function McpMarketPage() {
     Array<{ key: string; value: string }>
   >([{ key: "", value: "" }]);
   const [manualTimeout, setManualTimeout] = useState<string>("");
+  const [manualUseProxy, setManualUseProxy] = useState(false);
+  const [manualProxyUrl, setManualProxyUrl] = useState("");
   // Manual edit modal state
   const [isEditingManual, setIsEditingManual] = useState(false);
   const [editingManualId, setEditingManualId] = useState<string>("");
@@ -352,6 +354,8 @@ export function McpMarketPage() {
     setManualBaseUrl("");
     setManualHeaders([{ key: "", value: "" }]);
     setManualTimeout("");
+    setManualUseProxy(false);
+    setManualProxyUrl("");
     setIsAddOpen(true);
     setIsEditingManual(false);
   };
@@ -380,6 +384,8 @@ export function McpMarketPage() {
     );
 
     setManualTimeout(serverConfig.timeout ? String(serverConfig.timeout) : "");
+    setManualUseProxy(serverConfig.useProxy || false);
+    setManualProxyUrl(serverConfig.proxyUrl || "");
     setIsAddOpen(true);
     setIsEditingManual(true);
   };
@@ -437,6 +443,8 @@ export function McpMarketPage() {
       baseUrl: url,
       headers: Object.keys(headers).length > 0 ? headers : defaultHeaders,
       timeout: timeoutNum,
+      useProxy: manualUseProxy,
+      proxyUrl: manualUseProxy ? manualProxyUrl.trim() || undefined : undefined,
       name: manualName.trim() || undefined,
       description: manualDesc.trim() || undefined,
       status: "active",
@@ -1147,6 +1155,28 @@ export function McpMarketPage() {
                     onChange={(e) => setManualTimeout(e.target.value)}
                   />
                 </ListItem>
+                <ListItem title="启用代理" subTitle="通过代理服务器访问MCP服务">
+                  <input
+                    aria-label="use-proxy"
+                    type="checkbox"
+                    checked={manualUseProxy}
+                    onChange={(e) => setManualUseProxy(e.target.checked)}
+                  />
+                </ListItem>
+                {manualUseProxy && (
+                  <ListItem
+                    title="代理地址"
+                    subTitle="代理服务器地址，默认使用 localhost"
+                  >
+                    <input
+                      aria-label="proxy-url"
+                      type="text"
+                      placeholder="http://localhost:port"
+                      value={manualProxyUrl}
+                      onChange={(e) => setManualProxyUrl(e.target.value)}
+                    />
+                  </ListItem>
+                )}
               </List>
             </Modal>
           </div>

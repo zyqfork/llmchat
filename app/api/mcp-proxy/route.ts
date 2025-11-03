@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  console.log("[Proxy Route] params ", params);
+export const runtime = "edge";
+
+export async function GET(req: NextRequest) {
+  return handleMCPProxy(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleMCPProxy(req);
+}
+
+async function handleMCPProxy(req: NextRequest) {
+  console.log("[MCP Proxy] Request received");
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -19,20 +26,18 @@ export async function handle(
     );
   }
 
-  // remove path params from searchParams
-  req.nextUrl.searchParams.delete("path");
-  req.nextUrl.searchParams.delete("provider");
+  // 移除代理相关参数
   req.nextUrl.searchParams.delete("endpoint");
 
-  // 直接使用endpoint参数作为目标URL
-  // endpoint已经包含了完整的API URL（包括baseUrl和path）
+  // 构建目标URL
   const remainingParams = req.nextUrl.searchParams.toString();
   const fetchUrl = remainingParams
     ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${remainingParams}`
     : endpoint;
 
-  console.log("[Proxy] Fetching URL:", fetchUrl);
+  console.log("[MCP Proxy] Proxying to:", fetchUrl);
 
+  // 准备headers
   const skipHeaders = [
     "connection",
     "host",
@@ -41,6 +46,7 @@ export async function handle(
     "cookie",
     "accept-encoding", // 不转发accept-encoding，让fetch自动处理
   ];
+
   const headers = new Headers(
     Array.from(req.headers.entries()).filter((item) => {
       if (
@@ -53,14 +59,13 @@ export async function handle(
       return true;
     }),
   );
-  // 纯前端应用，用户需要提供自己的API密钥
 
+  // 创建请求
   const controller = new AbortController();
   const fetchOptions: RequestInit = {
     headers,
     method: req.method,
     body: req.body,
-    // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
     redirect: "manual",
     // @ts-ignore
     duplex: "half",
@@ -82,22 +87,26 @@ export async function handle(
     newHeaders.delete("www-authenticate");
     newHeaders.set("X-Accel-Buffering", "no");
 
-    // 检查响应的content-encoding
+    // 删除content-encoding，因为fetch会自动解压
     const contentEncoding = res.headers.get("content-encoding");
-
-    // 如果响应被压缩，fetch API会自动解压
-    // 但我们需要删除content-encoding header，因为返回的body已经是解压后的
     if (contentEncoding) {
       newHeaders.delete("content-encoding");
     }
 
-    // 对于非流式响应，确保正确处理
-    // fetch API会自动处理gzip/deflate/br解压
     return new Response(res.body, {
       status: res.status,
       statusText: res.statusText,
       headers: newHeaders,
     });
+  } catch (error) {
+    console.error("[MCP Proxy] Error:", error);
+    return NextResponse.json(
+      {
+        error: "Proxy request failed",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   } finally {
     clearTimeout(timeoutId);
   }

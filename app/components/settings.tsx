@@ -979,6 +979,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.UseProxy.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.openaiUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.openaiUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.openaiUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.OpenAI.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
+            type="text"
+            value={accessStore.openaiProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.openaiProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1037,6 +1070,39 @@ export function Settings() {
           }
         ></input>
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Azure.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Azure.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Azure.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.azureUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.azureUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.azureUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Azure.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Azure.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Azure.ProxyUrl.Title}
+            type="text"
+            value={accessStore.azureProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.azureProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1117,6 +1183,39 @@ export function Settings() {
           ))}
         </Select>
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Google.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Google.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Google.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.googleUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.googleUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.googleUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Google.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Google.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Google.ProxyUrl.Title}
+            type="text"
+            value={accessStore.googleProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.googleProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1175,6 +1274,39 @@ export function Settings() {
           }
         ></input>
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Anthropic.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Anthropic.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Anthropic.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.anthropicUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.anthropicUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.anthropicUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Anthropic.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Anthropic.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Anthropic.ProxyUrl.Title}
+            type="text"
+            value={accessStore.anthropicProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.anthropicProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1217,6 +1349,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.ByteDance.UseProxy.Title}
+        subTitle={Locale.Settings.Access.ByteDance.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.ByteDance.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.bytedanceUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.bytedanceUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.bytedanceUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.ByteDance.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.ByteDance.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.ByteDance.ProxyUrl.Title}
+            type="text"
+            value={accessStore.bytedanceProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.bytedanceProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1259,6 +1424,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Alibaba.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Alibaba.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Alibaba.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.alibabaUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.alibabaUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.alibabaUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Alibaba.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Alibaba.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Alibaba.ProxyUrl.Title}
+            type="text"
+            value={accessStore.alibabaProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.alibabaProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1301,6 +1499,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Moonshot.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Moonshot.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Moonshot.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.moonshotUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.moonshotUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.moonshotUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Moonshot.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Moonshot.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Moonshot.ProxyUrl.Title}
+            type="text"
+            value={accessStore.moonshotProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.moonshotProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1343,6 +1574,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.DeepSeek.UseProxy.Title}
+        subTitle={Locale.Settings.Access.DeepSeek.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.DeepSeek.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.deepseekUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.deepseekUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.deepseekUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.DeepSeek.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.DeepSeek.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.DeepSeek.ProxyUrl.Title}
+            type="text"
+            value={accessStore.deepseekProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.deepseekProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1384,6 +1648,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.XAI.UseProxy.Title}
+        subTitle={Locale.Settings.Access.XAI.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.XAI.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.xaiUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.xaiUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.xaiUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.XAI.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.XAI.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.XAI.ProxyUrl.Title}
+            type="text"
+            value={accessStore.xaiProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.xaiProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1426,6 +1723,41 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.SiliconFlow.UseProxy.Title}
+        subTitle={Locale.Settings.Access.SiliconFlow.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.SiliconFlow.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.siliconflowUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) =>
+                (access.siliconflowUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.siliconflowUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.SiliconFlow.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.SiliconFlow.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.SiliconFlow.ProxyUrl.Title}
+            type="text"
+            value={accessStore.siliconflowProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) =>
+                  (access.siliconflowProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 
@@ -1468,6 +1800,39 @@ export function Settings() {
           }}
         />
       </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.Ollama.UseProxy.Title}
+        subTitle={Locale.Settings.Access.Ollama.UseProxy.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.Ollama.UseProxy.Title}
+          type="checkbox"
+          checked={accessStore.ollamaUseProxy}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.ollamaUseProxy = e.currentTarget.checked),
+            )
+          }
+        ></input>
+      </ListItem>
+      {accessStore.ollamaUseProxy && (
+        <ListItem
+          title={Locale.Settings.Access.Ollama.ProxyUrl.Title}
+          subTitle={Locale.Settings.Access.Ollama.ProxyUrl.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Access.Ollama.ProxyUrl.Title}
+            type="text"
+            value={accessStore.ollamaProxyUrl}
+            placeholder="http://localhost:port"
+            onChange={(e) =>
+              accessStore.update(
+                (access) => (access.ollamaProxyUrl = e.currentTarget.value),
+              )
+            }
+          ></input>
+        </ListItem>
+      )}
     </>
   );
 

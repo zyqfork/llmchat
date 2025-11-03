@@ -126,50 +126,72 @@ const DEFAULT_ACCESS_STATE = {
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
   openaiApiKey: "",
+  openaiUseProxy: false,
+  openaiProxyUrl: "",
 
   // azure
   azureUrl: "",
   azureApiKey: "",
   azureApiVersion: "2023-08-01-preview",
+  azureUseProxy: false,
+  azureProxyUrl: "",
 
   // google ai studio
   googleUrl: DEFAULT_GOOGLE_URL,
   googleApiKey: "",
   googleApiVersion: "v1",
   googleSafetySettings: GoogleSafetySettingsThreshold.BLOCK_ONLY_HIGH,
+  googleUseProxy: false,
+  googleProxyUrl: "",
 
   // anthropic
   anthropicUrl: DEFAULT_ANTHROPIC_URL,
   anthropicApiKey: "",
   anthropicApiVersion: "2023-06-01",
+  anthropicUseProxy: false,
+  anthropicProxyUrl: "",
 
   // bytedance
   bytedanceUrl: DEFAULT_BYTEDANCE_URL,
   bytedanceApiKey: "",
+  bytedanceUseProxy: false,
+  bytedanceProxyUrl: "",
 
   // alibaba
   alibabaUrl: DEFAULT_ALIBABA_URL,
   alibabaApiKey: "",
+  alibabaUseProxy: false,
+  alibabaProxyUrl: "",
 
   // moonshot
   moonshotUrl: DEFAULT_MOONSHOT_URL,
   moonshotApiKey: "",
+  moonshotUseProxy: false,
+  moonshotProxyUrl: "",
 
   // deepseek
   deepseekUrl: DEFAULT_DEEPSEEK_URL,
   deepseekApiKey: "",
+  deepseekUseProxy: false,
+  deepseekProxyUrl: "",
 
   // xai
   xaiUrl: DEFAULT_XAI_URL,
   xaiApiKey: "",
+  xaiUseProxy: false,
+  xaiProxyUrl: "",
 
   // siliconflow
   siliconflowUrl: DEFAULT_SILICONFLOW_URL,
   siliconflowApiKey: "",
+  siliconflowUseProxy: false,
+  siliconflowProxyUrl: "",
 
   // ollama
   ollamaUrl: "http://localhost:11434",
   ollamaApiKey: "",
+  ollamaUseProxy: false,
+  ollamaProxyUrl: "",
 
   // 自定义服务商
   customProviders: [] as CustomProvider[],

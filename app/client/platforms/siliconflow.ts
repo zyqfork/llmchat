@@ -70,6 +70,26 @@ export class SiliconflowApi implements LLMApi {
 
     console.log("[Proxy Endpoint] ", baseUrl, path);
 
+    // 检查是否启用代理
+    if (accessStore.siliconflowUseProxy) {
+      const configuredProxyUrl = accessStore.siliconflowProxyUrl;
+      const proxyUrl =
+        configuredProxyUrl && configuredProxyUrl.length > 0
+          ? configuredProxyUrl
+          : window.location.origin;
+      const endpoint = [baseUrl, path].join("/");
+      const proxyPath = "/api/siliconflow/";
+
+      try {
+        const u = new URL(proxyUrl + proxyPath + path);
+        u.searchParams.append("endpoint", endpoint);
+        return u.toString();
+      } catch (e) {
+        console.error("[SiliconFlow] Failed to build proxy URL:", e);
+        return [baseUrl, path].join("/");
+      }
+    }
+
     return [baseUrl, path].join("/");
   }
 

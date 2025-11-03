@@ -458,6 +458,26 @@ export class ClaudeApi implements LLMApi {
 
     baseUrl = trimEnd(baseUrl, "/");
 
+    // 检查是否启用代理
+    if (accessStore.anthropicUseProxy) {
+      const configuredProxyUrl = accessStore.anthropicProxyUrl;
+      const proxyUrl =
+        configuredProxyUrl && configuredProxyUrl.length > 0
+          ? configuredProxyUrl
+          : window.location.origin;
+      const endpoint = `${baseUrl}/${path}`;
+      const proxyPath = "/api/anthropic/";
+
+      try {
+        const u = new URL(proxyUrl + proxyPath + path);
+        u.searchParams.append("endpoint", endpoint);
+        return cloudflareAIGatewayUrl(u.toString());
+      } catch (e) {
+        console.error("[Anthropic] Failed to build proxy URL:", e);
+        return cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
+      }
+    }
+
     // try rebuild url, when using cloudflare ai gateway in client
     return cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
   }

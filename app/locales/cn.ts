@@ -474,6 +474,16 @@ const cn = {
           Title: "接口地址",
           SubTitle: "除默认地址外，必须包含 http(s)://",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
       Azure: {
         ApiKey: {
@@ -491,6 +501,16 @@ const cn = {
           Title: "接口版本 (azure api version)",
           SubTitle: "选择指定的部分版本",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
       Anthropic: {
         ApiKey: {
@@ -507,6 +527,16 @@ const cn = {
         ApiVerion: {
           Title: "接口版本 (claude api version)",
           SubTitle: "选择一个特定的 API 版本输入",
+        },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
         },
       },
       Google: {
@@ -528,6 +558,16 @@ const cn = {
         GoogleSafetySettings: {
           Title: "Google 安全过滤级别",
           SubTitle: "设置内容过滤级别",
+        },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
         },
       },
       Baidu: {
@@ -572,6 +612,16 @@ const cn = {
           Title: "接口地址",
           SubTitle: "样例：",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
       Alibaba: {
         ApiKey: {
@@ -582,6 +632,16 @@ const cn = {
         Endpoint: {
           Title: "接口地址",
           SubTitle: "样例：",
+        },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
         },
       },
       Moonshot: {
@@ -594,6 +654,16 @@ const cn = {
           Title: "接口地址",
           SubTitle: "样例：",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
       DeepSeek: {
         ApiKey: {
@@ -605,6 +675,16 @@ const cn = {
           Title: "接口地址",
           SubTitle: "样例：",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
       XAI: {
         ApiKey: {
@@ -615,6 +695,16 @@ const cn = {
         Endpoint: {
           Title: "接口地址",
           SubTitle: "样例：",
+        },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
         },
       },
       ChatGLM: {
@@ -638,6 +728,16 @@ const cn = {
           Title: "接口地址",
           SubTitle: "样例：",
         },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
+        },
       },
 
       Ollama: {
@@ -649,6 +749,16 @@ const cn = {
         Endpoint: {
           Title: "接口地址",
           SubTitle: "样例：",
+        },
+
+        UseProxy: {
+          Title: "启用代理",
+          SubTitle: "在 standalone 模式下通过服务端代理发起请求",
+        },
+
+        ProxyUrl: {
+          Title: "代理地址",
+          SubTitle: "代理服务器地址，默认使用 localhost",
         },
       },
 

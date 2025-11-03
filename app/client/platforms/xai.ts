@@ -49,6 +49,26 @@ export class XAIApi implements LLMApi {
 
     console.log("[Proxy Endpoint] ", baseUrl, path);
 
+    // 检查是否启用代理
+    if (accessStore.xaiUseProxy) {
+      const configuredProxyUrl = accessStore.xaiProxyUrl;
+      const proxyUrl =
+        configuredProxyUrl && configuredProxyUrl.length > 0
+          ? configuredProxyUrl
+          : window.location.origin;
+      const endpoint = [baseUrl, path].join("/");
+      const proxyPath = "/api/xai/";
+
+      try {
+        const u = new URL(proxyUrl + proxyPath + path);
+        u.searchParams.append("endpoint", endpoint);
+        return u.toString();
+      } catch (e) {
+        console.error("[XAI] Failed to build proxy URL:", e);
+        return [baseUrl, path].join("/");
+      }
+    }
+
     return [baseUrl, path].join("/");
   }
 
