@@ -32,6 +32,8 @@ export async function handle(
     : endpoint;
 
   console.log("[Proxy] Fetching URL:", fetchUrl);
+  console.log("[Proxy] Original endpoint:", endpoint);
+  console.log("[Proxy] Method:", req.method);
 
   const skipHeaders = [
     "connection",
@@ -91,13 +93,74 @@ export async function handle(
       newHeaders.delete("content-encoding");
     }
 
-    // 对于非流式响应，确保正确处理
-    // fetch API会自动处理gzip/deflate/br解压
-    return new Response(res.body, {
+    // 对于流式响应，需要特殊处理以避免连接中断错误
+    if (res.body) {
+      const reader = res.body.getReader();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                controller.close();
+                break;
+              }
+              controller.enqueue(value);
+            }
+          } catch (error) {
+            // 流错误通常是因为连接被对方关闭，这在流式响应结束时是正常的
+            // 只记录非预期的错误
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            if (
+              !errorMessage.includes("terminated") &&
+              !errorMessage.includes("closed")
+            ) {
+              console.error("[Proxy] Unexpected stream error:", error);
+            }
+            // 静默关闭控制器
+            try {
+              controller.close();
+            } catch (e) {
+              // 控制器可能已经关闭，忽略错误
+            }
+          }
+        },
+        cancel() {
+          try {
+            reader.cancel();
+          } catch (e) {
+            // 忽略取消错误
+          }
+        },
+      });
+
+      return new Response(stream, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: newHeaders,
+      });
+    }
+
+    // 如果没有body，直接返回
+    return new Response(null, {
       status: res.status,
       statusText: res.statusText,
       headers: newHeaders,
     });
+  } catch (error) {
+    console.error("[Proxy] Fetch error:", error);
+    console.error("[Proxy] Target URL:", fetchUrl);
+
+    // 返回错误响应而不是抛出异常
+    return NextResponse.json(
+      {
+        error: "Proxy request failed",
+        message: error instanceof Error ? error.message : String(error),
+        targetUrl: fetchUrl,
+      },
+      { status: 502 },
+    );
   } finally {
     clearTimeout(timeoutId);
   }
