@@ -57,15 +57,21 @@ export class XAIApi implements LLMApi {
         accessStore.xaiProxyUrl,
       );
       const endpoint = [baseUrl, path].join("/");
-      const proxyPath = "/api/xai/";
 
+      // 在 Tauri 环境中，proxyUrl 为空，直接使用原始 URL
+      if (!proxyUrl) {
+        return endpoint;
+      }
+
+      // 在 standalone 模式中，使用代理服务器
+      const proxyPath = "/api/xai/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
         console.error("[XAI] Failed to build proxy URL:", e);
-        return [baseUrl, path].join("/");
+        return endpoint;
       }
     }
 

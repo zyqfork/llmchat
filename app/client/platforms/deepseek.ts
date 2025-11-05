@@ -66,15 +66,21 @@ export class DeepSeekApi implements LLMApi {
         accessStore.deepseekProxyUrl,
       );
       const endpoint = [baseUrl, path].join("/");
-      const proxyPath = "/api/deepseek/";
 
+      // 在 Tauri 环境中，proxyUrl 为空，直接使用原始 URL
+      if (!proxyUrl) {
+        return endpoint;
+      }
+
+      // 在 standalone 模式中，使用代理服务器
+      const proxyPath = "/api/deepseek/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
         console.error("[DeepSeek] Failed to build proxy URL:", e);
-        return [baseUrl, path].join("/");
+        return endpoint;
       }
     }
 

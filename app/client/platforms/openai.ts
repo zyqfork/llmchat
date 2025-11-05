@@ -129,8 +129,15 @@ export class ChatGPTApi implements LLMApi {
         : accessStore.openaiProxyUrl;
       const proxyUrl = getProxyUrl(useProxy, configuredProxyUrl);
       const endpoint = [baseUrl, path].join("/");
-      const proxyPath = isAzure ? "/api/azure/" : "/api/openai/";
 
+      // 在 Tauri 环境中，proxyUrl 为空，直接使用原始 URL
+      // stream_fetch 命令会在 Rust 后端处理请求
+      if (!proxyUrl) {
+        return cloudflareAIGatewayUrl(endpoint);
+      }
+
+      // 在 standalone 模式中，使用代理服务器
+      const proxyPath = isAzure ? "/api/azure/" : "/api/openai/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
@@ -138,7 +145,7 @@ export class ChatGPTApi implements LLMApi {
       } catch (e) {
         console.error("[OpenAI] Failed to build proxy URL:", e);
         // 如果代理URL构建失败，回退到直接URL
-        return cloudflareAIGatewayUrl([baseUrl, path].join("/"));
+        return cloudflareAIGatewayUrl(endpoint);
       }
     }
 

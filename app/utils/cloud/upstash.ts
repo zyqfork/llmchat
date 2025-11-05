@@ -1,6 +1,7 @@
 import { STORAGE_KEY } from "@/app/constant";
 import { SyncStore } from "@/app/store/sync";
 import { chunks } from "../format";
+import { getProxyUrl, isTauriApp, tauriFetch } from "@/app/utils/tauri-proxy";
 
 export type UpstashConfig = SyncStore["upstash"];
 export type UpStashClient = ReturnType<typeof createUpstashClient>;
@@ -11,13 +12,26 @@ export function createUpstashClient(store: SyncStore) {
   const chunkCountKey = `${storeKey}-chunk-count`;
   const chunkIndexKey = (i: number) => `${storeKey}-chunk-${i}`;
 
-  const proxyUrl =
-    store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
+  // 使用统一的 getProxyUrl 函数
+  // 在 Tauri 环境中会返回空字符串（使用 proxy_fetch 命令）
+  const proxyUrl = getProxyUrl(store.useProxy, store.proxyUrl);
+
+  // 在 Tauri 环境中使用 tauriFetch，否则使用普通 fetch
+  const useTauriFetch = isTauriApp() && store.useProxy;
+  const fetchFn = useTauriFetch ? tauriFetch : fetch;
+
+  if (useTauriFetch) {
+    console.log("[Upstash] Using Tauri fetch (proxy_fetch command)");
+  } else if (store.useProxy) {
+    console.log("[Upstash] Using proxy URL:", proxyUrl);
+  } else {
+    console.log("[Upstash] Direct connection (no proxy)");
+  }
 
   return {
     async check() {
       try {
-        const res = await fetch(this.path(`get/${storeKey}`, proxyUrl), {
+        const res = await fetchFn(this.path(`get/${storeKey}`, proxyUrl), {
           method: "GET",
           headers: this.headers(),
         });
@@ -30,7 +44,7 @@ export function createUpstashClient(store: SyncStore) {
     },
 
     async redisGet(key: string) {
-      const res = await fetch(this.path(`get/${key}`, proxyUrl), {
+      const res = await fetchFn(this.path(`get/${key}`, proxyUrl), {
         method: "GET",
         headers: this.headers(),
       });
@@ -42,7 +56,7 @@ export function createUpstashClient(store: SyncStore) {
     },
 
     async redisSet(key: string, value: string) {
-      const res = await fetch(this.path(`set/${key}`, proxyUrl), {
+      const res = await fetchFn(this.path(`set/${key}`, proxyUrl), {
         method: "POST",
         headers: this.headers(),
         body: value,
@@ -97,6 +111,7 @@ export function createUpstashClient(store: SyncStore) {
         return endpoint + path;
       }
 
+      // 在 standalone 模式中，使用代理服务器
       if (proxyUrl.length > 0 && !proxyUrl.endsWith("/")) {
         proxyUrl += "/";
       }

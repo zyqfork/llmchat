@@ -466,15 +466,21 @@ export class ClaudeApi implements LLMApi {
         accessStore.anthropicProxyUrl,
       );
       const endpoint = `${baseUrl}/${path}`;
-      const proxyPath = "/api/anthropic/";
 
+      // 在 Tauri 环境中，proxyUrl 为空，直接使用原始 URL
+      if (!proxyUrl) {
+        return cloudflareAIGatewayUrl(endpoint);
+      }
+
+      // 在 standalone 模式中，使用代理服务器
+      const proxyPath = "/api/anthropic/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
         return cloudflareAIGatewayUrl(u.toString());
       } catch (e) {
         console.error("[Anthropic] Failed to build proxy URL:", e);
-        return cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
+        return cloudflareAIGatewayUrl(endpoint);
       }
     }
 

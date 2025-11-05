@@ -43,15 +43,13 @@ pub async fn stream_fetch(
   let event_name = "stream-response";
   let request_id = REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst);
 
+  // 添加日志输出，方便调试
+  println!("[Tauri Stream Fetch] {} {}", method, url);
+
   let mut _headers = HeaderMap::new();
   for (key, value) in &headers {
     _headers.insert(key.parse::<HeaderName>().unwrap(), value.parse().unwrap());
   }
-
-  // println!("method: {:?}", method);
-  // println!("url: {:?}", url);
-  // println!("headers: {:?}", headers);
-  // println!("headers: {:?}", _headers);
 
   let method = method.parse::<reqwest::Method>().map_err(|err| format!("failed to parse method: {}", err))?;
   let client = Client::builder()
