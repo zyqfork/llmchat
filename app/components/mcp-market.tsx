@@ -23,6 +23,7 @@ import {
   resumeMcpServer,
   removeMcpServer,
   validateMcpServer,
+  updateCustomPrompts,
 } from "../mcp/actions.client";
 import {
   ListToolsResponse,
@@ -38,6 +39,7 @@ import { getAllBuiltinServers, searchServers } from "../mcp/builtin-servers";
 import clsx from "clsx";
 import PlayIcon from "../icons/play.svg";
 import StopIcon from "../icons/pause.svg";
+import { MCP_SYSTEM_TEMPLATE, MCP_TOOLS_TEMPLATE } from "../constant";
 
 interface ConfigProperty {
   type: string;
@@ -81,6 +83,12 @@ export function McpMarketPage() {
   // Manual edit modal state
   const [isEditingManual, setIsEditingManual] = useState(false);
   const [editingManualId, setEditingManualId] = useState<string>("");
+
+  // 系统提示词编辑状态
+  const [isViewingPrompt, setIsViewingPrompt] = useState(false);
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [customSystemPrompt, setCustomSystemPrompt] = useState("");
+  const [customToolsPrompt, setCustomToolsPrompt] = useState("");
 
   // 搜索框引用
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +134,10 @@ export function McpMarketPage() {
         setIsLoading(true);
         const config = await getMcpConfigFromFile();
         setConfig(config);
+
+        // 加载自定义提示词
+        setCustomSystemPrompt(config.customSystemPrompt || "");
+        setCustomToolsPrompt(config.customToolsPrompt || "");
 
         // 获取所有客户端的状态
         const statuses = await getClientsStatus();
@@ -343,6 +355,27 @@ export function McpMarketPage() {
     } finally {
       updateLoadingState("all", null);
     }
+  };
+
+  // 保存自定义提示词
+  const saveCustomPrompts = async () => {
+    try {
+      const newConfig = await updateCustomPrompts(
+        customSystemPrompt || undefined,
+        customToolsPrompt || undefined,
+      );
+      setConfig(newConfig);
+      setIsEditingPrompt(false);
+      showToast("系统提示词已保存");
+    } catch (error) {
+      showToast("保存失败");
+    }
+  };
+
+  // 重置为默认提示词
+  const resetToDefaultPrompts = () => {
+    setCustomSystemPrompt("");
+    setCustomToolsPrompt("");
   };
 
   // ---- Manual Add helpers ----
@@ -982,6 +1015,46 @@ export function McpMarketPage() {
           </div>
 
           <div className={styles["server-list"]}>{renderServerList()}</div>
+
+          {/* 系统提示词模板区域 */}
+          <div className={styles["prompt-template-section"]}>
+            <div className={styles["prompt-template-header"]}>
+              <div className={styles["prompt-template-title"]}>
+                <span className={styles["prompt-icon"]}>💬</span>
+                MCP 系统提示词模板
+              </div>
+              <div className={styles["prompt-template-actions"]}>
+                <IconButton
+                  icon={<EyeIcon />}
+                  text="查看"
+                  onClick={() => setIsViewingPrompt(true)}
+                  bordered
+                />
+                <IconButton
+                  icon={<EditIcon />}
+                  text="编辑"
+                  onClick={() => {
+                    setIsEditingPrompt(true);
+                    setIsViewingPrompt(false);
+                  }}
+                  bordered
+                />
+              </div>
+            </div>
+            <div className={styles["prompt-template-description"]}>
+              系统提示词用于指导 AI 如何使用 MCP
+              工具。你可以自定义提示词以优化工具调用行为。
+            </div>
+            <div className={styles["prompt-template-status"]}>
+              {customSystemPrompt || customToolsPrompt ? (
+                <span className={styles["status-custom"]}>
+                  ✓ 使用自定义提示词
+                </span>
+              ) : (
+                <span className={styles["status-default"]}>使用默认提示词</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/*手动添加/编辑服务器*/}
@@ -1242,6 +1315,137 @@ export function McpMarketPage() {
                 ) : (
                   <div>暂无可用工具</div>
                 )}
+              </div>
+            </Modal>
+          </div>
+        )}
+
+        {/* 查看系统提示词 */}
+        {isViewingPrompt && (
+          <div className="modal-mask">
+            <Modal
+              title="MCP 系统提示词模板"
+              onClose={() => setIsViewingPrompt(false)}
+              actions={[
+                <IconButton
+                  key="edit"
+                  icon={<EditIcon />}
+                  text="编辑"
+                  onClick={() => {
+                    setIsViewingPrompt(false);
+                    setIsEditingPrompt(true);
+                  }}
+                  bordered
+                />,
+                <IconButton
+                  key="close"
+                  text="关闭"
+                  onClick={() => setIsViewingPrompt(false)}
+                  bordered
+                />,
+              ]}
+            >
+              <div className={styles["prompt-viewer"]}>
+                <div className={styles["prompt-section"]}>
+                  <div className={styles["prompt-section-title"]}>
+                    工具模板 (MCP_TOOLS_TEMPLATE)
+                  </div>
+                  <pre className={styles["prompt-content"]}>
+                    {customToolsPrompt || MCP_TOOLS_TEMPLATE}
+                  </pre>
+                </div>
+                <div className={styles["prompt-section"]}>
+                  <div className={styles["prompt-section-title"]}>
+                    系统模板 (MCP_SYSTEM_TEMPLATE)
+                  </div>
+                  <pre className={styles["prompt-content"]}>
+                    {customSystemPrompt || MCP_SYSTEM_TEMPLATE}
+                  </pre>
+                </div>
+              </div>
+            </Modal>
+          </div>
+        )}
+
+        {/* 编辑系统提示词 */}
+        {isEditingPrompt && (
+          <div className="modal-mask">
+            <Modal
+              title="编辑 MCP 系统提示词"
+              onClose={() => setIsEditingPrompt(false)}
+              actions={[
+                <IconButton
+                  key="reset"
+                  text="重置为默认"
+                  onClick={resetToDefaultPrompts}
+                  bordered
+                />,
+                <IconButton
+                  key="cancel"
+                  text="取消"
+                  onClick={() => setIsEditingPrompt(false)}
+                  bordered
+                />,
+                <IconButton
+                  key="save"
+                  text="保存"
+                  type="primary"
+                  onClick={saveCustomPrompts}
+                  bordered
+                />,
+              ]}
+            >
+              <div className={styles["prompt-editor"]}>
+                <div className={styles["prompt-hint"]}>
+                  💡 提示：留空将使用默认模板。支持的变量：
+                  <code>{"{{ clientId }}"}</code>、<code>{"{{ tools }}"}</code>
+                  、<code>{"{{ MCP_TOOLS }}"}</code>
+                </div>
+                <List>
+                  <ListItem
+                    title="工具模板 (MCP_TOOLS_TEMPLATE)"
+                    subTitle="用于格式化每个 MCP 服务器的工具列表"
+                    vertical
+                  >
+                    <textarea
+                      className={styles["prompt-textarea"]}
+                      value={customToolsPrompt}
+                      onChange={(e) => setCustomToolsPrompt(e.target.value)}
+                      placeholder={MCP_TOOLS_TEMPLATE}
+                      rows={10}
+                    />
+                  </ListItem>
+                  <ListItem
+                    title="系统模板 (MCP_SYSTEM_TEMPLATE)"
+                    subTitle="用于生成完整的系统提示词，指导 AI 如何使用工具"
+                    vertical
+                  >
+                    <textarea
+                      className={styles["prompt-textarea"]}
+                      value={customSystemPrompt}
+                      onChange={(e) => setCustomSystemPrompt(e.target.value)}
+                      placeholder={MCP_SYSTEM_TEMPLATE}
+                      rows={15}
+                    />
+                  </ListItem>
+                </List>
+                <div className={styles["prompt-preview-section"]}>
+                  <div className={styles["prompt-section-title"]}>
+                    默认模板预览
+                  </div>
+                  <details className={styles["prompt-details"]}>
+                    <summary>查看默认工具模板</summary>
+                    <pre className={styles["prompt-content-small"]}>
+                      {MCP_TOOLS_TEMPLATE}
+                    </pre>
+                  </details>
+                  <details className={styles["prompt-details"]}>
+                    <summary>查看默认系统模板</summary>
+                    <pre className={styles["prompt-content-small"]}>
+                      {MCP_SYSTEM_TEMPLATE}
+                    </pre>
+                  </details>
+                </div>
               </div>
             </Modal>
           </div>

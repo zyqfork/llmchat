@@ -163,10 +163,15 @@ export const TRANSPORT_TYPE_DESCRIPTIONS: Record<MCPTransportType, string> = {
 export interface McpConfigData {
   // MCP Server 的配置
   mcpServers: Record<string, ServerConfig>;
+  // 自定义系统提示词模板
+  customSystemPrompt?: string;
+  customToolsPrompt?: string;
 }
 
 export const DEFAULT_MCP_CONFIG: McpConfigData = {
   mcpServers: {},
+  customSystemPrompt: undefined,
+  customToolsPrompt: undefined,
 };
 
 // SSE传输协议配置类型 (网页端专用)

@@ -226,6 +226,20 @@ export async function removeMcpServer(
   return next;
 }
 
+export async function updateCustomPrompts(
+  customSystemPrompt?: string,
+  customToolsPrompt?: string,
+): Promise<McpConfigData> {
+  const current = readConfig();
+  const next: McpConfigData = {
+    ...current,
+    customSystemPrompt,
+    customToolsPrompt,
+  };
+  writeConfig(next);
+  return next;
+}
+
 export async function validateMcpServer(config: ServerConfig): Promise<void> {
   // 验证基本配置
   if (!config.baseUrl) {

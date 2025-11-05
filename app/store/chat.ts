@@ -287,6 +287,12 @@ async function getMcpSystemPrompt(
 
   const tools = await getAllTools();
 
+  // 获取自定义提示词模板
+  const { getMcpConfigFromFile } = await import("../mcp/actions.client");
+  const config = await getMcpConfigFromFile();
+  const toolsTemplate = config.customToolsPrompt || MCP_TOOLS_TEMPLATE;
+  const systemTemplate = config.customSystemPrompt || MCP_SYSTEM_TEMPLATE;
+
   let toolsStr = "";
   let totalToolCount = 0;
 
@@ -302,26 +308,25 @@ async function getMcpSystemPrompt(
     // 统计工具数量
     totalToolCount += i.tools.tools.length;
 
-    toolsStr += MCP_TOOLS_TEMPLATE.replace(
-      /\{\{ clientId \}\}/g,
-      i.clientId,
-    ).replace(
-      "{{ tools }}",
-      i.tools.tools.map((p: object) => JSON.stringify(p, null, 2)).join("\n"),
-    );
+    toolsStr += toolsTemplate
+      .replace(/\{\{ clientId \}\}/g, i.clientId)
+      .replace(
+        "{{ tools }}",
+        i.tools.tools.map((p: object) => JSON.stringify(p, null, 2)).join("\n"),
+      );
   });
 
   // 根据工具数量决定是否使用强化模式
-  let systemTemplate = MCP_SYSTEM_TEMPLATE;
-  if (totalToolCount > 0) {
+  let finalSystemTemplate = systemTemplate;
+  if (totalToolCount > 0 && systemTemplate.includes("## Tool Use Rules")) {
     // 对于少量工具，使用更强化的提示词
-    systemTemplate = systemTemplate.replace(
+    finalSystemTemplate = systemTemplate.replace(
       "## Tool Use Rules",
       `## Tool Use Rules (${totalToolCount} tools available)\n**IMPORTANT: You have ${totalToolCount} powerful tools available. Use them actively to help users!**`,
     );
   }
 
-  return systemTemplate.replace("{{ MCP_TOOLS }}", toolsStr);
+  return finalSystemTemplate.replace("{{ MCP_TOOLS }}", toolsStr);
 }
 
 const DEFAULT_CHAT_STATE = {
