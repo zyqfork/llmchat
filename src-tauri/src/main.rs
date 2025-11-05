@@ -26,16 +26,6 @@ fn main() {
       fetch::tauri_fetch_stream
     ])
     .plugin(tauri_plugin_window_state::Builder::default().build())
-    .setup(|_app| {
-      // Auto-start proxy server on port 3210
-      tauri::async_runtime::spawn(async move {
-        let proxy = proxy::ProxyServer::new(3210);
-        if let Err(e) = proxy.start().await {
-          eprintln!("[Tauri Proxy] Failed to start proxy server: {}", e);
-        }
-      });
-      Ok(())
-    })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

@@ -371,15 +371,18 @@ export function safeLocalStorage(): {
   clear: () => void;
 } {
   let storage: Storage | null;
+  const isBrowser = typeof window !== "undefined";
 
   try {
-    if (typeof window !== "undefined" && window.localStorage) {
+    if (isBrowser && window.localStorage) {
       storage = window.localStorage;
     } else {
       storage = null;
     }
   } catch (e) {
-    console.error("localStorage is not available:", e);
+    if (isBrowser) {
+      console.error("localStorage is not available:", e);
+    }
     storage = null;
   }
 
@@ -388,9 +391,12 @@ export function safeLocalStorage(): {
       if (storage) {
         return storage.getItem(key);
       } else {
-        console.warn(
-          `Attempted to get item "${key}" from localStorage, but localStorage is not available.`,
-        );
+        // 只在浏览器环境输出警告，服务端静默处理
+        if (isBrowser) {
+          console.warn(
+            `Attempted to get item "${key}" from localStorage, but localStorage is not available.`,
+          );
+        }
         return null;
       }
     },
@@ -398,27 +404,36 @@ export function safeLocalStorage(): {
       if (storage) {
         storage.setItem(key, value);
       } else {
-        console.warn(
-          `Attempted to set item "${key}" in localStorage, but localStorage is not available.`,
-        );
+        // 只在浏览器环境输出警告，服务端静默处理
+        if (isBrowser) {
+          console.warn(
+            `Attempted to set item "${key}" in localStorage, but localStorage is not available.`,
+          );
+        }
       }
     },
     removeItem(key: string): void {
       if (storage) {
         storage.removeItem(key);
       } else {
-        console.warn(
-          `Attempted to remove item "${key}" from localStorage, but localStorage is not available.`,
-        );
+        // 只在浏览器环境输出警告，服务端静默处理
+        if (isBrowser) {
+          console.warn(
+            `Attempted to remove item "${key}" from localStorage, but localStorage is not available.`,
+          );
+        }
       }
     },
     clear(): void {
       if (storage) {
         storage.clear();
       } else {
-        console.warn(
-          "Attempted to clear localStorage, but localStorage is not available.",
-        );
+        // 只在浏览器环境输出警告，服务端静默处理
+        if (isBrowser) {
+          console.warn(
+            "Attempted to clear localStorage, but localStorage is not available.",
+          );
+        }
       }
     },
   };
