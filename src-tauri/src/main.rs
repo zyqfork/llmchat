@@ -1,29 +1,20 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod proxy;  // HTTP 代理服务器（保留）
 mod fetch;  // 统一的 fetch 模块
-
-#[tauri::command]
-async fn start_proxy_server(port: u16) -> Result<String, String> {
-    let proxy = proxy::ProxyServer::new(port);
-    
-    tokio::spawn(async move {
-        if let Err(e) = proxy.start().await {
-            eprintln!("[Tauri Proxy] Failed to start proxy server: {}", e);
-        }
-    });
-    
-    Ok(format!("Proxy server starting on port {}", port))
-}
 
 fn main() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
-      start_proxy_server,
-      // 新的统一命令
-      fetch::tauri_fetch,
-      fetch::tauri_fetch_stream
+      // MCP 请求
+      fetch::tauri_fetch_mcp,
+      fetch::tauri_fetch_mcp_stream,
+      // 大模型请求
+      fetch::tauri_fetch_llm,
+      fetch::tauri_fetch_llm_stream,
+      // 云同步请求
+      fetch::tauri_fetch_sync,
+      fetch::tauri_fetch_sync_stream
     ])
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .run(tauri::generate_context!())

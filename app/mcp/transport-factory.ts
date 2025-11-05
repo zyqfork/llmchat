@@ -3,7 +3,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { MCPClientLogger } from "./logger";
 import { ServerConfig } from "./types";
-import { fetch, getProxyUrl, isTauriApp } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, isTauriApp, FetchType } from "@/app/utils/fetch";
 
 const logger = new MCPClientLogger("Transport Factory");
 
@@ -132,11 +132,15 @@ export class TransportFactory {
 
             logger.info(`[MCP SSE] Fetching: ${finalUrlString}`);
 
-            const response = await fetch(finalUrlString, {
-              ...init,
-              headers,
-              signal: controller.signal,
-            });
+            const response = await fetch(
+              finalUrlString,
+              {
+                ...init,
+                headers,
+                signal: controller.signal,
+              },
+              FetchType.MCP,
+            );
 
             clearTimeout(timeoutId);
 
@@ -221,7 +225,7 @@ export class TransportFactory {
       fetch: async (url: string | URL | Request, init?: RequestInit) => {
         const urlString = url instanceof Request ? url.url : url.toString();
         logger.info(`[StreamableHTTP] Fetching: ${urlString}`);
-        return fetch(urlString, init);
+        return fetch(urlString, init, FetchType.MCP);
       },
     };
 

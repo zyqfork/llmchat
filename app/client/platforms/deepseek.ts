@@ -29,7 +29,7 @@ import {
 } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export class DeepSeekApi implements LLMApi {
   private disableListModels = true;
@@ -266,7 +266,7 @@ export class DeepSeekApi implements LLMApi {
           modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
-        const res = await fetch(chatPath, chatPayload);
+        const res = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
@@ -296,12 +296,16 @@ export class DeepSeekApi implements LLMApi {
 
   async models(): Promise<LLMModel[]> {
     try {
-      const res = await fetch(this.path(DeepSeek.ListModelPath), {
-        method: "GET",
-        headers: {
-          ...getHeaders(),
+      const res = await fetch(
+        this.path(DeepSeek.ListModelPath),
+        {
+          method: "GET",
+          headers: {
+            ...getHeaders(),
+          },
         },
-      });
+        FetchType.LLM,
+      );
 
       const resJson = (await res.json()) as OpenAIListModelResponse;
       const chatModels = resJson.data;

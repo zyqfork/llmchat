@@ -1,6 +1,6 @@
 import { STORAGE_KEY } from "@/app/constant";
 import { SyncStore } from "@/app/store/sync";
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export type WebDAVConfig = SyncStore["webdav"];
 export type WebDavClient = ReturnType<typeof createWebDavClient>;
@@ -22,10 +22,14 @@ export function createWebDavClient(store: SyncStore) {
   return {
     async check() {
       try {
-        const res = await fetch(this.path(folder, proxyUrl, "MKCOL"), {
-          method: "GET",
-          headers: this.headers(),
-        });
+        const res = await fetch(
+          this.path(folder, proxyUrl, "MKCOL"),
+          {
+            method: "GET",
+            headers: this.headers(),
+          },
+          FetchType.Sync,
+        );
         const success = [201, 200, 404, 405, 301, 302, 307, 308].includes(
           res.status,
         );
@@ -43,10 +47,14 @@ export function createWebDavClient(store: SyncStore) {
     },
 
     async get(key: string) {
-      const res = await fetch(this.path(fileName, proxyUrl), {
-        method: "GET",
-        headers: this.headers(),
-      });
+      const res = await fetch(
+        this.path(fileName, proxyUrl),
+        {
+          method: "GET",
+          headers: this.headers(),
+        },
+        FetchType.Sync,
+      );
 
       console.log("[WebDav] get key = ", key, res.status, res.statusText);
 
@@ -58,11 +66,15 @@ export function createWebDavClient(store: SyncStore) {
     },
 
     async set(key: string, value: string) {
-      const res = await fetch(this.path(fileName, proxyUrl), {
-        method: "PUT",
-        headers: this.headers(),
-        body: value,
-      });
+      const res = await fetch(
+        this.path(fileName, proxyUrl),
+        {
+          method: "PUT",
+          headers: this.headers(),
+          body: value,
+        },
+        FetchType.Sync,
+      );
 
       console.log("[WebDav] set key = ", key, res.status, res.statusText);
     },

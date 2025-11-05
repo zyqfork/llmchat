@@ -1,7 +1,7 @@
 import { STORAGE_KEY } from "@/app/constant";
 import { SyncStore } from "@/app/store/sync";
 import { chunks } from "../format";
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export type UpstashConfig = SyncStore["upstash"];
 export type UpStashClient = ReturnType<typeof createUpstashClient>;
@@ -25,10 +25,14 @@ export function createUpstashClient(store: SyncStore) {
   return {
     async check() {
       try {
-        const res = await fetch(this.path(`get/${storeKey}`, proxyUrl), {
-          method: "GET",
-          headers: this.headers(),
-        });
+        const res = await fetch(
+          this.path(`get/${storeKey}`, proxyUrl),
+          {
+            method: "GET",
+            headers: this.headers(),
+          },
+          FetchType.Sync,
+        );
         console.log("[Upstash] check", res.status, res.statusText);
         return [200].includes(res.status);
       } catch (e) {
@@ -38,10 +42,14 @@ export function createUpstashClient(store: SyncStore) {
     },
 
     async redisGet(key: string) {
-      const res = await fetch(this.path(`get/${key}`, proxyUrl), {
-        method: "GET",
-        headers: this.headers(),
-      });
+      const res = await fetch(
+        this.path(`get/${key}`, proxyUrl),
+        {
+          method: "GET",
+          headers: this.headers(),
+        },
+        FetchType.Sync,
+      );
 
       console.log("[Upstash] get key = ", key, res.status, res.statusText);
       const resJson = (await res.json()) as { result: string };
@@ -50,11 +58,15 @@ export function createUpstashClient(store: SyncStore) {
     },
 
     async redisSet(key: string, value: string) {
-      const res = await fetch(this.path(`set/${key}`, proxyUrl), {
-        method: "POST",
-        headers: this.headers(),
-        body: value,
-      });
+      const res = await fetch(
+        this.path(`set/${key}`, proxyUrl),
+        {
+          method: "POST",
+          headers: this.headers(),
+          body: value,
+        },
+        FetchType.Sync,
+      );
 
       console.log("[Upstash] set key = ", key, res.status, res.statusText);
     },

@@ -256,138 +256,42 @@ export const MCP_TOOLS_TEMPLATE = `
 `;
 
 export const MCP_SYSTEM_TEMPLATE = `
-In this environment you have access to a set of tools you can use to answer the user's question. You can use one or more tools per message, and will receive the result of that tool use in the user's response. You use tools step-by-step to accomplish a given task, with each tool use informed by the result of the previous tool use.
+# MCP Tools
 
-## Available Tools:
 {{ MCP_TOOLS }}
 
-## Tool Use Rules
-Here are the rules you should always follow to solve your task:
-1. Always use the right arguments for the tools. Never use variable names as the action arguments, use the value instead.
-2. Call a tool only when needed: do not call tools if you do not need information, try to solve the task yourself.
-3. If no tool call is needed, just answer the question directly.
-4. Never re-do a tool call that you previously did with the exact same parameters.
-5. ALWAYS USE TOOLS when they can help answer user questions - DO NOT just describe what you could do, TAKE ACTION immediately.
+## Call Format
 
-## Common Tool Use Triggers:
-- Deployment and hosting requests (deploy, publish, upload, host, etc.)
-- Documentation and information queries (search, lookup, reference, etc.)
-- Content creation and management (HTML, text, files, etc.)
-- System and file operations (create, read, update, delete files, etc.)
-- Task automation and workflow management
+Use ONLY this format:
 
-Remember: Always respond in the user's language and take immediate action when tools can help. If you solve the task correctly by using the right tools, you will be highly successful!
+\`\`\`json:mcp:{SERVER_ID}
+{"method":"tools/call","params":{"name":"TOOL_NAME","arguments":{...}}}
+\`\`\`
 
-3. HOW TO USE TOOLS:
-   A. Tool Call Format:
-      - Use markdown code blocks with format: \`\`\`json:mcp:{clientId}\`\`\`
-      - **CRITICAL**: {clientId} is the MCP Server ID (e.g., "smithery-websearch", "filesystem"), NOT the tool name!
-      - Always include:
-        * method: "tools/call"（Only this method is supported）
-        * params: 
-          - name: must match an available tool name (e.g., "search", "write_file")
-          - arguments: required parameters for the tool
+## Rules
 
-   B. Response Format:
-      - Tool responses will come as user messages
-      - Format: \`\`\`json:mcp-response:{clientId}\`\`\`
-      - Wait for response before making another tool call
+1. Use markdown code block: \`\`\`json:mcp:{SERVER_ID}\`\`\`
+2. {SERVER_ID} = MCP server ID (e.g., "smithery-websearch")
+3. TOOL_NAME = actual tool name from available tools
+4. One tool call per message
+5. Call tools immediately when needed
 
-   C. Important Rules:
-      - Only use tools/call method
-      - Only ONE tool call per message
-      - ALWAYS TAKE ACTION instead of just describing what you could do
-      - **CRITICAL**: Use the Server ID (clientId) in the code block, NOT the tool name!
-      - Example: If using "search" tool from "smithery-websearch" server, use \`\`\`json:mcp:smithery-websearch\`\`\`
-      - Verify arguments match the tool's requirements
+## Examples
 
-4. INTERACTION FLOW:
-   A. When user makes a request:
-      - IMMEDIATELY use appropriate tool if available
-      - DO NOT ask if user wants you to use the tool
-      - DO NOT just describe what you could do
-   B. After receiving tool response:
-      - Explain results clearly
-      - Take next appropriate action if needed
-   C. If tools fail:
-      - Explain the error
-      - Try alternative approach immediately
+Search:
+\`\`\`json:mcp:smithery-websearch
+{"method":"tools/call","params":{"name":"search","arguments":{"query":"AI news","limit":10}}}
+\`\`\`
 
-5. EXAMPLE INTERACTIONS:
+File:
+\`\`\`json:mcp:filesystem
+{"method":"tools/call","params":{"name":"write_file","arguments":{"path":"/file.txt","content":"text"}}}
+\`\`\`
 
-   ✅ CORRECT Example 1 - Using "search" tool from "smithery-websearch" server:
-   
-   \`\`\`json:mcp:smithery-websearch
-   {
-     "method": "tools/call",
-     "params": {
-       "name": "search",
-       "arguments": {
-         "query": "today's news",
-         "limit": 10
-       }
-     }
-   }
-   \`\`\`
-   
-   ✅ CORRECT Example 2 - Using "write_file" tool from "filesystem" server:
-   
-   \`\`\`json:mcp:filesystem
-   {
-     "method": "tools/call",
-     "params": {
-       "name": "write_file",
-       "arguments": {
-         "path": "/Users/river/dev/nextchat/test/joke.txt",
-         "content": "为什么数学书总是感到忧伤？因为它有太多的问题。"
-       }
-     }
-   }
-   \`\`\`
+## NEVER Use
 
-   ❌ WRONG Example 1 - Using tool name instead of server ID:
-   
-   \`\`\`json:mcp:search
-   {
-     "method": "tools/call",
-     "params": {
-       "name": "search",
-       "arguments": {...}
-     }
-   }
-   \`\`\`
-   This is WRONG because "search" is the tool name, NOT the server ID!
-   You MUST use the server ID (e.g., "smithery-websearch") in the code block!
-
-   ❌ WRONG Example 2 - Missing "method": "tools/call":
-   
-   \`\`\`json:mcp:filesystem
-   {
-     "method": "write_file",
-     "params": {
-       "path": "NextChat_Information.txt",
-       "content": "1"
-     }
-   }
-   \`\`\`
-   This is WRONG because the method must be "tools/call", not the tool name!
-
-   ❌ WRONG Example 3 - Missing code block format:
-   
-   {
-     "method": "search_repositories",
-     "params": {
-       "query": "2oeee"
-     }
-   }
-   This is WRONG because it's missing the \`\`\`json:mcp:{clientId}\`\`\` wrapper!
-
-   REMEMBER:
-   - ALWAYS use \`\`\`json:mcp:{SERVER_ID}\`\`\` format
-   - ALWAYS use "method": "tools/call"
-   - ALWAYS put tool name in "params.name"
-   - ALWAYS put tool arguments in "params.arguments"
-   
+❌ <|tool_calls_section_begin|> or functions.* or plain JSON
+✅ ONLY use \`\`\`json:mcp:{SERVER_ID}\`\`\` format
 `;
 
 export const SUMMARIZE_MODEL = "gpt-4o-mini";

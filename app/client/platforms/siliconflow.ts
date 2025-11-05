@@ -30,7 +30,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
 
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 export interface SiliconFlowListModelResponse {
   object: string;
   data: Array<{
@@ -264,7 +264,7 @@ export class SiliconflowApi implements LLMApi {
           modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
-        const res = await fetch(chatPath, chatPayload);
+        const res = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
@@ -297,14 +297,18 @@ export class SiliconflowApi implements LLMApi {
       return DEFAULT_MODELS.slice();
     }
 
-    const res = await fetch(this.path(SiliconFlow.ListModelPath), {
-      method: "GET",
-      headers: {
-        ...getHeaders(false, {
-          providerName: "SiliconFlow",
-        }),
+    const res = await fetch(
+      this.path(SiliconFlow.ListModelPath),
+      {
+        method: "GET",
+        headers: {
+          ...getHeaders(false, {
+            providerName: "SiliconFlow",
+          }),
+        },
       },
-    });
+      FetchType.LLM,
+    );
 
     const resJson = (await res.json()) as SiliconFlowListModelResponse;
     const chatModels = resJson.data;

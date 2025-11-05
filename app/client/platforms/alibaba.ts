@@ -27,7 +27,7 @@ import {
   isVisionModel,
 } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -290,7 +290,7 @@ export class QwenApi implements LLMApi {
           modelCapabilities.reasoning || false, // 传递模型推理能力
         );
       } else {
-        const res = await fetch(chatPath, chatPayload);
+        const res = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();

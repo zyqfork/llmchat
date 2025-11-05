@@ -17,7 +17,7 @@ import {
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
 
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export interface OllamaListModelResponse {
   models: Array<{
@@ -185,7 +185,7 @@ export class OllamaApi implements LLMApi {
 
         controller.signal.onabort = finish;
 
-        const response = await fetch(chatPath, chatPayload);
+        const response = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         if (!response.ok) {
@@ -234,7 +234,7 @@ export class OllamaApi implements LLMApi {
 
         finish();
       } else {
-        const res = await fetch(chatPath, chatPayload);
+        const res = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
@@ -261,12 +261,16 @@ export class OllamaApi implements LLMApi {
     }
 
     try {
-      const res = await fetch(this.path("api/tags"), {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await fetch(
+        this.path("api/tags"),
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+        FetchType.LLM,
+      );
 
       if (!res.ok) {
         console.error(

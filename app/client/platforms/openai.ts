@@ -25,7 +25,7 @@ import {
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
-import { getProxyUrl } from "@/app/utils/fetch";
+import { getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 import {
   ChatOptions,
@@ -233,7 +233,7 @@ export class ChatGPTApi implements LLMApi {
         REQUEST_TIMEOUT_MS,
       );
 
-      const res = await fetch(speechPath, speechPayload);
+      const res = await fetch(speechPath, speechPayload, FetchType.LLM);
       clearTimeout(requestTimeoutId);
       return await res.arrayBuffer();
     } catch (e) {
@@ -470,7 +470,7 @@ export class ChatGPTApi implements LLMApi {
           getTimeoutMSByModel(options.config.model),
         );
 
-        const res = await fetch(chatPath, chatPayload);
+        const res = await fetch(chatPath, chatPayload, FetchType.LLM);
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
@@ -508,10 +508,14 @@ export class ChatGPTApi implements LLMApi {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
 
-    const res = await fetch(this.path(OpenaiPath.ListModelPath), {
-      method: "GET",
-      headers,
-    });
+    const res = await fetch(
+      this.path(OpenaiPath.ListModelPath),
+      {
+        method: "GET",
+        headers,
+      },
+      FetchType.LLM,
+    );
 
     if (!res.ok) {
       const resJson = await res.json();

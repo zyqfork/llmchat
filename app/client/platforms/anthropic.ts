@@ -18,7 +18,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
-import { fetch, getProxyUrl } from "@/app/utils/fetch";
+import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
 
 export type MultiBlockContent = {
   type: "image" | "text";
@@ -377,7 +377,7 @@ export class ClaudeApi implements LLMApi {
         controller.signal.onabort = () =>
           options.onFinish("", new Response(null, { status: 400 }));
 
-        const res = await fetch(path, payload);
+        const res = await fetch(path, payload, FetchType.LLM);
         const resJson = await res.json();
 
         const message = this.extractMessage(resJson);
@@ -405,12 +405,16 @@ export class ClaudeApi implements LLMApi {
   }
   async models() {
     try {
-      const res = await fetch(this.path(OpenaiPath.ListModelPath), {
-        method: "GET",
-        headers: {
-          ...getHeaders(),
+      const res = await fetch(
+        this.path(OpenaiPath.ListModelPath),
+        {
+          method: "GET",
+          headers: {
+            ...getHeaders(),
+          },
         },
-      });
+        FetchType.LLM,
+      );
 
       const resJson = (await res.json()) as OpenAIListModelResponse;
       const chatModels = resJson.data;

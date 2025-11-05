@@ -29,10 +29,41 @@ type ResponseEvent = {
 };
 
 /**
+ * 请求类型枚举
+ */
+export enum FetchType {
+  MCP = "mcp", // MCP 请求
+  LLM = "llm", // 大模型请求
+  Sync = "sync", // 云同步请求
+}
+
+/**
  * 检测是否在 Tauri 环境中运行
  */
 export function isTauriApp(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI__;
+}
+
+/**
+ * 根据 URL 自动检测请求类型
+ */
+function detectFetchType(url: string): FetchType {
+  // MCP 请求检测
+  if (url.includes("/api/mcp-proxy") || url.includes("/mcp/")) {
+    return FetchType.MCP;
+  }
+
+  // 云同步请求检测
+  if (
+    url.includes("/api/webdav") ||
+    url.includes("/api/upstash") ||
+    url.includes("dav.jianguoyun.com")
+  ) {
+    return FetchType.Sync;
+  }
+
+  // 默认为大模型请求
+  return FetchType.LLM;
 }
 
 /**
@@ -43,19 +74,26 @@ export function isTauriApp(): boolean {
  *
  * @param url - 请求 URL
  * @param options - 请求选项
+ * @param fetchType - 请求类型（可选，不指定则自动检测）
  * @returns Promise<Response>
  */
 export async function fetch(
   url: string,
   options?: RequestInit,
+  fetchType?: FetchType,
 ): Promise<Response> {
   // 非 Tauri 环境，使用浏览器原生 fetch
   if (!isTauriApp()) {
     return window.fetch(url, options);
   }
 
+  // 自动检测请求类型
+  const type = fetchType || detectFetchType(url);
+
   // Tauri 环境，使用 Rust 代理
-  console.log(`[Tauri Fetch] ${options?.method || "GET"} ${url}`);
+  console.log(
+    `[Tauri Fetch ${type.toUpperCase()}] ${options?.method || "GET"} ${url}`,
+  );
 
   const {
     signal,
@@ -103,10 +141,24 @@ export async function fetch(
 
   if (isStreamRequest) {
     // 使用流式代理
-    return fetchStream(url, method, headers, bodyBytes, signal || undefined);
+    return fetchStream(
+      url,
+      method,
+      headers,
+      bodyBytes,
+      signal || undefined,
+      type,
+    );
   } else {
     // 使用非流式代理
-    return fetchNonStream(url, method, headers, bodyBytes, signal || undefined);
+    return fetchNonStream(
+      url,
+      method,
+      headers,
+      bodyBytes,
+      signal || undefined,
+      type,
+    );
   }
 }
 
@@ -119,6 +171,7 @@ async function fetchStream(
   headers: Record<string, string>,
   body: number[],
   signal?: AbortSignal,
+  fetchType: FetchType = FetchType.LLM,
 ): Promise<Response> {
   const { invoke, event } = (window as any).__TAURI__;
 
@@ -162,8 +215,15 @@ async function fetchStream(
     )
     .then((u: Function) => (unlisten = u));
 
+  // 根据请求类型选择对应的 Tauri 命令
+  const commandMap = {
+    [FetchType.MCP]: "tauri_fetch_mcp_stream",
+    [FetchType.LLM]: "tauri_fetch_llm_stream",
+    [FetchType.Sync]: "tauri_fetch_sync_stream",
+  };
+
   try {
-    const res: TauriStreamResponse = await invoke("tauri_fetch_stream", {
+    const res: TauriStreamResponse = await invoke(commandMap[fetchType], {
       method: method.toUpperCase(),
       url,
       headers,
@@ -190,7 +250,7 @@ async function fetchStream(
 
     return response;
   } catch (e) {
-    console.error("[Tauri Fetch Stream] Error:", e);
+    console.error(`[Tauri Fetch ${fetchType.toUpperCase()} Stream] Error:`, e);
     close();
     return new Response("", { status: 599 });
   }
@@ -205,11 +265,19 @@ async function fetchNonStream(
   headers: Record<string, string>,
   body: number[],
   signal?: AbortSignal,
+  fetchType: FetchType = FetchType.LLM,
 ): Promise<Response> {
   const { invoke } = (window as any).__TAURI__;
 
+  // 根据请求类型选择对应的 Tauri 命令
+  const commandMap = {
+    [FetchType.MCP]: "tauri_fetch_mcp",
+    [FetchType.LLM]: "tauri_fetch_llm",
+    [FetchType.Sync]: "tauri_fetch_sync",
+  };
+
   try {
-    const res: TauriProxyResponse = await invoke("tauri_fetch", {
+    const res: TauriProxyResponse = await invoke(commandMap[fetchType], {
       method: method.toUpperCase(),
       url,
       headers,
@@ -223,7 +291,7 @@ async function fetchNonStream(
       headers: respHeaders,
     });
   } catch (e) {
-    console.error("[Tauri Fetch] Error:", e);
+    console.error(`[Tauri Fetch ${fetchType.toUpperCase()}] Error:`, e);
     throw e;
   }
 }
