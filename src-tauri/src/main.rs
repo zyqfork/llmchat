@@ -1,9 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod stream;
-mod proxy;
-mod proxy_command;
+mod proxy;  // HTTP 代理服务器（保留）
+mod fetch;  // 统一的 fetch 模块
 
 #[tauri::command]
 async fn start_proxy_server(port: u16) -> Result<String, String> {
@@ -21,9 +20,10 @@ async fn start_proxy_server(port: u16) -> Result<String, String> {
 fn main() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
-      stream::stream_fetch,
       start_proxy_server,
-      proxy_command::proxy_fetch
+      // 新的统一命令
+      fetch::tauri_fetch,
+      fetch::tauri_fetch_stream
     ])
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .setup(|_app| {

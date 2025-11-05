@@ -10,7 +10,7 @@ import {
   fetchEventSource,
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "./format";
-import { fetch as tauriFetch } from "./stream";
+import { fetch as tauriFetch } from "./fetch";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {

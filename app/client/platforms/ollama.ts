@@ -17,8 +17,7 @@ import {
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
 
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export interface OllamaListModelResponse {
   models: Array<{

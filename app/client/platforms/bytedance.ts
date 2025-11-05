@@ -23,8 +23,7 @@ import {
   getMessageTextContentWithoutThinking,
   getTimeoutMSByModel,
 } from "@/app/utils";
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export interface OpenAIListModelResponse {
   object: string;

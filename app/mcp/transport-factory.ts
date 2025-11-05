@@ -3,7 +3,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { MCPClientLogger } from "./logger";
 import { ServerConfig } from "./types";
-import { getProxyUrl, isTauriApp, tauriFetch } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl, isTauriApp } from "@/app/utils/fetch";
 
 const logger = new MCPClientLogger("Transport Factory");
 
@@ -87,32 +87,33 @@ export class TransportFactory {
             }, isTauriApp: ${isTauriApp()}`,
           );
 
-          // 在 Tauri 环境中，直接使用目标 URL，通过 tauriFetch 处理
-          // 在非 Tauri 环境中，使用代理 URL
-          if (config.useProxy && !isTauriApp()) {
-            const proxyUrl = getProxyUrl(config.useProxy, config.proxyUrl);
-            logger.info(
-              `[MCP SSE] Non-Tauri with proxy, proxyUrl: ${proxyUrl}`,
-            );
-            try {
-              const u = new URL(`${proxyUrl}/api/mcp-proxy`);
-              u.searchParams.append("endpoint", urlString);
-              finalUrl = u.toString();
-              logger.debug(`Using proxy for MCP SSE request: ${finalUrl}`);
-            } catch (e) {
-              logger.error(`Failed to build proxy URL: ${e}`);
+          // 统一的代理处理：
+          // - Tauri 环境：直接使用目标 URL，fetch 会自动使用 Rust 代理
+          // - 非 Tauri 环境：使用代理 URL
+          if (config.useProxy) {
+            if (isTauriApp()) {
+              // Tauri 环境：直接使用目标 URL
+              finalUrl = urlString;
+              logger.info(
+                `[MCP SSE] Tauri with proxy, using unified fetch for: ${finalUrl}`,
+              );
+            } else {
+              // 非 Tauri 环境：使用代理 URL
+              const proxyUrl = getProxyUrl(config.useProxy, config.proxyUrl);
+              logger.info(
+                `[MCP SSE] Non-Tauri with proxy, proxyUrl: ${proxyUrl}`,
+              );
+              try {
+                const u = new URL(`${proxyUrl}/api/mcp-proxy`);
+                u.searchParams.append("endpoint", urlString);
+                finalUrl = u.toString();
+                logger.debug(`Using proxy for MCP SSE request: ${finalUrl}`);
+              } catch (e) {
+                logger.error(`Failed to build proxy URL: ${e}`);
+              }
             }
-          } else if (config.useProxy && isTauriApp()) {
-            // Tauri 环境：直接使用目标 URL，tauriFetch 会处理
-            finalUrl = urlString;
-            logger.info(
-              `[MCP SSE] Tauri with proxy, will use tauriFetch for: ${finalUrl}`,
-            );
-            logger.debug(`Using Tauri fetch for MCP SSE request: ${finalUrl}`);
           } else {
-            logger.info(
-              `[MCP SSE] No proxy or conditions not met, direct request: ${urlString}`,
-            );
+            logger.info(`[MCP SSE] No proxy, direct request: ${urlString}`);
           }
 
           // 添加超时支持
@@ -125,34 +126,17 @@ export class TransportFactory {
           );
 
           try {
-            // 使用 tauriFetch 在 Tauri 环境中避免 CORS
-            const useTauriFetch = isTauriApp() && config.useProxy;
+            // 使用统一的 fetch，自动处理 Tauri 环境
             const finalUrlString =
               typeof finalUrl === "string" ? finalUrl : finalUrl.toString();
 
-            if (useTauriFetch) {
-              logger.info(
-                `[MCP SSE] Using Tauri fetch (direct request, no CORS): ${finalUrlString}`,
-              );
-            } else if (config.useProxy) {
-              logger.info(`[MCP SSE] Using HTTP proxy: ${finalUrlString}`);
-            } else {
-              logger.info(
-                `[MCP SSE] Direct request (no proxy): ${finalUrlString}`,
-              );
-            }
+            logger.info(`[MCP SSE] Fetching: ${finalUrlString}`);
 
-            const response = useTauriFetch
-              ? await tauriFetch(finalUrlString, {
-                  ...init,
-                  headers,
-                  signal: controller.signal,
-                })
-              : await fetch(finalUrl, {
-                  ...init,
-                  headers,
-                  signal: controller.signal,
-                });
+            const response = await fetch(finalUrlString, {
+              ...init,
+              headers,
+              signal: controller.signal,
+            });
 
             clearTimeout(timeoutId);
 
@@ -201,22 +185,24 @@ export class TransportFactory {
     // 处理代理配置
     let finalUrl = config.baseUrl;
 
-    // 在 Tauri 环境中，直接使用目标 URL
-    // 在非 Tauri 环境中，使用代理 URL
-    if (config.useProxy && !isTauriApp()) {
-      const proxyUrl = getProxyUrl(config.useProxy, config.proxyUrl);
-      try {
-        const u = new URL(`${proxyUrl}/api/mcp-proxy`);
-        u.searchParams.append("endpoint", config.baseUrl);
-        finalUrl = u.toString();
-        logger.debug(`Using proxy for MCP StreamableHTTP: ${finalUrl}`);
-      } catch (e) {
-        logger.error(`Failed to build proxy URL: ${e}`);
+    // 统一的代理处理
+    if (config.useProxy) {
+      if (isTauriApp()) {
+        // Tauri 环境：直接使用目标 URL，fetch 会自动使用 Rust 代理
+        finalUrl = config.baseUrl;
+        logger.debug(`Using unified fetch for MCP StreamableHTTP: ${finalUrl}`);
+      } else {
+        // 非 Tauri 环境：使用代理 URL
+        const proxyUrl = getProxyUrl(config.useProxy, config.proxyUrl);
+        try {
+          const u = new URL(`${proxyUrl}/api/mcp-proxy`);
+          u.searchParams.append("endpoint", config.baseUrl);
+          finalUrl = u.toString();
+          logger.debug(`Using proxy for MCP StreamableHTTP: ${finalUrl}`);
+        } catch (e) {
+          logger.error(`Failed to build proxy URL: ${e}`);
+        }
       }
-    } else if (config.useProxy && isTauriApp()) {
-      // Tauri 环境：直接使用目标 URL
-      finalUrl = config.baseUrl;
-      logger.debug(`Using Tauri fetch for MCP StreamableHTTP: ${finalUrl}`);
     }
 
     let headers: Record<string, string> = {
@@ -225,23 +211,18 @@ export class TransportFactory {
       ...(config.headers || {}),
     };
 
-    // 在 Tauri 环境中使用 tauriFetch
-    const useTauriFetch = config.useProxy && isTauriApp();
-
     const options = {
       requestInit: {
         headers,
         // 添加超时支持
         signal: AbortSignal.timeout((config.timeout || 30) * 1000),
       },
-      // 提供自定义 fetch 函数
-      fetch: useTauriFetch
-        ? async (url: string | URL | Request, init?: RequestInit) => {
-            const urlString = typeof url === "string" ? url : url.toString();
-            logger.info(`[StreamableHTTP] Using tauriFetch for: ${urlString}`);
-            return tauriFetch(urlString, init);
-          }
-        : undefined,
+      // 使用统一的 fetch，自动处理 Tauri 环境
+      fetch: async (url: string | URL | Request, init?: RequestInit) => {
+        const urlString = url instanceof Request ? url.url : url.toString();
+        logger.info(`[StreamableHTTP] Fetching: ${urlString}`);
+        return fetch(urlString, init);
+      },
     };
 
     return new StreamableHTTPClientTransport(new URL(finalUrl), options);

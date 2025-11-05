@@ -25,7 +25,7 @@ import {
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { getProxyUrl } from "@/app/utils/fetch";
 
 import {
   ChatOptions,
@@ -44,7 +44,7 @@ import {
   isDalle3 as _isDalle3,
   getTimeoutMSByModel,
 } from "@/app/utils";
-import { fetch } from "@/app/utils/stream";
+import { fetch } from "@/app/utils/fetch";
 
 export interface OpenAIListModelResponse {
   object: string;

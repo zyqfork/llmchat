@@ -9,7 +9,7 @@ import {
 } from "./constant";
 import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 // import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
-import { fetch as tauriStreamFetch } from "./utils/stream";
+import { fetch as tauriStreamFetch } from "./utils/fetch";
 import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
 import { ModelSize } from "./typing";

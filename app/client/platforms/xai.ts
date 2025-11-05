@@ -20,8 +20,7 @@ import { getTimeoutMSByModel } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { preProcessImageContent } from "@/app/utils/chat";
 import { RequestPayload } from "./openai";
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export class XAIApi implements LLMApi {
   private disableListModels = true;

@@ -24,8 +24,7 @@ import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export class MoonshotApi implements LLMApi {
   private disableListModels = true;

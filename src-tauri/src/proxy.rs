@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use warp::{Filter, Reply};
+use warp::Filter;
 use reqwest::Client;
 use bytes::Bytes;
 
@@ -148,7 +148,7 @@ fn with_proxy(
 
 async fn handle_proxy_request(
     method: warp::http::Method,
-    path: warp::path::FullPath,
+    _path: warp::path::FullPath,
     query_params: HashMap<String, String>,
     headers: warp::http::HeaderMap,
     body: Bytes,

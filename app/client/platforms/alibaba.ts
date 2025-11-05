@@ -27,8 +27,7 @@ import {
   isVisionModel,
 } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export interface OpenAIListModelResponse {
   object: string;

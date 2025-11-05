@@ -18,8 +18,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
-import { fetch } from "@/app/utils/stream";
-import { getProxyUrl } from "@/app/utils/tauri-proxy";
+import { fetch, getProxyUrl } from "@/app/utils/fetch";
 
 export type MultiBlockContent = {
   type: "image" | "text";
