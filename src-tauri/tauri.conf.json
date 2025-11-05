@@ -2,8 +2,8 @@
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
     "beforeBuildCommand": "yarn export",
-    "beforeDevCommand": "yarn export:dev",
-    "devPath": "http://localhost:3000",
+    "beforeDevCommand": "yarn export",
+    "devPath": "../out",
     "distDir": "../out",
     "withGlobalTauri": true
   },
@@ -54,7 +54,10 @@
       "http": {
         "all": true,
         "request": true,
-        "scope": ["https://*", "http://*"]
+        "scope": [
+          "https://*",
+          "http://*"
+        ]
       }
     },
     "bundle": {
@@ -91,8 +94,7 @@
       }
     },
     "security": {
-      "csp": null,
-      "dangerousUseHttpScheme": true
+      "csp": null
     },
     "updater": {
       "active": true,

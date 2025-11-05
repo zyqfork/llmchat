@@ -1,5 +1,6 @@
 import { STORAGE_KEY } from "@/app/constant";
 import { SyncStore } from "@/app/store/sync";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export type WebDAVConfig = SyncStore["webdav"];
 export type WebDavClient = ReturnType<typeof createWebDavClient>;
@@ -8,8 +9,9 @@ export function createWebDavClient(store: SyncStore) {
   const folder = STORAGE_KEY;
   const fileName = `${folder}/backup.json`;
   const config = store.webdav;
-  const proxyUrl =
-    store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
+  // 使用统一的 getProxyUrl 函数
+  // 在 Tauri 环境中会返回空字符串（使用 stream_fetch 命令）
+  const proxyUrl = getProxyUrl(store.useProxy, store.proxyUrl);
 
   return {
     async check() {

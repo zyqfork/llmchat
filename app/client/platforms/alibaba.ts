@@ -28,6 +28,7 @@ import {
 } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -84,11 +85,10 @@ export class QwenApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.alibabaUseProxy) {
-      const configuredProxyUrl = accessStore.alibabaProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.alibabaUseProxy,
+        accessStore.alibabaProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/alibaba/";
 

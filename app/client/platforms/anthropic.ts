@@ -19,6 +19,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export type MultiBlockContent = {
   type: "image" | "text";
@@ -460,11 +461,10 @@ export class ClaudeApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.anthropicUseProxy) {
-      const configuredProxyUrl = accessStore.anthropicProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.anthropicUseProxy,
+        accessStore.anthropicProxyUrl,
+      );
       const endpoint = `${baseUrl}/${path}`;
       const proxyPath = "/api/anthropic/";
 

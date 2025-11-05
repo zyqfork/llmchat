@@ -31,6 +31,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { RequestPayload } from "./openai";
 
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 export interface SiliconFlowListModelResponse {
   object: string;
   data: Array<{
@@ -72,11 +73,10 @@ export class SiliconflowApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.siliconflowUseProxy) {
-      const configuredProxyUrl = accessStore.siliconflowProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.siliconflowUseProxy,
+        accessStore.siliconflowProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/siliconflow/";
 

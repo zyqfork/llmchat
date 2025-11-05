@@ -21,6 +21,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { preProcessImageContent } from "@/app/utils/chat";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export class XAIApi implements LLMApi {
   private disableListModels = true;
@@ -51,11 +52,10 @@ export class XAIApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.xaiUseProxy) {
-      const configuredProxyUrl = accessStore.xaiProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.xaiUseProxy,
+        accessStore.xaiProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/xai/";
 

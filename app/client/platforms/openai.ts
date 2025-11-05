@@ -25,6 +25,7 @@ import {
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 import {
   ChatOptions,
@@ -122,14 +123,11 @@ export class ChatGPTApi implements LLMApi {
       : accessStore.openaiUseProxy;
 
     if (useProxy) {
-      // 使用代理模式，类似云同步的实现
+      // 使用代理模式，支持 Tauri 和 standalone 模式
       const configuredProxyUrl = isAzure
         ? accessStore.azureProxyUrl
         : accessStore.openaiProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(useProxy, configuredProxyUrl);
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = isAzure ? "/api/azure/" : "/api/openai/";
 

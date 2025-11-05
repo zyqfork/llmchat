@@ -25,6 +25,7 @@ import { getMessageTextContent } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export class MoonshotApi implements LLMApi {
   private disableListModels = true;
@@ -55,11 +56,10 @@ export class MoonshotApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.moonshotUseProxy) {
-      const configuredProxyUrl = accessStore.moonshotProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.moonshotUseProxy,
+        accessStore.moonshotProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/moonshot/";
 

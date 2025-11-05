@@ -18,6 +18,7 @@ import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
 
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export interface OllamaListModelResponse {
   models: Array<{
@@ -77,11 +78,10 @@ export class OllamaApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.ollamaUseProxy) {
-      const configuredProxyUrl = accessStore.ollamaProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.ollamaUseProxy,
+        accessStore.ollamaProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/ollama/";
 

@@ -30,6 +30,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export class DeepSeekApi implements LLMApi {
   private disableListModels = true;
@@ -60,11 +61,10 @@ export class DeepSeekApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.deepseekUseProxy) {
-      const configuredProxyUrl = accessStore.deepseekProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.deepseekUseProxy,
+        accessStore.deepseekProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/deepseek/";
 

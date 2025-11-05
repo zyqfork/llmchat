@@ -24,6 +24,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
+import { getProxyUrl } from "@/app/utils/tauri-proxy";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -74,11 +75,10 @@ export class DoubaoApi implements LLMApi {
 
     // 检查是否启用代理
     if (accessStore.bytedanceUseProxy) {
-      const configuredProxyUrl = accessStore.bytedanceProxyUrl;
-      const proxyUrl =
-        configuredProxyUrl && configuredProxyUrl.length > 0
-          ? configuredProxyUrl
-          : window.location.origin;
+      const proxyUrl = getProxyUrl(
+        accessStore.bytedanceUseProxy,
+        accessStore.bytedanceProxyUrl,
+      );
       const endpoint = [baseUrl, path].join("/");
       const proxyPath = "/api/bytedance/";
 
