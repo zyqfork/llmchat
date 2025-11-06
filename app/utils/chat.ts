@@ -230,49 +230,7 @@ export function stream(
         return Promise.all(
           toolCallMessage.tool_calls.map((tool) => {
             options?.onBeforeTool?.(tool);
-            return Promise.resolve(
-              // @ts-ignore
-              funcs[tool.function.name](
-                // @ts-ignore
-                tool?.function?.arguments
-                  ? JSON.parse(tool?.function?.arguments)
-                  : {},
-              ),
-            )
-              .then((res) => {
-                let content = res.data || res?.statusText;
-                // hotfix #5614
-                content =
-                  typeof content === "string"
-                    ? content
-                    : JSON.stringify(content);
-                if (res.status >= 300) {
-                  return Promise.reject(content);
-                }
-                return content;
-              })
-              .then((content) => {
-                options?.onAfterTool?.({
-                  ...tool,
-                  content,
-                  isError: false,
-                });
-                return content;
-              })
-              .catch((e) => {
-                options?.onAfterTool?.({
-                  ...tool,
-                  isError: true,
-                  errorMsg: e.toString(),
-                });
-                return e.toString();
-              })
-              .then((content) => ({
-                name: tool.function.name,
-                role: "tool",
-                content,
-                tool_call_id: tool.id,
-              }));
+            return safeCallToolFunction(tool, funcs, options);
           }),
         ).then((toolCallResult) => {
           processToolMessage(requestPayload, toolCallMessage, toolCallResult);
@@ -433,6 +391,95 @@ export function registerMcpToolFunctions(
   }
 }
 
+// 安全调用工具函数的辅助函数
+async function safeCallToolFunction(
+  tool: any,
+  funcs: Record<string, Function>,
+  options: any,
+): Promise<any> {
+  const funcName = tool.function.name;
+
+  // 检查函数是否存在
+  if (!funcs[funcName]) {
+    console.error("[Tool Call] Function not found:", funcName);
+    console.error("[Tool Call] Available functions:", Object.keys(funcs));
+    const error = new Error(`Tool function "${funcName}" not found`);
+    options?.onAfterTool?.({
+      ...tool,
+      isError: true,
+      errorMsg: error.toString(),
+    });
+    return {
+      name: funcName,
+      role: "tool",
+      content: error.toString(),
+      tool_call_id: tool.id,
+    };
+  }
+
+  // 解析参数
+  let parsedArgs = {};
+  try {
+    parsedArgs = tool?.function?.arguments
+      ? JSON.parse(tool?.function?.arguments)
+      : {};
+  } catch (e) {
+    console.error(
+      "[Tool Call] Failed to parse arguments:",
+      tool?.function?.arguments,
+    );
+    const error = new Error(`Failed to parse tool arguments: ${e}`);
+    options?.onAfterTool?.({
+      ...tool,
+      isError: true,
+      errorMsg: error.toString(),
+    });
+    return {
+      name: funcName,
+      role: "tool",
+      content: error.toString(),
+      tool_call_id: tool.id,
+    };
+  }
+
+  // 调用函数
+  try {
+    const res = await funcs[funcName](parsedArgs);
+    let content = res.data || res?.statusText;
+    content = typeof content === "string" ? content : JSON.stringify(content);
+
+    if (res.status >= 300) {
+      throw new Error(content);
+    }
+
+    options?.onAfterTool?.({
+      ...tool,
+      content,
+      isError: false,
+    });
+
+    return {
+      name: funcName,
+      role: "tool",
+      content,
+      tool_call_id: tool.id,
+    };
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.toString() : String(e);
+    options?.onAfterTool?.({
+      ...tool,
+      isError: true,
+      errorMsg,
+    });
+    return {
+      name: funcName,
+      role: "tool",
+      content: errorMsg,
+      tool_call_id: tool.id,
+    };
+  }
+}
+
 export function streamWithThink(
   chatPath: string,
   requestPayload: any,
@@ -521,49 +568,7 @@ export function streamWithThink(
         return Promise.all(
           toolCallMessage.tool_calls.map((tool) => {
             options?.onBeforeTool?.(tool);
-            return Promise.resolve(
-              // @ts-ignore
-              funcs[tool.function.name](
-                // @ts-ignore
-                tool?.function?.arguments
-                  ? JSON.parse(tool?.function?.arguments)
-                  : {},
-              ),
-            )
-              .then((res) => {
-                let content = res.data || res?.statusText;
-                // hotfix #5614
-                content =
-                  typeof content === "string"
-                    ? content
-                    : JSON.stringify(content);
-                if (res.status >= 300) {
-                  return Promise.reject(content);
-                }
-                return content;
-              })
-              .then((content) => {
-                options?.onAfterTool?.({
-                  ...tool,
-                  content,
-                  isError: false,
-                });
-                return content;
-              })
-              .catch((e) => {
-                options?.onAfterTool?.({
-                  ...tool,
-                  isError: true,
-                  errorMsg: e.toString(),
-                });
-                return e.toString();
-              })
-              .then((content) => ({
-                name: tool.function.name,
-                role: "tool",
-                content,
-                tool_call_id: tool.id,
-              }));
+            return safeCallToolFunction(tool, funcs, options);
           }),
         ).then((toolCallResult) => {
           processToolMessage(requestPayload, toolCallMessage, toolCallResult);

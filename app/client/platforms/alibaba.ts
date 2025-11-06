@@ -1,5 +1,10 @@
 "use client";
-import { ApiPath, Alibaba, ALIBABA_BASE_URL } from "@/app/constant";
+import {
+  ApiPath,
+  Alibaba,
+  ALIBABA_BASE_URL,
+  ServiceProvider,
+} from "@/app/constant";
 import {
   useAccessStore,
   useAppConfig,
@@ -325,7 +330,58 @@ export class QwenApi implements LLMApi {
   }
 
   async models(): Promise<LLMModel[]> {
-    return [];
+    try {
+      const modelsPath = this.path("models");
+      console.log("[Alibaba] Fetching models from:", modelsPath);
+
+      const headers = getHeaders(false, {
+        model: "",
+        providerName: ServiceProvider.Alibaba,
+      });
+      console.log("[Alibaba] Request headers:", headers);
+
+      const response = await fetch(
+        modelsPath,
+        {
+          method: "GET",
+          headers,
+        },
+        FetchType.LLM,
+      );
+
+      console.log(
+        "[Alibaba] Response status:",
+        response.status,
+        response.statusText,
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("[Alibaba] Received models count:", data.data?.length || 0);
+
+      // 转换为 LLMModel 格式
+      const models: LLMModel[] = (data.data || []).map((model: any) => ({
+        name: model.id,
+        displayName: model.id,
+        available: true,
+        provider: {
+          id: "alibaba",
+          providerName: ServiceProvider.Alibaba,
+          providerType: "alibaba",
+          sorted: 4, // 与 DEFAULT_MODELS 中的 sorted 值保持一致
+        },
+        sorted: 0,
+      }));
+
+      console.log("[Alibaba] Successfully fetched models:", models.length);
+      return models;
+    } catch (error) {
+      console.error("[Alibaba] Failed to fetch models:", error);
+      return [];
+    }
   }
 }
 export { Alibaba };

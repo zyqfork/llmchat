@@ -177,18 +177,40 @@ export class MoonshotApi implements LLMApi {
               const index = tool_calls[0]?.index;
               const id = tool_calls[0]?.id;
               const args = tool_calls[0]?.function?.arguments;
+              const name = tool_calls[0]?.function?.name;
+
               if (id) {
+                // 新工具调用开始
                 runTools.push({
                   id,
                   type: tool_calls[0]?.type,
                   function: {
-                    name: tool_calls[0]?.function?.name as string,
-                    arguments: args,
+                    name: name as string,
+                    arguments: args || "", // 确保有默认值
                   },
                 });
-              } else {
-                // @ts-ignore
-                runTools[index]["function"]["arguments"] += args;
+              } else if (args) {
+                // 累积参数到对应的工具
+                if (typeof index === "number" && runTools[index]) {
+                  const tool = runTools[index];
+                  if (
+                    tool &&
+                    tool.function &&
+                    tool.function.arguments !== undefined
+                  ) {
+                    tool.function.arguments += args;
+                  }
+                } else {
+                  // 如果没有 index，累积到最后一个工具
+                  const lastTool = runTools[runTools.length - 1];
+                  if (
+                    lastTool &&
+                    lastTool.function &&
+                    lastTool.function.arguments !== undefined
+                  ) {
+                    lastTool.function.arguments += args;
+                  }
+                }
               }
             }
             return {
