@@ -227,23 +227,42 @@ export class QwenApi implements LLMApi {
             const tool_calls = choices[0]?.delta?.tool_calls;
             if (tool_calls?.length > 0) {
               const id = tool_calls[0]?.id;
+              const name = tool_calls[0]?.function?.name;
               const args = tool_calls[0]?.function?.arguments;
+
               if (id) {
-                runTools.push({
-                  id,
-                  type: tool_calls[0]?.type,
-                  function: {
-                    name: tool_calls[0]?.function?.name as string,
-                    arguments: args || "",
-                  },
-                });
+                // 检查是否已经存在相同 id 的工具
+                const existingTool = runTools.find((t) => t.id === id);
+
+                if (existingTool) {
+                  // 更新现有工具
+                  if (existingTool.function) {
+                    if (name && !existingTool.function.name) {
+                      existingTool.function.name = name;
+                    }
+                    if (args) {
+                      existingTool.function.arguments =
+                        (existingTool.function.arguments || "") + args;
+                    }
+                  }
+                } else {
+                  // 创建新工具
+                  runTools.push({
+                    id,
+                    type: tool_calls[0]?.type,
+                    function: {
+                      name: name || "",
+                      arguments: args || "",
+                    },
+                  });
+                }
               } else if (args) {
-                // 累积参数
+                // 没有 id，累积到最后一个工具
                 const lastTool = runTools[runTools.length - 1];
                 if (
                   lastTool &&
                   lastTool.function &&
-                  lastTool.function.arguments
+                  lastTool.function.arguments !== undefined
                 ) {
                   lastTool.function.arguments += args;
                 }

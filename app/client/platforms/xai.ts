@@ -174,15 +174,31 @@ export class XAIApi implements LLMApi {
               const name = tool_calls[0]?.function?.name;
 
               if (id) {
-                // 新工具调用开始
-                runTools.push({
-                  id,
-                  type: tool_calls[0]?.type,
-                  function: {
-                    name: name as string,
-                    arguments: args || "", // 确保有默认值
-                  },
-                });
+                // 检查是否已经存在相同 id 的工具
+                const existingTool = runTools.find((t) => t.id === id);
+
+                if (existingTool) {
+                  // 更新现有工具
+                  if (existingTool.function) {
+                    if (name && !existingTool.function.name) {
+                      existingTool.function.name = name;
+                    }
+                    if (args) {
+                      existingTool.function.arguments =
+                        (existingTool.function.arguments || "") + args;
+                    }
+                  }
+                } else {
+                  // 创建新工具
+                  runTools.push({
+                    id,
+                    type: tool_calls[0]?.type,
+                    function: {
+                      name: name || "",
+                      arguments: args || "",
+                    },
+                  });
+                }
               } else if (args) {
                 // 累积参数到对应的工具
                 if (typeof index === "number" && runTools[index]) {
