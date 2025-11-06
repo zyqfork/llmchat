@@ -720,19 +720,50 @@ export const useChatStore = createPersistStore(
             ChatControllerPool.remove(session.id, botMessage.id);
           },
           onBeforeTool(tool: ChatMessageTool) {
-            (botMessage.tools = botMessage?.tools || []).push(tool);
-            // 修复：直接触发状态更新以确保工具名称显示
+            // 将工具追加到当前会话消息中（而不是只修改局部引用），避免被后续流式内容覆盖
             get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
+              const messageIndex = session.messages.findIndex(
+                (m) => m.id === botMessage.id,
+              );
+              if (messageIndex >= 0) {
+                const current = session.messages[messageIndex];
+                const newTools = [...(current.tools || []), tool];
+                const updated = { ...current, tools: newTools } as any;
+                session.messages[messageIndex] = updated;
+                // 同步本地引用，保证后续 onAfterTool 能正确更新
+                botMessage.tools = newTools;
+              } else {
+                // 兜底：如果未找到，仍然写入本地引用并触发一次刷新
+                (botMessage.tools = botMessage?.tools || []).push(tool);
+              }
             });
           },
           onAfterTool(tool: ChatMessageTool) {
-            botMessage?.tools?.forEach((t, i, tools) => {
-              if (tool.id == t.id) {
-                tools[i] = { ...tool };
+            // 更新工具执行状态到会话消息中
+            get().updateTargetSession(session, (session) => {
+              const messageIndex = session.messages.findIndex(
+                (m) => m.id === botMessage.id,
+              );
+              if (messageIndex >= 0) {
+                const current = session.messages[messageIndex] as any;
+                const tools = [...(current.tools || [])];
+                const idx = tools.findIndex((t) => t.id === tool.id);
+                if (idx >= 0) {
+                  tools[idx] = { ...tool } as any;
+                } else {
+                  tools.push({ ...tool } as any);
+                }
+                const updated = { ...current, tools };
+                session.messages[messageIndex] = updated as any;
+                // 同步本地引用
+                botMessage.tools = tools as any;
+              } else if (botMessage?.tools) {
+                botMessage.tools = botMessage.tools.map((t) =>
+                  t.id === tool.id ? ({ ...tool } as any) : t,
+                );
               }
             });
-            // 工具完成时使用优化更新
+            // 工具完成时使用优化更新（保持现有行为）
             streamOptimizer.updateStreamingMessage(
               session.id,
               botMessage.id,
@@ -944,7 +975,23 @@ export const useChatStore = createPersistStore(
                 ChatControllerPool.remove(session.id, botMessage.id);
               },
               onBeforeTool(tool: ChatMessageTool) {
-                (botMessage.tools = botMessage?.tools || []).push(tool);
+                // 多模型下：将工具追加到会话中的对应消息，避免被后续流式更新覆盖
+                get().updateTargetSession(session, (session) => {
+                  const messageIndex = session.messages.findIndex(
+                    (m) => m.id === botMessage.id,
+                  );
+                  if (messageIndex >= 0) {
+                    const current = session.messages[messageIndex] as any;
+                    const newTools = [...(current.tools || []), tool];
+                    session.messages[messageIndex] = {
+                      ...current,
+                      tools: newTools,
+                    } as any;
+                    botMessage.tools = newTools;
+                  } else {
+                    (botMessage.tools = botMessage?.tools || []).push(tool);
+                  }
+                });
                 // 多模型工具调用也使用优化更新
                 streamOptimizer.updateStreamingMessage(
                   session.id,
