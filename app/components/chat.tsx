@@ -2080,10 +2080,6 @@ function _Chat() {
     src: string;
   }>({ show: false, src: "" });
   const [debugMessage, setDebugMessage] = useState<ChatMessage | null>(null);
-  // 工具展开状态：messageId -> { toolId: boolean }
-  const [expandedTool, setExpandedTool] = useState<
-    Record<string, Record<string, boolean>>
-  >({});
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
@@ -3290,64 +3286,12 @@ function _Chat() {
 
                           return (
                             <>
-                              <div className={styles["chat-message-tools"]}>
-                                {unified.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    title={
-                                      item.source === "function"
-                                        ? item.raw?.errorMsg ||
-                                          item.raw?.function?.name
-                                        : item.toolName
-                                    }
-                                    className={styles["chat-message-tool"]}
-                                    style={{ cursor: "pointer" }}
-                                    onClick={() => {
-                                      // 切换展开状态
-                                      setExpandedTool((prev) => {
-                                        const pm = { ...prev } as any;
-                                        const mid = message.id;
-                                        const cur: Record<string, boolean> = {
-                                          ...(pm[mid] || {}),
-                                        };
-                                        cur[item.id] = !cur[item.id];
-                                        pm[mid] = cur;
-                                        return pm;
-                                      });
-                                    }}
-                                  >
-                                    {item.source === "function" ? (
-                                      item.raw.isError === false ? (
-                                        <ConfirmIcon />
-                                      ) : item.raw.isError === true ? (
-                                        <CloseIcon />
-                                      ) : (
-                                        <LoadingButtonIcon />
-                                      )
-                                    ) : (
-                                      // MCP 提示词模式没有执行状态，这里显示完成图标
-                                      <ConfirmIcon />
-                                    )}
-                                    <span className={styles["tool-name"]}>
-                                      {item.toolName || "工具调用中..."}
-                                    </span>
-                                    {item.clientName && (
-                                      <span className={styles["tool-client"]}>
-                                        {item.clientName}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* 工具详情（移至徽标下方，独立于聊天内容区域） */}
+                              {/* 工具详情：取消顶部徽章与点击，直接展示工具调用内容 */}
                               {(() => {
-                                const exp = expandedTool[message.id] || {};
                                 if (unified.length === 0) return null;
                                 return (
                                   <div className={styles["mcp-tool-calls"]}>
                                     {unified.map((item) => {
-                                      if (!exp[item.id]) return null;
                                       if (item.source === "function") {
                                         const t = item.raw;
                                         let parsedArgs: any =
@@ -3360,7 +3304,6 @@ function _Chat() {
                                         return (
                                           <details
                                             key={item.id}
-                                            open
                                             className={styles["mcp-tool-call"]}
                                           >
                                             <summary
@@ -3368,7 +3311,16 @@ function _Chat() {
                                                 styles["mcp-tool-summary"]
                                               }
                                             >
-                                              🛠️ 工具调用
+                                              🛠️{" "}
+                                              {item.clientName
+                                                ? `${item.clientName} · `
+                                                : ""}
+                                              {item.toolName || "工具调用"}
+                                              {typeof t?.isError === "boolean"
+                                                ? t.isError
+                                                  ? " · 失败"
+                                                  : " · 完成"
+                                                : " · 进行中"}
                                             </summary>
                                             <pre
                                               className={
@@ -3393,7 +3345,6 @@ function _Chat() {
                                         return (
                                           <details
                                             key={item.id}
-                                            open
                                             className={styles["mcp-tool-call"]}
                                           >
                                             <summary
@@ -3401,7 +3352,12 @@ function _Chat() {
                                                 styles["mcp-tool-summary"]
                                               }
                                             >
-                                              🛠️ 工具调用
+                                              🛠️{" "}
+                                              {c.clientId
+                                                ? `${c.clientId} · `
+                                                : ""}
+                                              {item.toolName || "工具调用"} ·
+                                              完成
                                             </summary>
                                             <pre
                                               className={

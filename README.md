@@ -6,8 +6,6 @@
 
 ## 补充说明
 
-由于原Github账号不明原因被封禁，故使用新仓库进行存储，本仓库为 LLMChat 新的官方仓库，谢谢🙏
-
 ## 开始使用
 
 ### 部署说明
@@ -28,7 +26,7 @@
 
 ### Demo站点
 
-点击[https://qaduck.com](https://qaduck.com)
+点击[https://lchat.pages.dev/](https://qaduck.com)
 
 ## LLMChat 版本特点
 
