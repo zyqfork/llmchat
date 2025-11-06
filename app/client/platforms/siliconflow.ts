@@ -12,7 +12,11 @@ import {
   useChatStore,
   ChatMessageTool,
 } from "@/app/store";
-import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
+import {
+  preProcessImageContent,
+  streamWithThink,
+  registerMcpToolFunctions,
+} from "@/app/utils/chat";
 import {
   ChatOptions,
   getHeaders,
@@ -169,8 +173,9 @@ export class SiliconflowApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const tools: any[] = [];
+        const tools: any[] = options.tools || [];
         const funcs: Record<string, Function> = {};
+        registerMcpToolFunctions(tools, funcs);
         const modelCapabilities = getModelCapabilitiesWithCustomConfig(
           options.config.model,
         );

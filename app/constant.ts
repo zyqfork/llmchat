@@ -18,7 +18,9 @@ export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/";
 
 export const BYTEDANCE_BASE_URL = "https://ark.cn-beijing.volces.com";
 
-export const ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/api/";
+// 使用 OpenAI 兼容模式的 base URL
+export const ALIBABA_BASE_URL =
+  "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
 export const MOONSHOT_BASE_URL = "https://api.moonshot.cn";
 
@@ -181,12 +183,8 @@ export const ByteDance = {
 
 export const Alibaba = {
   ExampleEndpoint: ALIBABA_BASE_URL,
-  ChatPath: (modelName: string) => {
-    if (modelName.includes("vl") || modelName.includes("omni")) {
-      return "v1/services/aigc/multimodal-generation/generation";
-    }
-    return `v1/services/aigc/text-generation/generation`;
-  },
+  // OpenAI 兼容模式使用统一的路径
+  ChatPath: "chat/completions",
 };
 
 export const Moonshot = {

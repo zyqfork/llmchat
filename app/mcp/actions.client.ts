@@ -100,6 +100,62 @@ export async function getAllTools() {
   return list;
 }
 
+// 获取 MCP 工具的 OpenAI Function Call 格式定义
+export async function getMcpToolsForFunctionCall() {
+  const cfg = readConfig();
+  const tools: any[] = [];
+
+  for (const [clientId, status] of clientsMap.entries()) {
+    if (!status.tools?.tools) continue;
+
+    // 检查服务器是否被暂停
+    const serverCfg = cfg.mcpServers[clientId];
+    if (serverCfg?.status === "paused") continue;
+
+    // 转换 MCP 工具格式为 OpenAI Function Call 格式
+    status.tools.tools.forEach((tool: any) => {
+      tools.push({
+        type: "function",
+        function: {
+          name: `mcp_${clientId}_${tool.name}`,
+          description:
+            tool.description || `Tool ${tool.name} from MCP server ${clientId}`,
+          parameters: tool.inputSchema || {
+            type: "object",
+            properties: {},
+          },
+        },
+        // 保存原始信息用于调用
+        _mcpMeta: {
+          clientId,
+          toolName: tool.name,
+        },
+      });
+    });
+  }
+
+  return tools;
+}
+
+// 执行 MCP 请求
+export async function executeMcpRequest(
+  clientId: string,
+  request: McpRequestMessage,
+): Promise<any> {
+  const status = clientsMap.get(clientId);
+  if (!status?.client) {
+    throw new Error(`MCP client ${clientId} not found or not initialized`);
+  }
+
+  try {
+    const result = await executeRequest(status.client, request);
+    return result;
+  } catch (error) {
+    logger.error(`Failed to execute MCP request for ${clientId}: ${error}`);
+    throw error;
+  }
+}
+
 async function initializeSingleClient(
   clientId: string,
   serverConfig: ServerConfig,
@@ -229,12 +285,14 @@ export async function removeMcpServer(
 export async function updateCustomPrompts(
   customSystemPrompt?: string,
   customToolsPrompt?: string,
+  callMode?: "prompt" | "function_call",
 ): Promise<McpConfigData> {
   const current = readConfig();
   const next: McpConfigData = {
     ...current,
     customSystemPrompt,
     customToolsPrompt,
+    callMode: callMode || current.callMode || "prompt",
   };
   writeConfig(next);
   return next;

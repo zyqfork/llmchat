@@ -21,6 +21,7 @@ import {
   uploadImage,
   base64Image2Blob,
   streamWithThink,
+  registerMcpToolFunctions,
 } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
@@ -354,8 +355,12 @@ export class ChatGPTApi implements LLMApi {
       }
       if (shouldStream) {
         let index = -1;
-        const tools: any[] = [];
+        const tools: any[] = options.tools || [];
         const funcs: Record<string, Function> = {};
+
+        // 为 MCP 工具注册处理函数
+        registerMcpToolFunctions(tools, funcs);
+
         const modelCapabilities = getModelCapabilitiesWithCustomConfig(
           options.config.model,
         );

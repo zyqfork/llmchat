@@ -177,6 +177,8 @@ const CAPABILITY_FILTERS: Record<string, (model: any) => boolean> = {
 
 export function ModelManager({ provider, onClose }: ModelManagerProps) {
   const accessStore = useAccessStore();
+  // 使用 selector 来订阅 customModels 的变化
+  const customModels = useAccessStore((state) => state.customModels);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("全部");
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
@@ -233,6 +235,12 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
+    console.log("[ModelManager] 重新计算 providerModels:", {
+      provider,
+      customModels,
+      apiModelsCount: apiModels.length,
+    });
+
     // 如果有API模型数据，优先使用API模型
     if (apiModels.length > 0) {
       return apiModels;
@@ -268,10 +276,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       );
 
       // 获取包含自定义模型的完整列表
-      const allModels = collectModels(
-        DEFAULT_MODELS,
-        accessStore.customModels || "",
-      );
+      const allModels = collectModels(DEFAULT_MODELS, customModels || "");
 
       // 过滤出当前服务商的模型（包括自定义模型）
       const providerCustomModels = allModels.filter((model) => {
@@ -296,7 +301,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     }
   }, [
     provider,
-    accessStore.customModels,
+    customModels,
     apiModels,
     isCustomProvider,
     customProviderConfig,
@@ -517,28 +522,37 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       customModelString = `${modelWithProvider}=${category}`;
     }
 
+    // 先检查是否已存在
+    const currentCustomModels = customModels || "";
+    const existingModels = currentCustomModels
+      .split(",")
+      .filter((m) => m.trim().length > 0);
+
+    const modelExists = existingModels.some((m) => {
+      const cleanModel =
+        m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+      const [existingModelWithProvider] = cleanModel.split("=");
+      return existingModelWithProvider === modelWithProvider;
+    });
+
+    if (modelExists) {
+      alert("该模型已存在");
+      return;
+    }
+
+    // 添加新模型
+    const newCustomModels = [...existingModels, customModelString].join(",");
+
+    console.log("[ModelManager] 添加模型前:", {
+      currentCustomModels,
+      existingModels,
+      newModel: customModelString,
+      newCustomModels,
+    });
+
     accessStore.update((access) => {
-      const currentCustomModels = access.customModels || "";
-      const existingModels = currentCustomModels
-        .split(",")
-        .filter((m) => m.trim().length > 0);
-
-      // 检查是否已存在（检查完整的 modelId@provider 格式）
-      const modelExists = existingModels.some((m) => {
-        const cleanModel =
-          m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
-        const [existingModelWithProvider] = cleanModel.split("=");
-        return existingModelWithProvider === modelWithProvider;
-      });
-
-      if (modelExists) {
-        alert("该模型已存在");
-        return;
-      }
-
-      // 添加新模型
-      const newCustomModels = [...existingModels, customModelString].join(",");
       access.customModels = newCustomModels;
+      console.log("[ModelManager] 更新后的 customModels:", access.customModels);
     });
 
     // 重置表单并关闭

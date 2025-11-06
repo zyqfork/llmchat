@@ -16,7 +16,7 @@ import {
   SpeechOptions,
 } from "../api";
 
-import { streamWithThink } from "@/app/utils/chat";
+import { streamWithThink, registerMcpToolFunctions } from "@/app/utils/chat";
 import { getClientConfig } from "@/app/config/client";
 import { preProcessImageContent } from "@/app/utils/chat";
 import {
@@ -160,8 +160,9 @@ export class DoubaoApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const tools: any[] = [];
+        const tools: any[] = options.tools || [];
         const funcs: Record<string, Function> = {};
+        registerMcpToolFunctions(tools, funcs);
         return streamWithThink(
           chatPath,
           requestPayload,

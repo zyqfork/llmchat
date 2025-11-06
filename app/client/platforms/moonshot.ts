@@ -12,7 +12,11 @@ import {
   useChatStore,
   ChatMessageTool,
 } from "@/app/store";
-import { stream, streamWithThink } from "@/app/utils/chat";
+import {
+  stream,
+  streamWithThink,
+  registerMcpToolFunctions,
+} from "@/app/utils/chat";
 import {
   ChatOptions,
   getHeaders,
@@ -142,8 +146,9 @@ export class MoonshotApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const tools: any[] = [];
+        const tools: any[] = options.tools || [];
         const funcs: Record<string, Function> = {};
+        registerMcpToolFunctions(tools, funcs);
         const modelCapabilities = getModelCapabilitiesWithCustomConfig(
           options.config.model,
         );

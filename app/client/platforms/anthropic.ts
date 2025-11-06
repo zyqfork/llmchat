@@ -14,6 +14,7 @@ import {
   preProcessImageContent,
   stream,
   streamWithThink,
+  registerMcpToolFunctions,
 } from "@/app/utils/chat";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
@@ -227,8 +228,9 @@ export class ClaudeApi implements LLMApi {
 
     if (shouldStream) {
       let index = -1;
-      const tools: any[] = [];
+      const tools: any[] = options.tools || [];
       const funcs: Record<string, Function> = {};
+      registerMcpToolFunctions(tools, funcs);
       const modelCapabilities = getModelCapabilitiesWithCustomConfig(
         options.config.model,
       );

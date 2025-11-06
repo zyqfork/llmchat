@@ -34,6 +34,9 @@ import {
   MCPTransportType,
   TRANSPORT_TYPE_LABELS,
   TRANSPORT_TYPE_DESCRIPTIONS,
+  McpCallMode,
+  MCP_CALL_MODE_LABELS,
+  MCP_CALL_MODE_DESCRIPTIONS,
 } from "../mcp/types";
 import { getAllBuiltinServers, searchServers } from "../mcp/builtin-servers";
 import clsx from "clsx";
@@ -89,6 +92,7 @@ export function McpMarketPage() {
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
   const [customToolsPrompt, setCustomToolsPrompt] = useState("");
+  const [mcpCallMode, setMcpCallMode] = useState<McpCallMode>("prompt");
 
   // 搜索框引用
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -135,9 +139,10 @@ export function McpMarketPage() {
         const config = await getMcpConfigFromFile();
         setConfig(config);
 
-        // 加载自定义提示词
+        // 加载自定义提示词和调用模式
         setCustomSystemPrompt(config.customSystemPrompt || "");
         setCustomToolsPrompt(config.customToolsPrompt || "");
+        setMcpCallMode(config.callMode || "prompt");
 
         // 获取所有客户端的状态
         const statuses = await getClientsStatus();
@@ -357,16 +362,17 @@ export function McpMarketPage() {
     }
   };
 
-  // 保存自定义提示词
+  // 保存自定义提示词和调用模式
   const saveCustomPrompts = async () => {
     try {
       const newConfig = await updateCustomPrompts(
         customSystemPrompt || undefined,
         customToolsPrompt || undefined,
+        mcpCallMode,
       );
       setConfig(newConfig);
       setIsEditingPrompt(false);
-      showToast("系统提示词已保存");
+      showToast("MCP 配置已保存");
     } catch (error) {
       showToast("保存失败");
     }
@@ -1016,44 +1022,113 @@ export function McpMarketPage() {
 
           <div className={styles["server-list"]}>{renderServerList()}</div>
 
-          {/* 系统提示词模板区域 */}
-          <div className={styles["prompt-template-section"]}>
-            <div className={styles["prompt-template-header"]}>
-              <div className={styles["prompt-template-title"]}>
-                <span className={styles["prompt-icon"]}>💬</span>
-                MCP 系统提示词模板
+          {/* MCP 配置区域 */}
+          <div className={styles["mcp-config-section"]}>
+            {/* 调用模式选择 */}
+            <div className={styles["config-card"]}>
+              <div className={styles["config-card-header"]}>
+                <div className={styles["config-card-title"]}>
+                  <span className={styles["config-icon"]}>⚙️</span>
+                  MCP 工具调用模式
+                </div>
               </div>
-              <div className={styles["prompt-template-actions"]}>
-                <IconButton
-                  icon={<EyeIcon />}
-                  text="查看"
-                  onClick={() => setIsViewingPrompt(true)}
-                  bordered
-                />
-                <IconButton
-                  icon={<EditIcon />}
-                  text="编辑"
-                  onClick={() => {
-                    setIsEditingPrompt(true);
-                    setIsViewingPrompt(false);
-                  }}
-                  bordered
-                />
+              <div className={styles["config-card-body"]}>
+                <div className={styles["call-mode-selector"]}>
+                  <label className={styles["call-mode-option"]}>
+                    <input
+                      type="radio"
+                      name="mcpCallMode"
+                      value="prompt"
+                      checked={mcpCallMode === "prompt"}
+                      onChange={(e) =>
+                        setMcpCallMode(e.target.value as McpCallMode)
+                      }
+                    />
+                    <div className={styles["call-mode-content"]}>
+                      <div className={styles["call-mode-label"]}>
+                        {MCP_CALL_MODE_LABELS.prompt}
+                      </div>
+                      <div className={styles["call-mode-description"]}>
+                        {MCP_CALL_MODE_DESCRIPTIONS.prompt}
+                      </div>
+                    </div>
+                  </label>
+                  <label className={styles["call-mode-option"]}>
+                    <input
+                      type="radio"
+                      name="mcpCallMode"
+                      value="function_call"
+                      checked={mcpCallMode === "function_call"}
+                      onChange={(e) =>
+                        setMcpCallMode(e.target.value as McpCallMode)
+                      }
+                    />
+                    <div className={styles["call-mode-content"]}>
+                      <div className={styles["call-mode-label"]}>
+                        {MCP_CALL_MODE_LABELS.function_call}
+                      </div>
+                      <div className={styles["call-mode-description"]}>
+                        {MCP_CALL_MODE_DESCRIPTIONS.function_call}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div className={styles["config-actions"]}>
+                  <IconButton
+                    text="保存配置"
+                    type="primary"
+                    onClick={saveCustomPrompts}
+                    bordered
+                  />
+                </div>
               </div>
             </div>
-            <div className={styles["prompt-template-description"]}>
-              系统提示词用于指导 AI 如何使用 MCP
-              工具。你可以自定义提示词以优化工具调用行为。
-            </div>
-            <div className={styles["prompt-template-status"]}>
-              {customSystemPrompt || customToolsPrompt ? (
-                <span className={styles["status-custom"]}>
-                  ✓ 使用自定义提示词
-                </span>
-              ) : (
-                <span className={styles["status-default"]}>使用默认提示词</span>
-              )}
-            </div>
+
+            {/* 系统提示词模板 - 仅在提示词模式下显示 */}
+            {mcpCallMode === "prompt" && (
+              <div className={styles["config-card"]}>
+                <div className={styles["config-card-header"]}>
+                  <div className={styles["config-card-title"]}>
+                    <span className={styles["config-icon"]}>💬</span>
+                    系统提示词模板
+                  </div>
+                  <div className={styles["config-card-actions"]}>
+                    <IconButton
+                      icon={<EyeIcon />}
+                      text="查看"
+                      onClick={() => setIsViewingPrompt(true)}
+                      bordered
+                    />
+                    <IconButton
+                      icon={<EditIcon />}
+                      text="编辑"
+                      onClick={() => {
+                        setIsEditingPrompt(true);
+                        setIsViewingPrompt(false);
+                      }}
+                      bordered
+                    />
+                  </div>
+                </div>
+                <div className={styles["config-card-body"]}>
+                  <div className={styles["config-description"]}>
+                    系统提示词用于指导 AI 如何使用 MCP
+                    工具。你可以自定义提示词以优化工具调用行为。
+                  </div>
+                  <div className={styles["config-status"]}>
+                    {customSystemPrompt || customToolsPrompt ? (
+                      <span className={styles["status-custom"]}>
+                        ✓ 使用自定义提示词
+                      </span>
+                    ) : (
+                      <span className={styles["status-default"]}>
+                        使用默认提示词
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

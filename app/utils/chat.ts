@@ -402,6 +402,37 @@ export function stream(
   chatApi(chatPath, headers, requestPayload, tools); // call fetchEventSource
 }
 
+// 为 MCP 工具注册处理函数
+export function registerMcpToolFunctions(
+  tools: any[],
+  funcs: Record<string, Function>,
+) {
+  if (tools.length > 0) {
+    tools.forEach((tool: any) => {
+      if (tool._mcpMeta) {
+        const { clientId, toolName } = tool._mcpMeta;
+        funcs[tool.function.name] = async (args: any) => {
+          // 动态导入以避免循环依赖
+          const { executeMcpRequest } = await import(
+            "@/app/mcp/actions.client"
+          );
+          const result = await executeMcpRequest(clientId, {
+            method: "tools/call",
+            params: {
+              name: toolName,
+              arguments: args,
+            },
+          });
+          return {
+            status: 200,
+            data: result,
+          };
+        };
+      }
+    });
+  }
+}
+
 export function streamWithThink(
   chatPath: string,
   requestPayload: any,

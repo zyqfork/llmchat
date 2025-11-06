@@ -160,18 +160,36 @@ export const TRANSPORT_TYPE_DESCRIPTIONS: Record<MCPTransportType, string> = {
   streamableHttp: "基于 HTTP 的双向流式传输，支持请求-响应模式",
 };
 
+// MCP 工具调用模式
+export type McpCallMode = "prompt" | "function_call";
+
+export const MCP_CALL_MODE_LABELS: Record<McpCallMode, string> = {
+  prompt: "提示词模式 (Prompt-based)",
+  function_call: "函数调用模式 (Function Call)",
+};
+
+export const MCP_CALL_MODE_DESCRIPTIONS: Record<McpCallMode, string> = {
+  prompt:
+    "通过系统提示词指导 AI 生成特定格式的代码块来调用工具，兼容性好但可能不够精确",
+  function_call:
+    "使用 OpenAI Function Calling API 直接调用工具，更精确但需要模型支持",
+};
+
 export interface McpConfigData {
   // MCP Server 的配置
   mcpServers: Record<string, ServerConfig>;
   // 自定义系统提示词模板
   customSystemPrompt?: string;
   customToolsPrompt?: string;
+  // MCP 工具调用模式
+  callMode?: McpCallMode;
 }
 
 export const DEFAULT_MCP_CONFIG: McpConfigData = {
   mcpServers: {},
   customSystemPrompt: undefined,
   customToolsPrompt: undefined,
+  callMode: "prompt", // 默认使用提示词模式
 };
 
 // SSE传输协议配置类型 (网页端专用)

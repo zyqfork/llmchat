@@ -3667,8 +3667,16 @@ function _Chat() {
               />,
             ]}
           >
-            <div style={{ maxHeight: "60vh", overflow: "auto" }}>
-              <div style={{ marginBottom: 12 }}>
+            <div
+              style={{
+                height: "100%",
+                overflow: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              <div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Request</div>
                 <pre
                   style={{

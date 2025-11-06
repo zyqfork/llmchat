@@ -285,11 +285,18 @@ async function getMcpSystemPrompt(
     return "";
   }
 
-  const tools = await getAllTools();
-
-  // 获取自定义提示词模板
+  // 获取配置
   const { getMcpConfigFromFile } = await import("../mcp/actions.client");
   const config = await getMcpConfigFromFile();
+
+  // 如果使用 Function Call 模式，不注入系统提示词
+  if (config.callMode === "function_call") {
+    return "";
+  }
+
+  const tools = await getAllTools();
+
+  // 获取自定义提示词模板（仅在 prompt 模式下使用）
   const toolsTemplate = config.customToolsPrompt || MCP_TOOLS_TEMPLATE;
   const systemTemplate = config.customSystemPrompt || MCP_SYSTEM_TEMPLATE;
 
@@ -648,10 +655,14 @@ export const useChatStore = createPersistStore(
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
 
+        // 获取 MCP 工具（如果启用了 Function Call 模式）
+        const mcpTools = await get().getMcpTools();
+
         // make request
         api.llm.chat({
           messages: sendMessages,
           config: { ...modelConfig, stream: true },
+          tools: mcpTools.length > 0 ? mcpTools : undefined,
           onUpdate(message) {
             botMessage.streaming = true;
             if (message) {
@@ -863,10 +874,14 @@ export const useChatStore = createPersistStore(
 
           const api: ClientApi = getClientApi(modelConfig.providerName);
 
+          // 获取 MCP 工具（如果启用了 Function Call 模式）
+          const mcpTools = await get().getMcpTools();
+
           try {
             return await api.llm.chat({
               messages: recentMessages,
               config: { ...modelConfig, stream: true },
+              tools: mcpTools.length > 0 ? mcpTools : undefined,
               onUpdate(message) {
                 botMessage.streaming = true;
                 if (message) {
@@ -1055,6 +1070,27 @@ export const useChatStore = createPersistStore(
             date: "",
           } as ChatMessage;
         }
+      },
+
+      async getMcpTools() {
+        const session = get().currentSession();
+
+        // 如果 MCP 未启用，返回空数组
+        if (!session.mcpEnabled) {
+          return [];
+        }
+
+        // 获取配置
+        const { getMcpConfigFromFile, getMcpToolsForFunctionCall } =
+          await import("../mcp/actions.client");
+        const config = await getMcpConfigFromFile();
+
+        // 仅在 Function Call 模式下返回工具定义
+        if (config.callMode === "function_call") {
+          return await getMcpToolsForFunctionCall();
+        }
+
+        return [];
       },
 
       async getMessagesWithMemory() {
