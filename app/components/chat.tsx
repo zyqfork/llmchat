@@ -1965,62 +1965,108 @@ function _Chat() {
   const session = chatStore.currentSession();
   const config = useAppConfig();
 
-  // 过滤和处理 MCP 相关的消息
+  // 过滤和处理 MCP 相关的消息（合并/隐藏提示词模式下的“工具声明”消息）
   const filterMcpMessages = (messages: ChatMessage[]): ChatMessage[] => {
-    return messages
-      .filter((m) => {
-        // 只隐藏 MCP 响应消息（用户看不懂的原始响应）
-        if (m.isMcpResponse) return false;
+    // 1) 先过滤掉 isMcpResponse（原始工具响应）
+    const visible = messages.filter((m) => !m.isMcpResponse);
+
+    // 2) 逐条处理，抽取 ```json:mcp:<clientId> ... ``` 代码块，必要时把它们合并到下一条助手消息
+    const result: ChatMessage[] = [];
+
+    for (let i = 0; i < visible.length; i++) {
+      const m = visible[i];
+
+      // 仅处理助手消息
+      if (m.role !== "assistant") {
+        result.push(m);
+        continue;
+      }
+
+      // 读取纯文本内容
+      const content =
+        typeof m.content === "string"
+          ? m.content
+          : Array.isArray(m.content)
+          ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
+          : "";
+
+      // 无 mcp 代码块，直接保留
+      if (!content.includes("```json:mcp:")) {
+        result.push(m);
+        continue;
+      }
+
+      // 提取 MCP 调用信息
+      const mcpMatches = Array.from(
+        content.matchAll(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/g),
+      );
+      let mcpCalls: Array<{
+        toolName: string;
+        clientId: string;
+        rawJson: string;
+      }> = [];
+      mcpMatches.forEach((match) => {
+        try {
+          const clientId = match[1];
+          const rawJson = match[2];
+          const mcpData = JSON.parse(rawJson);
+          const toolName = mcpData.params?.name || "工具";
+          mcpCalls.push({ toolName, clientId, rawJson });
+        } catch (e) {
+          // ignore parse error
+        }
+      });
+      // 去重：防止同一流式回复多次出现相同的 MCP 调用块
+      const seen = new Set<string>();
+      mcpCalls = mcpCalls.filter((c) => {
+        const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
-      })
-      .map((m) => {
-        // 对于包含 MCP 调用的 AI 消息，处理其内容
-        if (m.role === "assistant") {
-          const content =
-            typeof m.content === "string"
-              ? m.content
-              : Array.isArray(m.content)
-              ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
-              : "";
+      });
 
-          // 如果包含 MCP 调用代码块，替换为友好提示
-          if (content.includes("```json:mcp:")) {
-            // 提取所有 MCP 调用信息
-            const mcpMatches = Array.from(
-              content.matchAll(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/g),
-            );
-            const mcpCalls: Array<{
-              toolName: string;
-              clientId: string;
-              rawJson: string;
-            }> = [];
+      // 移除代码块，保留其余内容
+      const cleanContent = content
+        .replace(/```json:mcp:[\s\S]*?```/g, "")
+        .trim();
 
-            mcpMatches.forEach((match) => {
-              try {
-                const clientId = match[1];
-                const rawJson = match[2];
-                const mcpData = JSON.parse(rawJson);
-                const toolName = mcpData.params?.name || "工具";
-                mcpCalls.push({ toolName, clientId, rawJson });
-              } catch (e) {
-                // 解析失败，忽略
-              }
+      // 如果当前这条消息在提示词模式下纯粹是“调用工具声明”（清理后没有内容），
+      // 则将 mcpCalls 合并到下一条助手消息的 mcpCalls 中，并丢弃本条，避免出现两条消息。
+      if (!cleanContent) {
+        // 向后查找下一条助手消息
+        let merged = false;
+        for (let j = i + 1; j < visible.length; j++) {
+          const next = visible[j];
+          if (next.role === "assistant") {
+            const nextAny: any = next as any;
+            const exist = Array.isArray(nextAny.mcpCalls)
+              ? nextAny.mcpCalls
+              : [];
+            // 合并并去重
+            const combined = [...exist, ...mcpCalls];
+            const seen2 = new Set<string>();
+            nextAny.mcpCalls = combined.filter((c: any) => {
+              const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
+              if (seen2.has(key)) return false;
+              seen2.add(key);
+              return true;
             });
-
-            // 移除 JSON 代码块，保留其他内容
-            const cleanContent = content
-              .replace(/```json:mcp:[\s\S]*?```/g, "")
-              .trim();
-
-            return {
-              ...m,
-              content: cleanContent,
-              mcpCalls, // 保存 MCP 调用信息
-            } as any;
+            merged = true;
+            break;
           }
         }
-        return m;
-      });
+        if (!merged) {
+          // 若没有下一条助手消息，则把本条保留为“空内容+mcpCalls”，但前端将仅通过左上角徽标显示
+          result.push({ ...(m as any), content: "", mcpCalls } as any);
+        }
+        continue;
+      }
+
+      // 否则，保留本条消息，内容为清理后文本，并附带 mcpCalls
+      result.push({ ...(m as any), content: cleanContent, mcpCalls } as any);
+    }
+
+    return result;
   };
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
@@ -2034,6 +2080,10 @@ function _Chat() {
     src: string;
   }>({ show: false, src: "" });
   const [debugMessage, setDebugMessage] = useState<ChatMessage | null>(null);
+  // 工具展开状态：messageId -> { toolId: boolean }
+  const [expandedTool, setExpandedTool] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
@@ -3177,33 +3227,30 @@ function _Chat() {
                             </div>
                           )}
                         </div>
-                        {message?.tools?.length == 0 && showTyping && (
-                          <div className={styles["chat-message-status"]}>
-                            {Locale.Chat.Typing}
-                          </div>
-                        )}
-                        {/*@ts-ignore*/}
-                        {/*@ts-ignore*/}
-                        {message?.tools?.length > 0 && (
-                          <div className={styles["chat-message-tools"]}>
-                            {message?.tools?.map((tool) => {
-                              // 解析工具名称，格式可能是 "clientId__toolName" 或 "toolName"
+                        {!message?.tools?.length &&
+                          !(message as any)?.mcpCalls?.length &&
+                          showTyping && (
+                            <div className={styles["chat-message-status"]}>
+                              {Locale.Chat.Typing}
+                            </div>
+                          )}
+                        {/* 工具徽标（支持 function_call 与 MCP 提示词模式） */}
+                        {(() => {
+                          const mcpCalls: any[] =
+                            (message as any).mcpCalls || [];
+                          const functionTools: any[] = message?.tools || [];
+                          const unified = [
+                            ...functionTools.map((tool, idx) => {
                               const fullName = tool?.function?.name || "";
-
-                              // 尝试多种分隔符格式
                               let toolName = fullName;
                               let clientName = "";
-
-                              // 格式1: clientId__toolName (双下划线)
                               if (fullName.includes("__")) {
                                 const parts = fullName.split("__");
                                 if (parts.length >= 2) {
                                   clientName = parts[0];
                                   toolName = parts.slice(1).join("__");
                                 }
-                              }
-                              // 格式2: clientId_toolName (单下划线，但只分割第一个)
-                              else if (fullName.includes("_")) {
+                              } else if (fullName.includes("_")) {
                                 const firstUnderscoreIndex =
                                   fullName.indexOf("_");
                                 clientName = fullName.substring(
@@ -3213,9 +3260,7 @@ function _Chat() {
                                 toolName = fullName.substring(
                                   firstUnderscoreIndex + 1,
                                 );
-                              }
-                              // 格式3: clientId-toolName (短横线)
-                              else if (fullName.includes("-")) {
+                              } else if (fullName.includes("-")) {
                                 const firstDashIndex = fullName.indexOf("-");
                                 clientName = fullName.substring(
                                   0,
@@ -3225,33 +3270,156 @@ function _Chat() {
                                   firstDashIndex + 1,
                                 );
                               }
+                              return {
+                                id: tool.id || `func:${idx}`,
+                                source: "function",
+                                toolName,
+                                clientName,
+                                raw: tool,
+                              };
+                            }),
+                            ...mcpCalls.map((call, idx) => ({
+                              id: `mcp:${idx}`,
+                              source: "mcp",
+                              toolName: call.toolName,
+                              clientName: call.clientId,
+                              raw: call,
+                            })),
+                          ];
+                          if (unified.length === 0) return null;
 
-                              return (
-                                <div
-                                  key={tool.id}
-                                  title={tool?.errorMsg || fullName}
-                                  className={styles["chat-message-tool"]}
-                                >
-                                  {tool.isError === false ? (
-                                    <ConfirmIcon />
-                                  ) : tool.isError === true ? (
-                                    <CloseIcon />
-                                  ) : (
-                                    <LoadingButtonIcon />
-                                  )}
-                                  <span className={styles["tool-name"]}>
-                                    {toolName || "工具调用中..."}
-                                  </span>
-                                  {clientName && (
-                                    <span className={styles["tool-client"]}>
-                                      {clientName}
+                          return (
+                            <>
+                              <div className={styles["chat-message-tools"]}>
+                                {unified.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    title={
+                                      item.source === "function"
+                                        ? item.raw?.errorMsg ||
+                                          item.raw?.function?.name
+                                        : item.toolName
+                                    }
+                                    className={styles["chat-message-tool"]}
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => {
+                                      // 切换展开状态
+                                      setExpandedTool((prev) => {
+                                        const pm = { ...prev } as any;
+                                        const mid = message.id;
+                                        const cur: Record<string, boolean> = {
+                                          ...(pm[mid] || {}),
+                                        };
+                                        cur[item.id] = !cur[item.id];
+                                        pm[mid] = cur;
+                                        return pm;
+                                      });
+                                    }}
+                                  >
+                                    {item.source === "function" ? (
+                                      item.raw.isError === false ? (
+                                        <ConfirmIcon />
+                                      ) : item.raw.isError === true ? (
+                                        <CloseIcon />
+                                      ) : (
+                                        <LoadingButtonIcon />
+                                      )
+                                    ) : (
+                                      // MCP 提示词模式没有执行状态，这里显示完成图标
+                                      <ConfirmIcon />
+                                    )}
+                                    <span className={styles["tool-name"]}>
+                                      {item.toolName || "工具调用中..."}
                                     </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                                    {item.clientName && (
+                                      <span className={styles["tool-client"]}>
+                                        {item.clientName}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* 工具详情（移至徽标下方，独立于聊天内容区域） */}
+                              {(() => {
+                                const exp = expandedTool[message.id] || {};
+                                if (unified.length === 0) return null;
+                                return (
+                                  <div className={styles["mcp-tool-calls"]}>
+                                    {unified.map((item) => {
+                                      if (!exp[item.id]) return null;
+                                      if (item.source === "function") {
+                                        const t = item.raw;
+                                        let parsedArgs: any =
+                                          t?.function?.arguments;
+                                        try {
+                                          parsedArgs = parsedArgs
+                                            ? JSON.parse(parsedArgs)
+                                            : {};
+                                        } catch {}
+                                        return (
+                                          <details
+                                            key={item.id}
+                                            open
+                                            className={styles["mcp-tool-call"]}
+                                          >
+                                            <summary
+                                              className={
+                                                styles["mcp-tool-summary"]
+                                              }
+                                            >
+                                              🛠️ 工具调用
+                                            </summary>
+                                            <pre
+                                              className={
+                                                styles["mcp-tool-details"]
+                                              }
+                                            >
+                                              <code>{`{
+  "id": "${t.id}",
+  "function": ${JSON.stringify(
+    { name: t?.function?.name, arguments: parsedArgs },
+    null,
+    2,
+  )},
+  "result": ${JSON.stringify(t?.content ?? null, null, 2)},
+  "error": ${JSON.stringify(t?.isError ? t?.errorMsg || true : null, null, 2)}
+}`}</code>
+                                            </pre>
+                                          </details>
+                                        );
+                                      } else {
+                                        const c = item.raw;
+                                        return (
+                                          <details
+                                            key={item.id}
+                                            open
+                                            className={styles["mcp-tool-call"]}
+                                          >
+                                            <summary
+                                              className={
+                                                styles["mcp-tool-summary"]
+                                              }
+                                            >
+                                              🛠️ 工具调用
+                                            </summary>
+                                            <pre
+                                              className={
+                                                styles["mcp-tool-details"]
+                                              }
+                                            >
+                                              <code>{c.rawJson}</code>
+                                            </pre>
+                                          </details>
+                                        );
+                                      }
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          );
+                        })()}
                         <div className={styles["chat-message-item"]}>
                           <Markdown
                             key={message.streaming ? "loading" : "done"}
@@ -3303,37 +3471,6 @@ function _Chat() {
                             status={message.streaming}
                             isUserMessage={message.role === "user"}
                           />
-                          {/* MCP 工具调用展示 */}
-                          {(message as any).mcpCalls &&
-                            (message as any).mcpCalls.length > 0 && (
-                              <div className={styles["mcp-tool-calls"]}>
-                                {(message as any).mcpCalls.map(
-                                  (call: any, idx: number) => (
-                                    <details
-                                      key={idx}
-                                      className={styles["mcp-tool-call"]}
-                                    >
-                                      <summary
-                                        className={styles["mcp-tool-summary"]}
-                                      >
-                                        🔧 调用工具:{" "}
-                                        <code>{call.toolName}</code>
-                                        <span
-                                          className={styles["mcp-client-name"]}
-                                        >
-                                          {call.clientId}
-                                        </span>
-                                      </summary>
-                                      <pre
-                                        className={styles["mcp-tool-details"]}
-                                      >
-                                        <code>{call.rawJson}</code>
-                                      </pre>
-                                    </details>
-                                  ),
-                                )}
-                              </div>
-                            )}
                           {getMessageImages(message).length == 1 && (
                             <div
                               className={
