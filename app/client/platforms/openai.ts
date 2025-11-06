@@ -422,15 +422,23 @@ export class ChatGPTApi implements LLMApi {
                 }
               } else if (args) {
                 // 没有 id，累积到最后一个工具
-                if (runTools[index]) {
-                  const tool = runTools[index];
-                  if (
-                    tool &&
-                    tool.function &&
-                    tool.function.arguments !== undefined
-                  ) {
-                    tool.function.arguments += args;
-                  }
+                // 优先使用 index，但如果 index 无效则使用最后一个工具
+                let targetTool = null;
+                if (
+                  typeof tool_calls[0]?.index === "number" &&
+                  runTools[tool_calls[0].index]
+                ) {
+                  targetTool = runTools[tool_calls[0].index];
+                } else {
+                  targetTool = runTools[runTools.length - 1];
+                }
+
+                if (
+                  targetTool &&
+                  targetTool.function &&
+                  targetTool.function.arguments !== undefined
+                ) {
+                  targetTool.function.arguments += args;
                 }
               }
             }

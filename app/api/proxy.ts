@@ -4,7 +4,9 @@ export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[Proxy Route] params ", params);
+  console.log("[Proxy Route] 🚀 代理API被调用，params:", params);
+  console.log("[Proxy Route] 🚀 请求方法:", req.method);
+  console.log("[Proxy Route] 🚀 请求路径:", req.nextUrl.pathname);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });

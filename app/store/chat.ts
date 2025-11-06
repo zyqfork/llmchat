@@ -721,13 +721,10 @@ export const useChatStore = createPersistStore(
           },
           onBeforeTool(tool: ChatMessageTool) {
             (botMessage.tools = botMessage?.tools || []).push(tool);
-            // 工具调用时也使用优化更新
-            streamOptimizer.updateStreamingMessage(
-              session.id,
-              botMessage.id,
-              getMessageTextContent(botMessage),
-              session,
-            );
+            // 修复：直接触发状态更新以确保工具名称显示
+            get().updateTargetSession(session, (session) => {
+              session.messages = session.messages.concat();
+            });
           },
           onAfterTool(tool: ChatMessageTool) {
             botMessage?.tools?.forEach((t, i, tools) => {

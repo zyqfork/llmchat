@@ -193,6 +193,7 @@ export function stream(
   let running = false;
   let runTools: any[] = [];
   let responseRes: Response;
+  let notifiedToolIds = new Set<string>(); // 跟踪已通知 UI 的工具 ID
 
   // animate response to make it looks smooth
   function animateResponseText() {
@@ -229,7 +230,7 @@ export function stream(
         runTools.splice(0, runTools.length); // empty runTools
         return Promise.all(
           toolCallMessage.tool_calls.map((tool) => {
-            options?.onBeforeTool?.(tool);
+            // 不再重复调用 onBeforeTool，因为在 onmessage 中已经通知过了
             return safeCallToolFunction(tool, funcs, options);
           }),
         ).then((toolCallResult) => {
@@ -335,10 +336,18 @@ export function stream(
           return;
         }
         const text = msg.data;
-        // 修复：不要跳过空消息，这可能导致过早结束
-        // 即使消息为空也要继续处理流程
         try {
           const chunk = parseSSE(text, runTools);
+
+          // 检测到工具信息时立即通知 UI 显示工具名称
+          // 只要有 id 就立即通知，即使 name 还没完全接收
+          runTools.forEach((tool) => {
+            if (tool.id && !notifiedToolIds.has(tool.id)) {
+              notifiedToolIds.add(tool.id);
+              options?.onBeforeTool?.(tool);
+            }
+          });
+
           if (chunk) {
             remainText += chunk;
           }
@@ -397,24 +406,70 @@ async function safeCallToolFunction(
   funcs: Record<string, Function>,
   options: any,
 ): Promise<any> {
-  const funcName = tool.function.name;
+  let funcName = tool.function.name;
 
   // 检查函数是否存在
   if (!funcs[funcName]) {
-    console.error("[Tool Call] Function not found:", funcName);
-    console.error("[Tool Call] Available functions:", Object.keys(funcs));
-    const error = new Error(`Tool function "${funcName}" not found`);
-    options?.onAfterTool?.({
-      ...tool,
-      isError: true,
-      errorMsg: error.toString(),
-    });
-    return {
-      name: funcName,
-      role: "tool",
-      content: error.toString(),
-      tool_call_id: tool.id,
-    };
+    // 尝试修复工具名称：可能存在 clientId 不匹配的情况
+    // 例如：mcp_tavily_tavily_search 应该匹配 mcp_a_tavily_search
+    const availableFuncs = Object.keys(funcs);
+
+    // 提取工具名称的后缀部分（去掉 mcp_ 和第一个 clientId）
+    const parts = funcName.split("_");
+    if (parts.length >= 3 && parts[0] === "mcp") {
+      // 尝试匹配：mcp_*_toolName 格式
+      const toolSuffix = parts.slice(2).join("_"); // 例如：tavily_search
+
+      const matchedFunc = availableFuncs.find((f) => {
+        const fParts = f.split("_");
+        if (fParts.length >= 3 && fParts[0] === "mcp") {
+          const fSuffix = fParts.slice(2).join("_");
+          return fSuffix === toolSuffix;
+        }
+        return false;
+      });
+
+      if (matchedFunc) {
+        console.log(
+          "[Tool Call] Function name mismatch, using:",
+          matchedFunc,
+          "instead of:",
+          funcName,
+        );
+        funcName = matchedFunc;
+      } else {
+        console.error("[Tool Call] Function not found:", funcName);
+        console.error("[Tool Call] Available functions:", availableFuncs);
+        console.error("[Tool Call] Tried to match suffix:", toolSuffix);
+        const error = new Error(`Tool function "${funcName}" not found`);
+        options?.onAfterTool?.({
+          ...tool,
+          isError: true,
+          errorMsg: error.toString(),
+        });
+        return {
+          name: funcName,
+          role: "tool",
+          content: error.toString(),
+          tool_call_id: tool.id,
+        };
+      }
+    } else {
+      console.error("[Tool Call] Function not found:", funcName);
+      console.error("[Tool Call] Available functions:", availableFuncs);
+      const error = new Error(`Tool function "${funcName}" not found`);
+      options?.onAfterTool?.({
+        ...tool,
+        isError: true,
+        errorMsg: error.toString(),
+      });
+      return {
+        name: funcName,
+        role: "tool",
+        content: error.toString(),
+        tool_call_id: tool.id,
+      };
+    }
   }
 
   // 解析参数
@@ -516,6 +571,7 @@ export function streamWithThink(
   let lastMessageTime = 0; // 最后消息时间
   let consecutiveEmptyMessages = 0; // 连续空消息计数
   const MAX_CONSECUTIVE_EMPTY_MESSAGES = 50; // 最大连续空消息数
+  let notifiedToolIds = new Set<string>(); // 跟踪已通知 UI 的工具 ID
 
   // 优化动画机制以提高响应速度
   function animateResponseText() {
@@ -567,7 +623,7 @@ export function streamWithThink(
         runTools.splice(0, runTools.length); // empty runTools
         return Promise.all(
           toolCallMessage.tool_calls.map((tool) => {
-            options?.onBeforeTool?.(tool);
+            // 不再重复调用 onBeforeTool，因为在 onmessage 中已经通知过了
             return safeCallToolFunction(tool, funcs, options);
           }),
         ).then((toolCallResult) => {
@@ -674,11 +730,18 @@ export function streamWithThink(
           return finish();
         }
         const text = msg.data;
-        // 关键修复：不要跳过任何消息，包括空消息
-        // 在多模型模式下，即使空消息也可能包含重要信息
         try {
           const chunk = parseSSE(text, runTools);
-          // 修复：确保所有内容都被正确处理，避免内容丢失
+
+          // 检测到工具信息时立即通知 UI 显示工具名称
+          // 只要有 id 就立即通知，即使 name 还没完全接收
+          runTools.forEach((tool) => {
+            if (tool.id && !notifiedToolIds.has(tool.id)) {
+              notifiedToolIds.add(tool.id);
+              options?.onBeforeTool?.(tool);
+            }
+          });
+
           if (chunk) {
             // deal with <think> and </think> tags start
             // 只有当模型具有推理能力时才处理思考内容

@@ -11,7 +11,13 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleMCPProxy(req: NextRequest) {
-  console.log("[MCP Proxy] Request received");
+  console.log("🔧🔧🔧 [MCP Proxy] 工具调用请求被接收！");
+  console.log("🔧🔧🔧 [MCP Proxy] 请求方法:", req.method);
+  console.log("🔧🔧🔧 [MCP Proxy] 请求路径:", req.nextUrl.pathname);
+  console.log(
+    "🔧🔧🔧 [MCP Proxy] 查询参数:",
+    req.nextUrl.searchParams.toString(),
+  );
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -35,7 +41,7 @@ async function handleMCPProxy(req: NextRequest) {
     ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${remainingParams}`
     : endpoint;
 
-  console.log("[MCP Proxy] Proxying to:", fetchUrl);
+  console.log("🔧🔧🔧 [MCP Proxy] 代理到目标URL:", fetchUrl);
 
   // 准备headers
   const skipHeaders = [

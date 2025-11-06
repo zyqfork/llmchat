@@ -16,7 +16,9 @@ export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[OpenAI Route] params ", params);
+  console.log("[OpenAI Route] 🚀 API被调用，params:", params);
+  console.log("[OpenAI Route] 🚀 请求方法:", req.method);
+  console.log("[OpenAI Route] 🚀 请求路径:", req.nextUrl.pathname);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });

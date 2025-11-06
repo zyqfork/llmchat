@@ -18,7 +18,14 @@ async function handle(
   { params }: { params: { provider: string; path: string[] } },
 ) {
   const apiPath = `/api/${params.provider}`;
-  console.log(`[${params.provider} Route] params `, params);
+  console.log(`🔥🔥🔥 [${params.provider} Route] API路由被调用！`);
+  console.log(`🔥🔥🔥 [${params.provider} Route] params:`, params);
+  console.log(`🔥🔥🔥 [${params.provider} Route] apiPath:`, apiPath);
+  console.log(`🔥🔥🔥 [${params.provider} Route] 请求方法:`, req.method);
+  console.log(
+    `🔥🔥🔥 [${params.provider} Route] 请求路径:`,
+    req.nextUrl.pathname,
+  );
 
   // 检查是否是自定义服务商（以custom_开头）
   if (params.provider.startsWith("custom_")) {

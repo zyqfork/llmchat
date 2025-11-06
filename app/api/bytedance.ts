@@ -7,7 +7,9 @@ export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[ByteDance Route] params ", params);
+  console.log("[ByteDance Route] 🚀 API被调用，params:", params);
+  console.log("[ByteDance Route] 🚀 请求方法:", req.method);
+  console.log("[ByteDance Route] 🚀 请求路径:", req.nextUrl.pathname);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -38,6 +40,7 @@ export async function handle(
 }
 
 async function request(req: NextRequest, useServerConfig?: boolean) {
+  console.log("[ByteDance Request] 🔥 开始处理请求");
   const controller = new AbortController();
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.ByteDance, "");

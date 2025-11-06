@@ -189,7 +189,7 @@ export class MoonshotApi implements LLMApi {
                     if (name && !existingTool.function.name) {
                       existingTool.function.name = name;
                     }
-                    if (args) {
+                    if (args !== undefined) {
                       existingTool.function.arguments =
                         (existingTool.function.arguments || "") + args;
                     }

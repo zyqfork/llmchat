@@ -3183,6 +3183,7 @@ function _Chat() {
                           </div>
                         )}
                         {/*@ts-ignore*/}
+                        {/*@ts-ignore*/}
                         {message?.tools?.length > 0 && (
                           <div className={styles["chat-message-tools"]}>
                             {message?.tools?.map((tool) => {
@@ -3239,7 +3240,7 @@ function _Chat() {
                                     <LoadingButtonIcon />
                                   )}
                                   <span className={styles["tool-name"]}>
-                                    {toolName}
+                                    {toolName || "工具调用中..."}
                                   </span>
                                   {clientName && (
                                     <span className={styles["tool-client"]}>
