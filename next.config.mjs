@@ -4,17 +4,19 @@ import crypto from "crypto";
 
 const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
 const disableChunk = false;
+// 检查是否是调试构建
+const isDebugBuild = process.env.DEBUG_BUILD === "true";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 启用 SWC 压缩（比 Terser 快 7 倍）
-  swcMinify: true,
+  // 根据构建模式决定是否启用压缩
+  swcMinify: !isDebugBuild,
 
   // 编译器优化
   compiler: {
-    // 生产环境移除 console（保留 error 和 warn）
+    // 生产环境移除 console（保留 error 和 warn），调试模式不移除
     removeConsole:
-      process.env.NODE_ENV === "production"
+      !isDebugBuild && process.env.NODE_ENV === "production"
         ? {
             exclude: ["error", "warn"],
           }
@@ -33,8 +35,8 @@ const nextConfig = {
     ],
   },
 
-  // 生产环境禁用 source maps（减少构建时间和体积）
-  productionBrowserSourceMaps: false,
+  // 调试模式启用 source maps
+  productionBrowserSourceMaps: isDebugBuild,
 
   // 图片优化
   images: {
@@ -80,6 +82,8 @@ const nextConfig = {
     if (!dev && !isServer) {
       config.optimization = {
         ...config.optimization,
+        // 根据构建模式决定是否压缩
+        minimize: !isDebugBuild,
         moduleIds: "deterministic",
         runtimeChunk: "single",
         splitChunks: {

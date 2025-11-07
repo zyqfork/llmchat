@@ -181,6 +181,9 @@ function Screen() {
     // 如果正在访问认证页面或设置页面，不需要验证
     if (isAuth || isSettings) return false;
 
+    // 在 App 环境下，不强制要求访问码验证，允许用户访问设置页面
+    if (getClientConfig()?.isApp) return false;
+
     // 如果有环境变量设置的访问码要求
     if (accessStore.enabledAccessControl()) {
       return !accessStore.isAuthorized();
@@ -245,12 +248,67 @@ function Screen() {
 
 export function useLoadData() {
   const config = useAppConfig();
+  const accessStore = useAccessStore();
 
-  const api: ClientApi = getClientApi(config.modelConfig.providerName);
+  // 确保 providerName 有值，如果没有则使用默认值
+  const providerName = config.modelConfig.providerName || "OpenAI";
 
   useEffect(() => {
     (async () => {
+      // 检查当前使用的 provider 是否有有效配置
+      const checkProviderValid = (provider: string) => {
+        switch (provider) {
+          case "OpenAI":
+            return accessStore.isValidOpenAI();
+          case "Azure":
+            return accessStore.isValidAzure();
+          case "Google":
+            return accessStore.isValidGoogle();
+          case "Anthropic":
+            return accessStore.isValidAnthropic();
+          case "ByteDance":
+            return accessStore.isValidByteDance();
+          case "Alibaba":
+            return accessStore.isValidAlibaba();
+          case "Moonshot":
+            return accessStore.isValidMoonshot();
+          case "DeepSeek":
+            return accessStore.isValidDeepSeek();
+          case "XAI":
+            return accessStore.isValidXAI();
+          case "SiliconFlow":
+            return accessStore.isValidSiliconFlow();
+          case "Ollama":
+            // Ollama 需要检查 URL 是否配置
+            return !!accessStore.ollamaUrl;
+          default:
+            // 自定义 provider
+            if (provider.startsWith("custom_")) {
+              return accessStore.isValidCustomProvider(provider);
+            }
+            return false;
+        }
+      };
+
+      const hasValidConfig = checkProviderValid(providerName);
+
+      console.log("[Config] Checking API key configuration:", {
+        hasValidConfig,
+        providerName,
+      });
+
+      // 只有在配置了有效的 API Key 时才获取模型列表
+      if (!hasValidConfig) {
+        console.log(
+          "[Config] No valid API key configured for current provider, skipping model fetch",
+        );
+        return;
+      }
+
+      console.log("[Config] Valid API key found, fetching models...");
+
       try {
+        const api: ClientApi = getClientApi(providerName);
         const models = await api.llm.models();
         config.mergeModels(models);
       } catch (e) {

@@ -653,7 +653,9 @@ export const useChatStore = createPersistStore(
           ]);
         });
 
-        const api: ClientApi = getClientApi(modelConfig.providerName);
+        const api: ClientApi = getClientApi(
+          modelConfig.providerName || "OpenAI",
+        );
 
         // 获取 MCP 工具（如果启用了 Function Call 模式）
         const mcpTools = await get().getMcpTools();
@@ -900,7 +902,9 @@ export const useChatStore = createPersistStore(
           // 更新该模型的消息历史
           multiModelMode.modelMessages[modelKey] = recentMessages;
 
-          const api: ClientApi = getClientApi(modelConfig.providerName);
+          const api: ClientApi = getClientApi(
+            modelConfig.providerName || "OpenAI",
+          );
 
           // 获取 MCP 工具（如果启用了 Function Call 模式）
           const mcpTools = await get().getMcpTools();
@@ -1527,7 +1531,9 @@ export const useChatStore = createPersistStore(
         const sendMessages = recentMessages.splice(0, messageIndex);
 
         const modelConfig = session.mask.modelConfig;
-        const api: ClientApi = getClientApi(modelConfig.providerName);
+        const api: ClientApi = getClientApi(
+          modelConfig.providerName || "OpenAI",
+        );
 
         // 发送请求
         try {

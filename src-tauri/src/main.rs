@@ -17,6 +17,18 @@ fn main() {
       fetch::tauri_fetch_sync_stream
     ])
     .plugin(tauri_plugin_window_state::Builder::default().build())
+    .setup(|app| {
+      // 只在启用 debug-devtools feature 时打开开发者工具
+      #[cfg(feature = "debug-devtools")]
+      {
+        use tauri::Manager;
+        if let Some(window) = app.get_window("main") {
+          window.open_devtools();
+          println!("Developer tools opened");
+        }
+      }
+      Ok(())
+    })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

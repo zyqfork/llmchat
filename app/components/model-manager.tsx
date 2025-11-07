@@ -659,7 +659,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
       // 创建测试用的API客户端
       const { getClientApi } = await import("../client/api");
-      const api = getClientApi(provider as any);
+      const api = getClientApi((provider || "OpenAI") as any);
 
       // 使用Promise来正确处理异步结果，添加超时机制
       const testResult = await new Promise<{

@@ -83,7 +83,10 @@ export function AuthPage() {
   };
 
   useEffect(() => {
-    if (getClientConfig()?.isApp) {
+    // 只在首次加载且在 Auth 页面时才重定向到设置
+    // 避免从其他页面返回时被重定向
+    const currentPath = window.location.pathname;
+    if (getClientConfig()?.isApp && currentPath === Path.Auth) {
       navigate(Path.Settings);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -379,6 +379,14 @@ export function getClientApi(provider: ServiceProvider | string): ClientApi {
 
 // 标准化provider名称，将provider.id转换为ServiceProvider枚举值
 export function normalizeProviderName(provider: string): ServiceProvider {
+  // 检查 provider 是否为空
+  if (!provider || typeof provider !== "string") {
+    console.warn(
+      "normalizeProviderName: provider is undefined or invalid, defaulting to OpenAI",
+    );
+    return ServiceProvider.OpenAI;
+  }
+
   // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
   if (provider.startsWith("custom_")) {
     const { useAccessStore } = require("../store");

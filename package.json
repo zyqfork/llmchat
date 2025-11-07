@@ -9,8 +9,10 @@
     "lint": "next lint",
     "export": "cross-env BUILD_MODE=export BUILD_APP=1 next build",
     "export:dev": "cross-env BUILD_MODE=export BUILD_APP=1 next dev",
+    "export:debug": "cross-env BUILD_MODE=export BUILD_APP=1 DEBUG_BUILD=true next build",
     "app:dev": "yarn tauri dev",
     "app:build": "yarn tauri build",
+    "app:build:debug": "yarn export:debug && yarn tauri build --features debug-devtools",
     "app:clear": "yarn tauri dev",
     "prompts": "node ./scripts/fetch-prompts.mjs",
     "prepare": "husky install",
@@ -63,7 +65,7 @@
     "zustand": "^4.3.8"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/api": "1.5.3",
     "@tauri-apps/cli": "1.5.11",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

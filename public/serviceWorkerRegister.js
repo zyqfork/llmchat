@@ -1,4 +1,8 @@
-if ('serviceWorker' in navigator) {
+// 检查是否在 Tauri 环境中运行
+const isTauriApp = typeof window !== 'undefined' && window.__TAURI__ !== undefined;
+
+// Tauri 应用不需要 ServiceWorker
+if (!isTauriApp && 'serviceWorker' in navigator) {
   window.addEventListener('DOMContentLoaded', function () {
     navigator.serviceWorker.register('/serviceWorker.js').then(function (registration) {
       console.log('ServiceWorker registration successful with scope: ', registration.scope);
@@ -24,4 +28,7 @@ if ('serviceWorker' in navigator) {
       window.location.reload(true);
     });
   });
+} else if (isTauriApp) {
+  console.log('Running in Tauri app, ServiceWorker is not needed');
+  window._SW_ENABLED = false;
 }

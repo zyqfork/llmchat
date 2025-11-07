@@ -887,7 +887,12 @@ export function Settings() {
   useEffect(() => {
     const keydownEvent = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        navigate(Path.Home);
+        try {
+          navigate(Path.Home);
+        } catch (error) {
+          console.error("Navigation error:", error);
+          window.location.href = "/";
+        }
       }
     };
     if (clientConfig?.isApp) {
@@ -2863,7 +2868,15 @@ export function Settings() {
             <IconButton
               aria={Locale.UI.Close}
               icon={<CloseIcon />}
-              onClick={() => navigate(Path.Home)}
+              onClick={() => {
+                try {
+                  navigate(Path.Home);
+                } catch (e) {
+                  console.error("Navigation error:", e);
+                  // 如果导航失败，尝试强制刷新
+                  window.location.href = "/";
+                }
+              }}
               bordered
             />
           </div>
