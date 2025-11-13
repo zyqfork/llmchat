@@ -257,8 +257,14 @@
 }
 
 .chat-item-pinned {
+  border-width: 1px !important;
+  border-color: rgba(var(--primary-rgb), 0.4) !important;
+  background-color: rgba(var(--primary-rgb), 0.03);
+}
+
+.chat-item-pinned.chat-item-selected {
+  border-width: 2px !important;
   border-color: var(--primary) !important;
-  background-color: rgba(var(--primary-rgb), 0.05);
 }
 
 .chat-item-pinned-icon {
