@@ -258,7 +258,7 @@
 
 .chat-item-pinned {
   border-width: 1px !important;
-  border-color: rgba(var(--primary-rgb), 0.4) !important;
+  border-color: var(--primary-light) !important;
   background-color: rgba(var(--primary-rgb), 0.03);
 }
 
