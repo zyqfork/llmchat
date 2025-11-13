@@ -1,4 +1,5 @@
 import DeleteIcon from "../icons/delete.svg";
+import PinIcon from "../icons/pin.svg";
 
 import styles from "./home.module.scss";
 import {
@@ -25,6 +26,7 @@ import clsx from "clsx";
 export function ChatItem(props: {
   onClick?: () => void;
   onDelete?: () => void;
+  onTogglePin?: () => void;
   title: string;
   count: number;
   time: string;
@@ -33,8 +35,12 @@ export function ChatItem(props: {
   index: number;
   narrow?: boolean;
   mask: Mask;
+  pinned?: boolean;
 }) {
   const draggableRef = useRef<HTMLDivElement | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (props.selected && draggableRef.current) {
       draggableRef.current?.scrollIntoView({
@@ -42,6 +48,63 @@ export function ChatItem(props: {
       });
     }
   }, [props.selected]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // 如果点击的是删除/钉选按钮，不触发长按
+    if ((e.target as HTMLElement).closest(`.${styles["chat-item-delete"]}`)) {
+      return;
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressing(true);
+      props.onTogglePin?.();
+    }, 2000);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  };
+
+  const handleMouseLeave = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // 如果点击的是删除/钉选按钮，不触发长按
+    if ((e.target as HTMLElement).closest(`.${styles["chat-item-delete"]}`)) {
+      return;
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressing(true);
+      props.onTogglePin?.();
+    }, 2000);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  };
 
   const { pathname: currentPath } = useLocation();
   return (
@@ -52,8 +115,14 @@ export function ChatItem(props: {
             [styles["chat-item-selected"]]:
               props.selected &&
               (currentPath === Path.Chat || currentPath === Path.Home),
+            [styles["chat-item-pinned"]]: props.pinned,
           })}
           onClick={props.onClick}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           ref={(ele) => {
             draggableRef.current = ele;
             provided.innerRef(ele);
@@ -89,14 +158,18 @@ export function ChatItem(props: {
           )}
 
           <div
-            className={styles["chat-item-delete"]}
+            className={clsx(styles["chat-item-delete"], {
+              [styles["chat-item-pinned-icon"]]: props.pinned,
+            })}
             onClickCapture={(e) => {
-              props.onDelete?.();
+              if (!props.pinned) {
+                props.onDelete?.();
+              }
               e.preventDefault();
               e.stopPropagation();
             }}
           >
-            <DeleteIcon />
+            {props.pinned ? <PinIcon /> : <DeleteIcon />}
           </div>
         </div>
       )}
@@ -105,14 +178,21 @@ export function ChatItem(props: {
 }
 
 export function ChatList(props: { narrow?: boolean }) {
-  const [sessions, selectedIndex, selectSession, moveSession, currentMaskId] =
-    useChatStore((state) => [
-      state.sessions,
-      state.currentSessionIndex,
-      state.selectSession,
-      state.moveSession,
-      state.currentMaskId,
-    ]);
+  const [
+    sessions,
+    selectedIndex,
+    selectSession,
+    moveSession,
+    currentMaskId,
+    togglePinSession,
+  ] = useChatStore((state) => [
+    state.sessions,
+    state.currentSessionIndex,
+    state.selectSession,
+    state.moveSession,
+    state.currentMaskId,
+    state.togglePinSession,
+  ]);
   const chatStore = useChatStore();
   const maskStore = useMaskStore();
   const navigate = useNavigate();
@@ -203,9 +283,13 @@ export function ChatList(props: { narrow?: boolean }) {
                   id={item.id}
                   index={i}
                   selected={originalIndex === selectedIndex}
+                  pinned={item.pinned}
                   onClick={() => {
                     navigate(Path.Chat);
                     selectSession(originalIndex);
+                  }}
+                  onTogglePin={() => {
+                    togglePinSession(originalIndex);
                   }}
                   onDelete={async () => {
                     if (

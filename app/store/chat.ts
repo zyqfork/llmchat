@@ -137,6 +137,7 @@ export interface ChatSession {
   lastUpdate: number;
   lastSummarizeIndex: number;
   clearContextIndex?: number;
+  pinned?: boolean; // 钉选状态
 
   mask: Mask;
   // MCP 功能总开关（默认关闭）
@@ -518,11 +519,28 @@ export const useChatStore = createPersistStore(
         get().selectSession(limit(i + delta));
       },
 
+      togglePinSession(index: number) {
+        set((state) => {
+          const sessions = [...state.sessions];
+          const session = sessions[index];
+          if (session) {
+            session.pinned = !session.pinned;
+          }
+          return { sessions };
+        });
+      },
+
       deleteSession(index: number) {
         const deletingLastSession = get().sessions.length === 1;
         const deletedSession = get().sessions.at(index);
 
         if (!deletedSession) return;
+
+        // 如果对话被钉选，不允许删除
+        if (deletedSession.pinned) {
+          showToast(Locale.Home.DeletePinnedChat);
+          return;
+        }
 
         const sessions = get().sessions.slice();
         sessions.splice(index, 1);

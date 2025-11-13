@@ -247,6 +247,7 @@ const en: LocaleType = {
     NewChat: "New Chat",
     DeleteChat: "Confirm to delete the selected conversation?",
     DeleteToast: "Chat Deleted",
+    DeletePinnedChat: "Cannot delete pinned chat, please unpin it first",
     Revert: "Revert",
   },
   Settings: {

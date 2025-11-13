@@ -240,6 +240,7 @@ const cn = {
     NewChat: "新的聊天",
     DeleteChat: "确认删除选中的对话？",
     DeleteToast: "已删除会话",
+    DeletePinnedChat: "无法删除已钉选的对话，请先取消钉选",
     Revert: "撤销",
   },
   Settings: {
