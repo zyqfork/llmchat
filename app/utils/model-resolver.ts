@@ -23,6 +23,11 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
 
   // 如果助手设置了默认模型，使用助手默认模型
   if (mask.defaultModel) {
+    // 解析 defaultModel 格式：可能是 "model@provider" 或只是 "model"
+    const [modelName, providerId] = mask.defaultModel.includes("@")
+      ? mask.defaultModel.split("@")
+      : [mask.defaultModel, undefined];
+
     // 需要找到对应的提供商信息，使用包含自定义模型的完整列表
     const configStore = useAppConfig.getState();
     const accessStore = useAccessStore.getState();
@@ -31,12 +36,23 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
       [configStore.customModels, accessStore.customModels].join(","),
       accessStore.defaultModel,
     );
-    const modelObj = allModels.find((m) => m.name === mask.defaultModel);
+
+    // 如果有 providerId，优先匹配 providerId；否则只匹配模型名称
+    const modelObj = providerId
+      ? allModels.find(
+          (m) =>
+            m.name === modelName &&
+            (m.provider?.id === providerId ||
+              m.provider?.providerName === providerId),
+        )
+      : allModels.find((m) => m.name === modelName);
 
     return {
-      model: mask.defaultModel,
+      model: modelName,
       providerName:
-        modelObj?.provider?.providerName || globalConfig.providerName,
+        modelObj?.provider?.providerName ||
+        providerId ||
+        globalConfig.providerName,
       source: "mask-default",
     };
   }
