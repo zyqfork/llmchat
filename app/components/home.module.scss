@@ -272,6 +272,13 @@
   transform: translateX(-4px);
 }
 
+.chat-item-long-pressing {
+  border-color: var(--primary) !important;
+  background-color: rgba(var(--primary-rgb), 0.1);
+  transform: scale(0.98);
+  transition: all 0.2s ease;
+}
+
 .chat-item-info {
   display: flex;
   justify-content: space-between;

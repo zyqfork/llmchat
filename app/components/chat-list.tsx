@@ -64,10 +64,10 @@ export function ChatItem(props: {
       return;
     }
 
+    setIsLongPressing(true);
     longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressing(true);
       props.onTogglePin?.();
-    }, 2000);
+    }, 1000);
   };
 
   const handleMouseUp = () => {
@@ -92,10 +92,10 @@ export function ChatItem(props: {
       return;
     }
 
+    setIsLongPressing(true);
     longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressing(true);
       props.onTogglePin?.();
-    }, 2000);
+    }, 1000);
   };
 
   const handleTouchEnd = () => {
@@ -116,6 +116,7 @@ export function ChatItem(props: {
               props.selected &&
               (currentPath === Path.Chat || currentPath === Path.Home),
             [styles["chat-item-pinned"]]: props.pinned,
+            [styles["chat-item-long-pressing"]]: isLongPressing,
           })}
           onClick={props.onClick}
           onMouseDown={handleMouseDown}
