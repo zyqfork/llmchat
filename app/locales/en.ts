@@ -246,7 +246,10 @@ const en: LocaleType = {
   Home: {
     NewChat: "New Chat",
     DeleteChat: "Confirm to delete the selected conversation?",
+    DeleteAllChats:
+      "Confirm to close all sessions? This action cannot be undone.",
     DeleteToast: "Chat Deleted",
+    DeleteAllToast: "All sessions closed",
     DeletePinnedChat: "Cannot delete pinned chat, please unpin it first",
     Revert: "Revert",
   },

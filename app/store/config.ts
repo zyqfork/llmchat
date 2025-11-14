@@ -63,7 +63,7 @@ export const DEFAULT_CONFIG = {
 
   disablePromptHint: false,
 
-  useModelIconAsAvatar: false, // use model icon as AI avatar instead of emoji
+  useModelIconAsAvatar: true, // use model icon as AI avatar instead of emoji
 
   customModels: "",
   models: DEFAULT_MODELS as any as LLMModel[],

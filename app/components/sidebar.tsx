@@ -32,7 +32,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { isIOS, useMobileScreen } from "../utils";
 import dynamic from "next/dynamic";
-import { showConfirm } from "./ui-lib";
+import { showConfirm, showToast } from "./ui-lib";
 import clsx from "clsx";
 
 const ChatList = dynamic(async () => (await import("./chat-list")).ChatList, {
@@ -167,13 +167,21 @@ export function SideBarContainer(props: {
   shouldNarrow: boolean;
   isCollapsed: boolean;
   className?: string;
+  onDoubleClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 }) {
   const isMobileScreen = useMobileScreen();
   const isIOSMobile = useMemo(
     () => isIOS() && isMobileScreen,
     [isMobileScreen],
   );
-  const { children, className, onDragStart, shouldNarrow, isCollapsed } = props;
+  const {
+    children,
+    className,
+    onDragStart,
+    shouldNarrow,
+    isCollapsed,
+    onDoubleClick,
+  } = props;
 
   return (
     <div
@@ -185,6 +193,7 @@ export function SideBarContainer(props: {
         // #3016 disable transition on ios mobile screen
         transition: isMobileScreen && isIOSMobile ? "none" : undefined,
       }}
+      onDoubleClick={onDoubleClick}
     >
       {children}
       <div
@@ -270,11 +279,92 @@ export function SideBar(props: { className?: string }) {
     config.update((config) => (config.theme = nextTheme));
   }
 
+  // 处理双击左侧任意空白区域关闭所有会话
+  const handleDoubleClickSidebar = async (
+    e: React.MouseEvent<HTMLDivElement>,
+  ) => {
+    // 检查是否点击了按钮或其他交互元素
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("a") ||
+      target.closest('[role="button"]') ||
+      target.closest(".chat-item")
+    ) {
+      return;
+    }
+
+    if (await showConfirm(Locale.Home.DeleteAllChats)) {
+      const sessions = chatStore.sessions;
+      const currentSessionIndex = chatStore.currentSessionIndex;
+      const currentSession = sessions[currentSessionIndex];
+
+      // 检查当前会话是否是钉住的
+      const isCurrentSessionPinned = currentSession?.pinned;
+      // 保存当前钉住会话的ID
+      const currentPinnedSessionId = isCurrentSessionPinned
+        ? currentSession.id
+        : null;
+
+      // 检查是否有钉住的会话
+      const hasPinnedSessions = sessions.some((s) => s.pinned);
+
+      // 从后往前删除所有未钉住的会话
+      for (let i = sessions.length - 1; i >= 0; i--) {
+        if (!sessions[i].pinned) {
+          chatStore.deleteSession(i);
+        }
+      }
+
+      // 使用 setTimeout 确保删除操作完成后再选择会话
+      setTimeout(() => {
+        const remainingSessions = chatStore.sessions;
+
+        if (hasPinnedSessions && remainingSessions.length > 0) {
+          if (currentPinnedSessionId) {
+            // 如果当前打开的是钉住的会话，保持打开这个会话
+            const currentPinnedIndex = remainingSessions.findIndex(
+              (s) => s.id === currentPinnedSessionId,
+            );
+            if (currentPinnedIndex !== -1) {
+              chatStore.selectSession(currentPinnedIndex);
+              navigate(Path.Chat);
+            } else {
+              // 如果找不到（理论上不应该发生），选择第一个
+              chatStore.selectSession(0);
+              navigate(Path.Chat);
+            }
+          } else {
+            // 如果当前打开的不是钉住的会话，选择第一个钉住的会话
+            chatStore.selectSession(0);
+            navigate(Path.Chat);
+          }
+        } else {
+          // 如果没有钉住的会话，创建一个新会话
+          const currentMaskId = chatStore.currentMaskId;
+          if (currentMaskId) {
+            const maskStore = useMaskStore.getState();
+            const selectedMask = maskStore
+              .getAll()
+              .find((m: any) => m.id === currentMaskId);
+            if (selectedMask) {
+              chatStore.newSession(selectedMask);
+              navigate(Path.Chat);
+            }
+          }
+        }
+      }, 50);
+
+      showToast(Locale.Home.DeleteAllToast);
+    }
+  };
+
   return (
     <SideBarContainer
       onDragStart={onDragStart}
       shouldNarrow={shouldNarrow}
       isCollapsed={isCollapsed}
+      onDoubleClick={handleDoubleClickSidebar}
       {...props}
     >
       <SideBarHeader

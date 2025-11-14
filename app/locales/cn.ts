@@ -239,7 +239,9 @@ const cn = {
   Home: {
     NewChat: "新的聊天",
     DeleteChat: "确认删除选中的对话？",
+    DeleteAllChats: "确认关闭所有会话？此操作不可撤销。",
     DeleteToast: "已删除会话",
+    DeleteAllToast: "已关闭所有会话",
     DeletePinnedChat: "无法删除已钉选的对话，请先取消钉选",
     Revert: "撤销",
   },

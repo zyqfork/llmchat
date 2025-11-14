@@ -67,7 +67,7 @@ export function ChatItem(props: {
     setIsLongPressing(true);
     longPressTimerRef.current = setTimeout(() => {
       props.onTogglePin?.();
-    }, 1000);
+    }, 500);
   };
 
   const handleMouseUp = () => {
@@ -95,7 +95,7 @@ export function ChatItem(props: {
     setIsLongPressing(true);
     longPressTimerRef.current = setTimeout(() => {
       props.onTogglePin?.();
-    }, 1000);
+    }, 500);
   };
 
   const handleTouchEnd = () => {
