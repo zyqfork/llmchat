@@ -257,10 +257,7 @@
 }
 
 .chat-item-pinned {
-  border-width: 1px !important;
-  border-style: dashed !important;
-  border-color: var(--primary-light) !important;
-  background-color: rgba(var(--primary-rgb), 0.03);
+  background-color: rgba(0, 0, 0, 0.04);
 }
 
 .chat-item-pinned.chat-item-selected {
