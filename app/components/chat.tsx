@@ -1055,6 +1055,7 @@ export function TokenCounter(props: {
   userInput?: string;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const chatStore = useChatStore();
 
   // 计算当前对话的Token数量（排除思考内容）
   const calculateUsedTokens = () => {
@@ -1117,14 +1118,24 @@ export function TokenCounter(props: {
     return "#22c55e"; // 綠色 - 安全
   };
 
+  // 处理重置聊天的点击事件
+  const handleResetChat = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (await showConfirm(Locale.Chat.InputActions.ResetConfirm)) {
+      chatStore.resetSession(props.session);
+    }
+  };
+
   return (
     <div className={styles["chat-action-wrapper"]}>
       <button
         className={styles["token-counter-button"]}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        onClick={(e) => e.preventDefault()}
+        onClick={handleResetChat}
         type="button"
+        title={Locale.Chat.InputActions.Reset}
       >
         <span className={styles["token-counter-text"]}>{displayText}</span>
       </button>
@@ -1606,15 +1617,6 @@ export function ChatActions(props: {
               session.memoryPrompt = ""; // will clear memory
             }
           });
-        }}
-      />
-      <ChatAction
-        text={Locale.Chat.InputActions.Reset}
-        icon={<ResetIcon />}
-        onClick={async () => {
-          if (await showConfirm(Locale.Chat.InputActions.ResetConfirm)) {
-            chatStore.resetSession(session);
-          }
         }}
       />
     </>
