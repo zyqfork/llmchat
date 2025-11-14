@@ -106,6 +106,32 @@ export function ChatItem(props: {
     setIsLongPressing(false);
   };
 
+  // 处理双击事件
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // 如果点击的是删除/钉选按钮，不触发双击删除
+    if ((e.target as HTMLElement).closest(`.${styles["chat-item-delete"]}`)) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    props.onDelete?.();
+  };
+
+  // 处理鼠标按下事件（包括中键）
+  const handleMouseDownWithMiddle = (e: React.MouseEvent) => {
+    // 鼠标中键点击（button === 1）
+    if (e.button === 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      props.onDelete?.();
+      return;
+    }
+
+    // 其他按钮继续原有的长按逻辑
+    handleMouseDown(e);
+  };
+
   const { pathname: currentPath } = useLocation();
   return (
     <Draggable draggableId={`${props.id}`} index={props.index}>
@@ -119,7 +145,8 @@ export function ChatItem(props: {
             [styles["chat-item-long-pressing"]]: isLongPressing,
           })}
           onClick={props.onClick}
-          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
+          onMouseDown={handleMouseDownWithMiddle}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
           onTouchStart={handleTouchStart}
