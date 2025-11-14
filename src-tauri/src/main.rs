@@ -5,6 +5,14 @@ mod fetch;  // 统一的 fetch 模块
 
 fn main() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_clipboard_manager::init())
+    .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_notification::init())
+    .plugin(tauri_plugin_http::init())
+    .plugin(tauri_plugin_window_state::Builder::default().build())
+    .plugin(tauri_plugin_updater::Builder::new().build())
     .invoke_handler(tauri::generate_handler![
       // MCP 请求
       fetch::tauri_fetch_mcp,
@@ -16,13 +24,12 @@ fn main() {
       fetch::tauri_fetch_sync,
       fetch::tauri_fetch_sync_stream
     ])
-    .plugin(tauri_plugin_window_state::Builder::default().build())
-    .setup(|app| {
+    .setup(|_app| {
       // 只在启用 debug-devtools feature 时打开开发者工具
       #[cfg(feature = "debug-devtools")]
       {
         use tauri::Manager;
-        if let Some(window) = app.get_window("main") {
+        if let Some(window) = _app.get_webview_window("main") {
           window.open_devtools();
           println!("Developer tools opened");
         }

@@ -29,7 +29,10 @@ export function trimTopic(topic: string) {
 export async function copyToClipboard(text: string) {
   try {
     if (window.__TAURI__) {
-      window.__TAURI__.writeText(text);
+      const { writeText } = await import(
+        "@tauri-apps/plugin-clipboard-manager"
+      );
+      await writeText(text);
     } else {
       await navigator.clipboard.writeText(text);
     }
@@ -53,7 +56,10 @@ export async function copyToClipboard(text: string) {
 
 export async function downloadAs(text: string, filename: string) {
   if (window.__TAURI__) {
-    const result = await window.__TAURI__.dialog.save({
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+
+    const result = await save({
       defaultPath: `${filename}`,
       filters: [
         {
@@ -69,7 +75,7 @@ export async function downloadAs(text: string, filename: string) {
 
     if (result !== null) {
       try {
-        await window.__TAURI__.fs.writeTextFile(result, text);
+        await writeTextFile(result, text);
         showToast(Locale.Download.Success);
       } catch (error) {
         showToast(Locale.Download.Failed);
@@ -451,27 +457,24 @@ export function getOperationId(operation: {
   );
 }
 
-export function clientUpdate() {
+export async function clientUpdate() {
   // this a wild for updating client app
-  return window.__TAURI__?.updater
-    .checkUpdate()
-    .then((updateResult) => {
-      if (updateResult.shouldUpdate) {
-        window.__TAURI__?.updater
-          .installUpdate()
-          .then((result) => {
-            showToast(Locale.Settings.Update.Success);
-          })
-          .catch((e) => {
-            console.error("[Install Update Error]", e);
-            showToast(Locale.Settings.Update.Failed);
-          });
-      }
-    })
-    .catch((e) => {
-      console.error("[Check Update Error]", e);
-      showToast(Locale.Settings.Update.Failed);
-    });
+  if (!window.__TAURI__) return;
+
+  try {
+    const { check } = await import("@tauri-apps/plugin-updater");
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+
+    const update = await check();
+    if (update?.available) {
+      await update.downloadAndInstall();
+      showToast(Locale.Settings.Update.Success);
+      await relaunch();
+    }
+  } catch (e) {
+    console.error("[Check Update Error]", e);
+    showToast(Locale.Settings.Update.Failed);
+  }
 }
 
 // https://gist.github.com/iwill/a83038623ba4fef6abb9efca87ae9ccb

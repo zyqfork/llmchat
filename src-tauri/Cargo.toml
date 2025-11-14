@@ -2,7 +2,7 @@
 name = "llmchat"
 version = "0.1.0"
 description = "A cross platform app for LLM ChatBot."
-authors = ["Yidadaa"]
+authors = ["zyq"]
 license = "mit"
 repository = ""
 default-run = "llmchat"
@@ -12,32 +12,21 @@ rust-version = "1.60"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.5.1", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5.4", features = [ "http-all",
-    "notification-all",
-    "fs-all",
-    "clipboard-all",
-    "dialog-all",
-    "shell-open",
-    "updater",
-    "window-close",
-    "window-hide",
-    "window-maximize",
-    "window-minimize",
-    "window-set-icon",
-    "window-set-ignore-cursor-events",
-    "window-set-resizable",
-    "window-show",
-    "window-start-dragging",
-    "window-unmaximize",
-    "window-unminimize",
-    "devtools",
-] }
-tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-http = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 percent-encoding = "2.3.1"
 reqwest = { version = "0.11.18", features = ["stream"] }
 futures-util = "0.3.30"

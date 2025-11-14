@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use futures_util::StreamExt;
 use reqwest::Client;
 use reqwest::header::{HeaderName, HeaderMap};
+use tauri::Emitter;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -193,7 +194,7 @@ pub struct StreamResponse {
 #[derive(Clone, serde::Serialize)]
 pub struct ChunkPayload {
     request_id: u32,
-    chunk: bytes::Bytes,
+    chunk: Vec<u8>,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -204,7 +205,7 @@ pub struct EndPayload {
 
 async fn execute_stream_request(
     log_prefix: &str,
-    window: tauri::Window,
+    window: tauri::WebviewWindow,
     method: String,
     url: String,
     header_map: HeaderMap,
@@ -282,7 +283,7 @@ async fn execute_stream_request(
                         event_name,
                         ChunkPayload {
                             request_id,
-                            chunk: bytes,
+                            chunk: bytes.to_vec(),
                         },
                     ) {
                         println!("[{}] Failed to emit chunk: {:?}", log_prefix_owned, e);
@@ -322,7 +323,7 @@ async fn execute_stream_request(
 
 #[tauri::command]
 pub async fn tauri_fetch_mcp_stream(
-    window: tauri::Window,
+    window: tauri::WebviewWindow,
     method: String,
     url: String,
     headers: HashMap<String, String>,
@@ -345,7 +346,7 @@ pub async fn tauri_fetch_mcp_stream(
 
 #[tauri::command]
 pub async fn tauri_fetch_llm_stream(
-    window: tauri::Window,
+    window: tauri::WebviewWindow,
     method: String,
     url: String,
     headers: HashMap<String, String>,
@@ -362,7 +363,7 @@ pub async fn tauri_fetch_llm_stream(
 
 #[tauri::command]
 pub async fn tauri_fetch_sync_stream(
-    window: tauri::Window,
+    window: tauri::WebviewWindow,
     method: String,
     url: String,
     headers: HashMap<String, String>,

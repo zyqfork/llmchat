@@ -173,7 +173,8 @@ async function fetchStream(
   signal?: AbortSignal,
   fetchType: FetchType = FetchType.LLM,
 ): Promise<Response> {
-  const { invoke, event } = (window as any).__TAURI__;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const { listen } = await import("@tauri-apps/api/event");
 
   let unlisten: Function | undefined;
   let setRequestId: Function | undefined;
@@ -196,24 +197,22 @@ async function fetchStream(
   }
 
   // 监听流式响应事件
-  event
-    .listen("stream-response", (e: ResponseEvent) =>
-      requestIdPromise.then((request_id) => {
-        const { request_id: rid, chunk, status } = e?.payload || {};
-        if (request_id != rid) {
-          return;
-        }
-        if (chunk) {
-          writer.ready.then(() => {
-            writer.write(new Uint8Array(chunk));
-          });
-        } else if (status === 0) {
-          // 流结束
-          close();
-        }
-      }),
-    )
-    .then((u: Function) => (unlisten = u));
+  unlisten = await listen("stream-response", (e: any) => {
+    requestIdPromise.then((request_id) => {
+      const { request_id: rid, chunk, status } = e?.payload || {};
+      if (request_id != rid) {
+        return;
+      }
+      if (chunk) {
+        writer.ready.then(() => {
+          writer.write(new Uint8Array(chunk));
+        });
+      } else if (status === 0) {
+        // 流结束
+        close();
+      }
+    });
+  });
 
   // 根据请求类型选择对应的 Tauri 命令
   const commandMap = {
@@ -267,7 +266,7 @@ async function fetchNonStream(
   signal?: AbortSignal,
   fetchType: FetchType = FetchType.LLM,
 ): Promise<Response> {
-  const { invoke } = (window as any).__TAURI__;
+  const { invoke } = await import("@tauri-apps/api/core");
 
   // 根据请求类型选择对应的 Tauri 命令
   const commandMap = {

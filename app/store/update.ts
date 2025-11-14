@@ -1,15 +1,9 @@
-import {
-  FETCH_COMMIT_URL,
-  FETCH_TAG_URL,
-  ModelProvider,
-  StoreKey,
-} from "../constant";
+import { FETCH_COMMIT_URL, FETCH_TAG_URL, StoreKey } from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
 import { clientUpdate } from "../utils";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import Locale from "../locales";
-import { ClientApi } from "../client/api";
 
 const ONE_MINUTE = 60 * 1000;
 const isApp = !!getClientConfig()?.isApp;
@@ -137,43 +131,42 @@ export const useUpdateStore = createPersistStore(
         set(() => ({
           remoteVersion: validRemoteId,
         }));
-        if (window.__TAURI__?.notification && isApp) {
+        if (window.__TAURI__ && isApp) {
           // Check if notification permission is granted
-          await window.__TAURI__?.notification
-            .isPermissionGranted()
-            .then((granted) => {
-              if (!granted) {
-                return;
+          try {
+            const { isPermissionGranted, requestPermission, sendNotification } =
+              await import("@tauri-apps/plugin-notification");
+
+            let granted = await isPermissionGranted();
+            if (!granted) {
+              const permission = await requestPermission();
+              granted = permission === "granted";
+            }
+
+            if (granted) {
+              if (version === remoteId) {
+                // Show a notification using Tauri
+                await sendNotification({
+                  title: "NextChat",
+                  body: `${Locale.Settings.Update.IsLatest}`,
+                  icon: `${ChatGptIcon.src}`,
+                });
               } else {
-                // Request permission to show notifications
-                window.__TAURI__?.notification
-                  .requestPermission()
-                  .then((permission) => {
-                    if (permission === "granted") {
-                      if (version === remoteId) {
-                        // Show a notification using Tauri
-                        window.__TAURI__?.notification.sendNotification({
-                          title: "NextChat",
-                          body: `${Locale.Settings.Update.IsLatest}`,
-                          icon: `${ChatGptIcon.src}`,
-                          sound: "Default",
-                        });
-                      } else {
-                        const updateMessage =
-                          Locale.Settings.Update.FoundUpdate(`${remoteId}`);
-                        // Show a notification for the new version using Tauri
-                        window.__TAURI__?.notification.sendNotification({
-                          title: "NextChat",
-                          body: updateMessage,
-                          icon: `${ChatGptIcon.src}`,
-                          sound: "Default",
-                        });
-                        clientUpdate();
-                      }
-                    }
-                  });
+                const updateMessage = Locale.Settings.Update.FoundUpdate(
+                  `${remoteId}`,
+                );
+                // Show a notification for the new version using Tauri
+                await sendNotification({
+                  title: "NextChat",
+                  body: updateMessage,
+                  icon: `${ChatGptIcon.src}`,
+                });
+                clientUpdate();
               }
-            });
+            }
+          } catch (error) {
+            console.error("[Notification Error]", error);
+          }
         }
       } catch (error) {
         console.error("[Fetch Upstream Commit Id]", error);
