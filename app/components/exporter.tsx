@@ -817,7 +817,7 @@ export function ImagePreviewer(props: {
       if (isMobile || (isApp && window.__TAURI__)) {
         if (isApp && window.__TAURI__) {
           const { save } = await import("@tauri-apps/plugin-dialog");
-          const { writeBinaryFile } = await import("@tauri-apps/plugin-fs");
+          const fs = await import("@tauri-apps/plugin-fs");
 
           const result = await save({
             defaultPath: `${props.topic}.png`,
@@ -837,7 +837,7 @@ export function ImagePreviewer(props: {
             const response = await fetch(blob);
             const buffer = await response.arrayBuffer();
             const uint8Array = new Uint8Array(buffer);
-            await writeBinaryFile(result, uint8Array);
+            await fs.writeFile(result, uint8Array);
             showToast(Locale.Download.Success);
           } else {
             showToast(Locale.Download.Failed);

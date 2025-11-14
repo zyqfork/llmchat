@@ -57,7 +57,7 @@ export async function copyToClipboard(text: string) {
 export async function downloadAs(text: string, filename: string) {
   if (window.__TAURI__) {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+    const fs = await import("@tauri-apps/plugin-fs");
 
     const result = await save({
       defaultPath: `${filename}`,
@@ -75,7 +75,7 @@ export async function downloadAs(text: string, filename: string) {
 
     if (result !== null) {
       try {
-        await writeTextFile(result, text);
+        await fs.writeTextFile(result, text);
         showToast(Locale.Download.Success);
       } catch (error) {
         showToast(Locale.Download.Failed);
