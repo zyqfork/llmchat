@@ -34,6 +34,7 @@ import {
   ServiceProvider,
   StoreKey,
   SUMMARIZE_MODEL,
+  UNFINISHED_INPUT,
 } from "../constant";
 import Locale, { getLang } from "../locales";
 import { prettyObject } from "../utils/format";
@@ -416,10 +417,58 @@ export const useChatStore = createPersistStore(
       },
 
       clearSessions() {
+        // 清理所有会话的未完成输入
+        const sessions = get().sessions;
+        sessions.forEach((session) => {
+          try {
+            localStorage.removeItem(UNFINISHED_INPUT(session.id));
+          } catch (e) {
+            console.error("Failed to remove unfinished input:", e);
+          }
+        });
+
         set(() => ({
           sessions: [createEmptySession()],
           currentSessionIndex: 0,
         }));
+      },
+
+      // 清理孤立的未完成输入数据（会话已删除但数据还在）
+      cleanOrphanedUnfinishedInputs() {
+        try {
+          // 检查是否在浏览器环境
+          if (typeof window === "undefined" || !window.localStorage) {
+            return;
+          }
+
+          const sessions = get().sessions;
+          const sessionIds = new Set(sessions.map((s) => s.id));
+
+          // 遍历 localStorage 找到所有 unfinished-input- 开头的 key
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key && key.startsWith("unfinished-input-")) {
+              const sessionId = key.replace("unfinished-input-", "");
+              if (!sessionIds.has(sessionId)) {
+                keysToRemove.push(key);
+              }
+            }
+          }
+
+          // 删除孤立的数据
+          keysToRemove.forEach((key) => {
+            window.localStorage.removeItem(key);
+          });
+
+          if (keysToRemove.length > 0) {
+            console.log(
+              `Cleaned ${keysToRemove.length} orphaned unfinished inputs`,
+            );
+          }
+        } catch (e) {
+          console.error("Failed to clean orphaned unfinished inputs:", e);
+        }
       },
 
       // 助手分组相关方法
@@ -554,6 +603,13 @@ export const useChatStore = createPersistStore(
         if (deletingLastSession) {
           nextIndex = 0;
           sessions.push(createEmptySession());
+        }
+
+        // 清理该会话的未完成输入
+        try {
+          localStorage.removeItem(UNFINISHED_INPUT(deletedSession.id));
+        } catch (e) {
+          console.error("Failed to remove unfinished input:", e);
         }
 
         // for undo delete action

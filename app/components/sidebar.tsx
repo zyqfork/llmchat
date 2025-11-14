@@ -27,6 +27,7 @@ import {
   MIN_SIDEBAR_WIDTH,
   NARROW_SIDEBAR_WIDTH,
   Path,
+  UNFINISHED_INPUT,
 } from "../constant";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -238,10 +239,15 @@ export function SideBarHeader(props: {
 export function SideBarBody(props: {
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+  onDoubleClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 }) {
-  const { onClick, children } = props;
+  const { onClick, onDoubleClick, children } = props;
   return (
-    <div className={styles["sidebar-body"]} onClick={onClick}>
+    <div
+      className={styles["sidebar-body"]}
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+    >
       {children}
     </div>
   );
@@ -250,11 +256,12 @@ export function SideBarBody(props: {
 export function SideBarTail(props: {
   primaryAction?: React.ReactNode;
   secondaryAction?: React.ReactNode;
+  onDoubleClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 }) {
-  const { primaryAction, secondaryAction } = props;
+  const { primaryAction, secondaryAction, onDoubleClick } = props;
 
   return (
-    <div className={styles["sidebar-tail"]}>
+    <div className={styles["sidebar-tail"]} onDoubleClick={onDoubleClick}>
       <div className={styles["sidebar-actions"]}>{primaryAction}</div>
       <div className={styles["sidebar-actions"]}>{secondaryAction}</div>
     </div>
@@ -296,64 +303,52 @@ export function SideBar(props: { className?: string }) {
 
     if (await showConfirm(Locale.Home.DeleteAllChats)) {
       const sessions = chatStore.sessions;
-      const currentSessionIndex = chatStore.currentSessionIndex;
-      const currentSession = sessions[currentSessionIndex];
+      const currentSession = sessions[chatStore.currentSessionIndex];
 
-      // 检查当前会话是否是钉住的
-      const isCurrentSessionPinned = currentSession?.pinned;
       // 保存当前钉住会话的ID
-      const currentPinnedSessionId = isCurrentSessionPinned
+      const currentPinnedSessionId = currentSession?.pinned
         ? currentSession.id
         : null;
 
-      // 检查是否有钉住的会话
-      const hasPinnedSessions = sessions.some((s) => s.pinned);
+      // 筛选出所有钉住的会话
+      const pinnedSessions = sessions.filter((s) => s.pinned);
 
-      // 从后往前删除所有未钉住的会话
-      for (let i = sessions.length - 1; i >= 0; i--) {
-        if (!sessions[i].pinned) {
-          chatStore.deleteSession(i);
-        }
-      }
+      // 如果有钉住的会话，只保留它们
+      if (pinnedSessions.length > 0) {
+        // 清理所有未钉住会话的未完成输入
+        sessions.forEach((session) => {
+          if (!session.pinned) {
+            try {
+              localStorage.removeItem(UNFINISHED_INPUT(session.id));
+            } catch (e) {
+              console.error("Failed to remove unfinished input:", e);
+            }
+          }
+        });
 
-      // 使用 setTimeout 确保删除操作完成后再选择会话
-      setTimeout(() => {
-        const remainingSessions = chatStore.sessions;
+        // 直接调用 store 的 update 方法来批量删除未钉住的会话
+        chatStore.update((state) => {
+          state.sessions = state.sessions.filter((s) => s.pinned);
 
-        if (hasPinnedSessions && remainingSessions.length > 0) {
+          // 选择合适的会话索引
           if (currentPinnedSessionId) {
-            // 如果当前打开的是钉住的会话，保持打开这个会话
-            const currentPinnedIndex = remainingSessions.findIndex(
+            // 如果当前打开的是钉住的会话，继续保持打开它
+            const currentPinnedIndex = state.sessions.findIndex(
               (s) => s.id === currentPinnedSessionId,
             );
-            if (currentPinnedIndex !== -1) {
-              chatStore.selectSession(currentPinnedIndex);
-              navigate(Path.Chat);
-            } else {
-              // 如果找不到（理论上不应该发生），选择第一个
-              chatStore.selectSession(0);
-              navigate(Path.Chat);
-            }
+            state.currentSessionIndex =
+              currentPinnedIndex !== -1 ? currentPinnedIndex : 0;
           } else {
             // 如果当前打开的不是钉住的会话，选择第一个钉住的会话
-            chatStore.selectSession(0);
-            navigate(Path.Chat);
+            state.currentSessionIndex = 0;
           }
-        } else {
-          // 如果没有钉住的会话，创建一个新会话
-          const currentMaskId = chatStore.currentMaskId;
-          if (currentMaskId) {
-            const maskStore = useMaskStore.getState();
-            const selectedMask = maskStore
-              .getAll()
-              .find((m: any) => m.id === currentMaskId);
-            if (selectedMask) {
-              chatStore.newSession(selectedMask);
-              navigate(Path.Chat);
-            }
-          }
-        }
-      }, 50);
+        });
+        navigate(Path.Chat);
+      } else {
+        // 没有钉住的会话，清空所有并创建新会话
+        chatStore.clearSessions();
+        navigate(Path.Chat);
+      }
 
       showToast(Locale.Home.DeleteAllToast);
     }
@@ -364,7 +359,6 @@ export function SideBar(props: { className?: string }) {
       onDragStart={onDragStart}
       shouldNarrow={shouldNarrow}
       isCollapsed={isCollapsed}
-      onDoubleClick={handleDoubleClickSidebar}
       {...props}
     >
       <SideBarHeader
@@ -407,10 +401,12 @@ export function SideBar(props: { className?: string }) {
             navigate(Path.Home);
           }
         }}
+        onDoubleClick={handleDoubleClickSidebar}
       >
         <ChatList narrow={shouldNarrow} />
       </SideBarBody>
       <SideBarTail
+        onDoubleClick={handleDoubleClickSidebar}
         primaryAction={
           <>
             <div className={clsx(styles["sidebar-action"], styles.mobile)}>

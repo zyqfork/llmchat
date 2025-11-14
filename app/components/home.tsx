@@ -335,6 +335,10 @@ export function Home() {
       }
     };
     initMcp();
+
+    // 清理孤立的未完成输入数据
+    const { useChatStore } = require("../store");
+    useChatStore.getState().cleanOrphanedUnfinishedInputs();
   }, []);
 
   if (!useHasHydrated()) {
