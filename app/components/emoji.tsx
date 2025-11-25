@@ -18,6 +18,7 @@ import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
 import BotIconQwen from "../icons/llm-icons/qwen.svg";
 import BotIconGrok from "../icons/llm-icons/grok.svg";
 import BotIconDoubao from "../icons/llm-icons/doubao.svg";
+import BotIconOllama from "../icons/llm-icons/ollama.svg";
 
 export function getEmojiUrl(unified: string, style: EmojiStyle) {
   // Whoever owns this Content Delivery Network (CDN), I am using your CDN to serve emojis
@@ -42,44 +43,93 @@ export function AvatarPicker(props: {
   );
 }
 
-export function Avatar(props: { model?: ModelType; avatar?: string }) {
-  let LlmIcon = BotIconDefault;
+// 模型图标映射表 - 更易维护和扩展
+const MODEL_ICON_MAP: Array<{
+  test: (modelName: string) => boolean;
+  icon: any;
+}> = [
+  {
+    // OpenAI 系列
+    test: (name) =>
+      name.startsWith("gpt") ||
+      name.startsWith("chatgpt") ||
+      name.startsWith("dall-e") ||
+      name.startsWith("dalle") ||
+      name.startsWith("o1") ||
+      name.startsWith("o3"),
+    icon: BotIconOpenAI,
+  },
+  {
+    // Google Gemini 系列
+    test: (name) => name.startsWith("gemini"),
+    icon: BotIconGemini,
+  },
+  {
+    // Google Gemma 系列
+    test: (name) => name.startsWith("gemma"),
+    icon: BotIconGemma,
+  },
+  {
+    // Anthropic Claude 系列
+    test: (name) => name.startsWith("claude"),
+    icon: BotIconClaude,
+  },
+  {
+    // Meta Llama 系列
+    test: (name) => name.includes("llama"),
+    icon: BotIconMeta,
+  },
+  {
+    // Mistral 系列
+    test: (name) => name.startsWith("mixtral") || name.startsWith("codestral"),
+    icon: BotIconMistral,
+  },
+  {
+    // DeepSeek 系列
+    test: (name) => name.includes("deepseek"),
+    icon: BotIconDeepseek,
+  },
+  {
+    // Moonshot/Kimi 系列
+    test: (name) => name.startsWith("moonshot") || name.startsWith("kimi"),
+    icon: BotIconMoonshot,
+  },
+  {
+    // Qwen 系列
+    test: (name) => name.startsWith("qwen"),
+    icon: BotIconQwen,
+  },
+  {
+    // xAI Grok 系列
+    test: (name) => name.startsWith("grok"),
+    icon: BotIconGrok,
+  },
+  {
+    // ByteDance Doubao 系列
+    test: (name) => name.startsWith("doubao") || name.startsWith("ep-"),
+    icon: BotIconDoubao,
+  },
+  {
+    // Ollama 系列
+    test: (name) => name.startsWith("ollama") || name.includes("ollama"),
+    icon: BotIconOllama,
+  },
+];
+
+export function Avatar(props: {
+  model?: ModelType;
+  avatar?: string;
+  defaultIcon?: any; // 允许自定义默认图标
+}) {
+  let LlmIcon = props.defaultIcon || BotIconDefault;
 
   if (props.model) {
     const modelName = props.model.toLowerCase();
 
-    if (
-      modelName.startsWith("gpt") ||
-      modelName.startsWith("chatgpt") ||
-      modelName.startsWith("dall-e") ||
-      modelName.startsWith("dalle") ||
-      modelName.startsWith("o1") ||
-      modelName.startsWith("o3")
-    ) {
-      LlmIcon = BotIconOpenAI;
-    } else if (modelName.startsWith("gemini")) {
-      LlmIcon = BotIconGemini;
-    } else if (modelName.startsWith("gemma")) {
-      LlmIcon = BotIconGemma;
-    } else if (modelName.startsWith("claude")) {
-      LlmIcon = BotIconClaude;
-    } else if (modelName.includes("llama")) {
-      LlmIcon = BotIconMeta;
-    } else if (
-      modelName.startsWith("mixtral") ||
-      modelName.startsWith("codestral")
-    ) {
-      LlmIcon = BotIconMistral;
-    } else if (modelName.includes("deepseek")) {
-      LlmIcon = BotIconDeepseek;
-    } else if (modelName.startsWith("moonshot")) {
-      LlmIcon = BotIconMoonshot;
-    } else if (modelName.startsWith("qwen")) {
-      LlmIcon = BotIconQwen;
-    } else if (modelName.startsWith("grok")) {
-      LlmIcon = BotIconGrok;
-    } else if (modelName.startsWith("doubao") || modelName.startsWith("ep-")) {
-      LlmIcon = BotIconDoubao;
+    // 使用映射表查找匹配的图标
+    const match = MODEL_ICON_MAP.find((item) => item.test(modelName));
+    if (match) {
+      LlmIcon = match.icon;
     }
 
     return (
