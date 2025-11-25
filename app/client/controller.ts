@@ -211,4 +211,43 @@ export const ChatControllerPool = {
       );
     }
   },
+
+  // 清理指定会话的所有控制器（包括已完成和已中止的）
+  cleanupSessionControllers(sessionId: string) {
+    const keysToRemove: string[] = [];
+
+    Object.entries(this.controllerMetadata).forEach(([key, metadata]) => {
+      if (metadata.sessionId === sessionId) {
+        keysToRemove.push(key);
+      }
+    });
+
+    keysToRemove.forEach((key) => {
+      delete this.controllers[key];
+      delete this.controllerStates[key];
+      delete this.controllerMetadata[key];
+    });
+
+    if (keysToRemove.length > 0) {
+      console.log(
+        `[ChatControllerPool] Cleaned up ${keysToRemove.length} controllers for session ${sessionId}`,
+      );
+    }
+  },
+
+  // 获取统计信息（用于调试和监控）
+  getStats() {
+    const total = Object.keys(this.controllers).length;
+    const active = Object.values(this.controllerStates).filter(
+      (state) => state === "active",
+    ).length;
+    const aborted = Object.values(this.controllerStates).filter(
+      (state) => state === "aborted",
+    ).length;
+    const completed = Object.values(this.controllerStates).filter(
+      (state) => state === "completed",
+    ).length;
+
+    return { total, active, aborted, completed };
+  },
 };

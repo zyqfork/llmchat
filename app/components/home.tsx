@@ -330,6 +330,10 @@ export function Home() {
     const initMcp = async () => {
       try {
         await initializeMcpSystem();
+
+        // 启动 MCP 客户端清理任务
+        const { startMcpCleanupTimer } = await import("../mcp/actions.client");
+        startMcpCleanupTimer();
       } catch (err) {
         // MCP 初始化失败，静默处理
       }
@@ -339,6 +343,19 @@ export function Home() {
     // 清理孤立的未完成输入数据
     const { useChatStore } = require("../store");
     useChatStore.getState().cleanOrphanedUnfinishedInputs();
+
+    // 定期清理过期的网络请求控制器，防止内存泄漏
+    const { ChatControllerPool } = require("../client/controller");
+    const cleanupInterval = setInterval(
+      () => {
+        ChatControllerPool.cleanupExpiredControllers();
+      },
+      5 * 60 * 1000,
+    ); // 每 5 分钟清理一次
+
+    return () => {
+      clearInterval(cleanupInterval);
+    };
   }, []);
 
   if (!useHasHydrated()) {

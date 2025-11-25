@@ -2094,21 +2094,34 @@ function _Chat() {
   const [couldStop, setCouldStop] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
 
-  // 定期检查当前会话是否有待处理的请求，更新停止按钮状态
+  // 智能轮询：只在有活动请求时检查，优化性能
   useEffect(() => {
-    const checkPendingInterval = setInterval(() => {
-      const hasPending = ChatControllerPool.hasPendingInSession(session.id);
-      setCouldStop(hasPending);
-    }, 100); // 每100ms检查一次
-
-    return () => clearInterval(checkPendingInterval);
-  }, [session.id]); // 依赖 session.id，会话切换时重新创建定时器
-
-  // 会话切换时立即更新停止按钮状态
-  useEffect(() => {
+    // 立即检查一次
     const hasPending = ChatControllerPool.hasPendingInSession(session.id);
     setCouldStop(hasPending);
-  }, [session.id]);
+
+    // 只在有待处理请求时启动轮询
+    let checkPendingInterval: NodeJS.Timeout | null = null;
+
+    if (hasPending) {
+      checkPendingInterval = setInterval(() => {
+        const pending = ChatControllerPool.hasPendingInSession(session.id);
+        setCouldStop(pending);
+
+        // 没有待处理请求时停止轮询，节省资源
+        if (!pending && checkPendingInterval) {
+          clearInterval(checkPendingInterval);
+          checkPendingInterval = null;
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (checkPendingInterval) {
+        clearInterval(checkPendingInterval);
+      }
+    };
+  }, [session.id, isLoading]); // 依赖 isLoading，请求开始时重新检查
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(

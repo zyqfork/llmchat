@@ -92,16 +92,41 @@ export async function getAvailableClientsCount() {
   return count;
 }
 
+// 工具列表缓存
+let cachedAllTools: any[] | null = null;
+let cachedFunctionCallTools: any[] | null = null;
+let toolsCacheVersion = 0;
+
+// 使工具缓存失效
+function invalidateToolsCache() {
+  cachedAllTools = null;
+  cachedFunctionCallTools = null;
+  toolsCacheVersion++;
+  logger.info(`Tools cache invalidated (version: ${toolsCacheVersion})`);
+}
+
 export async function getAllTools() {
+  // 返回缓存的结果
+  if (cachedAllTools) {
+    return cachedAllTools;
+  }
+
   const list = [] as any[];
   for (const [clientId, status] of clientsMap.entries()) {
     list.push({ clientId, tools: status.tools });
   }
+
+  cachedAllTools = list;
   return list;
 }
 
 // 获取 MCP 工具的 OpenAI Function Call 格式定义
 export async function getMcpToolsForFunctionCall() {
+  // 返回缓存的结果
+  if (cachedFunctionCallTools) {
+    return cachedFunctionCallTools;
+  }
+
   const cfg = readConfig();
   const tools: any[] = [];
 
@@ -134,6 +159,7 @@ export async function getMcpToolsForFunctionCall() {
     });
   }
 
+  cachedFunctionCallTools = tools;
   return tools;
 }
 
@@ -171,6 +197,9 @@ async function initializeSingleClient(
     const tools = await listTools(client);
     clientsMap.set(clientId, { client, tools, errorMsg: null });
     logger.success(`Client [${clientId}] initialized`);
+
+    // 使工具缓存失效
+    invalidateToolsCache();
   } catch (e) {
     clientsMap.set(clientId, {
       client: null,
@@ -178,6 +207,9 @@ async function initializeSingleClient(
       errorMsg: e instanceof Error ? e.message : String(e),
     });
     logger.error(`Failed to init client [${clientId}]: ${e}`);
+
+    // 使工具缓存失效
+    invalidateToolsCache();
   }
 }
 
@@ -276,10 +308,68 @@ export async function removeMcpServer(
   const { [clientId]: _omit, ...rest } = current.mcpServers;
   const next: McpConfigData = { ...current, mcpServers: rest };
   writeConfig(next);
+
+  // 立即清理客户端资源
   const runtime = clientsMap.get(clientId);
-  if (runtime?.client) await removeClient(runtime.client);
+  if (runtime?.client) {
+    try {
+      await removeClient(runtime.client);
+      logger.info(`Client [${clientId}] removed successfully`);
+    } catch (e) {
+      logger.error(`Failed to remove client [${clientId}]: ${e}`);
+    }
+  }
   clientsMap.delete(clientId);
+
   return next;
+}
+
+// 清理未使用的客户端（防止内存泄漏）
+export async function cleanupUnusedClients() {
+  const cfg = readConfig();
+  const validIds = new Set(Object.keys(cfg.mcpServers));
+
+  const toRemove: string[] = [];
+  for (const [clientId] of clientsMap.entries()) {
+    if (!validIds.has(clientId)) {
+      toRemove.push(clientId);
+    }
+  }
+
+  for (const clientId of toRemove) {
+    const runtime = clientsMap.get(clientId);
+    if (runtime?.client) {
+      try {
+        await removeClient(runtime.client);
+      } catch (e) {
+        logger.error(`Failed to cleanup client [${clientId}]: ${e}`);
+      }
+    }
+    clientsMap.delete(clientId);
+  }
+
+  if (toRemove.length > 0) {
+    logger.info(`Cleaned up ${toRemove.length} unused MCP clients`);
+  }
+
+  return toRemove.length;
+}
+
+// 启动定期清理任务
+export function startMcpCleanupTimer() {
+  // 每 10 分钟清理一次未使用的客户端
+  const cleanupInterval = setInterval(
+    () => {
+      cleanupUnusedClients().catch((e) => {
+        logger.error(`MCP cleanup failed: ${e}`);
+      });
+    },
+    10 * 60 * 1000,
+  );
+
+  logger.info("MCP cleanup timer started (runs every 10 minutes)");
+
+  return cleanupInterval;
 }
 
 export async function updateCustomPrompts(

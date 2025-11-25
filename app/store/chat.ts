@@ -597,6 +597,9 @@ export const useChatStore = createPersistStore(
         // 中止该会话的所有进行中的网络请求
         ChatControllerPool.stopAllInSession(deletedSession.id);
 
+        // 清理该会话的所有控制器（包括已完成和已中止的），防止内存泄漏
+        ChatControllerPool.cleanupSessionControllers(deletedSession.id);
+
         const sessions = get().sessions.slice();
         sessions.splice(index, 1);
 
@@ -867,6 +870,14 @@ export const useChatStore = createPersistStore(
             get().updateTargetSession(session, (session) => {
               session.messages = session.messages.concat();
             });
+
+            // 标记控制器状态并清理
+            if (!isAborted) {
+              ChatControllerPool.markCompleted(
+                session.id,
+                botMessage.id ?? messageIndex,
+              );
+            }
             ChatControllerPool.remove(
               session.id,
               botMessage.id ?? messageIndex,
@@ -1115,6 +1126,9 @@ export const useChatStore = createPersistStore(
                       session.messages[messageIndex] = { ...botMessage };
                     }
                   });
+
+                  // 标记为完成（虽然有错误）
+                  ChatControllerPool.markCompleted(session.id, botMessage.id);
                 }
 
                 ChatControllerPool.remove(session.id, botMessage.id);
@@ -1148,6 +1162,9 @@ export const useChatStore = createPersistStore(
 
             // 立即刷新更新
             streamOptimizer.flushUpdates();
+
+            // 标记为完成（虽然有错误）
+            ChatControllerPool.markCompleted(session.id, botMessage.id);
 
             // 更新会话状态
             get().updateTargetSession(session, (session) => {
@@ -1668,6 +1685,10 @@ export const useChatStore = createPersistStore(
               if (finishedMessage) {
                 get().onNewMessage(finishedMessage, session);
               }
+
+              // 标记控制器为完成状态并清理
+              ChatControllerPool.markCompleted(session.id, botMessageId);
+              ChatControllerPool.remove(session.id, botMessageId);
             },
             onError(error) {
               const isAborted = error.message.includes("aborted");
@@ -1689,6 +1710,13 @@ export const useChatStore = createPersistStore(
               if (errorMessage) {
                 get().onNewMessage(errorMessage, session);
               }
+
+              // 标记控制器状态并清理
+              if (!isAborted) {
+                ChatControllerPool.markCompleted(session.id, botMessageId);
+              }
+              ChatControllerPool.remove(session.id, botMessageId);
+
               console.error("[Chat] failed to retry bot message", error);
             },
             onController(controller) {
