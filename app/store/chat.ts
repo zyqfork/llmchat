@@ -417,6 +417,9 @@ export const useChatStore = createPersistStore(
       },
 
       clearSessions() {
+        // 中止所有会话的网络请求
+        ChatControllerPool.stopAll();
+
         // 清理所有会话的未完成输入
         const sessions = get().sessions;
         sessions.forEach((session) => {
@@ -590,6 +593,9 @@ export const useChatStore = createPersistStore(
           showToast(Locale.Home.DeletePinnedChat);
           return;
         }
+
+        // 中止该会话的所有进行中的网络请求
+        ChatControllerPool.stopAllInSession(deletedSession.id);
 
         const sessions = get().sessions.slice();
         sessions.splice(index, 1);
