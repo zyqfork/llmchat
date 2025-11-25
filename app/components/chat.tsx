@@ -1232,6 +1232,8 @@ export function ChatActions(props: {
   showModelSelector: boolean;
   setShowModelSelector: React.Dispatch<React.SetStateAction<boolean>>;
   userInput: string;
+  couldStop: boolean;
+  setCouldStop: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -1254,8 +1256,11 @@ export function ChatActions(props: {
   }
 
   // stop all responses
-  const couldStop = ChatControllerPool.hasPending();
-  const stopAll = () => ChatControllerPool.stopAll();
+  const stopAll = () => {
+    ChatControllerPool.stopAll();
+    // 立即更新状态
+    props.setCouldStop(false);
+  };
 
   // switch model
   const currentModel = session.mask.modelConfig.model;
@@ -1427,7 +1432,7 @@ export function ChatActions(props: {
         text={Locale.ChatSettings.Name}
         icon={<ChatSettingsIcon />}
       />
-      {couldStop && (
+      {props.couldStop && (
         <ChatAction
           onClick={stopAll}
           text={Locale.Chat.InputActions.Stop}
@@ -2086,7 +2091,24 @@ function _Chat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [couldStop, setCouldStop] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
+
+  // 定期检查当前会话是否有待处理的请求，更新停止按钮状态
+  useEffect(() => {
+    const checkPendingInterval = setInterval(() => {
+      const hasPending = ChatControllerPool.hasPendingInSession(session.id);
+      setCouldStop(hasPending);
+    }, 100); // 每100ms检查一次
+
+    return () => clearInterval(checkPendingInterval);
+  }, [session.id]); // 依赖 session.id，会话切换时重新创建定时器
+
+  // 会话切换时立即更新停止按钮状态
+  useEffect(() => {
+    const hasPending = ChatControllerPool.hasPendingInSession(session.id);
+    setCouldStop(hasPending);
+  }, [session.id]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
@@ -2199,9 +2221,17 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
+    setCouldStop(true); // 开始请求时立即显示停止按钮
     chatStore
       .onUserInput(userInput, attachImages)
-      .then(() => setIsLoading(false));
+      .then(() => {
+        setIsLoading(false);
+        setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 请求完成后更新状态
+      })
+      .catch(() => {
+        setIsLoading(false);
+        setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 请求失败后也更新状态
+      });
     setAttachImages([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
@@ -2230,6 +2260,8 @@ function _Chat() {
   // stop response
   const onUserStop = (messageId: string) => {
     ChatControllerPool.stop(session.id, messageId);
+    // 立即更新停止按钮状态
+    setCouldStop(ChatControllerPool.hasPendingInSession(session.id));
   };
 
   useEffect(() => {
@@ -2343,13 +2375,16 @@ function _Chat() {
     // 如果是重试 bot 消息，使用专门的重试方法
     if (botMessage) {
       setIsLoading(true);
+      setCouldStop(true); // 开始重试时立即显示停止按钮
       chatStore
         .retryBotMessage(botMessage.id, userMessage)
         .then(() => {
           setIsLoading(false);
+          setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 重试完成后更新状态
         })
         .catch((error) => {
           setIsLoading(false);
+          setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 重试失败后也更新状态
         });
       inputRef.current?.focus();
       return;
@@ -2358,9 +2393,19 @@ function _Chat() {
     // 如果是重试用户消息，使用原有逻辑（删除后续消息并重新发送）
     deleteMessage(userMessage.id);
     setIsLoading(true);
+    setCouldStop(true); // 开始重试时立即显示停止按钮
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
-    chatStore.onUserInput(textContent, images).then(() => setIsLoading(false));
+    chatStore
+      .onUserInput(textContent, images)
+      .then(() => {
+        setIsLoading(false);
+        setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 重试完成后更新状态
+      })
+      .catch(() => {
+        setIsLoading(false);
+        setCouldStop(ChatControllerPool.hasPendingInSession(session.id)); // 重试失败后也更新状态
+      });
     inputRef.current?.focus();
   };
 
@@ -3600,6 +3645,8 @@ function _Chat() {
                 showModelSelector={showModelSelector}
                 setShowModelSelector={setShowModelSelector}
                 userInput={userInput}
+                couldStop={couldStop}
+                setCouldStop={setCouldStop}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
