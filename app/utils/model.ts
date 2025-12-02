@@ -171,10 +171,20 @@ export function collectModels(
   models: readonly LLMModel[],
   customModels: string,
 ) {
+  console.log("[collectModels] 输入参数:", {
+    modelsCount: models.length,
+    customModels,
+  });
+
   // 直接计算结果，不再使用缓存
   const modelTable = collectModelTable(models, customModels);
+
+  console.log("[collectModels] 模型表:", modelTable);
+
   let allModels = Object.values(modelTable);
   allModels = sortModelTable(allModels);
+
+  console.log("[collectModels] 最终模型列表:", allModels);
 
   return allModels;
 }

@@ -826,13 +826,49 @@ export const useAccessStore = createPersistStore(
         }
 
         const availableModelNames = new Set(availableModels.map((m) => m.name));
-        const newEnabledModels = enabled.filter((modelName) =>
-          availableModelNames.has(modelName),
+
+        // 获取当前服务商的自定义模型
+        const customModels = state.customModels || "";
+        const customModelNames = new Set<string>();
+
+        if (customModels) {
+          customModels.split(",").forEach((modelStr) => {
+            const cleanModel =
+              modelStr.startsWith("+") || modelStr.startsWith("-")
+                ? modelStr.slice(1)
+                : modelStr;
+            const [modelWithProvider] = cleanModel.split("=");
+            const [modelName, modelProvider] =
+              getModelProvider(modelWithProvider);
+
+            // 只添加属于当前服务商的自定义模型
+            if (
+              modelProvider === provider ||
+              (!modelProvider && provider === "openai")
+            ) {
+              customModelNames.add(modelName);
+            }
+          });
+        }
+
+        // 保留在可用模型列表中的模型，或者是在自定义模型列表中的模型
+        const newEnabledModels = enabled.filter(
+          (modelName) =>
+            availableModelNames.has(modelName) ||
+            customModelNames.has(modelName),
         );
 
         if (newEnabledModels.length === enabled.length) {
           return state;
         }
+
+        console.log("[sanitizeEnabledModels] 清理启用模型:", {
+          provider,
+          originalEnabled: enabled,
+          availableModels: Array.from(availableModelNames),
+          customModels: Array.from(customModelNames),
+          newEnabledModels,
+        });
 
         return {
           ...state,

@@ -240,12 +240,15 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       provider,
       customModels,
       apiModelsCount: apiModels.length,
+      isCustomProvider,
+      customProviderConfig,
     });
 
-    // 如果有API模型数据，优先使用API模型
-    if (apiModels.length > 0) {
-      return apiModels;
-    }
+    // 获取包含自定义模型的完整列表（无论是否有API模型）
+    const allModels = collectModels(DEFAULT_MODELS, customModels || "");
+
+    console.log("[ModelManager] 所有模型（包含自定义）:", allModels);
+
     if (isCustomProvider && customProviderConfig) {
       // 对于自定义服务商，根据其类型获取相应的模型
       const baseModels = DEFAULT_MODELS.filter((model) => {
@@ -262,7 +265,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       });
 
       // 为自定义服务商创建模型副本，使用自定义服务商的ID
-      return baseModels.map((model) => ({
+      const customProviderModels = baseModels.map((model) => ({
         ...model,
         provider: {
           ...model.provider,
@@ -270,14 +273,31 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
           providerName: provider as string,
         },
       }));
+
+      // 如果有API模型，合并API模型和自定义模型
+      if (apiModels.length > 0) {
+        // 合并API模型和自定义模型，去重
+        const modelMap = new Map();
+        [...apiModels, ...customProviderModels].forEach((model) => {
+          const key = `${model.name}@${model.provider?.id}`;
+          if (!modelMap.has(key)) {
+            modelMap.set(key, model);
+          }
+        });
+        const mergedModels = Array.from(modelMap.values());
+        console.log("[ModelManager] 合并API和自定义服务商模型:", mergedModels);
+        return mergedModels;
+      }
+
+      console.log("[ModelManager] 自定义服务商模型:", customProviderModels);
+      return customProviderModels;
     } else {
       // 内置服务商的原有逻辑
       const defaultModels = DEFAULT_MODELS.filter(
         (model) => model.provider.providerName === provider,
       );
 
-      // 获取包含自定义模型的完整列表
-      const allModels = collectModels(DEFAULT_MODELS, customModels || "");
+      console.log("[ModelManager] 默认模型:", defaultModels);
 
       // 过滤出当前服务商的模型（包括自定义模型）
       const providerCustomModels = allModels.filter((model) => {
@@ -286,9 +306,46 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         const modelProviderName = model.provider.providerName.toLowerCase();
         const currentProviderName = (provider as string).toLowerCase();
 
+        console.log("[ModelManager] 模型提供商比较:", {
+          modelName: model.name,
+          modelProviderName,
+          currentProviderName,
+          isMatch: modelProviderName === currentProviderName,
+        });
+
         // 检查是否是同一个提供商
         return modelProviderName === currentProviderName;
       });
+
+      console.log(
+        "[ModelManager] 当前服务商的自定义模型:",
+        providerCustomModels,
+      );
+
+      // 如果有API模型，合并API模型和自定义模型
+      if (apiModels.length > 0) {
+        // 合并API模型和自定义模型，去重
+        const modelMap = new Map();
+
+        // 首先添加API模型
+        apiModels.forEach((model) => {
+          const key = `${model.name}@${model.provider?.id}`;
+          if (!modelMap.has(key)) {
+            modelMap.set(key, model);
+          }
+        });
+
+        // 然后添加自定义模型（如果存在的话）
+        providerCustomModels.forEach((model) => {
+          const key = `${model.name}@${model.provider?.id}`;
+          // 自定义模型可以覆盖API模型，或者如果key不存在则添加
+          modelMap.set(key, model);
+        });
+
+        const mergedModels = Array.from(modelMap.values());
+        console.log("[ModelManager] 合并API和自定义模型:", mergedModels);
+        return mergedModels;
+      }
 
       // 合并默认模型和自定义模型，去重
       const modelMap = new Map();
@@ -299,7 +356,9 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         }
       });
 
-      return Array.from(modelMap.values());
+      const finalResult = Array.from(modelMap.values());
+      console.log("[ModelManager] 最终模型列表:", finalResult);
+      return finalResult;
     }
   }, [
     provider,
