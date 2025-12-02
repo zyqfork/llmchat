@@ -1347,16 +1347,7 @@ export function ChatActions(props: {
         : null;
 
       groupedModels[displayName].push({
-        title: (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span>{model.displayName}</span>
-            <ModelCapabilityIcons
-              capabilities={getModelCapabilitiesWithCustomConfig(model.name)}
-              size={14}
-              colorful={true}
-            />
-          </div>
-        ),
+        title: model.displayName,
         subTitle: contextTokensDisplay
           ? Locale.Chat.UI.ContextTooltip.ContextTokens(contextTokensDisplay)
           : undefined,
