@@ -1244,6 +1244,27 @@ export function ChatActions(props: {
 
   const [showChatSettings, setShowChatSettings] = useState(false);
 
+  // 模型配置更新计数器 - 需要在所有 useMemo 之前声明
+  const [modelConfigUpdateCounter, setModelConfigUpdateCounter] = useState(0);
+
+  // 监听模型配置更新事件
+  useEffect(() => {
+    const handleModelConfigUpdated = () => {
+      setModelConfigUpdateCounter((prev) => prev + 1);
+    };
+
+    window.addEventListener(
+      "modelConfigUpdated",
+      handleModelConfigUpdated as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "modelConfigUpdated",
+        handleModelConfigUpdated as EventListener,
+      );
+    };
+  }, []);
+
   // switch themes
   const theme = config.theme;
 
@@ -1353,7 +1374,7 @@ export function ChatActions(props: {
     );
 
     return result;
-  }, [models, accessStore.customProviders]);
+  }, [models, accessStore.customProviders, modelConfigUpdateCounter]);
 
   const [showUploadImage, setShowUploadImage] = useState(false);
 
@@ -1378,6 +1399,33 @@ export function ChatActions(props: {
       setAttachImages([]);
       setUploading(false);
     }
+  }, [currentModel, setAttachImages, setUploading]);
+
+  // 监听模型配置更新事件
+  useEffect(() => {
+    const handleModelConfigUpdated = (event: CustomEvent) => {
+      const { modelName } = event.detail;
+      // 如果更新的模型是当前使用的模型，重新检查视觉能力
+      if (modelName === currentModel) {
+        const show = isVisionModel(currentModel);
+        setShowUploadImage(show);
+        if (!show) {
+          setAttachImages([]);
+          setUploading(false);
+        }
+      }
+    };
+
+    window.addEventListener(
+      "modelConfigUpdated",
+      handleModelConfigUpdated as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "modelConfigUpdated",
+        handleModelConfigUpdated as EventListener,
+      );
+    };
   }, [currentModel, setAttachImages, setUploading]);
 
   // 分离模型可用性检查到单独的 useEffect

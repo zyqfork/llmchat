@@ -63,12 +63,21 @@ export function ModelConfigModal({
   }, [modelName]);
 
   const handleSave = () => {
-    onSave({
+    const config = {
       capabilities,
       contextTokens,
       category: showCategory ? category : undefined,
-    });
+    };
+
+    onSave(config);
     showToast("模型配置已保存");
+
+    // 触发全局事件通知模型配置已更新
+    window.dispatchEvent(
+      new CustomEvent("modelConfigUpdated", {
+        detail: { modelName, config },
+      }),
+    );
   };
 
   const handleCapabilityToggle = (capability: keyof typeof capabilities) => {
@@ -87,6 +96,7 @@ export function ModelConfigModal({
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
   return (

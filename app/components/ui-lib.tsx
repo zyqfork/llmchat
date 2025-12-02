@@ -15,7 +15,9 @@ import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabiliti
 import {
   getModelContextTokens,
   saveCustomContextTokens,
+  formatTokenCount,
 } from "../config/model-context-tokens";
+import { ModelCapabilityIcons } from "./model-capability-icons";
 import { useAccessStore } from "../store";
 
 import Locale from "../locales";
@@ -31,6 +33,7 @@ import React, {
   useState,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
@@ -610,7 +613,66 @@ export function ModelSelectorModal<T>(props: {
     >
   >({});
   const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
+  const [configUpdateCounter, setConfigUpdateCounter] = useState(0);
   const accessStore = useAccessStore();
+
+  // 强制重新渲染函数
+  const forceUpdate = useCallback(() => {
+    setConfigUpdateCounter((prev) => prev + 1);
+  }, []);
+
+  // 监听模型配置更新事件
+  useEffect(() => {
+    const handleModelConfigUpdated = () => {
+      // 强制重新渲染以更新模型信息
+      forceUpdate();
+    };
+
+    window.addEventListener("modelConfigUpdated", handleModelConfigUpdated);
+    return () => {
+      window.removeEventListener(
+        "modelConfigUpdated",
+        handleModelConfigUpdated,
+      );
+    };
+  }, [forceUpdate]);
+
+  // 关键：使用 useMemo 来重新计算模型信息，确保配置更新时重新渲染
+  const modelGroupsWithUpdatedInfo = useMemo(() => {
+    return props.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        const modelKey = item.value as string;
+        const [modelName] = modelKey.split("@");
+
+        // 获取最新的模型能力配置
+        const capabilities = getModelCapabilitiesWithCustomConfig(modelName);
+        const contextConfig = getModelContextTokens(modelName);
+        const contextTokensDisplay = contextConfig
+          ? formatTokenCount(contextConfig.contextTokens)
+          : null;
+
+        return {
+          ...item,
+          title: (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>
+                {typeof item.title === "string" ? item.title : item.title}
+              </span>
+              <ModelCapabilityIcons
+                capabilities={capabilities}
+                size={14}
+                colorful={true}
+              />
+            </div>
+          ),
+          subTitle: contextTokensDisplay
+            ? Locale.Chat.UI.ContextTooltip.ContextTokens(contextTokensDisplay)
+            : undefined,
+        };
+      }),
+    }));
+  }, [props.groups, configUpdateCounter]);
 
   const handleSelection = (value: T) => {
     setSelectedValue(value);
@@ -727,10 +789,12 @@ export function ModelSelectorModal<T>(props: {
   // 打开模型配置
   const openModelConfig = (modelKey: string) => {
     setShowModelConfig(modelKey);
+    // 强制重新渲染以获取最新的模型信息
+    forceUpdate();
   };
 
-  // 过滤搜索结果
-  const filteredGroups = props.groups
+  // 过滤搜索结果 - 使用更新后的模型组信息
+  const filteredGroups = modelGroupsWithUpdatedInfo
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
@@ -912,6 +976,16 @@ export function ModelSelectorModal<T>(props: {
 
             setShowModelConfig(null);
             showToast("模型配置已保存");
+
+            // 触发全局事件通知模型配置已更新
+            window.dispatchEvent(
+              new CustomEvent("modelConfigUpdated", {
+                detail: { modelName, config },
+              }),
+            );
+
+            // 强制重新渲染模型选择器以更新显示
+            forceUpdate();
           }}
           onClose={() => setShowModelConfig(null)}
         />
