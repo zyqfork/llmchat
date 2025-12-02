@@ -283,10 +283,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       const providerCustomModels = allModels.filter((model) => {
         if (!model.provider) return false;
         // 对于自定义模型，比较时忽略大小写
-        return (
-          model.provider.providerName.toLowerCase() ===
-          (provider as string).toLowerCase()
-        );
+        const modelProviderName = model.provider.providerName.toLowerCase();
+        const currentProviderName = (provider as string).toLowerCase();
+
+        // 检查是否是同一个提供商
+        return modelProviderName === currentProviderName;
       });
 
       // 合并默认模型和自定义模型，去重
@@ -461,13 +462,18 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       return filtered;
     }
 
-    // 按搜索词过滤分类模型
+    // 按搜索词过滤分类模型（支持name和displayName搜索）
     if (searchTerm) {
       const filtered: Record<string, LLMModel[]> = {};
       Object.entries(categorizedModels).forEach(([category, models]) => {
-        const filteredCategoryModels = models.filter((model) =>
-          model.name.toLowerCase().includes(searchTerm.toLowerCase()),
-        );
+        const filteredCategoryModels = models.filter((model) => {
+          const searchLower = searchTerm.toLowerCase();
+          const nameMatch = model.name.toLowerCase().includes(searchLower);
+          const displayNameMatch =
+            model.displayName &&
+            model.displayName.toLowerCase().includes(searchLower);
+          return nameMatch || displayNameMatch;
+        });
         if (filteredCategoryModels.length > 0) {
           filtered[category] = filteredCategoryModels;
         }
@@ -510,10 +516,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const category = customModelForm.category.trim();
 
     // 构建带服务商的模型名称：modelId@provider（保持原始大小写）
-    // 对于自定义服务商，使用其类型作为provider
+    // 对于自定义服务商，使用其ID作为provider
     const providerForModel =
       isCustomProvider && customProviderConfig
-        ? customProviderConfig.type
+        ? provider // 使用完整的自定义服务商ID
         : provider;
     const modelWithProvider = `${modelId}@${providerForModel}`;
 
@@ -549,6 +555,8 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       existingModels,
       newModel: customModelString,
       newCustomModels,
+      providerForModel,
+      modelWithProvider,
     });
 
     accessStore.update((access) => {
@@ -961,7 +969,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                             </div>
                             <div className={styles["model-details"]}>
                               <div className={styles["model-name"]}>
-                                {model.name}
+                                {model.displayName || model.name}
                                 <ModelCapabilityIcons
                                   capabilities={getModelCapabilitiesWithCustomConfig(
                                     model.name,

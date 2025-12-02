@@ -15,41 +15,7 @@ const CustomSeq = {
   },
 };
 
-// 模型表缓存
-const modelTableCache = new Map<
-  string,
-  {
-    result: any[];
-    timestamp: number;
-  }
->();
-
-const CACHE_TTL = 60 * 1000; // 1 分钟缓存
-
-// 清理过期缓存
-function cleanupModelCache() {
-  const now = Date.now();
-  const toRemove: string[] = [];
-
-  for (const [key, value] of modelTableCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      toRemove.push(key);
-    }
-  }
-
-  toRemove.forEach((key) => modelTableCache.delete(key));
-
-  if (toRemove.length > 0) {
-    console.log(
-      `[ModelCache] Cleaned up ${toRemove.length} expired cache entries`,
-    );
-  }
-}
-
-// 定期清理缓存
-if (typeof window !== "undefined") {
-  setInterval(cleanupModelCache, 5 * 60 * 1000); // 每 5 分钟清理一次
-}
+// 移除了模型表缓存机制 - 缓存收益低但引入了复杂性
 
 const customProvider = (providerName: string) => ({
   id: providerName.toLowerCase(),
@@ -63,7 +29,7 @@ const customProvider = (providerName: string) => ({
  *
  * First, sorted by provider; if the same, sorted by model
  */
-const sortModelTable = (models: ReturnType<typeof collectModels>) =>
+const sortModelTable = (models: any[]) =>
   models.sort((a, b) => {
     if (a.provider && b.provider) {
       let cmp = a.provider.sorted - b.provider.sorted;
@@ -198,48 +164,31 @@ export function collectModelTableWithDefaultModel(
 }
 
 /**
- * Generate full model table with caching.
+ * Generate full model table without caching.
+ * 移除了缓存机制，每次都会重新计算以确保数据实时性
  */
 export function collectModels(
   models: readonly LLMModel[],
   customModels: string,
 ) {
-  const cacheKey = `models|${customModels}`;
-  const cached = modelTableCache.get(cacheKey);
-
-  // 检查缓存是否有效
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.result;
-  }
-
-  // 计算新结果
+  // 直接计算结果，不再使用缓存
   const modelTable = collectModelTable(models, customModels);
   let allModels = Object.values(modelTable);
   allModels = sortModelTable(allModels);
 
-  // 更新缓存
-  modelTableCache.set(cacheKey, {
-    result: allModels,
-    timestamp: Date.now(),
-  });
-
   return allModels;
 }
 
+/**
+ * Generate full model table with default model without caching.
+ * 移除了缓存机制，每次都会重新计算以确保数据实时性
+ */
 export function collectModelsWithDefaultModel(
   models: readonly LLMModel[],
   customModels: string,
   defaultModel: string,
 ) {
-  const cacheKey = `models|${customModels}|${defaultModel}`;
-  const cached = modelTableCache.get(cacheKey);
-
-  // 检查缓存是否有效
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.result;
-  }
-
-  // 计算新结果
+  // 直接计算结果，不再使用缓存
   const modelTable = collectModelTableWithDefaultModel(
     models,
     customModels,
@@ -248,20 +197,10 @@ export function collectModelsWithDefaultModel(
   let allModels = Object.values(modelTable);
   allModels = sortModelTable(allModels);
 
-  // 更新缓存
-  modelTableCache.set(cacheKey, {
-    result: allModels,
-    timestamp: Date.now(),
-  });
-
   return allModels;
 }
 
-// 手动使缓存失效（当模型配置变化时调用）
-export function invalidateModelCache() {
-  modelTableCache.clear();
-  console.log("[ModelCache] Cache invalidated");
-}
+// 移除了缓存失效函数 - 缓存机制已完全移除
 
 export function isModelAvailableInServer(
   customModels: string,
