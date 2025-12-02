@@ -9,6 +9,14 @@ import ConfirmIcon from "../icons/confirm.svg";
 import CancelIcon from "../icons/cancel.svg";
 import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
+import ConfigIcon from "../icons/config.svg";
+import { ModelConfigModal } from "./model-config-modal";
+import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import {
+  getModelContextTokens,
+  saveCustomContextTokens,
+} from "../config/model-context-tokens";
+import { useAccessStore } from "../store";
 
 import Locale from "../locales";
 
@@ -591,11 +599,134 @@ export function ModelSelectorModal<T>(props: {
     props.defaultSelectedValue,
   );
   const [searchInput, setSearchInput] = useState("");
+  const [modelTestResults, setModelTestResults] = useState<
+    Record<
+      string,
+      {
+        status: "testing" | "success" | "error";
+        error?: string;
+        responseTime?: number;
+      }
+    >
+  >({});
+  const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
+  const accessStore = useAccessStore();
 
   const handleSelection = (value: T) => {
     setSelectedValue(value);
     props.onSelection?.(value);
     props.onClose?.();
+  };
+
+  // 测试模型连通性
+  const testModel = async (modelKey: string) => {
+    const [modelName, provider] = (modelKey as string).split("@");
+
+    setModelTestResults((prev) => ({
+      ...prev,
+      [modelKey]: { status: "testing" },
+    }));
+
+    try {
+      const startTime = Date.now();
+
+      // 创建测试用的API客户端
+      const { getClientApi } = await import("../client/api");
+      const api = getClientApi((provider || "OpenAI") as any);
+
+      // 发送测试消息
+      const testResult = await new Promise<{
+        success: boolean;
+        error?: any;
+        response?: Response;
+      }>((resolve) => {
+        let isResolved = false;
+
+        // 设置30秒超时
+        const timeout = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            resolve({ success: false, error: "Request timeout (30s)" });
+          }
+        }, 30000);
+
+        // 发送测试消息
+        api.llm.chat({
+          messages: [{ role: "user", content: "Hello" }],
+          config: {
+            model: modelName,
+            stream: false,
+            providerName: provider,
+            temperature: 0.5,
+          },
+          onFinish: (message: string, response?: Response) => {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+
+              // 检查响应状态
+              if (response?.status && response.status >= 400) {
+                resolve({
+                  success: false,
+                  error: `HTTP ${response.status}: ${
+                    response.statusText || "Request failed"
+                  }`,
+                  response,
+                });
+              } else if (message && message.trim().length > 0) {
+                resolve({ success: true, response });
+              } else {
+                resolve({ success: false, error: "Empty response received" });
+              }
+            }
+          },
+          onError: (error: any) => {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              resolve({ success: false, error });
+            }
+          },
+        });
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      if (testResult.success) {
+        // 测试成功
+        setModelTestResults((prev) => ({
+          ...prev,
+          [modelKey]: {
+            status: "success",
+            responseTime,
+          },
+        }));
+      } else {
+        // 测试失败
+        throw testResult;
+      }
+    } catch (error: any) {
+      // 测试失败
+      const errorMessage =
+        error?.error?.message ||
+        error?.error?.toString() ||
+        error?.message ||
+        error?.toString() ||
+        "未知错误";
+
+      setModelTestResults((prev) => ({
+        ...prev,
+        [modelKey]: {
+          status: "error",
+          error: errorMessage,
+        },
+      }));
+    }
+  };
+
+  // 打开模型配置
+  const openModelConfig = (modelKey: string) => {
+    setShowModelConfig(modelKey);
   };
 
   // 过滤搜索结果
@@ -659,6 +790,9 @@ export function ModelSelectorModal<T>(props: {
                 <div className={styles["model-selector-group-items"]}>
                   {group.items.map((item, itemIndex) => {
                     const selected = selectedValue === item.value;
+                    const testResult = modelTestResults[item.value as string];
+                    const [modelName] = (item.value as string).split("@");
+
                     return (
                       <div
                         key={itemIndex}
@@ -687,6 +821,58 @@ export function ModelSelectorModal<T>(props: {
                               {item.subTitle}
                             </div>
                           )}
+                          {/* 测试结果显示 */}
+                          {testResult?.status === "success" &&
+                            testResult.responseTime && (
+                              <div className={styles["model-test-result"]}>
+                                <span className={styles["test-success"]}>
+                                  ✓ {testResult.responseTime}ms
+                                </span>
+                              </div>
+                            )}
+                          {testResult?.status === "error" && (
+                            <div className={styles["model-test-result"]}>
+                              <span
+                                className={styles["test-error"]}
+                                title={testResult.error}
+                              >
+                                ✗ 测试失败
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className={styles["model-selector-item-actions"]}>
+                          <button
+                            className={clsx(styles["model-test-button"], {
+                              [styles["testing"]]:
+                                testResult?.status === "testing",
+                              [styles["success"]]:
+                                testResult?.status === "success",
+                              [styles["error"]]: testResult?.status === "error",
+                            })}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              testModel(item.value as string);
+                            }}
+                            title="测试模型连通性"
+                            disabled={testResult?.status === "testing"}
+                          >
+                            {testResult?.status === "testing" ? (
+                              <LoadingIcon />
+                            ) : (
+                              "测试"
+                            )}
+                          </button>
+                          <button
+                            className={styles["model-config-button"]}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openModelConfig(item.value as string);
+                            }}
+                            title="模型配置"
+                          >
+                            <ConfigIcon />
+                          </button>
                         </div>
                         {selected && (
                           <div className={styles["model-selector-item-check"]}>
@@ -702,6 +888,34 @@ export function ModelSelectorModal<T>(props: {
           )}
         </div>
       </div>
+
+      {/* 模型配置模态框 */}
+      {showModelConfig && (
+        <ModelConfigModal
+          modelName={showModelConfig.split("@")[0]}
+          provider={showModelConfig.split("@")[1]}
+          showCategory={false}
+          onSave={(config) => {
+            const [modelName] = showModelConfig.split("@");
+
+            // 保存能力配置到本地存储
+            const capabilitiesKey = `model_capabilities_${modelName}`;
+            localStorage.setItem(
+              capabilitiesKey,
+              JSON.stringify(config.capabilities),
+            );
+
+            // 保存上下文Token数配置
+            if (config.contextTokens !== undefined) {
+              saveCustomContextTokens(modelName, config.contextTokens);
+            }
+
+            setShowModelConfig(null);
+            showToast("模型配置已保存");
+          }}
+          onClose={() => setShowModelConfig(null)}
+        />
+      )}
     </div>
   );
 }

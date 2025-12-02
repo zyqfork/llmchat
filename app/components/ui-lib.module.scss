@@ -719,6 +719,117 @@
   }
 }
 
+/* 模型测试和配置按钮样式 */
+.model-selector-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.model-test-button,
+.model-config-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 28px;
+}
+
+.model-test-button {
+  background: var(--primary);
+  color: white;
+
+  &.testing {
+    background: var(--gray);
+    cursor: not-allowed;
+    animation: pulse 1.5s infinite;
+  }
+
+  &.success {
+    background: #10b981;
+    color: white;
+  }
+
+  &.error {
+    background: #ef4444;
+    color: white;
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 12px;
+    height: 12px;
+    animation: spin 1s linear infinite;
+  }
+}
+
+.model-config-button {
+  background: var(--hover-color);
+  color: var(--black);
+  padding: 6px;
+  min-width: 32px;
+
+  &:hover {
+    background: var(--border-in-light);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.model-test-result {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+
+  .test-success {
+    color: #10b981;
+  }
+
+  .test-error {
+    color: #ef4444;
+    cursor: help;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
