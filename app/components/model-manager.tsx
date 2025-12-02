@@ -4,6 +4,7 @@ import { useAccessStore } from "../store/access";
 import { LLMModel } from "../client/api";
 import { ModelFetcher } from "../client/model-fetcher";
 import { showToast } from "./ui-lib";
+import { ModelConfigModal } from "./model-config-modal";
 import styles from "./model-manager.module.scss";
 
 import CloseIcon from "../icons/close.svg";
@@ -44,7 +45,7 @@ interface ModelConfigForm {
     reasoning: boolean;
     tools: boolean;
   };
-  contextTokens?: number; // 上下文Token数
+  contextTokens?: number;
 }
 
 interface ModelTestResult {
@@ -642,6 +643,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
     // 关闭配置面板
     setShowModelConfig(null);
+    showToast("模型配置已保存");
   };
 
   // 测试模型连通性
@@ -1145,222 +1147,72 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
           </div>
         )}
 
-        {/* 模型配置弹窗 */}
+        {/* 模型配置弹窗 - 使用可复用组件 */}
         {showModelConfig && (
-          <div className={styles["model-config-modal"]}>
-            <div className={styles["config-modal-content"]}>
-              <div className={styles["config-header"]}>
-                <h4>模型配置 - {modelConfigForm.modelId}</h4>
-                <button
-                  className={styles["config-close"]}
-                  onClick={() => setShowModelConfig(null)}
-                >
-                  <CloseIcon />
-                </button>
-              </div>
+          <ModelConfigModal
+            modelName={modelConfigForm.modelId}
+            provider={provider}
+            category={modelConfigForm.category}
+            showCategory={true}
+            showDelete={
+              providerModels.find((m) => m.name === modelConfigForm.modelId)
+                ?.provider?.providerType === "custom"
+            }
+            onSave={(config) => {
+              const modelName = modelConfigForm.modelId;
 
-              <div className={styles["config-content"]}>
-                {/* 基本信息 */}
-                <div className={styles["config-section"]}>
-                  <h5>基本信息</h5>
-                  <div className={styles["config-field"]}>
-                    <label>模型 ID</label>
-                    <input
-                      type="text"
-                      value={modelConfigForm.modelId}
-                      onChange={(e) =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          modelId: e.target.value,
-                        }))
-                      }
-                      className={styles["config-input"]}
-                      disabled
-                    />
-                  </div>
-                  <div className={styles["config-field"]}>
-                    <label>分组 (可选)</label>
-                    <input
-                      type="text"
-                      placeholder="例如: 自定义模型"
-                      value={modelConfigForm.category}
-                      onChange={(e) =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          category: e.target.value,
-                        }))
-                      }
-                      className={styles["config-input"]}
-                    />
-                  </div>
-                  <div className={styles["config-field"]}>
-                    <label>上下文Token数</label>
-                    <input
-                      type="number"
-                      placeholder="例如: 128000"
-                      min="1024"
-                      max="10000000"
-                      value={modelConfigForm.contextTokens || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          contextTokens: value
-                            ? parseInt(value, 10)
-                            : undefined,
-                        }));
-                      }}
-                      className={styles["config-input"]}
-                    />
-                    <small
-                      style={{
-                        color: "#666",
-                        fontSize: "12px",
-                        marginTop: "4px",
-                        display: "block",
-                      }}
-                    >
-                      设置模型支持的最大上下文Token数量，留空使用默认值
-                    </small>
-                  </div>
-                </div>
+              // 保存能力配置到本地存储
+              const capabilitiesKey = `model_capabilities_${modelName}`;
+              localStorage.setItem(
+                capabilitiesKey,
+                JSON.stringify(config.capabilities),
+              );
 
-                {/* 模型能力 */}
-                <div className={styles["config-section"]}>
-                  <h5>模型能力</h5>
-                  <div className={styles["capabilities-grid"]}>
-                    <div
-                      className={styles["capability-item"]}
-                      onClick={() =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          capabilities: {
-                            ...prev.capabilities,
-                            vision: !prev.capabilities.vision,
-                          },
-                        }))
-                      }
-                    >
-                      <div
-                        className={`${styles["capability-dot"]} ${
-                          modelConfigForm.capabilities.vision
-                            ? styles["active"]
-                            : ""
-                        }`}
-                      />
-                      <span className={styles["capability-text"]}>
-                        <span className={styles["capability-icon"]}>👁️</span>
-                        视觉
-                      </span>
-                    </div>
+              // 保存上下文Token数配置
+              if (config.contextTokens !== undefined) {
+                saveCustomContextTokens(modelName, config.contextTokens);
+              }
 
-                    <div
-                      className={styles["capability-item"]}
-                      onClick={() =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          capabilities: {
-                            ...prev.capabilities,
-                            web: !prev.capabilities.web,
-                          },
-                        }))
-                      }
-                    >
-                      <div
-                        className={`${styles["capability-dot"]} ${
-                          modelConfigForm.capabilities.web
-                            ? styles["active"]
-                            : ""
-                        }`}
-                      />
-                      <span className={styles["capability-text"]}>
-                        <span className={styles["capability-icon"]}>🌐</span>
-                        联网
-                      </span>
-                    </div>
+              // 如果是自定义模型且分组发生变化，更新 customModels
+              const isCustomModel =
+                providerModels.find((m) => m.name === modelName)?.provider
+                  ?.providerType === "custom";
+              if (isCustomModel && config.category !== undefined) {
+                const newCategory = config.category.trim();
+                accessStore.update((access) => {
+                  const currentCustomModels = access.customModels || "";
+                  const existingModels = currentCustomModels
+                    .split(",")
+                    .filter((m) => m.trim().length > 0);
 
-                    <div
-                      className={styles["capability-item"]}
-                      onClick={() =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          capabilities: {
-                            ...prev.capabilities,
-                            reasoning: !prev.capabilities.reasoning,
-                          },
-                        }))
-                      }
-                    >
-                      <div
-                        className={`${styles["capability-dot"]} ${
-                          modelConfigForm.capabilities.reasoning
-                            ? styles["active"]
-                            : ""
-                        }`}
-                      />
-                      <span className={styles["capability-text"]}>
-                        <span className={styles["capability-icon"]}>🧠</span>
-                        推理
-                      </span>
-                    </div>
+                  const modelWithProvider = `${modelName}@${provider}`;
 
-                    <div
-                      className={styles["capability-item"]}
-                      onClick={() =>
-                        setModelConfigForm((prev) => ({
-                          ...prev,
-                          capabilities: {
-                            ...prev.capabilities,
-                            tools: !prev.capabilities.tools,
-                          },
-                        }))
-                      }
-                    >
-                      <div
-                        className={`${styles["capability-dot"]} ${
-                          modelConfigForm.capabilities.tools
-                            ? styles["active"]
-                            : ""
-                        }`}
-                      />
-                      <span className={styles["capability-text"]}>
-                        <span className={styles["capability-icon"]}>🔧</span>
-                        工具
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  // 找到并更新现有模型
+                  const updatedModels = existingModels.map((m) => {
+                    const cleanModel =
+                      m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+                    const [existingModelWithProvider] = cleanModel.split("=");
 
-              <div className={styles["config-actions"]}>
-                {/* 检查是否是自定义模型，显示删除按钮 */}
-                {providerModels.find((m) => m.name === modelConfigForm.modelId)
-                  ?.provider?.providerType === "custom" && (
-                  <button
-                    className={styles["config-delete"]}
-                    onClick={() => deleteCustomModel(modelConfigForm.modelId)}
-                  >
-                    <DeleteIcon />
-                    删除模型
-                  </button>
-                )}
-                <div className={styles["config-buttons"]}>
-                  <button
-                    className={styles["config-cancel"]}
-                    onClick={() => setShowModelConfig(null)}
-                  >
-                    取消
-                  </button>
-                  <button
-                    className={styles["config-save"]}
-                    onClick={saveModelConfig}
-                  >
-                    保存配置
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+                    if (existingModelWithProvider === modelWithProvider) {
+                      // 更新分组
+                      return newCategory
+                        ? `${modelWithProvider}=${newCategory}`
+                        : modelWithProvider;
+                    }
+                    return m;
+                  });
+
+                  access.customModels = updatedModels.join(",");
+                });
+              }
+
+              setShowModelConfig(null);
+            }}
+            onDelete={() => {
+              deleteCustomModel(modelConfigForm.modelId);
+            }}
+            onClose={() => setShowModelConfig(null)}
+          />
         )}
       </div>
     </CustomModal>
