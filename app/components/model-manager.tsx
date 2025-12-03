@@ -588,7 +588,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       customModelString = `${modelWithProvider}=${category}`;
     }
 
-    // 先检查是否已存在
+    // 先检查是否与API获取的模型重复
+    const apiModelNames = new Set(apiModels.map((m) => m.name));
+    if (apiModelNames.has(modelId)) {
+      alert(`模型ID "${modelId}" 已存在于API获取的模型中，请使用其他名称`);
+      return;
+    }
+
+    // 检查是否与现有自定义模型重复
     const currentCustomModels = customModels || "";
     const existingModels = currentCustomModels
       .split(",")
@@ -602,7 +609,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     });
 
     if (modelExists) {
-      alert("该模型已存在");
+      alert("该自定义模型已存在");
       return;
     }
 
@@ -616,6 +623,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       newCustomModels,
       providerForModel,
       modelWithProvider,
+      apiModelNames: Array.from(apiModelNames),
     });
 
     accessStore.update((access) => {
