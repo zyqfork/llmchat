@@ -149,6 +149,7 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
   "Grok 2": ["grok-2", "grok-vision"],
   Grok: ["grok-beta"],
   嵌入模型: ["embedding", "embed"],
+  自定义模型: [], // 新增：专门用于自定义模型的分组
   其他: [],
 };
 
@@ -458,9 +459,15 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     providerModels.forEach((model) => {
       let categorized = false;
 
-      // 检查是否是自定义模型，如果有自定义分组则使用自定义分组
-      if (model.displayName && model.displayName !== model.name) {
-        // 这是一个有自定义显示名称的模型，可能是自定义分组
+      // 首先检查是否是自定义模型（通过provider类型判断）
+      const isCustomModel = model.provider?.providerType === "custom";
+
+      if (isCustomModel) {
+        // 自定义模型优先归入"自定义模型"分组
+        categories["自定义模型"].push(model);
+        categorized = true;
+      } else if (model.displayName && model.displayName !== model.name) {
+        // 对于非自定义模型，如果有自定义显示名称，则使用自定义分组
         const customCategory = model.displayName;
         if (!categories[customCategory]) {
           categories[customCategory] = [];
@@ -472,7 +479,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         for (const [category, patterns] of Object.entries(
           MODEL_NAME_CATEGORIES,
         )) {
-          if (category === "其他") continue;
+          if (category === "其他" || category === "自定义模型") continue;
 
           if (
             patterns.some((pattern) =>
@@ -955,7 +962,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                 <label>分组 (可选)</label>
                 <input
                   type="text"
-                  placeholder="例如: 自定义模型"
+                  placeholder="例如: 我的项目"
                   value={customModelForm.category}
                   onChange={(e) =>
                     setCustomModelForm((prev) => ({
@@ -966,7 +973,8 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                   className={styles["form-input"]}
                 />
                 <div className={styles["form-hint"]}>
-                  不填写分组时，模型将根据名称自动分类
+                  {/* eslint-disable-next-line react/no-unescaped-entities */}
+                  不填写分组时，自定义模型将归入"自定义模型"分组；填写分组可创建自定义分类
                 </div>
               </div>
               <div className={styles["form-actions"]}>
