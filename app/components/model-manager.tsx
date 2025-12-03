@@ -1021,9 +1021,19 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
               <div className={styles["loading-text"]}>正在获取可用模型...</div>
             </div>
           ) : (
-            /* 始终按模型名称分组显示 */
-            Object.entries(filteredCategorizedModels).map(
-              ([category, models]) => {
+            /* 始终按模型名称分组显示，自定义模型分组放在最前面 */
+            (() => {
+              // 获取所有分组并按自定义模型优先排序
+              const entries = Object.entries(filteredCategorizedModels);
+              const sortedEntries = entries.sort(([categoryA], [categoryB]) => {
+                // 自定义模型分组始终在最前面
+                if (categoryA === "自定义模型") return -1;
+                if (categoryB === "自定义模型") return 1;
+                // 其他分组按字母顺序排序
+                return categoryA.localeCompare(categoryB);
+              });
+
+              return sortedEntries.map(([category, models]) => {
                 if (models.length === 0) return null;
 
                 return (
@@ -1219,8 +1229,8 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                     </div>
                   </div>
                 );
-              },
-            )
+              });
+            })()
           )}
         </div>
 
