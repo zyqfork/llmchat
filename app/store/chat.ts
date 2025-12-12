@@ -47,6 +47,7 @@ import {
   getSessionCompressModelConfig,
 } from "../utils/model-resolver";
 import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelStreamConfig } from "../config/model-stream";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
@@ -713,9 +714,12 @@ export const useChatStore = createPersistStore(
           isMcpResponse,
         });
 
+        // 读取模型的流式配置，默认为 true（流式）
+        const shouldStream = getModelStreamConfig(modelConfig.model);
+
         const botMessage: ChatMessage = createMessage({
           role: "assistant",
-          streaming: true,
+          streaming: true, // 初始状态设为 true，表示正在等待响应（无论流式还是非流式）
           model: modelConfig.model,
         });
 
@@ -746,10 +750,13 @@ export const useChatStore = createPersistStore(
         // make request
         api.llm.chat({
           messages: sendMessages,
-          config: { ...modelConfig, stream: true },
+          config: { ...modelConfig, stream: shouldStream },
           tools: mcpTools.length > 0 ? mcpTools : undefined,
           onUpdate(message) {
-            botMessage.streaming = true;
+            // 只有在流式模式下才更新 streaming 状态
+            if (shouldStream) {
+              botMessage.streaming = true;
+            }
             if (message) {
               botMessage.content = message;
               // 使用流式优化器进行批量更新，减少存储频率
@@ -1000,10 +1007,13 @@ export const useChatStore = createPersistStore(
           // 获取 MCP 工具（如果启用了 Function Call 模式）
           const mcpTools = await get().getMcpTools();
 
+          // 读取模型的流式配置，默认为 true（流式）
+          const shouldStream = getModelStreamConfig(modelConfig.model);
+
           try {
             return await api.llm.chat({
               messages: recentMessages,
-              config: { ...modelConfig, stream: true },
+              config: { ...modelConfig, stream: shouldStream },
               tools: mcpTools.length > 0 ? mcpTools : undefined,
               onUpdate(message) {
                 botMessage.streaming = true;
@@ -1632,11 +1642,14 @@ export const useChatStore = createPersistStore(
           modelConfig.providerName || "OpenAI",
         );
 
+        // 读取模型的流式配置，默认为 true（流式）
+        const shouldStream = getModelStreamConfig(modelConfig.model);
+
         // 发送请求
         try {
           await api.llm.chat({
             messages: sendMessages,
-            config: { ...modelConfig, stream: true },
+            config: { ...modelConfig, stream: shouldStream },
             onUpdate(message) {
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];

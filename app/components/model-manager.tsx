@@ -25,6 +25,7 @@ import {
   formatTokenCount,
   saveCustomContextTokens,
 } from "../config/model-context-tokens";
+import { saveModelStreamConfig } from "../config/model-stream";
 
 interface ModelManagerProps {
   provider: ServiceProvider | string; // 支持自定义服务商ID
@@ -1264,6 +1265,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
               // 保存上下文Token数配置
               if (config.contextTokens !== undefined) {
                 saveCustomContextTokens(modelName, config.contextTokens);
+              }
+
+              // 保存流式配置
+              if (config.stream !== undefined) {
+                saveModelStreamConfig(modelName, config.stream);
               }
 
               // 如果是自定义模型且分组发生变化，更新 customModels

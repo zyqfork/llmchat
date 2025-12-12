@@ -139,6 +139,35 @@
   margin-top: 4px;
 }
 
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+
+  &:hover {
+    background: var(--second);
+  }
+}
+
+.radio-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
 .capabilities-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

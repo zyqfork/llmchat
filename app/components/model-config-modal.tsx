@@ -5,6 +5,10 @@ import CloseIcon from "../icons/close.svg";
 import DeleteIcon from "../icons/delete.svg";
 import { getModelContextTokens } from "../config/model-context-tokens";
 import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import {
+  getModelStreamConfig,
+  saveModelStreamConfig,
+} from "../config/model-stream";
 
 interface ModelConfigModalProps {
   modelName: string;
@@ -21,6 +25,7 @@ interface ModelConfigModalProps {
     };
     contextTokens?: number;
     category?: string;
+    stream?: boolean;
   }) => void;
   onDelete?: () => void;
   onClose: () => void;
@@ -46,6 +51,7 @@ export function ModelConfigModal({
     undefined,
   );
   const [category, setCategory] = useState(initialCategory);
+  const [stream, setStream] = useState<boolean>(true);
 
   useEffect(() => {
     // 获取当前模型能力配置
@@ -60,13 +66,21 @@ export function ModelConfigModal({
     // 获取当前上下文Token数配置
     const currentContextConfig = getModelContextTokens(modelName);
     setContextTokens(currentContextConfig?.contextTokens);
+
+    // 获取当前流式配置
+    const currentStreamConfig = getModelStreamConfig(modelName);
+    setStream(currentStreamConfig);
   }, [modelName]);
 
   const handleSave = () => {
+    // 保存流式配置
+    saveModelStreamConfig(modelName, stream);
+
     const config = {
       capabilities,
       contextTokens,
       category: showCategory ? category : undefined,
+      stream,
     };
 
     onSave(config);
@@ -155,6 +169,35 @@ export function ModelConfigModal({
               />
               <small className={styles["form-hint"]}>
                 设置模型支持的最大上下文Token数量，留空使用默认值
+              </small>
+            </div>
+
+            <div className={styles["form-group"]}>
+              <label>响应模式</label>
+              <div className={styles["radio-group"]}>
+                <label className={styles["radio-label"]}>
+                  <input
+                    type="radio"
+                    name="stream"
+                    checked={stream === true}
+                    onChange={() => setStream(true)}
+                    className={styles["radio-input"]}
+                  />
+                  <span>流式（实时响应）</span>
+                </label>
+                <label className={styles["radio-label"]}>
+                  <input
+                    type="radio"
+                    name="stream"
+                    checked={stream === false}
+                    onChange={() => setStream(false)}
+                    className={styles["radio-input"]}
+                  />
+                  <span>非流式（完整响应）</span>
+                </label>
+              </div>
+              <small className={styles["form-hint"]}>
+                流式模式会实时显示响应内容，非流式模式会等待完整响应后一次性显示
               </small>
             </div>
           </div>
