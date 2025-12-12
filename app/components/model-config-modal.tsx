@@ -174,30 +174,26 @@ export function ModelConfigModal({
 
             <div className={styles["form-group"]}>
               <label>响应模式</label>
-              <div className={styles["radio-group"]}>
-                <label className={styles["radio-label"]}>
+              <div className={styles["stream-toggle-container"]}>
+                <div className={styles["stream-toggle-info"]}>
+                  <span className={styles["stream-toggle-label"]}>
+                    {stream ? "流式（实时响应）" : "非流式（完整响应）"}
+                  </span>
+                  <small className={styles["stream-toggle-desc"]}>
+                    {stream ? "实时显示响应内容" : "等待完整响应后一次性显示"}
+                  </small>
+                </div>
+                <label className={styles["stream-toggle"]}>
                   <input
-                    type="radio"
-                    name="stream"
-                    checked={stream === true}
-                    onChange={() => setStream(true)}
-                    className={styles["radio-input"]}
+                    type="checkbox"
+                    checked={stream}
+                    onChange={(e) => setStream(e.target.checked)}
                   />
-                  <span>流式（实时响应）</span>
-                </label>
-                <label className={styles["radio-label"]}>
-                  <input
-                    type="radio"
-                    name="stream"
-                    checked={stream === false}
-                    onChange={() => setStream(false)}
-                    className={styles["radio-input"]}
-                  />
-                  <span>非流式（完整响应）</span>
+                  <span className={styles["toggle-slider"]}></span>
                 </label>
               </div>
               <small className={styles["form-hint"]}>
-                流式模式会实时显示响应内容，非流式模式会等待完整响应后一次性显示
+                切换响应模式：流式模式会实时显示响应内容，非流式模式会等待完整响应后一次性显示
               </small>
             </div>
           </div>
