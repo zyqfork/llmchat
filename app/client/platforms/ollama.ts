@@ -116,14 +116,33 @@ export class OllamaApi implements LLMApi {
     const messages: OllamaChatRequest["messages"] = [];
 
     for (const v of options.messages) {
-      const content = visionModel
-        ? await preProcessImageContent(v.content)
-        : getMessageTextContent(v);
+      const textContent = getMessageTextContent(v);
+      let images: string[] = [];
+      let content = textContent;
+
+      if (visionModel) {
+        const processed = await preProcessImageContent(v.content);
+        if (Array.isArray(processed)) {
+          // 提取图片，转为 base64（去掉 dataurl 前缀，符合 Ollama API）
+          images = processed
+            .filter((p: any) => p?.type === "image_url" && p?.image_url?.url)
+            .map((p: any) => {
+              const url = p.image_url.url as string;
+              return url.startsWith("data:") ? url.split(",")[1] || url : url;
+            });
+
+          // 使用文本 part 作为内容，如果没有文本则回退到原始文本
+          const textPart = processed.find((p: any) => p?.type === "text");
+          if (textPart?.text) {
+            content = textPart.text;
+          }
+        }
+      }
 
       messages.push({
         role: v.role,
-        content:
-          typeof content === "string" ? content : JSON.stringify(content),
+        content,
+        images: images.length > 0 ? images : undefined,
       });
     }
 
