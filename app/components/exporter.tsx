@@ -353,6 +353,25 @@ export function PreviewActions(props: {
     }
 
     // 构建更丰富的打印内容
+    const appConfig = useAppConfig.getState();
+    const decodeAvatar = (code: string, fallback: string) => {
+      if (!code) return fallback;
+      if (/^[0-9a-fA-F]+$/.test(code)) {
+        const val = parseInt(code, 16);
+        if (!Number.isNaN(val)) return String.fromCodePoint(val);
+      }
+      return code;
+    };
+    const userAvatar = decodeAvatar(appConfig.avatar as string, "🙂");
+    const assistantAvatar = decodeAvatar(session.mask.avatar as string, "🤖");
+    const safeDate = (d?: string) => {
+      const dt = d ? new Date(d) : new Date();
+      return isNaN(dt.getTime())
+        ? new Date().toLocaleString()
+        : dt.toLocaleString();
+    };
+    const headerTime = safeDate(msgs.at(-1)?.date);
+
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -367,19 +386,19 @@ export function PreviewActions(props: {
               font-family: "Noto Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
               background: #fff;
               color: #111827;
-              line-height: 1.5;
+              line-height: 1.6;
             }
-            .container { max-width: 960px; margin: 0 auto; }
+            .container { max-width: 820px; margin: 0 auto; }
             .header {
               border-bottom: 1px solid #e5e7eb;
               padding-bottom: 12px;
               margin-bottom: 16px;
             }
-            .title { font-size: 22px; font-weight: 700; }
+            .title { font-size: 22px; font-weight: 700; letter-spacing: 0.2px; }
             .meta {
               display: flex;
               flex-wrap: wrap;
-              gap: 12px;
+              gap: 10px;
               margin-top: 8px;
               color: #4b5563;
               font-size: 13px;
@@ -390,13 +409,14 @@ export function PreviewActions(props: {
               border-radius: 999px;
               background: #f9fafb;
             }
-            .messages { margin-top: 16px; }
+            .messages { margin-top: 18px; }
             .message {
               display: flex;
               gap: 12px;
-              margin-bottom: 16px;
+              margin-bottom: 18px;
               page-break-inside: avoid;
             }
+            .message.user { flex-direction: row-reverse; }
             .avatar {
               width: 36px;
               height: 36px;
@@ -419,7 +439,18 @@ export function PreviewActions(props: {
               overflow-wrap: break-word;
               word-break: break-word;
             }
-            .user .bubble { background: #f3f4f6; }
+            .user .bubble { background: #f3f4f6; text-align: right; }
+            .assistant .bubble { background: #fff; }
+            .msg-head {
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 8px;
+              margin-bottom: 6px;
+              color: #4b5563;
+              font-size: 12px;
+            }
+            .role { font-weight: 700; color: #111827; font-size: 13px; }
             .images {
               display: grid;
               gap: 10px;
@@ -434,10 +465,14 @@ export function PreviewActions(props: {
             }
             .footer {
               border-top: 1px solid #e5e7eb;
-              padding-top: 10px;
-              margin-top: 20px;
+              padding-top: 8px;
+              margin-top: 14px;
               color: #6b7280;
               font-size: 12px;
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+              align-items: center;
             }
             @media print {
               body { padding: 0; }
@@ -456,63 +491,70 @@ export function PreviewActions(props: {
                 )}</span>
                 <span class="chip">消息数：${msgs.length}</span>
                 <span class="chip">主题：${session.topic}</span>
-                <span class="chip">时间：${new Date(
-                  msgs.at(-1)?.date ?? Date.now(),
-                ).toLocaleString()}</span>
+                <span class="chip">时间：${headerTime}</span>
               </div>
             </div>
             
             <div class="messages">
-        ${msgs
-          .map((msg) => {
-            const content =
-              typeof msg.content === "string"
-                ? msg.content
-                : JSON.stringify(msg.content);
-            const isUser = msg.role === "user";
-            const avatar = isUser ? "👤" : "🤖";
-            const time = new Date(msg.date || Date.now()).toLocaleString();
+              ${msgs
+                .map((msg) => {
+                  const content =
+                    typeof msg.content === "string"
+                      ? msg.content
+                      : JSON.stringify(msg.content);
+                  const isUser = msg.role === "user";
+                  const avatar = isUser ? userAvatar : assistantAvatar;
+                  const time = safeDate(msg.date);
+                  const modelLabel =
+                    msg.model ||
+                    (!isUser ? getMaskEffectiveModel(session.mask) : "");
+                  const images = getMessageImages(msg);
+                  const imagesHtml =
+                    images.length > 0
+                      ? `<div class="images">${images
+                          .map(
+                            (src, idx) =>
+                              `<div style="break-inside: avoid;">
+                                <img class="image" src="${src}" alt="image-${
+                                  idx + 1
+                                }" />
+                              </div>`,
+                          )
+                          .join("")}</div>`
+                      : "";
 
-            return `
+                  return `
                     <div class="message ${isUser ? "user" : "assistant"}">
                       <div class="avatar">${avatar}</div>
                       <div class="bubble">
+                        <div class="msg-head">
+                          <span class="role">${isUser ? "用户" : "助手"}</span>
+                          <span>${time}</span>
+                          ${
+                            modelLabel
+                              ? `<span style="color:#6b7280;">${modelLabel}</span>`
+                              : ""
+                          }
+                        </div>
                         <div>${content
                           .replace(/</g, "<")
                           .replace(/>/g, ">")}</div>
-                        <div style="margin-top:6px;font-size:12px;color:#6b7280;">${time}</div>
+                        ${imagesHtml}
                       </div>
                     </div>
                   `;
-          })
-          .join("")}
-            </div>
-            
-            <div class="stats">
-              <div class="stats-title">📊 对话统计</div>
-              <div class="stats-grid">
-                <div class="stat-item">
-                  <div class="stat-value">${msgs.length}</div>
-                  <div class="stat-label">总消息数</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value">${
-                    msgs.filter((m) => m.role === "user").length
-                  }</div>
-                  <div class="stat-label">用户消息</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value">${
-                    msgs.filter((m) => m.role === "assistant").length
-                  }</div>
-                  <div class="stat-label">助手回复</div>
-                </div>
-              </div>
+                })
+                .join("")}
             </div>
             
             <div class="footer">
-              <p>由 <a href="https://github.com/zyqfork/llmchat" target="_blank">LLMChat</a> 生成</p>
-              <p>© ${new Date().getFullYear()} - 保留所有权利</p>
+              <span>📊 总:${msgs.length}</span>
+              <span>用户:${msgs.filter((m) => m.role === "user").length}</span>
+              <span>助手:${
+                msgs.filter((m) => m.role === "assistant").length
+              }</span>
+              <span>｜ 由 LLMChat 生成</span>
+              <span>© ${new Date().getFullYear()}</span>
             </div>
           </div>
         </body>
