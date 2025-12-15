@@ -767,39 +767,49 @@ export function ImagePreviewer(props: {
         ref={previewRef}
       >
         <div className={styles["chat-info"]}>
-          <div className={clsx(styles["logo"])}>
-            <ChatGptIcon width={50} height={50} />
-          </div>
-
-          <div>
-            <div className={styles["main-title"]}>LLMChat</div>
-            <div className={styles["sub-title"]}>
-              github.com/zyqfork/llmchat
-            </div>
-            <div className={styles["icons"]}>
-              <MaskAvatar avatar={config.avatar} />
-              <span className={styles["icon-space"]}>&</span>
-              <MaskAvatar
-                avatar={mask.avatar}
-                model={getMaskEffectiveModel(session.mask) as any}
-              />
+          <div className={styles["chat-info-header"]}>
+            <div className={styles["chat-info-brand"]}>
+              <ChatGptIcon width={24} height={24} />
+              <span className={styles["chat-info-title"]}>LLMChat</span>
             </div>
           </div>
-          <div>
-            <div className={styles["chat-info-item"]}>
-              {Locale.Exporter.Model}: {getMaskEffectiveModel(mask)}
+          <div className={styles["chat-info-compact"]}>
+            <div className={styles["chat-info-badge"]}>
+              <span className={styles["chat-info-icon"]}>🤖</span>
+              <span className={styles["chat-info-value"]}>
+                {getMaskEffectiveModel(mask)}
+              </span>
             </div>
-            <div className={styles["chat-info-item"]}>
-              {Locale.Exporter.Messages}: {props.messages.length}
+            <div className={styles["chat-info-badge"]}>
+              <span className={styles["chat-info-icon"]}>💬</span>
+              <span className={styles["chat-info-value"]}>
+                {props.messages.length}
+              </span>
             </div>
-            <div className={styles["chat-info-item"]}>
-              {Locale.Exporter.Topic}: {session.topic}
+            <div className={styles["chat-info-badge"]} title={session.topic}>
+              <span className={styles["chat-info-icon"]}>📝</span>
+              <span className={styles["chat-info-value"]}>
+                {session.topic.length > 15
+                  ? session.topic.substring(0, 15) + "..."
+                  : session.topic}
+              </span>
             </div>
-            <div className={styles["chat-info-item"]}>
-              {Locale.Exporter.Time}:{" "}
-              {new Date(
-                props.messages.at(-1)?.date ?? Date.now(),
-              ).toLocaleString()}
+            <div
+              className={styles["chat-info-badge"]}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              <span className={styles["chat-info-icon"]}>🕐</span>
+              <span className={styles["chat-info-value"]}>
+                {new Date(
+                  props.messages.at(-1)?.date ?? Date.now(),
+                ).toLocaleString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
             </div>
           </div>
         </div>
