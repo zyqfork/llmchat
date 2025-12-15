@@ -332,26 +332,24 @@ export function PreviewActions(props: {
   const onRenderMsgs = (msgs: ChatMessage[]) => {
     setShouldExport(false);
 
-    // 在 Tauri 中使用隐藏 iframe 打印，避免 window.open 受限
+    const session = useChatStore.getState().currentSession();
+
+    // 使用隐藏 iframe 打印，Web 和 Tauri 统一，不弹新窗口
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
-    let printWindow: Window | null = null;
     let cleanup: (() => void) | undefined;
-    if (isTauri) {
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "200vw";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      document.body.appendChild(iframe);
-      cleanup = () => iframe.remove();
-      printWindow = iframe.contentWindow;
-    } else {
-      printWindow = window.open("", "_blank", "width=1000,height=700");
-      if (!printWindow) {
-        showToast("无法打开打印窗口，请检查浏览器设置");
-        setLoading(false);
-        return;
-      }
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "200vw";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    document.body.appendChild(iframe);
+    cleanup = () => iframe.remove();
+    const printWindow = iframe.contentWindow;
+    if (!printWindow) {
+      cleanup?.();
+      showToast("无法打开打印窗口，请检查浏览器设置");
+      setLoading(false);
+      return;
     }
 
     // 构建更丰富的打印内容
@@ -362,318 +360,132 @@ export function PreviewActions(props: {
           <title>LLMChat 聊天记录</title>
           <meta charset="utf-8">
           <style>
-            * {
+            * { box-sizing: border-box; }
+            body {
               margin: 0;
-              padding: 0;
-              box-sizing: border-box;
+              padding: 16px;
+              font-family: "Noto Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              background: #fff;
+              color: #111827;
+              line-height: 1.5;
             }
-            
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              min-height: 100vh;
-              padding: 20px;
-              line-height: 1.6;
-            }
-            
-            .container {
-              max-width: 900px;
-              margin: 0 auto;
-              background: white;
-              border-radius: 20px;
-              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-              overflow: hidden;
-            }
-            
+            .container { max-width: 960px; margin: 0 auto; }
             .header {
-              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-              color: white;
-              padding: 40px;
-              text-align: center;
-              position: relative;
-              overflow: hidden;
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
             }
-            
-            .header::before {
-              content: '';
-              position: absolute;
-              top: -50%;
-              left: -50%;
-              width: 200%;
-              height: 200%;
-              background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-              animation: shimmer 3s infinite;
-            }
-            
-            @keyframes shimmer {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            .logo {
-              font-size: 32px;
-              font-weight: 800;
-              margin-bottom: 10px;
-              position: relative;
-              z-index: 1;
-              text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            }
-            
-            .subtitle {
-              font-size: 16px;
-              opacity: 0.9;
-              margin-bottom: 5px;
-              position: relative;
-              z-index: 1;
-            }
-            
-            .print-info {
-              font-size: 14px;
-              opacity: 0.8;
-              position: relative;
-              z-index: 1;
-            }
-            
-            .content {
-              padding: 40px;
-              background: #fafbfc;
-            }
-            
-            .message-wrapper {
-              margin-bottom: 25px;
+            .title { font-size: 22px; font-weight: 700; }
+            .meta {
               display: flex;
-              align-items: flex-start;
+              flex-wrap: wrap;
+              gap: 12px;
+              margin-top: 8px;
+              color: #4b5563;
+              font-size: 13px;
             }
-            
-            .message-user {
-              justify-content: flex-end;
+            .chip {
+              padding: 4px 10px;
+              border: 1px solid #e5e7eb;
+              border-radius: 999px;
+              background: #f9fafb;
             }
-            
-            .message-assistant {
-              justify-content: flex-start;
+            .messages { margin-top: 16px; }
+            .message {
+              display: flex;
+              gap: 12px;
+              margin-bottom: 16px;
+              page-break-inside: avoid;
             }
-            
             .avatar {
-              width: 40px;
-              height: 40px;
+              width: 36px;
+              height: 36px;
               border-radius: 50%;
+              background: #e5e7eb;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 18px;
-              margin: 0 15px;
-              flex-shrink: 0;
-              box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            }
-            
-            .avatar-user {
-              background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-              color: white;
-            }
-            
-            .avatar-assistant {
-              background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-              color: white;
-            }
-            
-            .message-bubble {
-              max-width: 70%;
-              padding: 16px 20px;
-              border-radius: 18px;
-              position: relative;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-              transition: transform 0.2s ease;
-            }
-            
-            .message-bubble:hover {
-              transform: translateY(-2px);
-            }
-            
-            .message-user .message-bubble {
-              background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-              color: white;
-              border-bottom-right-radius: 4px;
-            }
-            
-            .message-assistant .message-bubble {
-              background: white;
-              color: #374151;
-              border: 1px solid #e5e7eb;
-              border-bottom-left-radius: 4px;
-            }
-            
-            .message-content {
-              font-size: 15px;
-              line-height: 1.5;
-              white-space: pre-wrap;
-              word-wrap: break-word;
-            }
-            
-            .message-time {
-              font-size: 12px;
-              opacity: 0.7;
-              margin-top: 8px;
-            }
-            
-            .stats {
-              background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-              padding: 30px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-            }
-            
-            .stats-title {
-              font-size: 18px;
-              font-weight: 600;
-              color: #374151;
-              margin-bottom: 15px;
-            }
-            
-            .stats-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 20px;
-              margin-top: 20px;
-            }
-            
-            .stat-item {
-              background: white;
-              padding: 20px;
-              border-radius: 12px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            }
-            
-            .stat-value {
-              font-size: 24px;
               font-weight: 700;
-              color: #4f46e5;
-              margin-bottom: 5px;
+              color: #374151;
+              flex-shrink: 0;
             }
-            
-            .stat-label {
+            .bubble {
+              flex: 1;
+              padding: 12px 14px;
+              border: 1px solid #e5e7eb;
+              border-radius: 10px;
+              background: #fff;
               font-size: 14px;
-              color: #6b7280;
+              overflow-wrap: break-word;
+              word-break: break-word;
             }
-            
+            .user .bubble { background: #f3f4f6; }
+            .images {
+              display: grid;
+              gap: 10px;
+              margin-top: 10px;
+              grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            }
+            .image {
+              width: 100%;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              object-fit: contain;
+            }
             .footer {
-              background: #1f2937;
-              color: white;
-              padding: 20px;
-              text-align: center;
-              font-size: 14px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 10px;
+              margin-top: 20px;
+              color: #6b7280;
+              font-size: 12px;
             }
-            
-            .footer a {
-              color: #60a5fa;
-              text-decoration: none;
-            }
-            
-            .footer a:hover {
-              text-decoration: underline;
-            }
-            
             @media print {
-              body {
-                background: white !important;
-                padding: 0 !important;
-              }
-              
-              .container {
-                box-shadow: none !important;
-                border-radius: 0 !important;
-              }
-              
-              .header {
-                background: #4f46e5 !important;
-                color: white !important;
-              }
-              
-              .message-user .message-bubble {
-                background: #3b82f6 !important;
-                color: white !important;
-              }
-              
-              .message-assistant .message-bubble {
-                background: white !important;
-                color: #374151 !important;
-                border: 1px solid #e5e7eb !important;
-              }
-              
-              .stats {
-                background: #f3f4f6 !important;
-              }
-              
-              .stat-value {
-                color: #4f46e5 !important;
-              }
-            }
-            
-            @media (max-width: 768px) {
-              .message-wrapper {
-                margin-bottom: 20px;
-              }
-              
-              .message-bubble {
-                max-width: 85%;
-              }
-              
-              .avatar {
-                width: 35px;
-                height: 35px;
-                font-size: 16px;
-              }
-              
-              .header {
-                padding: 30px 20px;
-              }
-              
-              .content {
-                padding: 20px;
-              }
+              body { padding: 0; }
+              .container { padding: 12px 16px; }
+              .message { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">🤖 LLMChat</div>
-              <div class="subtitle">智能对话记录</div>
-              <div class="print-info">打印时间：${new Date().toLocaleString()}</div>
+              <div class="title">LLMChat 聊天记录</div>
+              <div class="meta">
+                <span class="chip">模型：${getMaskEffectiveModel(
+                  session.mask,
+                )}</span>
+                <span class="chip">消息数：${msgs.length}</span>
+                <span class="chip">主题：${session.topic}</span>
+                <span class="chip">时间：${new Date(
+                  msgs.at(-1)?.date ?? Date.now(),
+                ).toLocaleString()}</span>
+              </div>
             </div>
             
-            <div class="content">
-              ${msgs
-                .map((msg, index) => {
-                  const content =
-                    typeof msg.content === "string"
-                      ? msg.content
-                      : JSON.stringify(msg.content);
-                  const isUser = msg.role === "user";
-                  const avatar = isUser ? "👤" : "🤖";
-                  const time = new Date().toLocaleString();
+            <div class="messages">
+        ${msgs
+          .map((msg) => {
+            const content =
+              typeof msg.content === "string"
+                ? msg.content
+                : JSON.stringify(msg.content);
+            const isUser = msg.role === "user";
+            const avatar = isUser ? "👤" : "🤖";
+            const time = new Date(msg.date || Date.now()).toLocaleString();
 
-                  return `
-                  <div class="message-wrapper message-${msg.role}">
-                    ${
-                      isUser
-                        ? ""
-                        : `<div class="avatar avatar-assistant">${avatar}</div>`
-                    }
-                    <div class="message-bubble">
-                      <div class="message-content">
-                        ${content.replace(/</g, "<").replace(/>/g, ">")}
+            return `
+                    <div class="message ${isUser ? "user" : "assistant"}">
+                      <div class="avatar">${avatar}</div>
+                      <div class="bubble">
+                        <div>${content
+                          .replace(/</g, "<")
+                          .replace(/>/g, ">")}</div>
+                        <div style="margin-top:6px;font-size:12px;color:#6b7280;">${time}</div>
                       </div>
-                      <div class="message-time">${time}</div>
                     </div>
-                    ${
-                      isUser
-                        ? `<div class="avatar avatar-user">${avatar}</div>`
-                        : ""
-                    }
-                  </div>
-                `;
-                })
-                .join("")}
+                  `;
+          })
+          .join("")}
             </div>
             
             <div class="stats">
@@ -703,26 +515,6 @@ export function PreviewActions(props: {
               <p>© ${new Date().getFullYear()} - 保留所有权利</p>
             </div>
           </div>
-          
-          <script>
-            window.onload = function() {
-              // 添加淡入动画
-              document.body.style.opacity = '0';
-              document.body.style.transition = 'opacity 0.5s ease';
-              
-              setTimeout(function() {
-                document.body.style.opacity = '1';
-              }, 100);
-              
-              // 延迟打印以确保样式加载完成
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  window.close();
-                }, 2000);
-              }, 500);
-            };
-          </script>
         </body>
       </html>
     `;
