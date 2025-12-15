@@ -332,12 +332,26 @@ export function PreviewActions(props: {
   const onRenderMsgs = (msgs: ChatMessage[]) => {
     setShouldExport(false);
 
-    // 创建打印窗口
-    const printWindow = window.open("", "_blank", "width=1000,height=700");
-    if (!printWindow) {
-      showToast("无法打开打印窗口，请检查浏览器设置");
-      setLoading(false);
-      return;
+    // 在 Tauri 中使用隐藏 iframe 打印，避免 window.open 受限
+    const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
+    let printWindow: Window | null = null;
+    let cleanup: (() => void) | undefined;
+    if (isTauri) {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "200vw";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      document.body.appendChild(iframe);
+      cleanup = () => iframe.remove();
+      printWindow = iframe.contentWindow;
+    } else {
+      printWindow = window.open("", "_blank", "width=1000,height=700");
+      if (!printWindow) {
+        showToast("无法打开打印窗口，请检查浏览器设置");
+        setLoading(false);
+        return;
+      }
     }
 
     // 构建更丰富的打印内容
@@ -713,12 +727,37 @@ export function PreviewActions(props: {
       </html>
     `;
 
-    printWindow.document.write(printContent);
-    printWindow.document.close();
+    // 写入内容并触发打印
+    // 安全断言：经过上面逻辑，此时 printWindow 一定存在
+    const pw = printWindow as Window;
+    pw.document.write(printContent);
+    pw.document.close();
 
-    setTimeout(() => {
-      setLoading(false);
-    }, 3000);
+    // Tauri 场景下等 iframe 渲染完成再打印
+    const doPrint = () => {
+      try {
+        pw.focus();
+        pw.print();
+      } catch (err) {
+        console.error("Print failed", err);
+        showToast("打印失败，请检查系统打印设置");
+      } finally {
+        cleanup?.();
+        setLoading(false);
+      }
+    };
+
+    if (isTauri) {
+      // 延迟以等待 iframe DOM 渲染
+      setTimeout(doPrint, 300);
+    } else {
+      setTimeout(() => {
+        doPrint();
+        setTimeout(() => {
+          printWindow?.close();
+        }, 2000);
+      }, 500);
+    }
   };
 
   return (
@@ -781,7 +820,14 @@ export function ImagePreviewer(props: {
     showToast(Locale.Export.Image.Toast);
     const dom = previewRef.current;
     if (!dom) return;
-    toBlob(dom).then((blob) => {
+    toBlob(dom, {
+      skipFonts: true,
+      style: {},
+      filter: (node) => {
+        if (node instanceof HTMLLinkElement) return false;
+        return true;
+      },
+    }).then((blob) => {
       if (!blob) return;
       try {
         navigator.clipboard
@@ -811,7 +857,17 @@ export function ImagePreviewer(props: {
     const isApp = getClientConfig()?.isApp;
 
     try {
-      const blob = await toPng(dom);
+      const blob = await toPng(dom, {
+        // 避免跨域样式（如谷歌字体）读取 cssRules 报 SecurityError
+        skipFonts: true,
+        // 不内联外部样式，防止 CSP/跨域限制
+        style: {},
+        filter: (node) => {
+          // 过滤掉 link/style 的跨域规则
+          if (node instanceof HTMLLinkElement) return false;
+          return true;
+        },
+      });
       if (!blob) return;
 
       if (isMobile || (isApp && window.__TAURI__)) {
