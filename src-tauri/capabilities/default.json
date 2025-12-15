@@ -18,8 +18,19 @@
     "core:window:allow-set-ignore-cursor-events",
     "shell:allow-open",
     "dialog:default",
+    "dialog:allow-save",
     "clipboard-manager:default",
     "fs:default",
+    "fs:allow-appdata-write-recursive",
+    {
+      "identifier": "fs:allow-home-write",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    },
     "notification:default",
     "http:default",
     "window-state:default",
