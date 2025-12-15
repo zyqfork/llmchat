@@ -197,6 +197,19 @@
           margin-top: 10px;
         }
 
+        .message-image-container {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+        }
+
+        .message-image-multi-container {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          overflow: hidden;
+        }
+
         .message-images {
           display: grid;
           justify-content: left;

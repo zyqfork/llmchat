@@ -951,7 +951,10 @@ export function ImagePreviewer(props: {
                       src={getMessageImages(m)[0]}
                       alt="message"
                       className={styles["message-image"]}
-                      fill
+                      width={1024}
+                      height={768}
+                      sizes="100vw"
+                      style={{ width: "100%", height: "auto" }}
                       unoptimized
                     />
                   </div>
@@ -974,7 +977,14 @@ export function ImagePreviewer(props: {
                           src={src}
                           alt="message"
                           className={styles["message-image-multi"]}
-                          fill
+                          width={640}
+                          height={640}
+                          sizes="33vw"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
                           unoptimized
                         />
                       </div>

@@ -57,6 +57,15 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
     };
   }
 
+  // 如果未设置 defaultModel，使用面具自身的模型配置
+  if (mask.modelConfig?.model) {
+    return {
+      model: mask.modelConfig.model,
+      providerName: mask.modelConfig.providerName || globalConfig.providerName,
+      source: "mask-config",
+    };
+  }
+
   // 如果没有设置默认模型，使用全局默认模型
   return {
     model: globalConfig.model,
