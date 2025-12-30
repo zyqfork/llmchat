@@ -424,12 +424,27 @@
   font-size: 20px;
   width: 32px;
   height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   background: var(--second);
   border-radius: 6px;
   flex-shrink: 0;
+  overflow: hidden;
+
+  // 确保 no-dark 容器正确居中显示
+  .no-dark {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+  }
+
+  // 所有 SVG 统一样式，确保居中
+  svg {
+    display: block !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
 }
 
 .model-details {
@@ -1291,6 +1306,16 @@
     width: 28px;
     height: 28px;
     font-size: 16px;
+
+    svg {
+      max-width: 20px;
+      max-height: 20px;
+    }
+
+    .no-dark svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
   }
 
   .toggle-button {

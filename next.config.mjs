@@ -49,7 +49,26 @@ const nextConfig = {
   webpack(config, { dev, isServer }) {
     config.module.rules.push({
       test: /\.svg$/,
-      use: ["@svgr/webpack"],
+      use: [
+        {
+          loader: "@svgr/webpack",
+          options: {
+            svgoConfig: {
+              plugins: [
+                {
+                  name: "preset-default",
+                  params: {
+                    overrides: {
+                      // 保留 viewBox 属性，防止 SVG 缩放问题
+                      removeViewBox: false,
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
     });
 
     if (disableChunk) {

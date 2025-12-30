@@ -149,7 +149,7 @@ import {
   getModelCapabilitiesWithCustomConfig,
   isWebSearchModel,
 } from "../config/model-capabilities";
-import { ProviderIcon } from "./provider-icon";
+import { ProviderIcon, ModelProviderIcon } from "./provider-icon";
 
 const localStorage = safeLocalStorage();
 
@@ -1704,7 +1704,7 @@ export function ChatActions(props: {
           ) : (
             <>
               <div className={styles["model-icon"]}>
-                <ProviderIcon
+                <ModelProviderIcon
                   provider={currentProviderName}
                   size={16}
                   modelName={currentModel}

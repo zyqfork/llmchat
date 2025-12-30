@@ -62,8 +62,14 @@ function getModelIconType(
   )
     return "qwen";
   if (lowerModelName.includes("claude")) return "claude";
-  if (lowerModelName.includes("gemini")) return "gemini";
-  if (lowerModelName.includes("gpt-4") || lowerModelName.includes("chatgpt-4o"))
+  if (lowerModelName.includes("gemini") || lowerModelName.includes("learnlm"))
+    return "gemini";
+  if (lowerModelName.includes("gemma")) return "default"; // Gemma 使用默认图标或者可以后续添加专用图标
+  if (
+    lowerModelName.includes("gpt-4") ||
+    lowerModelName.includes("chatgpt-4o") ||
+    lowerModelName.includes("gpt-5")
+  )
     return "gpt4";
   if (lowerModelName.includes("gpt-3")) return "gpt3";
   if (
@@ -374,7 +380,10 @@ const ModelAvatar = React.memo(function ModelAvatar({
       lowerModelName.startsWith("o4")
     ) {
       LlmIcon = BotIconOpenAI;
-    } else if (lowerModelName.startsWith("gemini")) {
+    } else if (
+      lowerModelName.startsWith("gemini") ||
+      lowerModelName.startsWith("learnlm")
+    ) {
       LlmIcon = BotIconGemini;
     } else if (lowerModelName.startsWith("gemma")) {
       LlmIcon = BotIconGemma;
@@ -384,7 +393,8 @@ const ModelAvatar = React.memo(function ModelAvatar({
       LlmIcon = BotIconMeta;
     } else if (
       lowerModelName.startsWith("mixtral") ||
-      lowerModelName.startsWith("codestral")
+      lowerModelName.startsWith("codestral") ||
+      lowerModelName.startsWith("mistral")
     ) {
       LlmIcon = BotIconMistral;
     } else if (lowerModelName.includes("deepseek")) {
@@ -407,6 +417,8 @@ const ModelAvatar = React.memo(function ModelAvatar({
       lowerModelName.startsWith("ep-")
     ) {
       LlmIcon = BotIconDoubao;
+    } else if (lowerModelName.startsWith("ollama")) {
+      LlmIcon = BotIconOllama;
     }
   }
 
