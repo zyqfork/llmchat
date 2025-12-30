@@ -255,6 +255,15 @@ export function useLoadData() {
 
   useEffect(() => {
     (async () => {
+      // 静态导出模式下跳过模型获取（API 路由不可用）
+      const clientConfig = getClientConfig();
+      if (clientConfig?.buildMode === "export") {
+        console.log(
+          "[Config] Static export mode, skipping automatic model fetch",
+        );
+        return;
+      }
+
       // 检查当前使用的 provider 是否有有效配置
       const checkProviderValid = (provider: string) => {
         switch (provider) {
@@ -312,7 +321,12 @@ export function useLoadData() {
         const models = await api.llm.models();
         config.mergeModels(models);
       } catch (e) {
-        console.error("[Config] failed to fetch models", e);
+        // 静默处理获取失败，避免控制台大量错误日志
+        // 用户可以在模型管理界面手动获取
+        console.warn(
+          "[Config] Failed to fetch models, will use cached models. Error:",
+          e instanceof Error ? e.message : e,
+        );
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

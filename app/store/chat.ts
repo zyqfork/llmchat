@@ -161,6 +161,8 @@ export interface ChatSession {
   };
   // 搜索功能状态
   searchEnabled?: boolean;
+  // 是否正在生成摘要（防止并发）
+  isSummarizing?: boolean;
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -1404,6 +1406,7 @@ export const useChatStore = createPersistStore(
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
+
         // skip summarize when using dalle3?
         if (isDalle3(modelConfig.model)) {
           return;
@@ -1486,6 +1489,16 @@ export const useChatStore = createPersistStore(
             },
           });
         }
+
+        // 防止并发摘要：如果正在生成摘要，跳过
+        if (session.isSummarizing) {
+          console.log(
+            "[Summarize] Already in progress for session:",
+            session.id,
+          );
+          return;
+        }
+
         const summarizeIndex = Math.max(
           session.lastSummarizeIndex,
           session.clearContextIndex ?? 0,
@@ -1514,6 +1527,11 @@ export const useChatStore = createPersistStore(
           historyMsgLength > modelConfig.compressMessageLengthThreshold &&
           modelConfig.sendMemory
         ) {
+          // 设置摘要锁，防止并发
+          get().updateTargetSession(session, (s) => {
+            s.isSummarizing = true;
+          });
+
           /** Destruct max_tokens while summarizing
            * this param is just shit
            **/
@@ -1545,22 +1563,46 @@ export const useChatStore = createPersistStore(
               const filteredMessage = message
                 .replace(/<think>[\s\S]*?<\/think>/g, "")
                 .trim();
-              session.memoryPrompt = filteredMessage;
+              // 使用正确的状态更新方式，确保 UI 同步
+              get().updateTargetSession(session, (s) => {
+                s.memoryPrompt = filteredMessage;
+              });
             },
             onFinish(message, responseRes) {
+              // 过滤掉思考内容
+              const filteredMessage = message
+                .replace(/<think>[\s\S]*?<\/think>/g, "")
+                .trim();
+
               if (responseRes?.status === 200) {
-                // 过滤掉思考内容
-                const filteredMessage = message
-                  .replace(/<think>[\s\S]*?<\/think>/g, "")
-                  .trim();
-                get().updateTargetSession(session, (session) => {
-                  session.lastSummarizeIndex = lastSummarizeIndex;
-                  session.memoryPrompt = filteredMessage; // Update the memory prompt for stored it in local storage
+                get().updateTargetSession(session, (s) => {
+                  s.lastSummarizeIndex = lastSummarizeIndex;
+                  s.memoryPrompt = filteredMessage;
+                  s.isSummarizing = false; // 释放摘要锁
                 });
+                console.log(
+                  "[Summarize] Completed for session:",
+                  session.id,
+                  "summary length:",
+                  filteredMessage.length,
+                );
+              } else {
+                // 请求失败时也要释放锁
+                get().updateTargetSession(session, (s) => {
+                  s.isSummarizing = false;
+                });
+                console.error(
+                  "[Summarize] Failed with status:",
+                  responseRes?.status,
+                );
               }
             },
             onError(err) {
-              console.error("Summarize error: ", err);
+              console.error("[Summarize] Error:", err);
+              // 发生错误时释放摘要锁
+              get().updateTargetSession(session, (s) => {
+                s.isSummarizing = false;
+              });
             },
           });
         }

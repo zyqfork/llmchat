@@ -2129,6 +2129,19 @@ function _Chat() {
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
+  // 防抖的预览输入：避免每次输入都触发预览气泡重渲染和 emoji 请求
+  const [debouncedPreviewInput, setDebouncedPreviewInput] = useState("");
+  const updateDebouncedPreviewInput = useDebouncedCallback(
+    (value: string) => {
+      setDebouncedPreviewInput(value);
+    },
+    300, // 300ms 防抖
+  );
+  // 当 userInput 变化时，更新防抖的预览输入
+  useEffect(() => {
+    updateDebouncedPreviewInput(userInput);
+  }, [userInput, updateDebouncedPreviewInput]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [couldStop, setCouldStop] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
@@ -2601,24 +2614,30 @@ function _Chat() {
   }
 
   // preview messages
+  // 使用防抖的预览输入，避免每次按键都触发重渲染和 emoji CDN 请求
   const renderMessages = useMemo(() => {
     // 过滤掉 MCP 相关的消息
     const filteredMessages = filterMcpMessages(session.messages);
 
     return context.concat(filteredMessages as RenderMessage[]).concat(
-      userInput.length > 0 && config.sendPreviewBubble
+      debouncedPreviewInput.length > 0 && config.sendPreviewBubble
         ? [
             {
               ...createMessage({
                 role: "user",
-                content: userInput,
+                content: debouncedPreviewInput,
               }),
               preview: true,
             },
           ]
         : [],
     );
-  }, [config.sendPreviewBubble, context, session.messages, userInput]);
+  }, [
+    config.sendPreviewBubble,
+    context,
+    session.messages,
+    debouncedPreviewInput,
+  ]);
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
     Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
