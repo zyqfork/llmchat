@@ -2369,11 +2369,6 @@ export function Settings() {
           </ListItem>
 
           <ListItem
-            title={Locale.Settings.Prompt.SystemPrompts.Title}
-            subTitle={Locale.Settings.Prompt.SystemPrompts.SubTitle}
-          />
-
-          <ListItem
             title={Locale.Settings.Prompt.SystemPrompts.CompressModel.Title}
             subTitle={
               Locale.Settings.Prompt.SystemPrompts.CompressModel.SubTitle
