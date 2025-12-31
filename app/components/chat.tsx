@@ -2375,11 +2375,22 @@ function _Chat() {
       const api = getClientApi(optimizeProviderName || ServiceProvider.OpenAI);
 
       let optimizedText = "";
+
+      // 获取优化模型的提示词，优先级：会话配置 > 全局配置 > 默认提示词
+      const defaultOptimizePrompt =
+        Locale.Settings.OptimizeModel.Prompt.Placeholder;
+
+      let optimizePrompt = defaultOptimizePrompt;
+      if (modelConfig.optimizeModelPrompt) {
+        optimizePrompt = modelConfig.optimizeModelPrompt;
+      } else if (globalConfig.optimizeModelPrompt) {
+        optimizePrompt = globalConfig.optimizeModelPrompt;
+      }
+
       const optimizeMessages: RequestMessage[] = [
         {
           role: "system",
-          content:
-            "You are a prompt optimization assistant. Your task is to improve the user's input by fixing grammar errors, correcting word choices, making it clearer and more professional, while preserving the original meaning and intent. Only return the optimized text without any explanations or additional comments.",
+          content: optimizePrompt,
         },
         {
           role: "user",

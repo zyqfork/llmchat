@@ -81,8 +81,12 @@ export const DEFAULT_CONFIG = {
     compressMessageLengthThreshold: getModelCompressThreshold("gpt-4o-mini"),
     compressModel: "",
     compressProviderName: "",
+    compressModelPrompt: "", // 对话摘要模型的系统提示词，空字符串表示使用默认提示词
     optimizeModel: "",
     optimizeProviderName: "",
+    optimizeModelPrompt: "", // 提示词优化模型的系统提示词，空字符串表示使用默认提示词
+    topicPrompt: "", // 标题生成提示词，空字符串表示使用默认提示词
+    summarizePrompt: "", // 对话摘要提示词，空字符串表示使用默认提示词
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,

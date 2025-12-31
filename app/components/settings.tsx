@@ -341,6 +341,72 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
   ) : null;
 }
 
+// 系统提示词编辑弹窗
+function SystemPromptEditModal(props: {
+  type: "compress" | "optimize" | "topic" | "summarize";
+  value: string;
+  defaultValue: string;
+  onSave: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [promptValue, setPromptValue] = useState(props.value);
+  const title =
+    props.type === "compress"
+      ? Locale.Settings.Prompt.SystemPrompts.CompressModel.Title
+      : props.type === "optimize"
+      ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title
+      : props.type === "topic"
+      ? Locale.Settings.Prompt.SystemPrompts.Topic.Title
+      : Locale.Settings.Prompt.SystemPrompts.Summarize.Title;
+  const subTitle =
+    props.type === "compress"
+      ? Locale.Settings.Prompt.SystemPrompts.CompressModel.SubTitle
+      : props.type === "optimize"
+      ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
+      : props.type === "topic"
+      ? Locale.Settings.Prompt.SystemPrompts.Topic.SubTitle
+      : Locale.Settings.Prompt.SystemPrompts.Summarize.SubTitle;
+
+  return (
+    <div className="modal-mask">
+      <Modal
+        title={title}
+        onClose={props.onClose}
+        actions={[
+          <IconButton
+            key="save"
+            onClick={() => {
+              props.onSave(promptValue);
+            }}
+            text="保存"
+            type="primary"
+            bordered
+          />,
+          <IconButton
+            key="cancel"
+            onClick={props.onClose}
+            text="取消"
+            bordered
+          />,
+        ]}
+      >
+        <div className={styles["edit-prompt-modal"]}>
+          <div className={styles["edit-prompt-subtitle"]}>{subTitle}</div>
+          <Input
+            value={promptValue}
+            className={styles["edit-prompt-content"]}
+            rows={10}
+            onInput={(e) => setPromptValue(e.currentTarget.value)}
+          ></Input>
+          <div className={styles["edit-prompt-hint"]}>
+            留空将使用默认提示词：{props.defaultValue}
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 function UserPromptModal(props: { onClose?: () => void }) {
   const promptStore = usePromptStore();
   const userPrompts = promptStore.getUserPrompts();
@@ -822,6 +888,9 @@ export function Settings() {
   const builtinCount = SearchService.count.builtin;
   const customCount = promptStore.getUserPrompts().length ?? 0;
   const [shouldShowPromptModal, setShowPromptModal] = useState(false);
+  const [editingSystemPrompt, setEditingSystemPrompt] = useState<
+    "compress" | "optimize" | "topic" | "summarize" | null
+  >(null);
   const [showModelManager, setShowModelManager] = useState(false);
   const [currentProvider, setCurrentProvider] = useState<
     ServiceProvider | string | null
@@ -2195,43 +2264,178 @@ export function Settings() {
   );
 
   // 提示词设置
-  const renderPromptSettings = () => (
-    <>
-      <List>
-        <ListItem
-          title={Locale.Settings.Prompt.Disable.Title}
-          subTitle={Locale.Settings.Prompt.Disable.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Prompt.Disable.Title}
-            type="checkbox"
-            checked={config.disablePromptHint}
-            onChange={(e) =>
-              updateConfig(
-                (config) =>
-                  (config.disablePromptHint = e.currentTarget.checked),
-              )
-            }
-          ></input>
-        </ListItem>
+  const renderPromptSettings = () => {
+    const getSystemPromptValue = (
+      type: "compress" | "optimize" | "topic" | "summarize",
+    ) => {
+      if (type === "compress") {
+        return (
+          config.modelConfig.compressModelPrompt ||
+          Locale.Store.Prompt.Summarize
+        );
+      } else if (type === "optimize") {
+        return (
+          config.modelConfig.optimizeModelPrompt ||
+          Locale.Settings.OptimizeModel.Prompt.Placeholder
+        );
+      } else if (type === "topic") {
+        return config.modelConfig.topicPrompt || Locale.Store.Prompt.Topic;
+      } else {
+        return (
+          config.modelConfig.summarizePrompt || Locale.Store.Prompt.Summarize
+        );
+      }
+    };
 
-        <ListItem
-          title={Locale.Settings.Prompt.List}
-          subTitle={Locale.Settings.Prompt.ListCount(builtinCount, customCount)}
-        >
-          <IconButton
-            aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
-            icon={<EditIcon />}
-            text={Locale.Settings.Prompt.Edit}
-            onClick={() => setShowPromptModal(true)}
+    const getSystemPromptDefault = (
+      type: "compress" | "optimize" | "topic" | "summarize",
+    ) => {
+      if (type === "compress" || type === "summarize") {
+        return Locale.Store.Prompt.Summarize;
+      } else if (type === "optimize") {
+        return Locale.Settings.OptimizeModel.Prompt.Placeholder;
+      } else {
+        return Locale.Store.Prompt.Topic;
+      }
+    };
+
+    const saveSystemPrompt = (
+      type: "compress" | "optimize" | "topic" | "summarize",
+      value: string,
+    ) => {
+      if (type === "compress") {
+        updateConfig(
+          (config) =>
+            (config.modelConfig.compressModelPrompt =
+              value === Locale.Store.Prompt.Summarize ? "" : value),
+        );
+      } else if (type === "optimize") {
+        updateConfig(
+          (config) =>
+            (config.modelConfig.optimizeModelPrompt =
+              value === Locale.Settings.OptimizeModel.Prompt.Placeholder
+                ? ""
+                : value),
+        );
+      } else if (type === "topic") {
+        updateConfig(
+          (config) =>
+            (config.modelConfig.topicPrompt =
+              value === Locale.Store.Prompt.Topic ? "" : value),
+        );
+      } else if (type === "summarize") {
+        updateConfig(
+          (config) =>
+            (config.modelConfig.summarizePrompt =
+              value === Locale.Store.Prompt.Summarize ? "" : value),
+        );
+      }
+      setEditingSystemPrompt(null);
+    };
+
+    return (
+      <>
+        <List>
+          <ListItem
+            title={Locale.Settings.Prompt.Disable.Title}
+            subTitle={Locale.Settings.Prompt.Disable.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Prompt.Disable.Title}
+              type="checkbox"
+              checked={config.disablePromptHint}
+              onChange={(e) =>
+                updateConfig(
+                  (config) =>
+                    (config.disablePromptHint = e.currentTarget.checked),
+                )
+              }
+            ></input>
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.List}
+            subTitle={Locale.Settings.Prompt.ListCount(
+              builtinCount,
+              customCount,
+            )}
+          >
+            <IconButton
+              aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setShowPromptModal(true)}
+            />
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.Title}
+            subTitle={Locale.Settings.Prompt.SystemPrompts.SubTitle}
           />
-        </ListItem>
-      </List>
-      {shouldShowPromptModal && (
-        <UserPromptModal onClose={() => setShowPromptModal(false)} />
-      )}
-    </>
-  );
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.CompressModel.Title}
+            subTitle={
+              Locale.Settings.Prompt.SystemPrompts.CompressModel.SubTitle
+            }
+          >
+            <IconButton
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setEditingSystemPrompt("compress")}
+            />
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title}
+            subTitle={
+              Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
+            }
+          >
+            <IconButton
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setEditingSystemPrompt("optimize")}
+            />
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.Summarize.Title}
+            subTitle={Locale.Settings.Prompt.SystemPrompts.Summarize.SubTitle}
+          >
+            <IconButton
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setEditingSystemPrompt("summarize")}
+            />
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.Topic.Title}
+            subTitle={Locale.Settings.Prompt.SystemPrompts.Topic.SubTitle}
+          >
+            <IconButton
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setEditingSystemPrompt("topic")}
+            />
+          </ListItem>
+        </List>
+        {shouldShowPromptModal && (
+          <UserPromptModal onClose={() => setShowPromptModal(false)} />
+        )}
+        {editingSystemPrompt && (
+          <SystemPromptEditModal
+            type={editingSystemPrompt}
+            value={getSystemPromptValue(editingSystemPrompt)}
+            defaultValue={getSystemPromptDefault(editingSystemPrompt)}
+            onSave={(value) => saveSystemPrompt(editingSystemPrompt, value)}
+            onClose={() => setEditingSystemPrompt(null)}
+          />
+        )}
+      </>
+    );
+  };
 
   // 创建自定义服务商配置组件
   const createCustomProviderConfigComponent = (customProvider: any) => {

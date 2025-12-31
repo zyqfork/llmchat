@@ -1441,6 +1441,7 @@ export const useChatStore = createPersistStore(
             countMessages(messages) >= SUMMARIZE_MIN_LEN) ||
           refreshTitle
         ) {
+          const globalConfig = useAppConfig.getState().modelConfig;
           const startIndex = Math.max(
             0,
             messages.length - modelConfig.historyMessageCount,
@@ -1460,7 +1461,10 @@ export const useChatStore = createPersistStore(
             .concat(
               createMessage({
                 role: "user",
-                content: Locale.Store.Prompt.Topic,
+                content:
+                  modelConfig.topicPrompt ||
+                  globalConfig.topicPrompt ||
+                  Locale.Store.Prompt.Topic,
               }),
             );
           api.llm.chat({
@@ -1532,6 +1536,19 @@ export const useChatStore = createPersistStore(
           /** Destruct max_tokens while summarizing
            * this param is just shit
            **/
+          // 获取摘要模型的提示词，优先级：会话配置 > 全局配置 > 默认提示词
+          const globalConfig = useAppConfig.getState().modelConfig;
+          let summarizePrompt = Locale.Store.Prompt.Summarize;
+          if (modelConfig.summarizePrompt) {
+            summarizePrompt = modelConfig.summarizePrompt;
+          } else if (globalConfig.summarizePrompt) {
+            summarizePrompt = globalConfig.summarizePrompt;
+          } else if (modelConfig.compressModelPrompt) {
+            summarizePrompt = modelConfig.compressModelPrompt;
+          } else if (globalConfig.compressModelPrompt) {
+            summarizePrompt = globalConfig.compressModelPrompt;
+          }
+
           const { max_tokens, ...modelcfg } = modelConfig;
           api.llm.chat({
             messages: toBeSummarizedMsgs
@@ -1545,7 +1562,7 @@ export const useChatStore = createPersistStore(
               .concat(
                 createMessage({
                   role: "system",
-                  content: Locale.Store.Prompt.Summarize,
+                  content: summarizePrompt,
                   date: "",
                 }),
               ),

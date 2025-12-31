@@ -420,6 +420,26 @@ const en: LocaleType = {
       EditModal: {
         Title: "Edit Prompt",
       },
+      SystemPrompts: {
+        Title: "System Prompts",
+        SubTitle: "Manage built-in system prompts",
+        CompressModel: {
+          Title: "Summary Model Prompt",
+          SubTitle: "Prompt used for compressing history and generating titles",
+        },
+        OptimizeModel: {
+          Title: "Optimization Model Prompt",
+          SubTitle: "Prompt used for optimizing user prompts",
+        },
+        Topic: {
+          Title: "Title Generation Prompt",
+          SubTitle: "Prompt used for auto-generating conversation titles",
+        },
+        Summarize: {
+          Title: "Conversation Summary Prompt",
+          SubTitle: "Prompt used for summarizing conversation content",
+        },
+      },
     },
     HistoryCount: {
       Title: "Attached Messages Count",
@@ -866,11 +886,25 @@ const en: LocaleType = {
     CompressModel: {
       Title: "Summary Model",
       SubTitle: "Model used to compress history and generate title",
+      Prompt: {
+        Title: "Summary Model Prompt",
+        SubTitle:
+          "Custom system prompt for summary model. Leave empty to use default prompt",
+        Placeholder:
+          "Briefly summarize the conversation content for use as a subsequent context prompt, within 200 words",
+      },
     },
     OptimizeModel: {
       Title: "Prompt Optimization Model",
       SubTitle:
         "Model used to optimize user prompts. If not configured, uses current chat model",
+      Prompt: {
+        Title: "Optimization Model Prompt",
+        SubTitle:
+          "Custom system prompt for optimization model. Leave empty to use default prompt",
+        Placeholder:
+          "You are a prompt optimization assistant. Your task is to improve the user's input by fixing grammar errors, correcting word choices, making it clearer and more professional, while preserving the original meaning and intent. Only return the optimized text without any explanations or additional comments.",
+      },
     },
     Temperature: {
       Title: "Temperature",
