@@ -412,13 +412,9 @@ const cn = {
       SystemPrompts: {
         Title: "系统提示词",
         SubTitle: "管理内置系统提示词",
-        CompressModel: {
-          Title: "对话摘要模型提示词",
-          SubTitle: "用于压缩历史记录、生成对话标题的模型提示词",
-        },
         OptimizeModel: {
-          Title: "提示词优化模型提示词",
-          SubTitle: "用于优化用户提示词的模型提示词",
+          Title: "内容优化提示词",
+          SubTitle: "用于优化用户输入内容的提示词",
         },
         Topic: {
           Title: "标题生成提示词",
@@ -426,7 +422,7 @@ const cn = {
         },
         Summarize: {
           Title: "对话摘要提示词",
-          SubTitle: "用于总结对话内容的提示词",
+          SubTitle: "用于总结对话内容、压缩模型上下文的提示词",
         },
       },
     },
@@ -874,21 +870,15 @@ const cn = {
     CompressModel: {
       Title: "对话摘要模型",
       SubTitle: "用于压缩历史记录、生成对话标题的模型",
-      Prompt: {
-        Title: "对话摘要模型提示词",
-        SubTitle: "自定义对话摘要模型的系统提示词，留空使用默认提示词",
-        Placeholder:
-          "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
-      },
     },
     OptimizeModel: {
-      Title: "提示词优化模型",
-      SubTitle: "用于优化用户提示词的模型，如未配置则使用当前聊天模型",
+      Title: "内容优化模型",
+      SubTitle: "用于优化用户输入内容的模型，如未配置则使用当前聊天模型",
       Prompt: {
-        Title: "提示词优化模型提示词",
-        SubTitle: "自定义提示词优化模型的系统提示词，留空使用默认提示词",
+        Title: "内容优化提示词",
+        SubTitle: "自定义内容优化模型的系统提示词，留空使用默认提示词",
         Placeholder:
-          "You are a prompt optimization assistant. Your task is to improve the user's input by fixing grammar errors, correcting word choices, making it clearer and more professional, while preserving the original meaning and intent. Only return the optimized text without any explanations or additional comments.",
+          "优化用户输入内容，修正语法错误，使表达更清晰专业，保持原意不变。只返回优化后的文本，不要添加任何解释或注释。",
       },
     },
     Temperature: {

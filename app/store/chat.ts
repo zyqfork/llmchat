@@ -1543,10 +1543,6 @@ export const useChatStore = createPersistStore(
             summarizePrompt = modelConfig.summarizePrompt;
           } else if (globalConfig.summarizePrompt) {
             summarizePrompt = globalConfig.summarizePrompt;
-          } else if (modelConfig.compressModelPrompt) {
-            summarizePrompt = modelConfig.compressModelPrompt;
-          } else if (globalConfig.compressModelPrompt) {
-            summarizePrompt = globalConfig.compressModelPrompt;
           }
 
           const { max_tokens, ...modelcfg } = modelConfig;

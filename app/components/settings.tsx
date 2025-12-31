@@ -343,7 +343,7 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
 
 // 系统提示词编辑弹窗
 function SystemPromptEditModal(props: {
-  type: "compress" | "optimize" | "topic" | "summarize";
+  type: "optimize" | "topic" | "summarize";
   value: string;
   defaultValue: string;
   onSave: (value: string) => void;
@@ -351,17 +351,13 @@ function SystemPromptEditModal(props: {
 }) {
   const [promptValue, setPromptValue] = useState(props.value);
   const title =
-    props.type === "compress"
-      ? Locale.Settings.Prompt.SystemPrompts.CompressModel.Title
-      : props.type === "optimize"
+    props.type === "optimize"
       ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title
       : props.type === "topic"
       ? Locale.Settings.Prompt.SystemPrompts.Topic.Title
       : Locale.Settings.Prompt.SystemPrompts.Summarize.Title;
   const subTitle =
-    props.type === "compress"
-      ? Locale.Settings.Prompt.SystemPrompts.CompressModel.SubTitle
-      : props.type === "optimize"
+    props.type === "optimize"
       ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
       : props.type === "topic"
       ? Locale.Settings.Prompt.SystemPrompts.Topic.SubTitle
@@ -889,7 +885,7 @@ export function Settings() {
   const customCount = promptStore.getUserPrompts().length ?? 0;
   const [shouldShowPromptModal, setShowPromptModal] = useState(false);
   const [editingSystemPrompt, setEditingSystemPrompt] = useState<
-    "compress" | "optimize" | "topic" | "summarize" | null
+    "optimize" | "topic" | "summarize" | null
   >(null);
   const [showModelManager, setShowModelManager] = useState(false);
   const [currentProvider, setCurrentProvider] = useState<
@@ -2265,15 +2261,8 @@ export function Settings() {
 
   // 提示词设置
   const renderPromptSettings = () => {
-    const getSystemPromptValue = (
-      type: "compress" | "optimize" | "topic" | "summarize",
-    ) => {
-      if (type === "compress") {
-        return (
-          config.modelConfig.compressModelPrompt ||
-          Locale.Store.Prompt.Summarize
-        );
-      } else if (type === "optimize") {
+    const getSystemPromptValue = (type: "optimize" | "topic" | "summarize") => {
+      if (type === "optimize") {
         return (
           config.modelConfig.optimizeModelPrompt ||
           Locale.Settings.OptimizeModel.Prompt.Placeholder
@@ -2288,28 +2277,22 @@ export function Settings() {
     };
 
     const getSystemPromptDefault = (
-      type: "compress" | "optimize" | "topic" | "summarize",
+      type: "optimize" | "topic" | "summarize",
     ) => {
-      if (type === "compress" || type === "summarize") {
-        return Locale.Store.Prompt.Summarize;
-      } else if (type === "optimize") {
+      if (type === "optimize") {
         return Locale.Settings.OptimizeModel.Prompt.Placeholder;
-      } else {
+      } else if (type === "topic") {
         return Locale.Store.Prompt.Topic;
+      } else {
+        return Locale.Store.Prompt.Summarize;
       }
     };
 
     const saveSystemPrompt = (
-      type: "compress" | "optimize" | "topic" | "summarize",
+      type: "optimize" | "topic" | "summarize",
       value: string,
     ) => {
-      if (type === "compress") {
-        updateConfig(
-          (config) =>
-            (config.modelConfig.compressModelPrompt =
-              value === Locale.Store.Prompt.Summarize ? "" : value),
-        );
-      } else if (type === "optimize") {
+      if (type === "optimize") {
         updateConfig(
           (config) =>
             (config.modelConfig.optimizeModelPrompt =
@@ -2369,32 +2352,6 @@ export function Settings() {
           </ListItem>
 
           <ListItem
-            title={Locale.Settings.Prompt.SystemPrompts.CompressModel.Title}
-            subTitle={
-              Locale.Settings.Prompt.SystemPrompts.CompressModel.SubTitle
-            }
-          >
-            <IconButton
-              icon={<EditIcon />}
-              text={Locale.Settings.Prompt.Edit}
-              onClick={() => setEditingSystemPrompt("compress")}
-            />
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title}
-            subTitle={
-              Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
-            }
-          >
-            <IconButton
-              icon={<EditIcon />}
-              text={Locale.Settings.Prompt.Edit}
-              onClick={() => setEditingSystemPrompt("optimize")}
-            />
-          </ListItem>
-
-          <ListItem
             title={Locale.Settings.Prompt.SystemPrompts.Summarize.Title}
             subTitle={Locale.Settings.Prompt.SystemPrompts.Summarize.SubTitle}
           >
@@ -2413,6 +2370,19 @@ export function Settings() {
               icon={<EditIcon />}
               text={Locale.Settings.Prompt.Edit}
               onClick={() => setEditingSystemPrompt("topic")}
+            />
+          </ListItem>
+
+          <ListItem
+            title={Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title}
+            subTitle={
+              Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
+            }
+          >
+            <IconButton
+              icon={<EditIcon />}
+              text={Locale.Settings.Prompt.Edit}
+              onClick={() => setEditingSystemPrompt("optimize")}
             />
           </ListItem>
         </List>
