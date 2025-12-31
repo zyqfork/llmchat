@@ -115,6 +115,10 @@ const tw = {
       Prompt: "快捷指令",
       Masks: "所有角色助手",
       Clear: "清除聊天",
+      Optimize: "優化提示詞",
+      OptimizeToast: "✨ 正在優化您的提示詞...",
+      OptimizeSuccess: "✅ 提示詞已優化",
+      OptimizeError: "❌ 優化失敗，請重試",
       Reset: "重置聊天",
       ResetConfirm: "確認重置當前聊天視窗的所有內容？",
       Settings: "對話設定",
@@ -745,6 +749,10 @@ const tw = {
     CompressModel: {
       Title: "壓縮模型",
       SubTitle: "用於壓縮歷史記錄的模型",
+    },
+    OptimizeModel: {
+      Title: "提示詞優化模型",
+      SubTitle: "用於優化用戶提示詞的模型，如未配置則使用當前聊天模型",
     },
     Temperature: {
       Title: "隨機性 (temperature)",

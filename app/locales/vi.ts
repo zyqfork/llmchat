@@ -117,6 +117,10 @@ const vi = {
       Prompt: "Lệnh tắt",
       Masks: "Tất cả mặt nạ",
       Clear: "Xóa cuộc trò chuyện",
+      Optimize: "Tối ưu hóa prompt",
+      OptimizeToast: "✨ Đang tối ưu hóa prompt của bạn...",
+      OptimizeSuccess: "✅ Prompt đã được tối ưu hóa",
+      OptimizeError: "❌ Tối ưu hóa thất bại, vui lòng thử lại",
       Reset: "Đặt lại cuộc trò chuyện",
       ResetConfirm:
         "Bạn có chắc chắn muốn đặt lại toàn bộ nội dung của cửa sổ trò chuyện hiện tại không?",

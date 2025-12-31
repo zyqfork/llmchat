@@ -117,6 +117,10 @@ const en: LocaleType = {
       Prompt: "Prompts",
       Masks: "Assistants",
       Clear: "Clear Context",
+      Optimize: "Optimize Prompt",
+      OptimizeToast: "✨ Optimizing your prompt...",
+      OptimizeSuccess: "✅ Prompt optimized",
+      OptimizeError: "❌ Optimization failed, please retry",
       Reset: "Reset Chat",
       ResetConfirm: "Are you sure to reset the current chat window content?",
       Settings: "Settings",
@@ -862,6 +866,11 @@ const en: LocaleType = {
     CompressModel: {
       Title: "Summary Model",
       SubTitle: "Model used to compress history and generate title",
+    },
+    OptimizeModel: {
+      Title: "Prompt Optimization Model",
+      SubTitle:
+        "Model used to optimize user prompts. If not configured, uses current chat model",
     },
     Temperature: {
       Title: "Temperature",

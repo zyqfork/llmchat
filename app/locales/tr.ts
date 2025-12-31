@@ -116,6 +116,10 @@ const tr = {
       Prompt: "Kısayol komutu",
       Masks: "Tüm maskeler",
       Clear: "Sohbeti temizle",
+      Optimize: "Prompt'u optimize et",
+      OptimizeToast: "✨ Prompt'unuz optimize ediliyor...",
+      OptimizeSuccess: "✅ Prompt optimize edildi",
+      OptimizeError: "❌ Optimizasyon başarısız, lütfen tekrar deneyin",
       Reset: "Sohbeti sıfırla",
       ResetConfirm:
         "Mevcut sohbet penceresinin tüm içeriğini sıfırlamak istediğinizden emin misiniz?",

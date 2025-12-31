@@ -117,6 +117,10 @@ const cs = {
       Prompt: "Rychlé příkazy",
       Masks: "Všechny masky",
       Clear: "Vymazat konverzaci",
+      Optimize: "Optimalizovat prompt",
+      OptimizeToast: "✨ Optimalizace vašeho promptu...",
+      OptimizeSuccess: "✅ Prompt optimalizován",
+      OptimizeError: "❌ Optimalizace selhala, zkuste to znovu",
       Reset: "Resetovat konverzaci",
       ResetConfirm:
         "Opravdu chcete resetovat celý obsah aktuálního chatovacího okna?",

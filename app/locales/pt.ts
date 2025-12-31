@@ -116,6 +116,10 @@ const pt = {
       Prompt: "Prompts",
       Masks: "Todas as Máscaras",
       Clear: "Limpar Chat",
+      Optimize: "Otimizar prompt",
+      OptimizeToast: "✨ Otimizando seu prompt...",
+      OptimizeSuccess: "✅ Prompt otimizado",
+      OptimizeError: "❌ Falha na otimização, tente novamente",
       Reset: "Redefinir Conversa",
       ResetConfirm:
         "Tem certeza de que deseja redefinir todo o conteúdo da janela de chat atual?",

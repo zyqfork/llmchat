@@ -252,6 +252,34 @@ export function getMessageTextContent(message: RequestMessage) {
   return "";
 }
 
+/**
+ * 移除文本中的思考内容
+ * 支持多种格式的思考标签：
+ * - <think>...</think>
+ * - <think>...</think>
+ * - 不完整的标签
+ */
+export function removeThinkingContent(text: string): string {
+  if (!text) return "";
+
+  // 移除 <think> 和 </think> 标签及其之间的内容
+  let cleaned = text.replace(/<think>[\s\S]*?<\/redacted_reasoning>/gi, "");
+
+  // 移除 <think> 和 </think> 标签及其之间的内容（某些模型可能使用这种格式）
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+
+  // 移除可能残留的不完整思考标签
+  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, "");
+  cleaned = cleaned.replace(/^[\s\S]*?<\/redacted_reasoning>/gi, "");
+  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, "");
+  cleaned = cleaned.replace(/^[\s\S]*?<\/think>/gi, "");
+
+  // 清理多余的空白行（保留单个换行）
+  cleaned = cleaned.replace(/\n\s*\n\s*\n+/g, "\n\n");
+
+  return cleaned.trim();
+}
+
 export function getMessageTextContentWithoutThinking(message: RequestMessage) {
   let content = "";
 
@@ -266,8 +294,8 @@ export function getMessageTextContentWithoutThinking(message: RequestMessage) {
     }
   }
 
-  // Remove thinking content between <think> and </think> tags
-  return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  // 使用通用的移除思考内容函数
+  return removeThinkingContent(content);
 }
 
 export function getMessageImages(message: RequestMessage): string[] {

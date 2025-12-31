@@ -114,6 +114,10 @@ const cn = {
       Prompt: "快捷指令",
       Masks: "所有助手",
       Clear: "清除聊天",
+      Optimize: "优化提示词",
+      OptimizeToast: "✨ 正在优化您的提示词...",
+      OptimizeSuccess: "✅ 提示词已优化",
+      OptimizeError: "❌ 优化失败，请重试",
       Reset: "重置聊天",
       ResetConfirm: "确认重置当前聊天窗口的所有内容？",
       Settings: "对话设置",
@@ -850,6 +854,10 @@ const cn = {
     CompressModel: {
       Title: "对话摘要模型",
       SubTitle: "用于压缩历史记录、生成对话标题的模型",
+    },
+    OptimizeModel: {
+      Title: "提示词优化模型",
+      SubTitle: "用于优化用户提示词的模型，如未配置则使用当前聊天模型",
     },
     Temperature: {
       Title: "随机性 (temperature)",

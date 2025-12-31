@@ -117,6 +117,10 @@ const es = {
       Prompt: "Comandos rápidos",
       Masks: "Todos los asistentes",
       Clear: "Limpiar chat",
+      Optimize: "Optimizar prompt",
+      OptimizeToast: "✨ Optimizando tu prompt...",
+      OptimizeSuccess: "✅ Prompt optimizado",
+      OptimizeError: "❌ Error al optimizar, por favor intenta de nuevo",
       Reset: "Restablecer conversación",
       ResetConfirm:
         "¿Estás seguro de restablecer todo el contenido de la ventana de chat actual?",
@@ -748,6 +752,11 @@ const es = {
     CompressModel: {
       Title: "Modelo de compresión",
       SubTitle: "Modelo utilizado para comprimir el historial",
+    },
+    OptimizeModel: {
+      Title: "Modelo de optimización de prompts",
+      SubTitle:
+        "Modelo utilizado para optimizar prompts de usuario. Si no está configurado, usa el modelo de chat actual",
     },
     Temperature: {
       Title: "Aleatoriedad (temperature)",

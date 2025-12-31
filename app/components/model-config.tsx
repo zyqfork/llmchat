@@ -101,6 +101,39 @@ export function ModelConfigList(props: {
     return `${currentModel}@${currentProviderName}`;
   })();
 
+  // 构建提示词优化模型的value
+  const optimizeModelValue = (() => {
+    if (!props.modelConfig.optimizeModel) {
+      return "";
+    }
+
+    const currentModel = props.modelConfig.optimizeModel;
+    const currentProviderName = props.modelConfig.optimizeProviderName;
+
+    // 查找匹配的模型，确保value格式一致
+    for (const providerGroup of Object.values(groupModels)) {
+      for (const model of providerGroup) {
+        if (model.name === currentModel) {
+          const modelProviderId =
+            model.provider?.id || model.provider?.providerName;
+          const normalizedCurrentProvider = normalizeProviderName(
+            currentProviderName as string,
+          );
+          const normalizedModelProvider = normalizeProviderName(
+            modelProviderId as string,
+          );
+
+          if (normalizedCurrentProvider === normalizedModelProvider) {
+            return `${model.name}@${modelProviderId}`;
+          }
+        }
+      }
+    }
+
+    // 如果没找到匹配的，使用原始格式
+    return `${currentModel}@${currentProviderName}`;
+  })();
+
   return (
     <>
       {props.showModelSelector && (
@@ -398,6 +431,61 @@ export function ModelConfigList(props: {
         >
           {props.showGlobalOption && (
             <option value="">使用全局摘要模型配置</option>
+          )}
+          {Object.keys(groupModels).map((providerName, index) => (
+            <optgroup label={providerName} key={index}>
+              {groupModels[providerName].map((v, i) => {
+                const contextConfig = getModelContextTokens(v.name);
+                const contextTokensDisplay = contextConfig
+                  ? formatTokenCount(contextConfig.contextTokens)
+                  : null;
+
+                return (
+                  <option
+                    value={`${v.name}@${
+                      v.provider?.id || v.provider?.providerName
+                    }`}
+                    key={i}
+                  >
+                    {v.displayName}
+                    {contextTokensDisplay ? ` (${contextTokensDisplay})` : ""}
+                  </option>
+                );
+              })}
+            </optgroup>
+          ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.OptimizeModel.Title}
+        subTitle={Locale.Settings.OptimizeModel.SubTitle}
+      >
+        <Select
+          className={styles["select-optimize-model"]}
+          aria-label={Locale.Settings.OptimizeModel.Title}
+          value={optimizeModelValue}
+          align="left"
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            if (value === "") {
+              // 使用全局提示词优化模型配置
+              props.updateConfig((config) => {
+                config.optimizeModel = "";
+                config.optimizeProviderName = "";
+              });
+            } else {
+              const [model, providerName] = getModelProvider(value);
+              props.updateConfig((config) => {
+                config.optimizeModel = ModalConfigValidator.model(model);
+                config.optimizeProviderName = normalizeProviderName(
+                  providerName!,
+                );
+              });
+            }
+          }}
+        >
+          {props.showGlobalOption && (
+            <option value="">使用全局提示词优化模型配置</option>
           )}
           {Object.keys(groupModels).map((providerName, index) => (
             <optgroup label={providerName} key={index}>

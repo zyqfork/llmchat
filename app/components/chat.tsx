@@ -36,6 +36,7 @@ import ConfirmIcon from "../icons/confirm.svg";
 import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
+import LightningIcon from "../icons/lightning.svg";
 
 import LightIcon from "../icons/light.svg";
 import DarkIcon from "../icons/dark.svg";
@@ -68,7 +69,7 @@ import {
   useAppConfig,
   useChatStore,
 } from "../store";
-import { normalizeProviderName } from "../client/api";
+import { normalizeProviderName, getClientApi } from "../client/api";
 import {
   getModelContextTokens,
   formatTokenCount,
@@ -82,6 +83,7 @@ import {
   getMessageImages,
   getMessageTextContent,
   getMessageTextContentWithoutThinking,
+  removeThinkingContent,
   isDalle3,
   isVisionModel,
   safeLocalStorage,
@@ -135,7 +137,7 @@ import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
 import { useEnabledModels } from "../utils/hooks";
-import { ClientApi, MultimodalContent } from "../client/api";
+import { ClientApi, MultimodalContent, RequestMessage } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
@@ -1234,6 +1236,7 @@ export function ChatActions(props: {
   userInput: string;
   couldStop: boolean;
   setCouldStop: React.Dispatch<React.SetStateAction<boolean>>;
+  optimizePrompt: () => void;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -1649,6 +1652,11 @@ export function ChatActions(props: {
         />
       )}
       <MultiModelAction onToggle={() => props.toggleMultiModelMode()} />
+      <ChatAction
+        text={Locale.Chat.InputActions.Optimize}
+        icon={<LightningIcon />}
+        onClick={props.optimizePrompt}
+      />
       <ChatAction
         text={Locale.Chat.InputActions.Clear}
         icon={<BreakIcon />}
@@ -2327,6 +2335,90 @@ function _Chat() {
     ChatControllerPool.stop(session.id, messageId);
     // 立即更新停止按钮状态
     setCouldStop(ChatControllerPool.hasPendingInSession(session.id));
+  };
+
+  // optimize prompt
+  const optimizePrompt = async () => {
+    if (!userInput.trim()) {
+      showToast(Locale.Chat.InputActions.OptimizeError);
+      return;
+    }
+
+    const originalInput = userInput;
+    showToast(Locale.Chat.InputActions.OptimizeToast);
+
+    try {
+      const modelConfig = session.mask.modelConfig;
+      const globalConfig = config.modelConfig;
+
+      // 使用配置的优化模型，优先级：会话配置 > 全局配置 > 当前聊天模型
+      // 空字符串表示使用全局配置
+      let optimizeModel: string;
+      let optimizeProviderName: string | ServiceProvider;
+
+      if (modelConfig.optimizeModel) {
+        // 会话级别配置了优化模型
+        optimizeModel = modelConfig.optimizeModel;
+        optimizeProviderName =
+          modelConfig.optimizeProviderName || modelConfig.providerName;
+      } else if (globalConfig.optimizeModel) {
+        // 使用全局配置的优化模型
+        optimizeModel = globalConfig.optimizeModel;
+        optimizeProviderName =
+          globalConfig.optimizeProviderName || globalConfig.providerName;
+      } else {
+        // 使用当前聊天模型
+        optimizeModel = modelConfig.model;
+        optimizeProviderName = modelConfig.providerName;
+      }
+
+      const api = getClientApi(optimizeProviderName || ServiceProvider.OpenAI);
+
+      let optimizedText = "";
+      const optimizeMessages: RequestMessage[] = [
+        {
+          role: "system",
+          content:
+            "You are a prompt optimization assistant. Your task is to improve the user's input by fixing grammar errors, correcting word choices, making it clearer and more professional, while preserving the original meaning and intent. Only return the optimized text without any explanations or additional comments.",
+        },
+        {
+          role: "user",
+          content: originalInput,
+        },
+      ];
+
+      await api.llm.chat({
+        messages: optimizeMessages,
+        config: {
+          model: optimizeModel,
+          temperature: 0.3,
+          stream: true,
+        },
+        onUpdate: (message: string) => {
+          // 去除思考内容，只保留优化后的提示词
+          const cleanedMessage = removeThinkingContent(message);
+          optimizedText = cleanedMessage;
+          setUserInput(cleanedMessage);
+        },
+        onFinish: (message: string) => {
+          // 去除思考内容，只保留优化后的提示词
+          const cleanedMessage = removeThinkingContent(message);
+          optimizedText = cleanedMessage;
+          setUserInput(cleanedMessage);
+          showToast(Locale.Chat.InputActions.OptimizeSuccess);
+          inputRef.current?.focus();
+        },
+        onError: (err: Error) => {
+          console.error("Optimize prompt error:", err);
+          setUserInput(originalInput);
+          showToast(Locale.Chat.InputActions.OptimizeError);
+        },
+      });
+    } catch (err) {
+      console.error("Optimize prompt error:", err);
+      setUserInput(originalInput);
+      showToast(Locale.Chat.InputActions.OptimizeError);
+    }
   };
 
   useEffect(() => {
@@ -3718,6 +3810,7 @@ function _Chat() {
                 userInput={userInput}
                 couldStop={couldStop}
                 setCouldStop={setCouldStop}
+                optimizePrompt={optimizePrompt}
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {

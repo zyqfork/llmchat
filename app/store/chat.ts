@@ -6,6 +6,7 @@ import {
   safeLocalStorage,
   trimTopic,
   isVisionModel,
+  removeThinkingContent,
 } from "../utils";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
@@ -1358,9 +1359,7 @@ export const useChatStore = createPersistStore(
                 if (c.type === "text") {
                   return {
                     ...c,
-                    text: c.text
-                      ? c.text.replace(/<think>[\s\S]*?<\/think>/g, "").trim()
-                      : "",
+                    text: c.text ? removeThinkingContent(c.text) : "",
                   };
                 }
                 return c;
@@ -1473,10 +1472,8 @@ export const useChatStore = createPersistStore(
             },
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
-                // 过滤掉思考内容
-                const filteredMessage = message
-                  .replace(/<think>[\s\S]*?<\/think>/g, "")
-                  .trim();
+                // 使用通用的移除思考内容函数，与优化提示词保持一致
+                const filteredMessage = removeThinkingContent(message);
                 get().updateTargetSession(
                   session,
                   (session) =>
@@ -1559,20 +1556,16 @@ export const useChatStore = createPersistStore(
               providerName,
             },
             onUpdate(message) {
-              // 过滤掉思考内容
-              const filteredMessage = message
-                .replace(/<think>[\s\S]*?<\/think>/g, "")
-                .trim();
+              // 使用通用的移除思考内容函数，与优化提示词保持一致
+              const filteredMessage = removeThinkingContent(message);
               // 使用正确的状态更新方式，确保 UI 同步
               get().updateTargetSession(session, (s) => {
                 s.memoryPrompt = filteredMessage;
               });
             },
             onFinish(message, responseRes) {
-              // 过滤掉思考内容
-              const filteredMessage = message
-                .replace(/<think>[\s\S]*?<\/think>/g, "")
-                .trim();
+              // 使用通用的移除思考内容函数，与优化提示词保持一致
+              const filteredMessage = removeThinkingContent(message);
 
               if (responseRes?.status === 200) {
                 get().updateTargetSession(session, (s) => {

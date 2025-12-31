@@ -116,6 +116,10 @@ const ko = {
       Prompt: "빠른 명령",
       Masks: "모든 어시스턴트",
       Clear: "채팅 지우기",
+      Optimize: "프롬프트 최적화",
+      OptimizeToast: "✨ 프롬프트를 최적화하는 중...",
+      OptimizeSuccess: "✅ 프롬프트가 최적화되었습니다",
+      OptimizeError: "❌ 최적화에 실패했습니다. 다시 시도해주세요",
       Reset: "채팅 초기화",
       ResetConfirm: "현재 채팅 창의 전체 내용을 초기화하시겠습니까?",
       Settings: "채팅 설정",
@@ -727,6 +731,11 @@ const ko = {
     CompressModel: {
       Title: "압축 모델",
       SubTitle: "기록을 압축하는 데 사용되는 모델",
+    },
+    OptimizeModel: {
+      Title: "프롬프트 최적화 모델",
+      SubTitle:
+        "사용자 프롬프트를 최적화하는 데 사용되는 모델. 설정되지 않은 경우 현재 채팅 모델 사용",
     },
     Temperature: {
       Title: "무작위성 (temperature)",

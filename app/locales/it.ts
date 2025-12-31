@@ -116,6 +116,10 @@ const it = {
       Prompt: "Comandi rapidi",
       Masks: "Tutte le maschere",
       Clear: "Pulisci chat",
+      Optimize: "Ottimizza prompt",
+      OptimizeToast: "✨ Ottimizzazione del tuo prompt...",
+      OptimizeSuccess: "✅ Prompt ottimizzato",
+      OptimizeError: "❌ Ottimizzazione fallita, riprova",
       Reset: "Reimposta Conversazione",
       ResetConfirm:
         "Sei sicuro di voler reimpostare l'intero contenuto della finestra di chat attuale?",

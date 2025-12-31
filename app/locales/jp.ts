@@ -116,6 +116,10 @@ const jp = {
       Prompt: "クイックコマンド",
       Masks: "すべてのアシスタント",
       Clear: "チャットをクリア",
+      Optimize: "プロンプトを最適化",
+      OptimizeToast: "✨ プロンプトを最適化しています...",
+      OptimizeSuccess: "✅ プロンプトが最適化されました",
+      OptimizeError: "❌ 最適化に失敗しました。もう一度お試しください",
       Reset: "チャットをリセット",
       ResetConfirm:
         "現在のチャットウィンドウの内容全体をリセットしてもよろしいですか？",
@@ -735,6 +739,11 @@ const jp = {
     CompressModel: {
       Title: "圧縮モデル",
       SubTitle: "履歴を圧縮するために使用されるモデル",
+    },
+    OptimizeModel: {
+      Title: "プロンプト最適化モデル",
+      SubTitle:
+        "ユーザーのプロンプトを最適化するために使用されるモデル。未設定の場合は現在のチャットモデルを使用",
     },
     Temperature: {
       Title: "ランダム性 (temperature)",

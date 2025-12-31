@@ -116,6 +116,10 @@ const fr = {
       Prompt: "Commandes rapides",
       Masks: "Tous les assistants",
       Clear: "Effacer la discussion",
+      Optimize: "Optimiser le prompt",
+      OptimizeToast: "✨ Optimisation de votre prompt...",
+      OptimizeSuccess: "✅ Prompt optimisé",
+      OptimizeError: "❌ Échec de l'optimisation, veuillez réessayer",
       Reset: "Réinitialiser la discussion",
       ResetConfirm:
         "Êtes-vous sûr de vouloir réinitialiser tout le contenu de la fenêtre de discussion actuelle ?",
@@ -751,6 +755,11 @@ const fr = {
     CompressModel: {
       Title: "Modèle de compression",
       SubTitle: "Modèle utilisé pour compresser l'historique",
+    },
+    OptimizeModel: {
+      Title: "Modèle d'optimisation de prompts",
+      SubTitle:
+        "Modèle utilisé pour optimiser les prompts utilisateur. Si non configuré, utilise le modèle de chat actuel",
     },
     Temperature: {
       Title: "Aléatoire (temperature)",

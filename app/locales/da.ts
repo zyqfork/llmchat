@@ -117,6 +117,10 @@ const da = {
       Prompt: "Prompts",
       Masks: "Personaer",
       Clear: "Ryd kontekst",
+      Optimize: "Optimer prompt",
+      OptimizeToast: "✨ Optimerer din prompt...",
+      OptimizeSuccess: "✅ Prompt optimeret",
+      OptimizeError: "❌ Optimering mislykkedes, prøv igen",
       Reset: "Nulstil chat",
       ResetConfirm:
         "Er du sikker på, at du vil nulstille hele indholdet af det aktuelle chatvindue?",

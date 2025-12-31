@@ -116,6 +116,10 @@ const de = {
       Prompt: "Schnellbefehle",
       Masks: "Alle Assistenten",
       Clear: "Chat löschen",
+      Optimize: "Prompt optimieren",
+      OptimizeToast: "✨ Ihr Prompt wird optimiert...",
+      OptimizeSuccess: "✅ Prompt optimiert",
+      OptimizeError: "❌ Optimierung fehlgeschlagen, bitte erneut versuchen",
       Reset: "Gespräch zurücksetzen",
       ResetConfirm:
         "Sind Sie sicher, dass Sie den gesamten Inhalt des aktuellen Chat-Fensters zurücksetzen möchten?",
@@ -751,6 +755,11 @@ const de = {
     CompressModel: {
       Title: "Kompressionsmodell",
       SubTitle: "Modell zur Komprimierung des Verlaufs",
+    },
+    OptimizeModel: {
+      Title: "Prompt-Optimierungsmodell",
+      SubTitle:
+        "Modell zur Optimierung von Benutzerprompts. Wenn nicht konfiguriert, wird das aktuelle Chat-Modell verwendet",
     },
     Temperature: {
       Title: "Zufälligkeit (temperature)",

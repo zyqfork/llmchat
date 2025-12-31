@@ -81,6 +81,8 @@ export const DEFAULT_CONFIG = {
     compressMessageLengthThreshold: getModelCompressThreshold("gpt-4o-mini"),
     compressModel: "",
     compressProviderName: "",
+    optimizeModel: "",
+    optimizeProviderName: "",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,
