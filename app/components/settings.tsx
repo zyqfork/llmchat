@@ -861,6 +861,84 @@ export function Settings() {
   const hasNewVersion = semverCompare(currentVersion, remoteId) === -1;
   const updateUrl = getClientConfig()?.isApp ? RELEASE_URL : UPDATE_URL;
 
+  // 监听从聊天页面跳转到模型服务配置的事件
+  useEffect(() => {
+    const handleSwitchToModelService = (event: CustomEvent) => {
+      const provider = event.detail?.provider;
+
+      // 切换到模型服务标签
+      setCurrentTab(SettingsTab.ModelService);
+
+      if (provider) {
+        console.log("Switch to provider config:", provider);
+
+        // 自动展开该厂商的配置（同时处理标准厂商和自定义厂商）
+        // 使用setTimeout确保在标签切换后再展开
+        setTimeout(() => {
+          setCollapsedProviders((prev) => ({
+            ...prev,
+            [provider as ServiceProvider]: false,
+          }));
+
+          setCollapsedCustomProviders((prev) => ({
+            ...prev,
+            [provider]: false,
+          }));
+        }, 50);
+
+        // 等待展开动画完成后再滚动定位
+        setTimeout(() => {
+          const providerElement = document.querySelector(
+            `[data-provider="${provider}"]`,
+          );
+
+          if (providerElement) {
+            providerElement.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+
+            // 添加高亮效果
+            providerElement.classList.add(styles["provider-highlight"]);
+            setTimeout(() => {
+              providerElement.classList.remove(styles["provider-highlight"]);
+            }, 1000);
+          } else {
+            // 如果第一次没找到，再延迟一次尝试
+            setTimeout(() => {
+              const retryElement = document.querySelector(
+                `[data-provider="${provider}"]`,
+              );
+              if (retryElement) {
+                retryElement.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+
+                retryElement.classList.add(styles["provider-highlight"]);
+                setTimeout(() => {
+                  retryElement.classList.remove(styles["provider-highlight"]);
+                }, 1000);
+              }
+            }, 200);
+          }
+        }, 400); // 增加延迟，等待展开动画完成
+      }
+    };
+
+    window.addEventListener(
+      "switchToModelService",
+      handleSwitchToModelService as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "switchToModelService",
+        handleSwitchToModelService as EventListener,
+      );
+    };
+  }, []);
+
   function checkUpdate(force = false) {
     setCheckingUpdate(true);
     updateStore.getLatestVersion(force).then(() => {
@@ -2611,7 +2689,11 @@ export function Settings() {
                   false;
 
               return (
-                <React.Fragment key={config.provider}>
+                <div
+                  key={config.provider}
+                  data-provider={config.provider}
+                  className={styles["provider-section"]}
+                >
                   {/* 服务商标题行 */}
                   <ListItem
                     title={config.name}
@@ -2781,7 +2863,7 @@ export function Settings() {
                       </ListItem>
                     </div>
                   )}
-                </React.Fragment>
+                </div>
               );
             })}
 

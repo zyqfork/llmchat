@@ -75,6 +75,31 @@
 }
 
 /* 服务提供商配置样式 */
+.provider-section {
+  scroll-margin-top: 20px; // 滚动时留出顶部空间
+  transition: background-color 0.3s ease;
+  border-radius: 8px;
+  padding: 4px 0;
+  margin: 0 -8px;
+  padding: 4px 8px;
+}
+
+.provider-highlight {
+  animation: highlight-fade 1s ease-out;
+}
+
+@keyframes highlight-fade {
+  0% {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 .provider-controls {
   display: flex;
   align-items: center;

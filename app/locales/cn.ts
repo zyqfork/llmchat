@@ -197,6 +197,17 @@ const cn = {
       ClaudeVeryDeepDesc: "32000 tokens",
       ClaudeDynamicDesc: "自动调节思考深度（默认10000 tokens）",
     },
+    ProviderTooltip: {
+      Provider: "厂商",
+      Source: "配置来源",
+      Frontend: "前端配置",
+      Server: "服务器配置",
+      BaseUrl: "API地址",
+      ApiVersion: "API版本",
+      ApiKey: "API密钥",
+      NoConfig: "未配置",
+      ClickToConfig: "点击跳转到配置页面",
+    },
   },
   Export: {
     Title: "分享聊天记录",

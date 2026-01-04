@@ -648,9 +648,56 @@
     background: var(--primary);
     color: white;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: 8px;
     font-weight: 500;
-    opacity: 0.9;
+    opacity: 0.85;
+    margin-left: 2px;
+    letter-spacing: 0.2px;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .provider-tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+  }
+
+  .provider-tooltip {
+    position: fixed; // 改为fixed定位，相对于视口
+    padding: 8px 12px;
+    background-color: var(--white);
+    color: var(--black);
+    font-size: 12px;
+    border-radius: 6px;
+    border: var(--border-in-light);
+    box-shadow: var(--card-shadow);
+    z-index: 1000;
+    pointer-events: none;
+    white-space: nowrap;
+    min-width: 180px;
+    max-width: 400px; // 添加最大宽度限制
+
+    div {
+      margin-bottom: 2px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .provider-tooltip-hint {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-in-light);
+    color: var(--primary);
+    font-size: 11px;
+    opacity: 0.8;
   }
 }
 

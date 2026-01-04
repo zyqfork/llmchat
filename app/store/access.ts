@@ -422,6 +422,15 @@ export const useAccessStore = createPersistStore(
       // 根据服务商类型获取前端配置
       let frontendConfig = null;
       switch (provider) {
+        case "openai":
+          if (state.openaiApiKey) {
+            frontendConfig = {
+              apiKey: state.openaiApiKey,
+              baseUrl: state.openaiUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
         case "google":
           if (state.googleApiKey) {
             frontendConfig = {

@@ -197,6 +197,17 @@ const tw = {
       ClaudeVeryDeepDesc: "32000 tokens",
       ClaudeDynamicDesc: "自動調節思考深度（默認10000 tokens）",
     },
+    ProviderTooltip: {
+      Provider: "廠商",
+      Source: "配置來源",
+      Frontend: "前端配置",
+      Server: "伺服器配置",
+      BaseUrl: "API地址",
+      ApiVersion: "API版本",
+      ApiKey: "API密鑰",
+      NoConfig: "未配置",
+      ClickToConfig: "點擊跳轉到配置頁面",
+    },
   },
   Export: {
     Title: "將聊天記錄匯出為 Markdown",

@@ -207,6 +207,214 @@ const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
   );
 };
 
+// 厂商配置浮窗组件
+const ProviderTooltip = ({
+  children,
+  providerName,
+}: {
+  children: React.ReactNode;
+  providerName: string;
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const accessStore = useAccessStore();
+  const navigate = useNavigate();
+
+  // 将ServiceProvider枚举值映射到access store中的key
+  const getProviderKey = (provider: string): string => {
+    const mapping: Record<string, string> = {
+      OpenAI: "openai",
+      Azure: "azure",
+      Google: "google",
+      Anthropic: "anthropic",
+      ByteDance: "bytedance",
+      Alibaba: "alibaba",
+      Moonshot: "moonshot",
+      XAI: "xai",
+      DeepSeek: "deepseek",
+      SiliconFlow: "siliconflow",
+      Ollama: "ollama",
+    };
+    return mapping[provider] || provider.toLowerCase();
+  };
+
+  // 获取厂商配置信息
+  const providerKey = getProviderKey(providerName);
+  const providerConfig = accessStore.getEffectiveProviderConfig(providerKey);
+
+  // 检测浮窗位置并自适应
+  useEffect(() => {
+    if (showTooltip && wrapperRef.current) {
+      // 使用requestAnimationFrame确保DOM已经更新
+      requestAnimationFrame(() => {
+        if (tooltipRef.current && wrapperRef.current) {
+          const wrapperRect = wrapperRef.current.getBoundingClientRect();
+          const tooltipRect = tooltipRef.current.getBoundingClientRect();
+
+          const margin = 12; // 边距
+          const gap = 8; // 与触发元素的间距
+
+          // 计算各个方向的可用空间
+          const spaceAbove = wrapperRect.top;
+          const spaceBelow = window.innerHeight - wrapperRect.bottom;
+          const spaceLeft = wrapperRect.left;
+          const spaceRight = window.innerWidth - wrapperRect.right;
+
+          const tooltipHeight = tooltipRect.height;
+          const tooltipWidth = tooltipRect.width;
+
+          let top = 0;
+          let left = 0;
+
+          // 确定垂直位置
+          if (
+            spaceAbove >= tooltipHeight + gap + margin &&
+            spaceBelow < tooltipHeight + gap
+          ) {
+            // 显示在上方
+            top = wrapperRect.top - tooltipHeight - gap;
+          } else if (spaceBelow >= tooltipHeight + gap + margin) {
+            // 显示在下方
+            top = wrapperRect.bottom + gap;
+          } else if (spaceAbove > spaceBelow) {
+            // 上方空间更大，但不够完整显示，尽量显示在上方
+            top = Math.max(margin, wrapperRect.top - tooltipHeight - gap);
+          } else {
+            // 下方空间更大，显示在下方
+            top = wrapperRect.bottom + gap;
+          }
+
+          // 确定水平位置（优先居中）
+          const centerLeft =
+            wrapperRect.left + wrapperRect.width / 2 - tooltipWidth / 2;
+
+          if (
+            centerLeft >= margin &&
+            centerLeft + tooltipWidth <= window.innerWidth - margin
+          ) {
+            // 居中显示
+            left = centerLeft;
+          } else if (centerLeft < margin) {
+            // 左侧空间不足，靠左对齐
+            left = Math.max(margin, wrapperRect.left);
+          } else {
+            // 右侧空间不足，靠右对齐
+            left = Math.min(
+              window.innerWidth - tooltipWidth - margin,
+              wrapperRect.right - tooltipWidth,
+            );
+          }
+
+          // 确保不超出视口
+          top = Math.max(
+            margin,
+            Math.min(top, window.innerHeight - tooltipHeight - margin),
+          );
+          left = Math.max(
+            margin,
+            Math.min(left, window.innerWidth - tooltipWidth - margin),
+          );
+
+          setTooltipStyle({
+            top: `${top}px`,
+            left: `${left}px`,
+          });
+        }
+      });
+    }
+  }, [showTooltip]);
+
+  // 点击跳转到设置页面
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // 跳转到设置页面的模型服务标签
+    navigate(Path.Settings);
+    // 使用setTimeout确保页面已经加载
+    setTimeout(() => {
+      // 触发切换到模型服务标签的事件
+      window.dispatchEvent(
+        new CustomEvent("switchToModelService", {
+          detail: { provider: providerName },
+        }),
+      );
+    }, 100);
+  };
+
+  // 构建浮窗内容
+  const getTooltipContent = () => {
+    if (!providerConfig) {
+      return [
+        `${Locale.Chat.ProviderTooltip.Provider}: ${providerName}`,
+        Locale.Chat.ProviderTooltip.NoConfig,
+      ];
+    }
+
+    const lines = [
+      `${Locale.Chat.ProviderTooltip.Provider}: ${providerName}`,
+      `${Locale.Chat.ProviderTooltip.Source}: ${
+        providerConfig.source === "frontend"
+          ? Locale.Chat.ProviderTooltip.Frontend
+          : Locale.Chat.ProviderTooltip.Server
+      }`,
+    ];
+
+    if (providerConfig.baseUrl) {
+      lines.push(
+        `${Locale.Chat.ProviderTooltip.BaseUrl}: ${providerConfig.baseUrl}`,
+      );
+    }
+
+    if (providerConfig.apiVersion) {
+      lines.push(
+        `${Locale.Chat.ProviderTooltip.ApiVersion}: ${providerConfig.apiVersion}`,
+      );
+    }
+
+    // 显示API Key状态（不显示具体内容）
+    if (providerConfig.apiKey) {
+      const keyLength = providerConfig.apiKey.length;
+      const maskedKey =
+        keyLength > 8
+          ? `${providerConfig.apiKey.substring(
+              0,
+              4,
+            )}...${providerConfig.apiKey.substring(keyLength - 4)}`
+          : "****";
+      lines.push(`${Locale.Chat.ProviderTooltip.ApiKey}: ${maskedKey}`);
+    }
+
+    return lines;
+  };
+
+  return (
+    <span
+      ref={wrapperRef}
+      className={styles["provider-tooltip-wrapper"]}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onClick={handleClick}
+    >
+      {children}
+      {showTooltip && (
+        <div
+          ref={tooltipRef}
+          className={styles["provider-tooltip"]}
+          style={tooltipStyle}
+        >
+          {getTooltipContent().map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
+          <div className={styles["provider-tooltip-hint"]}>
+            {Locale.Chat.ProviderTooltip.ClickToConfig}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
 interface MCPClient {
   clientId: string;
   tools: any;
@@ -3293,14 +3501,36 @@ function _Chat() {
                               {message.isMultiModel && message.modelKey ? (
                                 <>
                                   {message.model}
-                                  <span
-                                    className={styles["chat-model-provider"]}
+                                  <ProviderTooltip
+                                    providerName={
+                                      message.modelKey.split("@")[1]
+                                    }
                                   >
-                                    @{message.modelKey.split("@")[1]}
-                                  </span>
+                                    <span
+                                      className={styles["chat-model-provider"]}
+                                    >
+                                      @{message.modelKey.split("@")[1]}
+                                    </span>
+                                  </ProviderTooltip>
                                 </>
                               ) : (
-                                message.model
+                                <>
+                                  {message.model}
+                                  <ProviderTooltip
+                                    providerName={
+                                      session.mask.modelConfig.providerName ||
+                                      "OpenAI"
+                                    }
+                                  >
+                                    <span
+                                      className={styles["chat-model-provider"]}
+                                    >
+                                      @
+                                      {session.mask.modelConfig.providerName ||
+                                        "OpenAI"}
+                                    </span>
+                                  </ProviderTooltip>
+                                </>
                               )}
                             </div>
                           )}

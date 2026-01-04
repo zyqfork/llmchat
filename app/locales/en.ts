@@ -203,6 +203,17 @@ const en: LocaleType = {
       ClaudeDynamicDesc:
         "Automatically adjust thinking depth (default 10000 tokens)",
     },
+    ProviderTooltip: {
+      Provider: "Provider",
+      Source: "Config Source",
+      Frontend: "Frontend Config",
+      Server: "Server Config",
+      BaseUrl: "Base URL",
+      ApiVersion: "API Version",
+      ApiKey: "API Key",
+      NoConfig: "Not Configured",
+      ClickToConfig: "Click to configure",
+    },
   },
   Export: {
     Title: "Export Messages",
