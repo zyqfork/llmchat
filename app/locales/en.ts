@@ -302,9 +302,12 @@ const en: LocaleType = {
       Name: "Language", // ATTENTION: if you wanna add a new translation, please do not translate this value, leave it as `Language`
       All: "All Languages",
     },
-    Avatar: "User Avatar",
-    SystemAvatar: "System Avatar",
-    AssistantAvatar: "Assistant Avatar",
+    Avatar: "Avatar Settings",
+    AvatarTip: {
+      User: "User Avatar",
+      System: "System Avatar",
+      Assistant: "Assistant Avatar",
+    },
     FontSize: {
       Title: "Font Size",
       SubTitle: "Adjust font size of chat content",

@@ -1,4 +1,4 @@
-import { getClientConfig } from "../config/client";
+﻿import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 
@@ -294,9 +294,12 @@ const cn = {
       Name: "Language", // 注意：如果要添加新的翻译，请不要翻译此值，将它保留为 `Language`
       All: "所有语言",
     },
-    Avatar: "用户头像",
-    SystemAvatar: "System 头像",
-    AssistantAvatar: "Assistant 头像",
+    Avatar: "头像设置",
+    AvatarTip: {
+      User: "用户头像",
+      System: "System 头像",
+      Assistant: "Assistant 头像",
+    },
     FontSize: {
       Title: "字体大小",
       SubTitle: "聊天内容的字体大小",

@@ -2038,81 +2038,82 @@ export function Settings() {
     <>
       <List>
         <ListItem title={Locale.Settings.Avatar}>
-          <Popover
-            onClose={() => setShowEmojiPicker(false)}
-            content={
-              <AvatarPicker
-                onEmojiClick={(avatar: string) => {
-                  updateConfig((config) => (config.avatar = avatar));
-                  setShowEmojiPicker(false);
-                }}
-              />
-            }
-            open={showEmojiPicker}
-          >
-            <div
-              aria-label={Locale.Settings.Avatar}
-              tabIndex={0}
-              className={styles.avatar}
-              onClick={() => {
-                setShowEmojiPicker(!showEmojiPicker);
-              }}
+          <div className={styles["avatar-group"]}>
+            <Popover
+              onClose={() => setShowSystemEmojiPicker(false)}
+              content={
+                <AvatarPicker
+                  onEmojiClick={(avatar: string) => {
+                    updateConfig((config) => (config.systemAvatar = avatar));
+                    setShowSystemEmojiPicker(false);
+                  }}
+                />
+              }
+              open={showSystemEmojiPicker}
             >
-              <Avatar avatar={config.avatar} />
-            </div>
-          </Popover>
-        </ListItem>
+              <div
+                aria-label={Locale.Settings.AvatarTip.System}
+                title={Locale.Settings.AvatarTip.System}
+                tabIndex={0}
+                className={styles.avatar}
+                onClick={() => {
+                  setShowSystemEmojiPicker(!showSystemEmojiPicker);
+                }}
+              >
+                <Avatar avatar={config.systemAvatar} />
+              </div>
+            </Popover>
 
-        <ListItem title={Locale.Settings.SystemAvatar}>
-          <Popover
-            onClose={() => setShowSystemEmojiPicker(false)}
-            content={
-              <AvatarPicker
-                onEmojiClick={(avatar: string) => {
-                  updateConfig((config) => (config.systemAvatar = avatar));
-                  setShowSystemEmojiPicker(false);
-                }}
-              />
-            }
-            open={showSystemEmojiPicker}
-          >
-            <div
-              aria-label={Locale.Settings.SystemAvatar}
-              tabIndex={0}
-              className={styles.avatar}
-              onClick={() => {
-                setShowSystemEmojiPicker(!showSystemEmojiPicker);
-              }}
+            <Popover
+              onClose={() => setShowAssistantEmojiPicker(false)}
+              content={
+                <AvatarPicker
+                  onEmojiClick={(avatar: string) => {
+                    updateConfig((config) => (config.assistantAvatar = avatar));
+                    setShowAssistantEmojiPicker(false);
+                  }}
+                />
+              }
+              open={showAssistantEmojiPicker}
             >
-              <Avatar avatar={config.systemAvatar} />
-            </div>
-          </Popover>
-        </ListItem>
+              <div
+                aria-label={Locale.Settings.AvatarTip.Assistant}
+                title={Locale.Settings.AvatarTip.Assistant}
+                tabIndex={0}
+                className={styles.avatar}
+                onClick={() => {
+                  setShowAssistantEmojiPicker(!showAssistantEmojiPicker);
+                }}
+              >
+                <Avatar avatar={config.assistantAvatar} />
+              </div>
+            </Popover>
 
-        <ListItem title={Locale.Settings.AssistantAvatar}>
-          <Popover
-            onClose={() => setShowAssistantEmojiPicker(false)}
-            content={
-              <AvatarPicker
-                onEmojiClick={(avatar: string) => {
-                  updateConfig((config) => (config.assistantAvatar = avatar));
-                  setShowAssistantEmojiPicker(false);
-                }}
-              />
-            }
-            open={showAssistantEmojiPicker}
-          >
-            <div
-              aria-label={Locale.Settings.AssistantAvatar}
-              tabIndex={0}
-              className={styles.avatar}
-              onClick={() => {
-                setShowAssistantEmojiPicker(!showAssistantEmojiPicker);
-              }}
+            <Popover
+              onClose={() => setShowEmojiPicker(false)}
+              content={
+                <AvatarPicker
+                  onEmojiClick={(avatar: string) => {
+                    updateConfig((config) => (config.avatar = avatar));
+                    setShowEmojiPicker(false);
+                  }}
+                />
+              }
+              open={showEmojiPicker}
             >
-              <Avatar avatar={config.assistantAvatar} />
-            </div>
-          </Popover>
+              <div
+                aria-label={Locale.Settings.AvatarTip.User}
+                title={Locale.Settings.AvatarTip.User}
+                tabIndex={0}
+                className={styles.avatar}
+                onClick={() => {
+                  setShowEmojiPicker(!showEmojiPicker);
+                }}
+              >
+                <Avatar avatar={config.avatar} />
+              </div>
+            </Popover>
+          </div>
         </ListItem>
 
         <ListItem
@@ -2243,17 +2244,50 @@ export function Settings() {
           title={Locale.Settings.FontFamily.Title}
           subTitle={Locale.Settings.FontFamily.SubTitle}
         >
-          <input
-            aria-label={Locale.Settings.FontFamily.Title}
-            type="text"
-            value={config.fontFamily}
-            placeholder={Locale.Settings.FontFamily.Placeholder}
-            onChange={(e) =>
-              updateConfig(
-                (config) => (config.fontFamily = e.currentTarget.value),
-              )
-            }
-          ></input>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <input
+              aria-label={Locale.Settings.FontFamily.Title}
+              type="text"
+              value={config.fontFamily}
+              placeholder="默认字体"
+              style={{ width: "120px" }}
+              onChange={(e) =>
+                updateConfig(
+                  (config) => (config.fontFamily = e.currentTarget.value),
+                )
+              }
+            />
+            <Select
+              style={{ width: "100px" }}
+              value=""
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "__default__") {
+                  updateConfig((config) => (config.fontFamily = ""));
+                } else if (value) {
+                  updateConfig((config) => (config.fontFamily = value));
+                }
+              }}
+            >
+              <option value="">选择字体</option>
+              <option value="__default__">🔄 默认字体</option>
+              <option value="Microsoft YaHei">微软雅黑</option>
+              <option value="SimSun">宋体</option>
+              <option value="SimHei">黑体</option>
+              <option value="KaiTi">楷体</option>
+              <option value="FangSong">仿宋</option>
+              <option value="PingFang SC">苹方</option>
+              <option value="Hiragino Sans GB">冬青黑体</option>
+              <option value="Source Han Sans SC">思源黑体</option>
+              <option value="Source Han Serif SC">思源宋体</option>
+              <option value="Noto Sans SC">Noto Sans SC</option>
+              <option value="Arial">Arial</option>
+              <option value="Helvetica Neue">Helvetica</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Consolas">Consolas</option>
+            </Select>
+          </div>
         </ListItem>
 
         <ListItem

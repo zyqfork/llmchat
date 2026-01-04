@@ -230,6 +230,12 @@
   z-index: 1;
 }
 
+.avatar-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .edit-prompt-modal {
   display: flex;
   flex-direction: column;
