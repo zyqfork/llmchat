@@ -48,6 +48,8 @@ export const DEFAULT_CONFIG = {
 
   submitKey: SubmitKey.Enter,
   avatar: "1f603",
+  systemAvatar: "2699-fe0f", // system 角色默认头像（齿轮）
+  assistantAvatar: "1f916", // assistant 角色默认头像（机器人）
   fontSize: 14,
   fontFamily: "",
   theme: Theme.Auto as Theme,

@@ -3866,12 +3866,23 @@ function _Chat() {
                                 }}
                               ></IconButton>
                             </div>
-                            {isUser ? (
+                            {isContext ? (
+                              // 预设消息：使用配置中的角色头像
+                              <Avatar
+                                avatar={
+                                  message.role === "system"
+                                    ? config.systemAvatar
+                                    : message.role === "assistant"
+                                    ? config.assistantAvatar
+                                    : config.avatar
+                                }
+                              />
+                            ) : isUser ? (
                               <Avatar avatar={config.avatar} />
                             ) : (
                               <>
                                 {["system"].includes(message.role) ? (
-                                  <Avatar avatar="2699-fe0f" />
+                                  <Avatar avatar={config.systemAvatar} />
                                 ) : (
                                   <MaskAvatar
                                     avatar={session.mask.avatar}
@@ -3884,9 +3895,17 @@ function _Chat() {
                               </>
                             )}
                           </div>
-                          {!isUser && (
+                          {(!isUser ||
+                            (isContext && message.role !== "user")) && (
                             <div className={styles["chat-model-name"]}>
-                              {message.isMultiModel && message.modelKey ? (
+                              {isContext ? (
+                                // 预设消息：只显示角色名（user 角色不显示）
+                                <span
+                                  className={styles["chat-context-role-name"]}
+                                >
+                                  {message.role}
+                                </span>
+                              ) : message.isMultiModel && message.modelKey ? (
                                 <>
                                   {message.model}
                                   <ProviderTooltip

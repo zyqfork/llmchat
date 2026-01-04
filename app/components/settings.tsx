@@ -848,6 +848,9 @@ function SyncItems() {
 export function Settings() {
   const navigate = useNavigate();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSystemEmojiPicker, setShowSystemEmojiPicker] = useState(false);
+  const [showAssistantEmojiPicker, setShowAssistantEmojiPicker] =
+    useState(false);
   const [currentTab, setCurrentTab] = useState<SettingsTab>(
     SettingsTab.General,
   );
@@ -2056,6 +2059,58 @@ export function Settings() {
               }}
             >
               <Avatar avatar={config.avatar} />
+            </div>
+          </Popover>
+        </ListItem>
+
+        <ListItem title={Locale.Settings.SystemAvatar}>
+          <Popover
+            onClose={() => setShowSystemEmojiPicker(false)}
+            content={
+              <AvatarPicker
+                onEmojiClick={(avatar: string) => {
+                  updateConfig((config) => (config.systemAvatar = avatar));
+                  setShowSystemEmojiPicker(false);
+                }}
+              />
+            }
+            open={showSystemEmojiPicker}
+          >
+            <div
+              aria-label={Locale.Settings.SystemAvatar}
+              tabIndex={0}
+              className={styles.avatar}
+              onClick={() => {
+                setShowSystemEmojiPicker(!showSystemEmojiPicker);
+              }}
+            >
+              <Avatar avatar={config.systemAvatar} />
+            </div>
+          </Popover>
+        </ListItem>
+
+        <ListItem title={Locale.Settings.AssistantAvatar}>
+          <Popover
+            onClose={() => setShowAssistantEmojiPicker(false)}
+            content={
+              <AvatarPicker
+                onEmojiClick={(avatar: string) => {
+                  updateConfig((config) => (config.assistantAvatar = avatar));
+                  setShowAssistantEmojiPicker(false);
+                }}
+              />
+            }
+            open={showAssistantEmojiPicker}
+          >
+            <div
+              aria-label={Locale.Settings.AssistantAvatar}
+              tabIndex={0}
+              className={styles.avatar}
+              onClick={() => {
+                setShowAssistantEmojiPicker(!showAssistantEmojiPicker);
+              }}
+            >
+              <Avatar avatar={config.assistantAvatar} />
             </div>
           </Popover>
         </ListItem>
