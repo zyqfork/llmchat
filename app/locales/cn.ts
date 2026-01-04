@@ -37,6 +37,7 @@ const cn = {
       Enabled: "多模型 (开启)",
       Disabled: "多模型 (关闭)",
       Count: (count: number) => `${count}个`,
+      Models: "模型",
       Description:
         "🎯 多模型对话竞技场模式已启用！点击模型选择器可选择多个模型进行对话。",
       OpenSelector: "打开模型选择器",

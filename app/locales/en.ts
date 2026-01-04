@@ -38,6 +38,7 @@ const en: LocaleType = {
       Enabled: "Multi-Model (Enabled)",
       Disabled: "Multi-Model (Disabled)",
       Count: (count: number) => `${count} models`,
+      Models: "models",
       Description:
         "🎯 Multi-model arena mode enabled! Click model selector to select multiple models for conversation.",
       OpenSelector: "Open Model Selector",

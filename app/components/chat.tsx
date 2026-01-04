@@ -185,16 +185,46 @@ const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
   );
 };
 
-const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
+const MultiModelAction = ({
+  onToggle,
+  onOpenSelector,
+}: {
+  onToggle: () => void;
+  onOpenSelector: () => void;
+}) => {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const multiModelMode = session.multiModelMode;
   const isEnabled = multiModelMode?.enabled || false;
   const selectedCount = multiModelMode?.selectedModels?.length || 0;
 
+  const handleClick = () => {
+    if (isEnabled) {
+      // 如果已启用，点击关闭多模型模式
+      onToggle();
+    } else {
+      // 如果未启用，先临时启用多模型模式，然后打开模型选择器
+      chatStore.updateTargetSession(session, (session) => {
+        if (!session.multiModelMode) {
+          session.multiModelMode = {
+            enabled: true,
+            selectedModels: [],
+            modelMessages: {},
+            modelStats: {},
+            modelMemoryPrompts: {},
+            modelSummarizeIndexes: {},
+          };
+        } else {
+          session.multiModelMode.enabled = true;
+        }
+      });
+      onOpenSelector();
+    }
+  };
+
   return (
     <ChatAction
-      onClick={onToggle}
+      onClick={handleClick}
       text={`${
         isEnabled
           ? Locale.Chat.MultiModel.Enabled
@@ -1288,6 +1318,11 @@ export function TokenCounter(props: {
     }, 0);
   };
 
+  // 多模型模式检测
+  const multiModelMode = props.session.multiModelMode;
+  const isMultiModel =
+    multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
+
   // 获取当前会话的配置
   const modelConfig = props.session.mask.modelConfig;
   const usedTokens = calculateUsedTokens();
@@ -1304,28 +1339,63 @@ export function TokenCounter(props: {
     : 0;
   const estimatedTokens = usedTokens + inputTokens;
 
-  const displayText = maxTokens
+  // 多模型模式下的Token统计
+  const multiModelStats = isMultiModel
+    ? multiModelMode.selectedModels.map((modelKey) => {
+        const [modelName] = modelKey.split("@");
+        const modelMessages = multiModelMode.modelMessages[modelKey] || [];
+        const modelUsedTokens = modelMessages.reduce(
+          (total: number, message: ChatMessage) => {
+            if (message.isError) return total;
+            return (
+              total +
+              estimateTokenLength(getMessageTextContentWithoutThinking(message))
+            );
+          },
+          0,
+        );
+        const modelContextConfig = getModelContextTokens(modelName);
+        const modelMaxTokens = modelContextConfig?.contextTokens;
+        const modelProgressPercentage = modelMaxTokens
+          ? (modelUsedTokens / modelMaxTokens) * 100
+          : 0;
+
+        return {
+          modelKey,
+          modelName,
+          usedTokens: modelUsedTokens,
+          maxTokens: modelMaxTokens,
+          progressPercentage: modelProgressPercentage,
+        };
+      })
+    : [];
+
+  const displayText = isMultiModel
+    ? `${multiModelStats.length} ${Locale.Chat.MultiModel.Models || "模型"}`
+    : maxTokens
     ? `${formatTokenCount(usedTokens)}/${formatTokenCount(maxTokens)}`
     : `${formatTokenCount(usedTokens)}/?`;
 
   // 构建详细的tooltip内容
-  const tooltipLines = [
-    `${Locale.Chat.TokenTooltip.Context}: ${currentContextCount} / ${maxContextCount}`,
-    maxTokens
-      ? `${
-          Locale.Chat.TokenTooltip.CurrentToken
-        }: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
-      : `${
-          Locale.Chat.TokenTooltip.CurrentToken
-        }: ${usedTokens.toLocaleString()} / ${
-          Locale.Chat.TokenTooltip.Unknown
-        }`,
-    inputTokens > 0
-      ? `${
-          Locale.Chat.TokenTooltip.EstimatedToken
-        }: ${estimatedTokens.toLocaleString()}`
-      : null,
-  ].filter(Boolean);
+  const tooltipLines = isMultiModel
+    ? [] // 多模型模式下不显示单一统计
+    : [
+        `${Locale.Chat.TokenTooltip.Context}: ${currentContextCount} / ${maxContextCount}`,
+        maxTokens
+          ? `${
+              Locale.Chat.TokenTooltip.CurrentToken
+            }: ${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()}`
+          : `${
+              Locale.Chat.TokenTooltip.CurrentToken
+            }: ${usedTokens.toLocaleString()} / ${
+              Locale.Chat.TokenTooltip.Unknown
+            }`,
+        inputTokens > 0
+          ? `${
+              Locale.Chat.TokenTooltip.EstimatedToken
+            }: ${estimatedTokens.toLocaleString()}`
+          : null,
+      ].filter(Boolean);
 
   const tooltipText = tooltipLines.join("\n");
 
@@ -1359,27 +1429,77 @@ export function TokenCounter(props: {
         <span className={styles["token-counter-text"]}>{displayText}</span>
       </button>
       {showTooltip && (
-        <div className={styles["token-counter-tooltip"]}>
-          {tooltipLines.map((line, index) => (
-            <div key={index}>{line}</div>
-          ))}
-          {maxTokens && (
-            <div className={styles["token-progress-container"]}>
-              <div className={styles["token-progress-info"]}>
-                <span>
-                  {Locale.Chat.TokenUsage}: {progressPercentage.toFixed(1)}%
-                </span>
-              </div>
-              <div className={styles["token-progress-bar"]}>
-                <div
-                  className={styles["token-progress-fill"]}
-                  style={{
-                    width: `${Math.min(progressPercentage, 100)}%`,
-                    backgroundColor: getProgressColor(progressPercentage),
-                  }}
-                />
-              </div>
+        <div
+          className={clsx(styles["token-counter-tooltip"], {
+            [styles["token-counter-tooltip-multi"]]: isMultiModel,
+          })}
+        >
+          {isMultiModel ? (
+            // 多模型模式：横向显示所有模型的Token统计
+            <div className={styles["multi-model-token-stats"]}>
+              {multiModelStats.map((stat, index) => (
+                <div key={stat.modelKey} className={styles["model-token-stat"]}>
+                  <div className={styles["model-token-header"]}>
+                    <span className={styles["model-token-name"]}>
+                      {stat.modelName}
+                    </span>
+                  </div>
+                  <div className={styles["model-token-info"]}>
+                    {stat.maxTokens ? (
+                      <>
+                        <span>
+                          {formatTokenCount(stat.usedTokens)} /{" "}
+                          {formatTokenCount(stat.maxTokens)}
+                        </span>
+                        <span className={styles["model-token-percentage"]}>
+                          {stat.progressPercentage.toFixed(1)}%
+                        </span>
+                      </>
+                    ) : (
+                      <span>{formatTokenCount(stat.usedTokens)} / ?</span>
+                    )}
+                  </div>
+                  {stat.maxTokens && (
+                    <div className={styles["token-progress-bar"]}>
+                      <div
+                        className={styles["token-progress-fill"]}
+                        style={{
+                          width: `${Math.min(stat.progressPercentage, 100)}%`,
+                          backgroundColor: getProgressColor(
+                            stat.progressPercentage,
+                          ),
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+          ) : (
+            // 单模型模式：原有显示方式
+            <>
+              {tooltipLines.map((line, index) => (
+                <div key={index}>{line}</div>
+              ))}
+              {maxTokens && (
+                <div className={styles["token-progress-container"]}>
+                  <div className={styles["token-progress-info"]}>
+                    <span>
+                      {Locale.Chat.TokenUsage}: {progressPercentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className={styles["token-progress-bar"]}>
+                    <div
+                      className={styles["token-progress-fill"]}
+                      style={{
+                        width: `${Math.min(progressPercentage, 100)}%`,
+                        backgroundColor: getProgressColor(progressPercentage),
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1871,7 +1991,10 @@ export function ChatActions(props: {
           onTogglePanel={() => props.setShowMcpPanel(!props.showMcpPanel)}
         />
       )}
-      <MultiModelAction onToggle={() => props.toggleMultiModelMode()} />
+      <MultiModelAction
+        onToggle={() => props.toggleMultiModelMode()}
+        onOpenSelector={() => props.setShowModelSelector(true)}
+      />
       <ChatAction
         text={Locale.Chat.InputActions.Optimize}
         icon={<LightningIcon />}
@@ -1994,7 +2117,18 @@ export function ChatActions(props: {
             groups={modelGroups}
             defaultSelectedValues={session.multiModelMode?.selectedModels || []}
             searchPlaceholder={Locale.Chat.UI.SearchModels}
-            onClose={() => props.setShowModelSelector(false)}
+            onClose={() => {
+              props.setShowModelSelector(false);
+              // 如果用户没有选择至少2个模型，自动关闭多模型模式
+              if ((session.multiModelMode?.selectedModels?.length || 0) < 2) {
+                chatStore.updateTargetSession(session, (session) => {
+                  if (session.multiModelMode) {
+                    session.multiModelMode.enabled = false;
+                    session.multiModelMode.selectedModels = [];
+                  }
+                });
+              }
+            }}
             onSelection={(selectedValues) => {
               // 确保至少选择了两个模型
               if (selectedValues.length < 2) {
@@ -3205,24 +3339,20 @@ function _Chat() {
       }
 
       const wasEnabled = session.multiModelMode.enabled;
-      session.multiModelMode.enabled = !wasEnabled;
 
-      // 如果关闭多模型模式，清空选中的模型
+      // 如果当前是启用状态，点击则关闭
       if (wasEnabled) {
+        session.multiModelMode.enabled = false;
         session.multiModelMode.selectedModels = [];
         session.multiModelMode.modelMessages = {};
         session.multiModelMode.modelStats = {};
         session.multiModelMode.modelMemoryPrompts = {};
         session.multiModelMode.modelSummarizeIndexes = {};
-      }
-    });
 
-    // 显示提示消息
-    if (session.multiModelMode?.enabled) {
-      showToast(Locale.Chat.MultiModel.EnableToast);
-    } else {
-      showToast(Locale.Chat.MultiModel.DisableToast);
-    }
+        showToast(Locale.Chat.MultiModel.DisableToast);
+      }
+      // 如果当前是关闭状态，不在这里启用，而是打开模型选择器
+    });
   };
 
   useEffect(() => {

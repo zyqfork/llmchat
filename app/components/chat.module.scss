@@ -1879,3 +1879,133 @@
     opacity: 1;
   }
 }
+
+
+// 多模型Token统计样式
+.token-counter-tooltip-multi {
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.multi-model-token-stats {
+  display: flex;
+  gap: 16px;
+  padding: 4px;
+}
+
+.model-token-stat {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: var(--hover-color);
+  border: 1px solid var(--border-in-light);
+}
+
+.model-token-header {
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--black);
+}
+
+.model-token-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-token-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--black);
+  margin-bottom: 6px;
+}
+
+.model-token-percentage {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+// 多模型消息横向排列样式
+.multi-model-messages {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  overflow-x: auto;
+  padding: 8px 0;
+  
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: var(--hover-color);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--bar-color);
+    border-radius: 3px;
+    
+    &:hover {
+      background: var(--theme-color);
+    }
+  }
+}
+
+.multi-model-message-column {
+  flex: 1;
+  min-width: 300px;
+  max-width: 500px;
+  border: 1px solid var(--border-in-light);
+  border-radius: 12px;
+  padding: 12px;
+  background-color: var(--white);
+  
+  .model-column-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-in-light);
+    
+    .model-column-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--black);
+    }
+    
+    .model-column-provider {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  }
+  
+  .model-column-content {
+    .chat-message-item {
+      // 继承原有的消息样式
+    }
+  }
+}
+
+// 移动端多模型样式调整
+@media only screen and (max-width: 600px) {
+  .multi-model-token-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .token-counter-tooltip-multi {
+    min-width: 280px;
+    max-width: 90vw;
+  }
+  
+  .multi-model-message-column {
+    min-width: 280px;
+  }
+}

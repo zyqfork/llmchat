@@ -1018,10 +1018,19 @@ export function MultiModelSelectorModal<T>(props: {
   const [searchInput, setSearchInput] = useState("");
 
   const handleSelection = (value: T) => {
-    const newSelectedValues = selectedValues.includes(value)
-      ? selectedValues.filter((v) => v !== value)
-      : [...selectedValues, value];
-    setSelectedValues(newSelectedValues);
+    if (selectedValues.includes(value)) {
+      // 取消选择
+      const newSelectedValues = selectedValues.filter((v) => v !== value);
+      setSelectedValues(newSelectedValues);
+    } else {
+      // 添加选择，但最多4个
+      if (selectedValues.length >= 4) {
+        showToast("最多只能选择4个模型");
+        return;
+      }
+      const newSelectedValues = [...selectedValues, value];
+      setSelectedValues(newSelectedValues);
+    }
   };
 
   const handleConfirm = () => {
@@ -1057,7 +1066,7 @@ export function MultiModelSelectorModal<T>(props: {
         {/* 头部 */}
         <div className={styles["model-selector-header"]}>
           <h3 className={styles["model-selector-title"]}>
-            选择多个模型 ({selectedValues.length} 个已选择)
+            选择多个模型 ({selectedValues.length}/4 个已选择)
           </h3>
           <button
             className={`${styles["model-selector-close"]} no-dark`}
@@ -1093,19 +1102,24 @@ export function MultiModelSelectorModal<T>(props: {
                 <div className={styles["model-selector-group-items"]}>
                   {group.items.map((item, itemIndex) => {
                     const selected = selectedValues.includes(item.value);
+                    const isMaxSelected =
+                      selectedValues.length >= 4 && !selected;
                     return (
                       <div
                         key={itemIndex}
                         className={clsx(styles["model-selector-item"], {
                           [styles["model-selector-item-selected"]]: selected,
                           [styles["model-selector-item-disabled"]]:
-                            item.disable,
+                            item.disable || isMaxSelected,
                         })}
                         onClick={() => {
-                          if (!item.disable) {
+                          if (!item.disable && !isMaxSelected) {
                             handleSelection(item.value);
                           }
                         }}
+                        title={
+                          isMaxSelected ? "最多只能选择4个模型" : undefined
+                        }
                       >
                         <div className={styles["model-selector-item-icon"]}>
                           {item.icon || <Avatar model={item.value as string} />}
