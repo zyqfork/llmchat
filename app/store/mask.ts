@@ -5,6 +5,7 @@ import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
 import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getBuiltinMasks } from "../masks";
 
 export type Mask = {
   id: string;
@@ -139,7 +140,11 @@ export const useMaskStore = createPersistStore(
         (a, b) => b.createdAt - a.createdAt,
       );
 
-      return userMasks;
+      // 获取内置助手
+      const builtinMasks = getBuiltinMasks();
+
+      // 用户助手在前，内置助手在后
+      return [...userMasks, ...builtinMasks];
     },
     search(text: string) {
       return Object.values(get().masks);
