@@ -78,10 +78,6 @@
 .provider-section {
   scroll-margin-top: 20px; // 滚动时留出顶部空间
   transition: background-color 0.3s ease;
-  border-radius: 8px;
-  padding: 4px 0;
-  margin: 0 -8px;
-  padding: 4px 8px;
 }
 
 .provider-highlight {
@@ -131,7 +127,7 @@
 .provider-config-section {
   margin-left: 28px;
   padding-left: 12px;
-  border-left: 2px solid var(--border-in-light);
+  border-left: 1px solid rgba(29, 147, 171, 0.75);
   margin-bottom: 8px;
 }
 

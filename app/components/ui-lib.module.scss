@@ -94,23 +94,10 @@
   overflow: hidden;
 }
 
+// .list 内的 list-item 悬停时不显示阴影（因为 .list 本身已有阴影和圆角）
 .list .list-item {
-  &:not(:last-child) {
-    border-bottom: var(--border-in-light);
-  }
-
-  &:last-child {
-    border: 0;
-  }
-
-  &:first-child {
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-  }
-
-  &:last-child {
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
+  &:hover {
+    box-shadow: none;
   }
 }
 
