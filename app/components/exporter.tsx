@@ -320,19 +320,14 @@ export function PreviewActions(props: {
   messages?: ChatMessage[];
 }) {
   const [loading, setLoading] = useState(false);
-  const [shouldExport, setShouldExport] = useState(false);
 
   const print = async () => {
-    if (props.messages?.length) {
-      setLoading(true);
-      setShouldExport(true);
-    }
-  };
+    if (!props.messages?.length) return;
 
-  const onRenderMsgs = (msgs: ChatMessage[]) => {
-    setShouldExport(false);
+    setLoading(true);
 
     const session = useChatStore.getState().currentSession();
+    const msgs = props.messages;
 
     // 使用隐藏 iframe 打印，Web 和 Tauri 统一，不弹新窗口
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
@@ -371,6 +366,100 @@ export function PreviewActions(props: {
         : dt.toLocaleString();
     };
     const headerTime = safeDate(msgs.at(-1)?.date);
+
+    // 多模型消息分组逻辑
+    const groupMessages = () => {
+      const groups: Array<{
+        type: "single" | "multi-assistant";
+        messages: typeof msgs;
+      }> = [];
+
+      let i = 0;
+      while (i < msgs.length) {
+        const message = msgs[i];
+
+        // 检查是否是用户消息，且后面跟着多个多模型assistant消息
+        if (message.role === "user") {
+          // 查找该用户消息后的所有连续的多模型assistant消息
+          const assistantMessages: typeof msgs = [];
+          let j = i + 1;
+          while (
+            j < msgs.length &&
+            msgs[j].role === "assistant" &&
+            msgs[j].isMultiModel
+          ) {
+            assistantMessages.push(msgs[j]);
+            j++;
+          }
+
+          // 先添加用户消息
+          groups.push({
+            type: "single",
+            messages: [message],
+          });
+
+          // 如果有多个assistant消息，横向分组
+          if (assistantMessages.length > 1) {
+            groups.push({
+              type: "multi-assistant",
+              messages: assistantMessages,
+            });
+            i = j;
+          } else if (assistantMessages.length === 1) {
+            // 只有一个assistant消息，正常显示
+            groups.push({
+              type: "single",
+              messages: assistantMessages,
+            });
+            i = j;
+          } else {
+            i++;
+          }
+        } else {
+          // 非用户消息，正常显示
+          groups.push({
+            type: "single",
+            messages: [message],
+          });
+          i++;
+        }
+      }
+
+      return groups;
+    };
+
+    const messageGroups = groupMessages();
+
+    // 收集所有使用的模型
+    const usedModels = new Set<string>();
+    msgs.forEach((msg) => {
+      if (msg.role === "assistant" && msg.isMultiModel && msg.modelKey) {
+        const [modelName] = msg.modelKey.split("@");
+        if (modelName) usedModels.add(modelName);
+      }
+    });
+    const usedModelsArray = Array.from(usedModels);
+    const isMultiModelChat = usedModelsArray.length > 1;
+
+    // 计算实际的消息数（多模型的assistant消息算作一组）
+    let actualMessageCount = 0;
+    messageGroups.forEach((group) => {
+      if (group.type === "multi-assistant") {
+        actualMessageCount += 1; // 多个模型回复算作一条
+      } else {
+        actualMessageCount += group.messages.length;
+      }
+    });
+
+    // 获取消息文本内容的辅助函数
+    const getMsgContent = (msg: ChatMessage) => {
+      const content = getMessageTextContentWithoutThinking(msg);
+      return content
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br>");
+    };
 
     const printContent = `
       <!DOCTYPE html>
@@ -416,7 +505,9 @@ export function PreviewActions(props: {
               margin-bottom: 18px;
               page-break-inside: avoid;
             }
-            .message.user { flex-direction: row-reverse; }
+            .message.user { 
+              flex-direction: row-reverse;
+            }
             .avatar {
               width: 36px;
               height: 36px;
@@ -439,7 +530,12 @@ export function PreviewActions(props: {
               overflow-wrap: break-word;
               word-break: break-word;
             }
-            .user .bubble { background: #f3f4f6; text-align: right; }
+            .user .bubble { 
+              background: #f3f4f6; 
+              text-align: right;
+              flex: none;
+              max-width: 70%;
+            }
             .assistant .bubble { background: #fff; }
             .msg-head {
               display: flex;
@@ -449,6 +545,9 @@ export function PreviewActions(props: {
               margin-bottom: 6px;
               color: #4b5563;
               font-size: 12px;
+            }
+            .user .msg-head {
+              flex-direction: row-reverse;
             }
             .role { font-weight: 700; color: #111827; font-size: 13px; }
             .images {
@@ -474,10 +573,50 @@ export function PreviewActions(props: {
               gap: 10px;
               align-items: center;
             }
+            /* 多模型横向布局样式 */
+            .multi-model-container {
+              display: flex;
+              gap: 12px;
+              margin-bottom: 18px;
+              page-break-inside: avoid;
+            }
+            .multi-model-column {
+              flex: 1;
+              min-width: 0;
+              border: 1px solid #e5e7eb;
+              border-radius: 10px;
+              padding: 10px;
+              background: #fff;
+            }
+            .multi-model-header {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding-bottom: 8px;
+              margin-bottom: 8px;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .multi-model-name {
+              font-weight: 600;
+              font-size: 13px;
+              color: #111827;
+            }
+            .multi-model-provider {
+              font-size: 11px;
+              color: #3b82f6;
+              opacity: 0.8;
+            }
+            .multi-model-content {
+              font-size: 14px;
+              line-height: 1.6;
+              overflow-wrap: break-word;
+              word-break: break-word;
+            }
             @media print {
               body { padding: 0; }
               .container { padding: 12px 16px; }
               .message { page-break-inside: avoid; }
+              .multi-model-container { page-break-inside: avoid; }
             }
           </style>
         </head>
@@ -486,69 +625,129 @@ export function PreviewActions(props: {
             <div class="header">
               <div class="title">LLMChat 聊天记录</div>
               <div class="meta">
-                <span class="chip">模型：${getMaskEffectiveModel(
-                  session.mask,
-                )}</span>
-                <span class="chip">消息数：${msgs.length}</span>
+                <span class="chip">模型：${
+                  isMultiModelChat
+                    ? `${usedModelsArray.length}个模型`
+                    : getMaskEffectiveModel(session.mask)
+                }</span>
+                ${
+                  isMultiModelChat
+                    ? `<span class="chip">模型列表：${usedModelsArray.join(
+                        ", ",
+                      )}</span>`
+                    : ""
+                }
+                <span class="chip">消息数：${actualMessageCount}</span>
                 <span class="chip">主题：${session.topic}</span>
                 <span class="chip">时间：${headerTime}</span>
               </div>
             </div>
             
             <div class="messages">
-              ${msgs
-                .map((msg) => {
-                  const content =
-                    typeof msg.content === "string"
-                      ? msg.content
-                      : JSON.stringify(msg.content);
-                  const isUser = msg.role === "user";
-                  const avatar = isUser ? userAvatar : assistantAvatar;
-                  const time = safeDate(msg.date);
-                  const modelLabel =
-                    msg.model ||
-                    (!isUser ? getMaskEffectiveModel(session.mask) : "");
-                  const images = getMessageImages(msg);
-                  const imagesHtml =
-                    images.length > 0
-                      ? `<div class="images">${images
-                          .map(
-                            (src, idx) =>
-                              `<div style="break-inside: avoid;">
-                                <img class="image" src="${src}" alt="image-${
-                                  idx + 1
-                                }" />
-                              </div>`,
-                          )
-                          .join("")}</div>`
-                      : "";
+              ${messageGroups
+                .map((group) => {
+                  if (group.type === "multi-assistant") {
+                    // 多模型横向布局
+                    return `
+                      <div class="multi-model-container">
+                        ${group.messages
+                          .map((msg) => {
+                            const content = getMsgContent(msg);
+                            const [modelName, providerId] = (
+                              msg.modelKey || ""
+                            ).split("@");
+                            const images = getMessageImages(msg);
+                            const imagesHtml =
+                              images.length > 0
+                                ? `<div class="images">${images
+                                    .map(
+                                      (src, idx) =>
+                                        `<div style="break-inside: avoid;">
+                                          <img class="image" src="${src}" alt="image-${
+                                            idx + 1
+                                          }" />
+                                        </div>`,
+                                    )
+                                    .join("")}</div>`
+                                : "";
 
-                  return `
-                    <div class="message ${isUser ? "user" : "assistant"}">
-                      <div class="avatar">${avatar}</div>
-                      <div class="bubble">
-                        <div class="msg-head">
-                          <span class="role">${isUser ? "用户" : "助手"}</span>
-                          <span>${time}</span>
-                          ${
-                            modelLabel
-                              ? `<span style="color:#6b7280;">${modelLabel}</span>`
-                              : ""
-                          }
-                        </div>
-                        <div>${content
-                          .replace(/</g, "<")
-                          .replace(/>/g, ">")}</div>
-                        ${imagesHtml}
+                            return `
+                              <div class="multi-model-column">
+                                <div class="multi-model-header">
+                                  <div class="avatar">${assistantAvatar}</div>
+                                  <div>
+                                    <div class="multi-model-name">${
+                                      modelName || msg.model || "助手"
+                                    }</div>
+                                    ${
+                                      providerId
+                                        ? `<div class="multi-model-provider">@${providerId}</div>`
+                                        : ""
+                                    }
+                                  </div>
+                                </div>
+                                <div class="multi-model-content">
+                                  ${content}
+                                </div>
+                                ${imagesHtml}
+                              </div>
+                            `;
+                          })
+                          .join("")}
                       </div>
-                    </div>
-                  `;
+                    `;
+                  } else {
+                    // 单条消息正常显示
+                    const msg = group.messages[0];
+                    const content = getMsgContent(msg);
+                    const isUser = msg.role === "user";
+                    const avatar = isUser ? userAvatar : assistantAvatar;
+                    const time = safeDate(msg.date);
+                    const modelLabel =
+                      msg.model ||
+                      (!isUser ? getMaskEffectiveModel(session.mask) : "");
+                    const images = getMessageImages(msg);
+                    const imagesHtml =
+                      images.length > 0
+                        ? `<div class="images">${images
+                            .map(
+                              (src, idx) =>
+                                `<div style="break-inside: avoid;">
+                                  <img class="image" src="${src}" alt="image-${
+                                    idx + 1
+                                  }" />
+                                </div>`,
+                            )
+                            .join("")}</div>`
+                        : "";
+
+                    return `
+                      <div class="message ${isUser ? "user" : "assistant"}">
+                        <div class="avatar">${avatar}</div>
+                        <div class="bubble">
+                          <div class="msg-head">
+                            <span class="role">${
+                              isUser ? "用户" : "助手"
+                            }</span>
+                            <span>${time}</span>
+                            ${
+                              modelLabel
+                                ? `<span style="color:#6b7280;">${modelLabel}</span>`
+                                : ""
+                            }
+                          </div>
+                          <div>${content}</div>
+                          ${imagesHtml}
+                        </div>
+                      </div>
+                    `;
+                  }
                 })
                 .join("")}
             </div>
             
             <div class="footer">
-              <span>📊 总:${msgs.length}</span>
+              <span>📊 总:${actualMessageCount}</span>
               <span>用户:${msgs.filter((m) => m.role === "user").length}</span>
               <span>助手:${
                 msgs.filter((m) => m.role === "assistant").length
@@ -620,20 +819,6 @@ export function PreviewActions(props: {
           icon={loading ? <LoadingIcon /> : <ShareIcon />}
           onClick={print}
         ></IconButton>
-      </div>
-      <div
-        style={{
-          position: "fixed",
-          right: "200vw",
-          pointerEvents: "none",
-        }}
-      >
-        {shouldExport && (
-          <RenderExport
-            messages={props.messages ?? []}
-            onRender={onRenderMsgs}
-          />
-        )}
       </div>
     </>
   );
