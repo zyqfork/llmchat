@@ -3114,6 +3114,86 @@ function _Chat() {
     return renderMessages.slice(msgRenderIndex, endRenderIndex);
   }, [msgRenderIndex, renderMessages]);
 
+  // 多模型消息分组逻辑
+  const groupedMessages = useMemo(() => {
+    const multiModelMode = session.multiModelMode;
+    const isMultiModel =
+      multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
+
+    if (!isMultiModel) {
+      // 单模型模式：返回原始消息列表
+      return messages.map((msg, idx) => ({
+        type: "single" as const,
+        messages: [msg],
+        index: idx,
+      }));
+    }
+
+    // 多模型模式：将连续的多模型assistant消息分组
+    const groups: Array<{
+      type: "single" | "multi-assistant";
+      messages: typeof messages;
+      index: number;
+    }> = [];
+
+    let i = 0;
+    while (i < messages.length) {
+      const message = messages[i];
+
+      // 检查是否是用户消息，且后面跟着多个多模型assistant消息
+      if (message.role === "user") {
+        // 查找该用户消息后的所有连续的多模型assistant消息
+        const assistantMessages: typeof messages = [];
+        let j = i + 1;
+        while (
+          j < messages.length &&
+          messages[j].role === "assistant" &&
+          messages[j].isMultiModel
+        ) {
+          assistantMessages.push(messages[j]);
+          j++;
+        }
+
+        // 先添加用户消息
+        groups.push({
+          type: "single",
+          messages: [message],
+          index: i,
+        });
+
+        // 如果有多个assistant消息，横向分组
+        if (assistantMessages.length > 1) {
+          groups.push({
+            type: "multi-assistant",
+            messages: assistantMessages,
+            index: i + 1,
+          });
+          i = j;
+        } else if (assistantMessages.length === 1) {
+          // 只有一个assistant消息，正常显示
+          groups.push({
+            type: "single",
+            messages: assistantMessages,
+            index: i + 1,
+          });
+          i = j;
+        } else {
+          i++;
+        }
+      } else {
+        // 非用户消息，正常显示
+        groups.push({
+          type: "single",
+          messages: [message],
+          index: i,
+        });
+        i++;
+      }
+    }
+
+    return groups;
+  }, [messages, session.multiModelMode]);
+
   const onChatBodyScroll = (e: HTMLElement) => {
     const bottomHeight = e.scrollTop + e.clientHeight;
     const edgeThreshold = e.clientHeight;
@@ -3556,7 +3636,173 @@ function _Chat() {
                 setAutoScroll(false);
               }}
             >
-              {messages.map((message, i) => {
+              {groupedMessages.map((group, groupIndex) => {
+                if (group.type === "multi-assistant") {
+                  // 横向排列多个assistant消息
+                  return (
+                    <div
+                      key={`group-${groupIndex}`}
+                      className={styles["multi-model-messages"]}
+                    >
+                      {group.messages.map((message) => {
+                        const [modelName, providerId] = (
+                          message.modelKey || ""
+                        ).split("@");
+                        const showActions = !(
+                          message.preview || message.content.length === 0
+                        );
+                        const showTyping = message.preview || message.streaming;
+
+                        return (
+                          <div
+                            key={message.id}
+                            className={styles["multi-model-message-column"]}
+                          >
+                            <div className={styles["chat-message-container"]}>
+                              <div className={styles["chat-message-header"]}>
+                                <div className={styles["chat-message-avatar"]}>
+                                  <MaskAvatar
+                                    avatar={session.mask.avatar}
+                                    model={message.model || modelName}
+                                  />
+                                </div>
+
+                                <div className={styles["chat-model-name"]}>
+                                  {modelName}
+                                  <ProviderTooltip providerName={providerId}>
+                                    <span
+                                      className={styles["chat-model-provider"]}
+                                    >
+                                      @{providerId}
+                                    </span>
+                                  </ProviderTooltip>
+                                </div>
+
+                                {showActions && (
+                                  <div
+                                    className={styles["chat-message-actions"]}
+                                  >
+                                    <div
+                                      className={styles["chat-input-actions"]}
+                                    >
+                                      {(() => {
+                                        const shouldShowStop =
+                                          message.streaming &&
+                                          ChatControllerPool.hasPendingInSession(
+                                            session.id,
+                                          );
+
+                                        if (shouldShowStop) {
+                                          return (
+                                            <ChatAction
+                                              text={Locale.Chat.Actions.Stop}
+                                              icon={<StopIcon />}
+                                              onClick={() =>
+                                                onUserStop(message.id)
+                                              }
+                                            />
+                                          );
+                                        } else {
+                                          return (
+                                            <>
+                                              <ChatAction
+                                                text={Locale.Chat.Actions.Retry}
+                                                icon={<ResetIcon />}
+                                                onClick={() =>
+                                                  onResend(message)
+                                                }
+                                              />
+                                              <ChatAction
+                                                text={Locale.Chat.Actions.Copy}
+                                                icon={<CopyIcon />}
+                                                onClick={() =>
+                                                  copyToClipboard(
+                                                    getMessageTextContentWithoutThinking(
+                                                      message,
+                                                    ),
+                                                  )
+                                                }
+                                              />
+                                            </>
+                                          );
+                                        }
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {!message?.tools?.length &&
+                                !(message as any)?.mcpCalls?.length &&
+                                showTyping && (
+                                  <div
+                                    className={styles["chat-message-status"]}
+                                  >
+                                    {Locale.Chat.Typing}
+                                  </div>
+                                )}
+
+                              <div className={styles["chat-message-item"]}>
+                                <Markdown
+                                  key={message.streaming ? "loading" : "done"}
+                                  content={(() => {
+                                    const messageContent =
+                                      typeof message.content === "string"
+                                        ? message.content
+                                        : getMessageTextContent(message);
+                                    const isThinking = isThinkingModel(
+                                      message.model,
+                                    );
+                                    const shouldWrap =
+                                      !message.streaming && isThinking;
+                                    if (shouldWrap) {
+                                      return wrapThinkingPart(messageContent);
+                                    }
+                                    return messageContent;
+                                  })()}
+                                  loading={
+                                    (message.preview || message.streaming) &&
+                                    (!message.content ||
+                                      (typeof message.content === "string" &&
+                                        message.content.length === 0))
+                                  }
+                                  fontSize={fontSize}
+                                  fontFamily={fontFamily}
+                                  parentRef={scrollRef}
+                                  defaultShow={true}
+                                />
+                              </div>
+
+                              <div
+                                className={styles["chat-message-action-date"]}
+                              >
+                                {message.role === "assistant" &&
+                                  message.statistic?.completionTokens &&
+                                  message.statistic?.totalReplyLatency && (
+                                    <span
+                                      className={styles["chat-message-tps"]}
+                                    >
+                                      {(
+                                        (message.statistic.completionTokens /
+                                          message.statistic.totalReplyLatency) *
+                                        1000
+                                      ).toFixed(1)}{" "}
+                                      t/s
+                                    </span>
+                                  )}
+                                {message.date.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // 单个消息正常渲染
+                const message = group.messages[0];
+                const i = group.index;
                 const isUser = message.role === "user";
                 const isContext = i < context.length;
                 const showActions =

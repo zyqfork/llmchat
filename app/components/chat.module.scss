@@ -1936,20 +1936,21 @@
   gap: 16px;
   width: 100%;
   overflow-x: auto;
-  padding: 8px 0;
+  padding: 12px 0;
+  margin: 8px 0;
   
   &::-webkit-scrollbar {
-    height: 6px;
+    height: 8px;
   }
   
   &::-webkit-scrollbar-track {
     background: var(--hover-color);
-    border-radius: 3px;
+    border-radius: 4px;
   }
   
   &::-webkit-scrollbar-thumb {
     background: var(--bar-color);
-    border-radius: 3px;
+    border-radius: 4px;
     
     &:hover {
       background: var(--theme-color);
@@ -1959,36 +1960,92 @@
 
 .multi-model-message-column {
   flex: 1;
-  min-width: 300px;
-  max-width: 500px;
+  min-width: 320px;
+  max-width: 600px;
   border: 1px solid var(--border-in-light);
   border-radius: 12px;
-  padding: 12px;
+  padding: 16px;
   background-color: var(--white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   
-  .model-column-header {
+  // 复用单模型的消息容器样式
+  .chat-message-container {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-in-light);
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  // 复用单模型的消息头部样式
+  .chat-message-header {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    position: relative;
     
-    .model-column-name {
+    .chat-message-avatar {
+      flex-shrink: 0;
+    }
+    
+    .chat-model-name {
+      flex: 1;
       font-weight: 600;
       font-size: 14px;
       color: var(--black);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      
+      .chat-model-provider {
+        font-size: 12px;
+        opacity: 0.6;
+        cursor: pointer;
+        
+        &:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
+      }
     }
     
-    .model-column-provider {
-      font-size: 12px;
-      opacity: 0.7;
+    // 操作按钮默认隐藏，鼠标悬停时显示
+    .chat-message-actions {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      
+      .chat-input-actions {
+        display: flex;
+        gap: 4px;
+      }
     }
   }
   
-  .model-column-content {
-    .chat-message-item {
-      // 继承原有的消息样式
+  // 鼠标悬停在卡片上时显示操作按钮
+  &:hover {
+    .chat-message-header {
+      .chat-message-actions {
+        opacity: 1;
+      }
+    }
+  }
+  
+  // 复用单模型的消息内容样式
+  .chat-message-item {
+    flex: 1;
+  }
+  
+  // 复用单模型的底部日期样式
+  .chat-message-action-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--black);
+    opacity: 0.6;
+    
+    .chat-message-tps {
+      font-size: 11px;
     }
   }
 }
@@ -2007,5 +2064,18 @@
   
   .multi-model-message-column {
     min-width: 280px;
+    max-width: 90vw;
+    
+    // 移动端始终显示操作按钮
+    .chat-message-header {
+      .chat-message-actions {
+        opacity: 1;
+      }
+    }
+  }
+  
+  .multi-model-messages {
+    gap: 12px;
+    padding: 8px 0;
   }
 }
