@@ -6,19 +6,31 @@ import { ListItem, Select, PasswordInput } from "@/app/components/ui-lib";
 import { InputRange } from "@/app/components/input-range";
 import { Voice } from "rt-client";
 import { ServiceProvider } from "@/app/constant";
+import {
+  QWEN_REALTIME_MODELS,
+  QWEN_REALTIME_VOICES,
+  QwenVoice,
+} from "@/app/lib/qwen-realtime-client";
 
-const providers = [ServiceProvider.OpenAI, ServiceProvider.Azure];
+const providers = [
+  { value: ServiceProvider.OpenAI, label: "OpenAI" },
+  { value: ServiceProvider.Azure, label: "Azure" },
+  { value: ServiceProvider.Alibaba, label: "通义千问 (Qwen)" },
+];
 
-const models = ["gpt-4o-realtime-preview-2024-10-01"];
+const openaiModels = ["gpt-4o-realtime-preview-2024-10-01"];
 
-const voice = ["alloy", "shimmer", "echo"];
+const openaiVoices = ["alloy", "shimmer", "echo"];
 
 export function RealtimeConfigList(props: {
   realtimeConfig: RealtimeConfig;
   updateConfig: (updater: (config: RealtimeConfig) => void) => void;
 }) {
-  const azureConfigComponent = props.realtimeConfig.provider ===
-    ServiceProvider.Azure && (
+  const isAzure = props.realtimeConfig.provider === ServiceProvider.Azure;
+  const isQwen = props.realtimeConfig.provider === ServiceProvider.Alibaba;
+  const isOpenAI = props.realtimeConfig.provider === ServiceProvider.OpenAI;
+
+  const azureConfigComponent = isAzure && (
     <>
       <ListItem
         title={Locale.Settings.Realtime.Azure.Endpoint.Title}
@@ -49,6 +61,75 @@ export function RealtimeConfigList(props: {
             );
           }}
         />
+      </ListItem>
+    </>
+  );
+
+  const qwenConfigComponent = isQwen && (
+    <>
+      <ListItem
+        title={Locale.Settings.Realtime.Qwen.Model.Title}
+        subTitle={Locale.Settings.Realtime.Qwen.Model.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Realtime.Qwen.Model.Title}
+          value={props.realtimeConfig?.qwen?.model}
+          onChange={(e) => {
+            props.updateConfig(
+              (config) => (config.qwen.model = e.target.value),
+            );
+          }}
+        >
+          {QWEN_REALTIME_MODELS.map((v, i) => (
+            <option value={v} key={i}>
+              {v}
+            </option>
+          ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Realtime.Qwen.Voice.Title}
+        subTitle={Locale.Settings.Realtime.Qwen.Voice.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Realtime.Qwen.Voice.Title}
+          value={props.realtimeConfig?.qwen?.voice}
+          onChange={(e) => {
+            props.updateConfig(
+              (config) => (config.qwen.voice = e.target.value as QwenVoice),
+            );
+          }}
+        >
+          {QWEN_REALTIME_VOICES.map((v, i) => (
+            <option value={v.value} key={i}>
+              {v.label} - {v.description}
+            </option>
+          ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Realtime.Qwen.Region.Title}
+        subTitle={Locale.Settings.Realtime.Qwen.Region.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Realtime.Qwen.Region.Title}
+          value={props.realtimeConfig?.qwen?.region}
+          onChange={(e) => {
+            props.updateConfig(
+              (config) =>
+                (config.qwen.region = e.target.value as
+                  | "beijing"
+                  | "singapore"),
+            );
+          }}
+        >
+          <option value="beijing">
+            {Locale.Settings.Realtime.Qwen.Region.Beijing}
+          </option>
+          <option value="singapore">
+            {Locale.Settings.Realtime.Qwen.Region.Singapore}
+          </option>
+        </Select>
       </ListItem>
     </>
   );
@@ -86,31 +167,38 @@ export function RealtimeConfigList(props: {
                 );
               }}
             >
-              {providers.map((v, i) => (
-                <option value={v} key={i}>
-                  {v}
+              {providers.map((p, i) => (
+                <option value={p.value} key={i}>
+                  {p.label}
                 </option>
               ))}
             </Select>
           </ListItem>
-          <ListItem
-            title={Locale.Settings.Realtime.Model.Title}
-            subTitle={Locale.Settings.Realtime.Model.SubTitle}
-          >
-            <Select
-              aria-label={Locale.Settings.Realtime.Model.Title}
-              value={props.realtimeConfig.model}
-              onChange={(e) => {
-                props.updateConfig((config) => (config.model = e.target.value));
-              }}
+
+          {/* OpenAI/Azure 模型选择 */}
+          {(isOpenAI || isAzure) && (
+            <ListItem
+              title={Locale.Settings.Realtime.Model.Title}
+              subTitle={Locale.Settings.Realtime.Model.SubTitle}
             >
-              {models.map((v, i) => (
-                <option value={v} key={i}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
+              <Select
+                aria-label={Locale.Settings.Realtime.Model.Title}
+                value={props.realtimeConfig.model}
+                onChange={(e) => {
+                  props.updateConfig(
+                    (config) => (config.model = e.target.value),
+                  );
+                }}
+              >
+                {openaiModels.map((v, i) => (
+                  <option value={v} key={i}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
+          )}
+
           <ListItem
             title={Locale.Settings.Realtime.ApiKey.Title}
             subTitle={Locale.Settings.Realtime.ApiKey.SubTitle}
@@ -127,44 +215,54 @@ export function RealtimeConfigList(props: {
               }}
             />
           </ListItem>
+
           {azureConfigComponent}
-          <ListItem
-            title={Locale.Settings.TTS.Voice.Title}
-            subTitle={Locale.Settings.TTS.Voice.SubTitle}
-          >
-            <Select
-              value={props.realtimeConfig.voice}
-              onChange={(e) => {
-                props.updateConfig(
-                  (config) => (config.voice = e.currentTarget.value as Voice),
-                );
-              }}
+          {qwenConfigComponent}
+
+          {/* OpenAI/Azure 语音选择 */}
+          {(isOpenAI || isAzure) && (
+            <ListItem
+              title={Locale.Settings.TTS.Voice.Title}
+              subTitle={Locale.Settings.TTS.Voice.SubTitle}
             >
-              {voice.map((v, i) => (
-                <option value={v} key={i}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-          <ListItem
-            title={Locale.Settings.Realtime.Temperature.Title}
-            subTitle={Locale.Settings.Realtime.Temperature.SubTitle}
-          >
-            <InputRange
-              aria={Locale.Settings.Temperature.Title}
-              value={props.realtimeConfig?.temperature?.toFixed(1)}
-              min="0.6"
-              max="1"
-              step="0.1"
-              onChange={(e) => {
-                props.updateConfig(
-                  (config) =>
-                    (config.temperature = e.currentTarget.valueAsNumber),
-                );
-              }}
-            ></InputRange>
-          </ListItem>
+              <Select
+                value={props.realtimeConfig.voice}
+                onChange={(e) => {
+                  props.updateConfig(
+                    (config) => (config.voice = e.currentTarget.value as Voice),
+                  );
+                }}
+              >
+                {openaiVoices.map((v, i) => (
+                  <option value={v} key={i}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
+          )}
+
+          {/* OpenAI/Azure 温度设置 */}
+          {(isOpenAI || isAzure) && (
+            <ListItem
+              title={Locale.Settings.Realtime.Temperature.Title}
+              subTitle={Locale.Settings.Realtime.Temperature.SubTitle}
+            >
+              <InputRange
+                aria={Locale.Settings.Temperature.Title}
+                value={props.realtimeConfig?.temperature?.toFixed(1)}
+                min="0.6"
+                max="1"
+                step="0.1"
+                onChange={(e) => {
+                  props.updateConfig(
+                    (config) =>
+                      (config.temperature = e.currentTarget.valueAsNumber),
+                  );
+                }}
+              ></InputRange>
+            </ListItem>
+          )}
         </>
       )}
     </>

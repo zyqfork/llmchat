@@ -17,6 +17,7 @@ import {
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import type { Voice } from "rt-client";
+import type { QwenVoice } from "../lib/qwen-realtime-client";
 import { getModelCompressThreshold } from "../config/model-context-tokens";
 
 export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
@@ -111,6 +112,11 @@ export const DEFAULT_CONFIG = {
     azure: {
       endpoint: "",
       deployment: "",
+    },
+    qwen: {
+      model: "qwen3-tts-flash-realtime",
+      voice: "Cherry" as QwenVoice,
+      region: "beijing" as "beijing" | "singapore",
     },
     temperature: 0.9,
     voice: "alloy" as Voice,

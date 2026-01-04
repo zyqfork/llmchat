@@ -21,6 +21,8 @@ import {
 import { AudioHandler } from "@/app/lib/audio";
 import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
+import { ServiceProvider } from "@/app/constant";
+import { QwenRealtimeClient } from "@/app/lib/qwen-realtime-client";
 
 interface RealtimeChatProps {
   onClose?: () => void;
@@ -45,18 +47,149 @@ export function RealtimeChat({
   const [frequencies, setFrequencies] = useState<Uint8Array | undefined>();
 
   const clientRef = useRef<RTClient | null>(null);
+  const qwenClientRef = useRef<QwenRealtimeClient | null>(null);
   const audioHandlerRef = useRef<AudioHandler | null>(null);
   const initRef = useRef(false);
+
+  // 通义千问 TTS 音频播放相关
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<ArrayBuffer[]>([]);
+  const isPlayingRef = useRef(false);
 
   const temperature = config.realtimeConfig.temperature;
   const apiKey = config.realtimeConfig.apiKey;
   const model = config.realtimeConfig.model;
-  const azure = config.realtimeConfig.provider === "Azure";
+  const provider = config.realtimeConfig.provider;
+  const azure = provider === ServiceProvider.Azure;
+  const isQwen = provider === ServiceProvider.Alibaba;
   const azureEndpoint = config.realtimeConfig.azure.endpoint;
   const azureDeployment = config.realtimeConfig.azure.deployment;
   const voice = config.realtimeConfig.voice;
 
+  // 通义千问配置
+  const qwenModel =
+    config.realtimeConfig.qwen?.model || "qwen3-tts-flash-realtime";
+  const qwenVoice = config.realtimeConfig.qwen?.voice || "Cherry";
+  const qwenRegion = config.realtimeConfig.qwen?.region || "beijing";
+
+  // 播放 PCM 音频数据
+  const playPcmAudio = useCallback(async (audioData: ArrayBuffer) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+    }
+
+    const ctx = audioContextRef.current;
+
+    // 将 PCM 16-bit 数据转换为 Float32
+    const int16Array = new Int16Array(audioData);
+    const float32Array = new Float32Array(int16Array.length);
+    for (let i = 0; i < int16Array.length; i++) {
+      float32Array[i] = int16Array[i] / 32768.0;
+    }
+
+    // 创建音频缓冲区
+    const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
+    audioBuffer.getChannelData(0).set(float32Array);
+
+    // 播放音频
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    source.start();
+  }, []);
+
+  // 处理通义千问音频队列
+  const processQwenAudioQueue = useCallback(async () => {
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+
+    isPlayingRef.current = true;
+    while (audioQueueRef.current.length > 0) {
+      const audioData = audioQueueRef.current.shift();
+      if (audioData) {
+        await playPcmAudio(audioData);
+        // 等待一小段时间让音频播放
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+    isPlayingRef.current = false;
+  }, [playPcmAudio]);
+
+  const handleConnectQwen = async () => {
+    if (isConnecting) return;
+    if (!isConnected) {
+      try {
+        setIsConnecting(true);
+        setStatus("Connecting to Qwen...");
+
+        qwenClientRef.current = new QwenRealtimeClient(
+          {
+            model: qwenModel,
+            apiKey: apiKey,
+            voice: qwenVoice as any,
+            mode: "server_commit",
+            region: qwenRegion as "beijing" | "singapore",
+          },
+          {
+            onOpen: () => {
+              console.log("[QwenRealtime] Connected");
+              setStatus("Connected");
+            },
+            onClose: (code, reason) => {
+              console.log("[QwenRealtime] Disconnected:", code, reason);
+              setIsConnected(false);
+              setStatus("Disconnected");
+            },
+            onSessionCreated: (sessionId) => {
+              console.log("[QwenRealtime] Session created:", sessionId);
+            },
+            onAudioDelta: (audioData) => {
+              audioQueueRef.current.push(audioData);
+              processQwenAudioQueue();
+            },
+            onAudioDone: () => {
+              console.log("[QwenRealtime] Audio done");
+            },
+            onResponseDone: () => {
+              console.log("[QwenRealtime] Response done");
+            },
+            onError: (error) => {
+              console.error("[QwenRealtime] Error:", error);
+              setStatus(`Error: ${error.message}`);
+            },
+          },
+        );
+
+        await qwenClientRef.current.connect();
+        setIsConnected(true);
+        setStatus("Connected to Qwen TTS");
+      } catch (error) {
+        console.error("Qwen connection failed:", error);
+        setStatus("Connection failed");
+      } finally {
+        setIsConnecting(false);
+      }
+    } else {
+      await disconnectQwen();
+    }
+  };
+
+  const disconnectQwen = async () => {
+    if (qwenClientRef.current) {
+      try {
+        qwenClientRef.current.close();
+        qwenClientRef.current = null;
+        setIsConnected(false);
+      } catch (error) {
+        console.error("Qwen disconnect failed:", error);
+      }
+    }
+  };
+
   const handleConnect = async () => {
+    if (isQwen) {
+      return handleConnectQwen();
+    }
+
     if (isConnecting) return;
     if (!isConnected) {
       try {
@@ -85,28 +218,6 @@ export function RealtimeChat({
         startResponseListener();
 
         setIsConnected(true);
-        // TODO
-        // try {
-        //   const recentMessages = chatStore.getMessagesWithMemory();
-        //   for (const message of recentMessages) {
-        //     const { role, content } = message;
-        //     if (typeof content === "string") {
-        //       await clientRef.current.sendItem({
-        //         type: "message",
-        //         role: role as any,
-        //         content: [
-        //           {
-        //             type: (role === "assistant" ? "text" : "input_text") as any,
-        //             text: content as string,
-        //           },
-        //         ],
-        //       });
-        //     }
-        //   }
-        //   // await clientRef.current.generateResponse();
-        // } catch (error) {
-        //   console.error("Set message failed:", error);
-        // }
       } catch (error) {
         console.error("Connection failed:", error);
         setStatus("Connection failed");
@@ -119,6 +230,10 @@ export function RealtimeChat({
   };
 
   const disconnect = async () => {
+    if (isQwen) {
+      return disconnectQwen();
+    }
+
     if (clientRef.current) {
       try {
         await clientRef.current.close();
@@ -235,6 +350,15 @@ export function RealtimeChat({
   }, [handleInputAudio, handleResponse]);
 
   const toggleRecording = useCallback(async () => {
+    // 通义千问模式下，录音功能暂不支持（TTS only）
+    if (isQwen) {
+      // 对于通义千问，我们可以发送测试文本
+      if (qwenClientRef.current?.isReady()) {
+        qwenClientRef.current.appendText("你好，这是一个测试消息。");
+      }
+      return;
+    }
+
     if (!isRecording && clientRef.current) {
       try {
         if (!audioHandlerRef.current) {
@@ -261,7 +385,7 @@ export function RealtimeChat({
         console.error("Failed to stop recording:", error);
       }
     }
-  }, [isRecording, useVAD, handleInputAudio]);
+  }, [isRecording, useVAD, handleInputAudio, isQwen]);
 
   useEffect(() => {
     // 防止重复初始化
@@ -269,11 +393,15 @@ export function RealtimeChat({
     initRef.current = true;
 
     const initAudioHandler = async () => {
-      const handler = new AudioHandler();
-      await handler.initialize();
-      audioHandlerRef.current = handler;
+      if (!isQwen) {
+        const handler = new AudioHandler();
+        await handler.initialize();
+        audioHandlerRef.current = handler;
+      }
       await handleConnect();
-      await toggleRecording();
+      if (!isQwen) {
+        await toggleRecording();
+      }
     };
 
     initAudioHandler().catch((error) => {
@@ -287,6 +415,9 @@ export function RealtimeChat({
       }
       audioHandlerRef.current?.close().catch(console.error);
       disconnect();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -294,7 +425,7 @@ export function RealtimeChat({
   useEffect(() => {
     let animationFrameId: number;
 
-    if (isConnected && isRecording) {
+    if (isConnected && isRecording && !isQwen) {
       const animationFrame = () => {
         if (audioHandlerRef.current) {
           const freqData = audioHandlerRef.current.getByteFrequencyData();
@@ -313,15 +444,19 @@ export function RealtimeChat({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isConnected, isRecording]);
+  }, [isConnected, isRecording, isQwen]);
 
   // update session params
   useEffect(() => {
-    clientRef.current?.configure({ voice });
-  }, [voice]);
+    if (!isQwen) {
+      clientRef.current?.configure({ voice });
+    }
+  }, [voice, isQwen]);
   useEffect(() => {
-    clientRef.current?.configure({ temperature });
-  }, [temperature]);
+    if (!isQwen) {
+      clientRef.current?.configure({ temperature });
+    }
+  }, [temperature, isQwen]);
 
   const handleClose = async () => {
     onClose?.();
@@ -335,10 +470,13 @@ export function RealtimeChat({
     <div className={styles["realtime-chat"]}>
       <div
         className={clsx(styles["circle-mic"], {
-          [styles["pulse"]]: isRecording,
+          [styles["pulse"]]: isRecording || (isQwen && isConnected),
         })}
       >
-        <VoicePrint frequencies={frequencies} isActive={isRecording} />
+        <VoicePrint
+          frequencies={frequencies}
+          isActive={isRecording || (isQwen && isConnected)}
+        />
       </div>
 
       <div className={styles["bottom-icons"]}>

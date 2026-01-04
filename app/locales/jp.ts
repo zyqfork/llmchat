@@ -820,6 +820,22 @@ const jp = {
           SubTitle: "デプロイメント名",
         },
       },
+      Qwen: {
+        Model: {
+          Title: "通義千問モデル",
+          SubTitle: "通義千問リアルタイム音声モデルを選択",
+        },
+        Voice: {
+          Title: "音声",
+          SubTitle: "通義千問音声を選択",
+        },
+        Region: {
+          Title: "リージョン",
+          SubTitle: "APIサービスリージョンを選択",
+          Beijing: "中国（北京）",
+          Singapore: "国際（シンガポール）",
+        },
+      },
       Temperature: {
         Title: "ランダム性 (temperature)",
         SubTitle: "高い値はよりランダムな応答を生み出します",

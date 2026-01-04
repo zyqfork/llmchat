@@ -966,6 +966,22 @@ const cn = {
           SubTitle: "部署名称",
         },
       },
+      Qwen: {
+        Model: {
+          Title: "通义千问模型",
+          SubTitle: "选择通义千问实时语音模型",
+        },
+        Voice: {
+          Title: "音色",
+          SubTitle: "选择通义千问语音音色",
+        },
+        Region: {
+          Title: "地域",
+          SubTitle: "选择API服务地域",
+          Beijing: "中国内地（北京）",
+          Singapore: "国际（新加坡）",
+        },
+      },
       Temperature: {
         Title: "随机性 (temperature)",
         SubTitle: "值越大，回复越随机",

@@ -984,6 +984,22 @@ const en: LocaleType = {
           SubTitle: "Deployment Name",
         },
       },
+      Qwen: {
+        Model: {
+          Title: "Qwen Model",
+          SubTitle: "Select Qwen realtime TTS model",
+        },
+        Voice: {
+          Title: "Voice",
+          SubTitle: "Select Qwen TTS voice",
+        },
+        Region: {
+          Title: "Region",
+          SubTitle: "Select API service region",
+          Beijing: "China (Beijing)",
+          Singapore: "International (Singapore)",
+        },
+      },
       Temperature: {
         Title: "Randomness (temperature)",
         SubTitle: "Higher values result in more random responses",
