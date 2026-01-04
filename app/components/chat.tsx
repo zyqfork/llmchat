@@ -3059,14 +3059,14 @@ function _Chat() {
     return session.mask.hideContext ? [] : session.mask.context.slice();
   }, [session.mask.context, session.mask.hideContext]);
 
+  // 只在未授权时显示提示，已授权则不显示无用的欢迎语
   if (
     context.length === 0 &&
-    session.messages.at(0)?.content !== BOT_HELLO.content
+    session.messages.at(0)?.content !== BOT_HELLO.content &&
+    !accessStore.isAuthorized()
   ) {
     const copiedHello = Object.assign({}, BOT_HELLO);
-    if (!accessStore.isAuthorized()) {
-      copiedHello.content = Locale.Error.Unauthorized;
-    }
+    copiedHello.content = Locale.Error.Unauthorized;
     context.push(copiedHello);
   }
 
