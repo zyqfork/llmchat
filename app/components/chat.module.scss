@@ -1935,35 +1935,16 @@
   display: flex;
   gap: 16px;
   width: calc(100% + 40px); // 补偿父容器的左右padding
-  overflow-x: auto;
+  overflow-x: hidden; // 禁用横向滚动
   padding: 12px 0;
   margin: 8px -20px; // 负边距抵消父容器padding
   padding-left: 20px;
   padding-right: 20px;
-  
-  &::-webkit-scrollbar {
-    height: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: var(--hover-color);
-    border-radius: 4px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: var(--bar-color);
-    border-radius: 4px;
-    
-    &:hover {
-      background: var(--theme-color);
-    }
-  }
 }
 
 .multi-model-message-column {
-  flex: 1;
-  min-width: 320px;
-  max-width: 600px;
+  flex: 1; // 自适应宽度，平均分配空间
+  min-width: 0; // 允许缩小到比内容更小
   border: 1px solid var(--border-in-light);
   border-radius: 12px;
   padding: 16px;
@@ -1976,6 +1957,7 @@
     flex-direction: column;
     gap: 10px;
     max-width: 100%; // 覆盖默认的80%限制
+    width: 100%; // 确保占满列宽
   }
   
   // 复用单模型的消息头部样式
@@ -2066,8 +2048,7 @@
   }
   
   .multi-model-message-column {
-    min-width: 280px;
-    max-width: 90vw;
+    min-width: 0; // 移动端也允许自适应缩小
     
     // 移动端始终显示操作按钮
     .chat-message-header {
@@ -2080,5 +2061,9 @@
   .multi-model-messages {
     gap: 12px;
     padding: 8px 0;
+    margin: 8px -10px; // 移动端减小负边距
+    padding-left: 10px;
+    padding-right: 10px;
+    width: calc(100% + 20px); // 对应调整宽度
   }
 }
