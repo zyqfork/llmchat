@@ -163,6 +163,8 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
 
 const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
   const [count, setCount] = useState<number>(0);
+  const chatStore = useChatStore();
+  const mcpEnabled = chatStore.getSessionMcpEnabled();
 
   useEffect(() => {
     const updateCount = async () => {
@@ -178,6 +180,7 @@ const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
       text={`MCP${count ? ` (${count})` : ""}`}
       icon={<McpToolIcon />}
       dataAttribute="data-mcp-button"
+      active={mcpEnabled}
     />
   );
 };
@@ -203,6 +206,7 @@ const MultiModelAction = ({ onToggle }: { onToggle: () => void }) => {
       }`}
       icon={<ConnectionIcon />}
       dataAttribute="data-multi-model-button"
+      active={isEnabled}
     />
   );
 };
@@ -1236,13 +1240,18 @@ export function ChatAction(props: {
   icon: JSX.Element;
   onClick: () => void;
   dataAttribute?: string;
+  active?: boolean; // 新增：是否处于激活状态
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
     <div className={styles["chat-action-wrapper"]}>
       <button
-        className={clsx(styles["chat-input-action"], "clickable")}
+        className={clsx(
+          styles["chat-input-action"],
+          "clickable",
+          props.active && styles["chat-input-action-active"],
+        )}
         onClick={props.onClick}
         type="button"
         onMouseEnter={() => setShowTooltip(true)}
@@ -1800,6 +1809,7 @@ export function ChatActions(props: {
           text={Locale.Chat.ShortcutKey.Title}
           icon={<ShortcutkeyIcon />}
           dataAttribute="data-shortcut-button"
+          active={props.showShortcutKeyPanel}
         />
       )}
       {(() => {
@@ -1816,6 +1826,7 @@ export function ChatActions(props: {
               text={Locale.Chat.Thinking.Title}
               icon={<BrainIcon />}
               dataAttribute="data-thinking-button"
+              active={props.showThinkingPanel}
             />
           )
         );
@@ -1851,6 +1862,7 @@ export function ChatActions(props: {
             }
             icon={<SearchIcon />}
             dataAttribute="data-search-button"
+            active={searchEnabled}
           />
         );
       })()}
