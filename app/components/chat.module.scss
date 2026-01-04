@@ -1964,12 +1964,14 @@
   .chat-message-header {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
     position: relative;
+    flex-wrap: wrap; // 允许换行
     
     .chat-message-avatar {
       flex-shrink: 0;
+      order: 1; // 图标排第一
     }
     
     .chat-model-name {
@@ -1981,11 +1983,23 @@
       align-items: center;
       gap: 4px;
       min-width: 0;
+      overflow: hidden;
+      order: 2; // 模型名称排第二
+      
+      // 模型名称文本
+      > span:first-child,
+      > text:first-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       
       .chat-model-provider {
         font-size: 12px;
         opacity: 0.6;
         cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
         
         &:hover {
           opacity: 0.8;
@@ -1998,10 +2012,18 @@
     .chat-message-actions {
       opacity: 0;
       transition: opacity 0.2s ease;
+      flex-shrink: 0;
+      order: 3; // 操作按钮排第三
+      margin-left: auto; // 推到右边
+      
+      // 当空间不足时，操作按钮会自动换行到第二行
+      // 使用flex-basis确保换行后占据合适的空间
+      flex-basis: auto;
       
       .chat-input-actions {
         display: flex;
         gap: 4px;
+        flex-wrap: nowrap; // 操作按钮本身不换行，保持在一起
       }
     }
   }
@@ -2035,6 +2057,54 @@
   }
 }
 
+// 当列宽度较小时，隐藏厂商名称
+.multi-model-message-column {
+  .chat-message-header {
+    .chat-model-name {
+      .provider-tooltip-wrapper {
+        display: inline-flex;
+      }
+    }
+  }
+}
+
+// 中等宽度：隐藏厂商名称
+@media (max-width: 1200px) {
+  .multi-model-messages {
+    .multi-model-message-column {
+      .chat-message-header {
+        .chat-model-name {
+          .provider-tooltip-wrapper {
+            display: none !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 较小宽度：隐藏模型名称文本，只保留图标
+@media (max-width: 900px) {
+  .multi-model-messages {
+    .multi-model-message-column {
+      .chat-message-header {
+        .chat-model-name {
+          // 隐藏模型名称文本，但保留容器
+          font-size: 0;
+          
+          > span:first-child {
+            display: none;
+          }
+          
+          .provider-tooltip-wrapper {
+            display: none !important;
+          }
+        }
+      }
+    }
+  }
+}
+
 // 移动端多模型样式调整
 @media only screen and (max-width: 600px) {
   .multi-model-token-stats {
@@ -2052,14 +2122,30 @@
     
     // 移动端始终显示操作按钮
     .chat-message-header {
+      gap: 6px;
+      
       .chat-message-actions {
         opacity: 1;
+      }
+      
+      // 移动端隐藏模型名称，只保留图标和操作按钮
+      .chat-model-name {
+        font-size: 0;
+        min-width: auto;
+        
+        > span:first-child {
+          display: none;
+        }
+        
+        .provider-tooltip-wrapper {
+          display: none !important;
+        }
       }
     }
   }
   
   .multi-model-messages {
-    gap: 12px;
+    gap: 8px;
     padding: 8px 0;
     margin: 8px -10px; // 移动端减小负边距
     padding-left: 10px;
