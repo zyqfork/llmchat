@@ -650,6 +650,97 @@ export function ImagePreviewer(props: {
 
   const previewRef = useRef<HTMLDivElement>(null);
 
+  // 多模型消息分组逻辑
+  const groupMessages = () => {
+    const groups: Array<{
+      type: "single" | "multi-assistant";
+      messages: typeof props.messages;
+    }> = [];
+
+    let i = 0;
+    while (i < props.messages.length) {
+      const message = props.messages[i];
+
+      // 检查是否是用户消息，且后面跟着多个多模型assistant消息
+      if (message.role === "user") {
+        // 查找该用户消息后的所有连续的多模型assistant消息
+        const assistantMessages: typeof props.messages = [];
+        let j = i + 1;
+        while (
+          j < props.messages.length &&
+          props.messages[j].role === "assistant" &&
+          props.messages[j].isMultiModel
+        ) {
+          assistantMessages.push(props.messages[j]);
+          j++;
+        }
+
+        // 先添加用户消息
+        groups.push({
+          type: "single",
+          messages: [message],
+        });
+
+        // 如果有多个assistant消息，横向分组
+        if (assistantMessages.length > 1) {
+          groups.push({
+            type: "multi-assistant",
+            messages: assistantMessages,
+          });
+          i = j;
+        } else if (assistantMessages.length === 1) {
+          // 只有一个assistant消息，正常显示
+          groups.push({
+            type: "single",
+            messages: assistantMessages,
+          });
+          i = j;
+        } else {
+          i++;
+        }
+      } else {
+        // 非用户消息，正常显示
+        groups.push({
+          type: "single",
+          messages: [message],
+        });
+        i++;
+      }
+    }
+
+    return groups;
+  };
+
+  const messageGroups = groupMessages();
+
+  // 收集所有使用的模型
+  const usedModels = useMemo(() => {
+    const models = new Set<string>();
+    props.messages.forEach((msg) => {
+      if (msg.role === "assistant" && msg.isMultiModel && msg.modelKey) {
+        const [modelName] = msg.modelKey.split("@");
+        if (modelName) models.add(modelName);
+      }
+    });
+    return Array.from(models);
+  }, [props.messages]);
+
+  // 判断是否是多模型场景
+  const isMultiModelChat = usedModels.length > 1;
+
+  // 计算实际的消息数（多模型的assistant消息算作一组）
+  const actualMessageCount = useMemo(() => {
+    let count = 0;
+    messageGroups.forEach((group) => {
+      if (group.type === "multi-assistant") {
+        count += 1; // 多个模型回复算作一条
+      } else {
+        count += group.messages.length;
+      }
+    });
+    return count;
+  }, [messageGroups]);
+
   const copy = () => {
     showToast(Locale.Export.Image.Toast);
     const dom = previewRef.current;
@@ -777,13 +868,28 @@ export function ImagePreviewer(props: {
             <div className={styles["chat-info-badge"]}>
               <span className={styles["chat-info-icon"]}>🤖</span>
               <span className={styles["chat-info-value"]}>
-                {getMaskEffectiveModel(mask)}
+                {isMultiModelChat
+                  ? `${usedModels.length}个模型`
+                  : getMaskEffectiveModel(mask)}
               </span>
             </div>
+            {isMultiModelChat && (
+              <div
+                className={styles["chat-info-badge"]}
+                title={usedModels.join(", ")}
+              >
+                <span className={styles["chat-info-icon"]}>📋</span>
+                <span className={styles["chat-info-value"]}>
+                  {usedModels.length > 2
+                    ? `${usedModels.slice(0, 2).join(", ")}...`
+                    : usedModels.join(", ")}
+                </span>
+              </div>
+            )}
             <div className={styles["chat-info-badge"]}>
               <span className={styles["chat-info-icon"]}>💬</span>
               <span className={styles["chat-info-value"]}>
-                {props.messages.length}
+                {actualMessageCount}
               </span>
             </div>
             <div className={styles["chat-info-badge"]} title={session.topic}>
@@ -813,87 +919,192 @@ export function ImagePreviewer(props: {
             </div>
           </div>
         </div>
-        {props.messages.map((m, i) => {
-          return (
-            <div
-              className={clsx(styles["message"], styles["message-" + m.role])}
-              key={i}
-            >
-              <div className={styles["avatar"]}>
-                {m.role === "user" ? (
-                  <Avatar avatar={config.avatar}></Avatar>
-                ) : (
-                  <MaskAvatar
-                    avatar={session.mask.avatar}
-                    model={
-                      m.model || (getMaskEffectiveModel(session.mask) as any)
-                    }
-                  />
-                )}
-              </div>
-
-              <div className={styles["body"]}>
-                <Markdown
-                  content={
-                    m.role === "user"
-                      ? getMessageTextContent(m)
-                      : getMessageTextContentWithoutThinking(m)
-                  }
-                  fontSize={config.fontSize}
-                  fontFamily={config.fontFamily}
-                  defaultShow
-                  isUserMessage={m.role === "user"}
-                />
-                {getMessageImages(m).length == 1 && (
-                  <div className={styles["message-image-container"]}>
-                    <Image
+        {messageGroups.map((group, groupIndex) => {
+          if (group.type === "multi-assistant") {
+            // 多模型横向布局
+            return (
+              <div
+                className={styles["multi-model-messages-preview"]}
+                key={`group-${groupIndex}`}
+              >
+                {group.messages.map((m, i) => {
+                  const [modelName, providerId] = (m.modelKey || "").split("@");
+                  return (
+                    <div
+                      className={styles["multi-model-column-preview"]}
                       key={i}
-                      src={getMessageImages(m)[0]}
-                      alt="message"
-                      className={styles["message-image"]}
-                      width={1024}
-                      height={768}
-                      sizes="100vw"
-                      style={{ width: "100%", height: "auto" }}
-                      unoptimized
-                    />
-                  </div>
-                )}
-                {getMessageImages(m).length > 1 && (
-                  <div
-                    className={styles["message-images"]}
-                    style={
-                      {
-                        "--image-count": getMessageImages(m).length,
-                      } as React.CSSProperties
-                    }
-                  >
-                    {getMessageImages(m).map((src, i) => (
-                      <div
-                        key={i}
-                        className={styles["message-image-multi-container"]}
-                      >
-                        <Image
-                          src={src}
-                          alt="message"
-                          className={styles["message-image-multi"]}
-                          width={640}
-                          height={640}
-                          sizes="33vw"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          unoptimized
-                        />
+                    >
+                      <div className={styles["multi-model-header-preview"]}>
+                        <div className={styles["avatar"]}>
+                          <MaskAvatar
+                            avatar={session.mask.avatar}
+                            model={
+                              m.model ||
+                              modelName ||
+                              (getMaskEffectiveModel(session.mask) as any)
+                            }
+                          />
+                        </div>
+                        <div className={styles["multi-model-info"]}>
+                          <div className={styles["multi-model-name-preview"]}>
+                            {modelName || m.model || "助手"}
+                          </div>
+                          {providerId && (
+                            <div
+                              className={styles["multi-model-provider-preview"]}
+                            >
+                              @{providerId}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className={styles["body"]}>
+                        <Markdown
+                          content={getMessageTextContentWithoutThinking(m)}
+                          fontSize={config.fontSize}
+                          fontFamily={config.fontFamily}
+                          defaultShow
+                          isUserMessage={false}
+                        />
+                        {getMessageImages(m).length == 1 && (
+                          <div className={styles["message-image-container"]}>
+                            <Image
+                              src={getMessageImages(m)[0]}
+                              alt="message"
+                              className={styles["message-image"]}
+                              width={1024}
+                              height={768}
+                              sizes="100vw"
+                              style={{ width: "100%", height: "auto" }}
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                        {getMessageImages(m).length > 1 && (
+                          <div
+                            className={styles["message-images"]}
+                            style={
+                              {
+                                "--image-count": getMessageImages(m).length,
+                              } as React.CSSProperties
+                            }
+                          >
+                            {getMessageImages(m).map((src, imgIndex) => (
+                              <div
+                                key={imgIndex}
+                                className={
+                                  styles["message-image-multi-container"]
+                                }
+                              >
+                                <Image
+                                  src={src}
+                                  alt="message"
+                                  className={styles["message-image-multi"]}
+                                  width={640}
+                                  height={640}
+                                  sizes="33vw"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                  unoptimized
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          );
+            );
+          } else {
+            // 单个消息正常显示
+            const m = group.messages[0];
+            const i = groupIndex;
+            return (
+              <div
+                className={clsx(styles["message"], styles["message-" + m.role])}
+                key={i}
+              >
+                <div className={styles["avatar"]}>
+                  {m.role === "user" ? (
+                    <Avatar avatar={config.avatar}></Avatar>
+                  ) : (
+                    <MaskAvatar
+                      avatar={session.mask.avatar}
+                      model={
+                        m.model || (getMaskEffectiveModel(session.mask) as any)
+                      }
+                    />
+                  )}
+                </div>
+
+                <div className={styles["body"]}>
+                  <Markdown
+                    content={
+                      m.role === "user"
+                        ? getMessageTextContent(m)
+                        : getMessageTextContentWithoutThinking(m)
+                    }
+                    fontSize={config.fontSize}
+                    fontFamily={config.fontFamily}
+                    defaultShow
+                    isUserMessage={m.role === "user"}
+                  />
+                  {getMessageImages(m).length == 1 && (
+                    <div className={styles["message-image-container"]}>
+                      <Image
+                        key={i}
+                        src={getMessageImages(m)[0]}
+                        alt="message"
+                        className={styles["message-image"]}
+                        width={1024}
+                        height={768}
+                        sizes="100vw"
+                        style={{ width: "100%", height: "auto" }}
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                  {getMessageImages(m).length > 1 && (
+                    <div
+                      className={styles["message-images"]}
+                      style={
+                        {
+                          "--image-count": getMessageImages(m).length,
+                        } as React.CSSProperties
+                      }
+                    >
+                      {getMessageImages(m).map((src, imgIndex) => (
+                        <div
+                          key={imgIndex}
+                          className={styles["message-image-multi-container"]}
+                        >
+                          <Image
+                            src={src}
+                            alt="message"
+                            className={styles["message-image-multi"]}
+                            width={640}
+                            height={640}
+                            sizes="33vw"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            unoptimized
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
         })}
       </div>
     </div>
