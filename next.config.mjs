@@ -64,6 +64,14 @@ const nextConfig = {
                     },
                   },
                 },
+                // 为每个 SVG 文件中的 ID 添加唯一前缀，避免多个 SVG 在同一页面时 ID 冲突
+                {
+                  name: "prefixIds",
+                  params: {
+                    prefixIds: true,
+                    prefixClassNames: true,
+                  },
+                },
               ],
             },
           },
