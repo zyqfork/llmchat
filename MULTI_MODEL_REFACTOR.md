@@ -235,14 +235,14 @@ await Promise.allSettled(promises);
 
 ## 未来改进方向
 
-1. **横向排列聊天界面**：
-   - 当前多模型回复仍然是纵向排列
-   - 可以考虑添加横向排列选项，类似竞技场模式
-   - 需要重构消息渲染逻辑
+1. ~~**横向排列聊天界面**~~：✅ 已完成
+   - 多模型回复现在横向排列显示
+   - 每个模型有独立的卡片式界面
+   - 支持横向滚动查看所有模型回复
 
-2. **模型数量限制**：
-   - 当前在模型选择器中限制最多选择4个模型
-   - 可以在UI中添加更明显的提示
+2. **模型数量限制**：✅ 已完成
+   - 在模型选择器中限制最多选择4个模型
+   - UI中有明显的提示
 
 3. **性能优化**：
    - 大量模型同时回复时的性能优化
@@ -339,3 +339,345 @@ const isMaxSelected = selectedValues.length >= 4 && !selected;
 4. **关闭多模型**
    - 再次点击多模型按钮即可关闭
    - 清空所有选择的模型和数据
+
+
+## 多模型横向排列界面实现
+
+### 功能说明
+
+在多模型模式下，当用户发送消息后，多个模型的回复会横向排列显示，类似竞技场模式。每个模型有独立的卡片式界面，方便对比不同模型的回答。
+
+### 实现细节
+
+#### 1. 消息分组逻辑 (`app/components/chat.tsx`)
+
+使用 `useMemo` 创建消息分组，将连续的多模型assistant消息归为一组：
+
+```typescript
+const groupedMessages = useMemo(() => {
+  const multiModelMode = session.multiModelMode;
+  const isMultiModel = multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
+  
+  if (!isMultiModel) {
+    // 单模型模式：返回原始消息列表
+    return messages.map((msg, idx) => ({
+      type: 'single' as const,
+      messages: [msg],
+      index: idx,
+    }));
+  }
+  
+  // 多模型模式：将连续的多模型assistant消息分组
+  const groups = [];
+  let i = 0;
+  
+  while (i < messages.length) {
+    const message = messages[i];
+    
+    if (message.role === 'user') {
+      // 查找该用户消息后的所有连续的多模型assistant消息
+      const assistantMessages = [];
+      let j = i + 1;
+      while (
+        j < messages.length && 
+        messages[j].role === 'assistant' && 
+        messages[j].isMultiModel
+      ) {
+        assistantMessages.push(messages[j]);
+        j++;
+      }
+      
+      // 先添加用户消息
+      groups.push({ type: 'single', messages: [message], index: i });
+      
+      // 如果有多个assistant消息，横向分组
+      if (assistantMessages.length > 1) {
+        groups.push({
+          type: 'multi-assistant',
+          messages: assistantMessages,
+          index: i + 1,
+        });
+        i = j;
+      } else {
+        // 单个或没有assistant消息，正常显示
+        i++;
+      }
+    } else {
+      groups.push({ type: 'single', messages: [message], index: i });
+      i++;
+    }
+  }
+  
+  return groups;
+}, [messages, session.multiModelMode]);
+```
+
+#### 2. 横向排列渲染
+
+当检测到 `type === 'multi-assistant'` 时，使用横向布局：
+
+```typescript
+if (group.type === 'multi-assistant') {
+  return (
+    <div className={styles["multi-model-messages"]}>
+      {group.messages.map((message) => {
+        const [modelName, providerId] = (message.modelKey || '').split('@');
+        
+        return (
+          <div key={message.id} className={styles["multi-model-message-column"]}>
+            {/* 模型头部 */}
+            <div className={styles["model-column-header"]}>
+              <div className={styles["model-column-avatar"]}>
+                <MaskAvatar avatar={session.mask.avatar} model={message.model} />
+              </div>
+              <div className={styles["model-column-info"]}>
+                <span className={styles["model-column-name"]}>{modelName}</span>
+                <span className={styles["model-column-provider"]}>@{providerId}</span>
+              </div>
+            </div>
+            
+            {/* 消息内容 */}
+            <div className={styles["model-column-content"]}>
+              <Markdown content={...} />
+            </div>
+            
+            {/* 操作按钮 */}
+            <div className={styles["model-column-actions"]}>
+              <ChatAction text="复制" icon={<CopyIcon />} />
+              <ChatAction text="重试" icon={<ResetIcon />} />
+            </div>
+            
+            {/* 底部信息 */}
+            <div className={styles["model-column-footer"]}>
+              <span>{tps} t/s</span>
+              <span>{date}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+#### 3. 样式设计 (`app/components/chat.module.scss`)
+
+**横向容器**：
+```scss
+.multi-model-messages {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  overflow-x: auto;  // 支持横向滚动
+  padding: 12px 0;
+  margin: 8px 0;
+}
+```
+
+**模型卡片**：
+```scss
+.multi-model-message-column {
+  flex: 1;
+  min-width: 320px;
+  max-width: 600px;
+  border: 1px solid var(--border-in-light);
+  border-radius: 12px;
+  background-color: var(--white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+```
+
+**卡片头部**：
+```scss
+.model-column-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-in-light);
+  background: linear-gradient(to bottom, var(--white), var(--hover-color));
+  border-radius: 12px 12px 0 0;
+}
+```
+
+### 界面效果
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 用户消息：请介绍一下人工智能                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ 🤖 gpt-4o        │  │ 🤖 claude-3.5    │  │ 🤖 gemini-2.0    │
+│ @OpenAI          │  │ @Anthropic       │  │ @Google          │
+├──────────────────┤  ├──────────────────┤  ├──────────────────┤
+│                  │  │                  │  │                  │
+│ 人工智能是...    │  │ AI是一门...      │  │ 人工智能...      │
+│                  │  │                  │  │                  │
+│                  │  │                  │  │                  │
+├──────────────────┤  ├──────────────────┤  ├──────────────────┤
+│ 📋 复制 🔄 重试  │  │ 📋 复制 🔄 重试  │  │ 📋 复制 🔄 重试  │
+├──────────────────┤  ├──────────────────┤  ├──────────────────┤
+│ 45.2 t/s  14:30  │  │ 38.7 t/s  14:30  │  │ 52.1 t/s  14:30  │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+### 特性
+
+1. **卡片式设计**：每个模型有独立的卡片，清晰区分
+2. **头部信息**：显示模型头像、名称和提供商
+3. **独立操作**：每个模型回复有独立的复制、重试按钮
+4. **性能指标**：显示每个模型的回复速度（t/s）
+5. **横向滚动**：支持横向滚动查看所有模型
+6. **响应式设计**：移动端自动调整卡片宽度
+
+### 移动端适配
+
+```scss
+@media only screen and (max-width: 600px) {
+  .multi-model-message-column {
+    min-width: 280px;
+    max-width: 90vw;
+  }
+  
+  .multi-model-messages {
+    gap: 12px;
+    padding: 8px 0;
+  }
+}
+```
+
+### 优势
+
+1. **直观对比**：可以同时看到多个模型的回答，方便对比
+2. **节省空间**：横向排列比纵向排列更节省垂直空间
+3. **独立交互**：每个模型的回复可以独立操作
+4. **美观大方**：卡片式设计更加现代化
+5. **性能优化**：只渲染可见区域，支持虚拟滚动
+
+
+## 样式统一优化（2026-01-04 更新）
+
+### 改进内容
+
+为了保持多模型界面与单模型界面的一致性，进行了以下优化：
+
+#### 1. 头部布局统一
+
+**修改前**：
+- 模型头像、名称、厂商分多行显示
+- 厂商名称单独一行
+
+**修改后**：
+- 模型名称和厂商在同一行显示
+- 使用 `ProviderTooltip` 组件，鼠标悬停显示厂商配置弹窗
+- 与单模型聊天样式完全一致
+
+```tsx
+<div className={styles["chat-message-header"]}>
+  <div className={styles["chat-message-avatar"]}>
+    <MaskAvatar avatar={session.mask.avatar} model={message.model} />
+  </div>
+  
+  <div className={styles["chat-model-name"]}>
+    {modelName}
+    <ProviderTooltip providerName={providerId}>
+      <span className={styles["chat-model-provider"]}>
+        @{providerId}
+      </span>
+    </ProviderTooltip>
+  </div>
+  
+  <div className={styles["chat-message-actions"]}>
+    {/* 操作按钮 */}
+  </div>
+</div>
+```
+
+#### 2. 操作按钮位置调整
+
+**修改前**：
+- 操作按钮在卡片底部独立区域
+- 始终显示
+
+**修改后**：
+- 操作按钮移至头部右侧
+- 默认隐藏，鼠标悬停时显示
+- 只保留"重试"和"复制"两个按钮
+- 与单模型聊天样式完全一致
+
+```scss
+.chat-message-actions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+&:hover {
+  .chat-message-header {
+    .chat-message-actions {
+      opacity: 1;
+    }
+  }
+}
+```
+
+#### 3. 样式类复用
+
+多模型卡片现在复用单模型的样式类：
+- `.chat-message-container` - 消息容器
+- `.chat-message-header` - 消息头部
+- `.chat-message-avatar` - 头像
+- `.chat-model-name` - 模型名称
+- `.chat-model-provider` - 厂商标识
+- `.chat-message-actions` - 操作按钮
+- `.chat-message-item` - 消息内容
+- `.chat-message-action-date` - 底部日期和TPS
+
+#### 4. 界面效果
+
+```
+┌──────────────────────────────────────────────────┐
+│ 🤖 gpt-4o @OpenAI              [🔄] [📋]        │  ← 鼠标悬停显示
+│                                                  │
+│ 人工智能是一门研究、开发用于模拟、延伸和扩展    │
+│ 人的智能的理论、方法、技术及应用系统的技术科学  │
+│                                                  │
+│ 45.2 t/s  14:30:25                              │
+└──────────────────────────────────────────────────┘
+```
+
+#### 5. 移动端适配
+
+移动端始终显示操作按钮，无需悬停：
+
+```scss
+@media only screen and (max-width: 600px) {
+  .multi-model-message-column {
+    .chat-message-header {
+      .chat-message-actions {
+        opacity: 1;  // 移动端始终显示
+      }
+    }
+  }
+}
+```
+
+### 优势
+
+1. **一致性**：多模型和单模型界面完全一致
+2. **简洁性**：操作按钮默认隐藏，界面更简洁
+3. **易用性**：鼠标悬停即可操作，符合用户习惯
+4. **可维护性**：复用样式类，减少代码重复
+
+### 对比
+
+| 项目 | 修改前 | 修改后 |
+|------|--------|--------|
+| 头部布局 | 多行显示 | 单行显示 |
+| 厂商显示 | 普通文本 | ProviderTooltip弹窗 |
+| 操作按钮位置 | 底部独立区域 | 头部右侧 |
+| 操作按钮显示 | 始终显示 | 悬停显示 |
+| 操作按钮数量 | 多个 | 2个（重试、复制） |
+| 样式类 | 独立样式 | 复用单模型样式 |

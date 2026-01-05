@@ -384,14 +384,19 @@ const en: LocaleType = {
             "Only applicable to the built-in CORS proxy for this project",
         },
 
-        SyncConfig: {
-          Title: "Sync Config",
-          SubTitle: "Sync all settings, assistants, prompts (encrypted)",
-        },
-
         SyncChat: {
           Title: "Sync Chat",
-          SubTitle: "Sync all chat history (not encrypted)",
+          SubTitle: "Sync all chat history (encrypted)",
+        },
+
+        AutoSync: {
+          Title: "Auto Sync",
+          SubTitle: "Automatically sync chat data after sending messages",
+        },
+
+        SyncConfig: {
+          Title: "Sync Config",
+          SubTitle: "Sync model services, assistants, prompts (encrypted)",
         },
 
         Encryption: {
@@ -447,6 +452,8 @@ const en: LocaleType = {
       EmptyRemote: "Remote data is empty",
       ChatData: "Chat Data",
       ConfigData: "Config Data",
+      ConfigDataDesc:
+        "Includes model services, model config, voice config, assistants, prompts, etc.",
       AutoSync: "Auto Sync",
       CheckSuccess: "Connection successful",
       CheckFailed: "Connection failed",

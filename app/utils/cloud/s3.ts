@@ -1,4 +1,5 @@
 import { SyncStore } from "@/app/store/sync";
+import { fetch as tauriFetch, FetchType } from "@/app/utils/fetch";
 
 export type S3Config = SyncStore["s3"];
 export type S3Client = ReturnType<typeof createS3Client>;
@@ -144,10 +145,14 @@ export function createS3Client(store: SyncStore) {
           config,
         );
 
-        const res = await fetch(url.toString(), {
-          method: "HEAD",
-          headers,
-        });
+        const res = await tauriFetch(
+          url.toString(),
+          {
+            method: "HEAD",
+            headers,
+          },
+          FetchType.Sync,
+        );
 
         console.log("[S3] check", res.status, res.statusText);
         return [200, 404, 403].includes(res.status);
@@ -168,10 +173,14 @@ export function createS3Client(store: SyncStore) {
         config,
       );
 
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers,
-      });
+      const res = await tauriFetch(
+        url.toString(),
+        {
+          method: "GET",
+          headers,
+        },
+        FetchType.Sync,
+      );
 
       console.log("[S3] get", filePath, res.status, res.statusText);
 
@@ -193,11 +202,15 @@ export function createS3Client(store: SyncStore) {
         config,
       );
 
-      const res = await fetch(url.toString(), {
-        method: "PUT",
-        headers,
-        body: value,
-      });
+      const res = await tauriFetch(
+        url.toString(),
+        {
+          method: "PUT",
+          headers,
+          body: value,
+        },
+        FetchType.Sync,
+      );
 
       console.log("[S3] set", filePath, res.status, res.statusText);
     },

@@ -1,4 +1,5 @@
 import { SyncStore } from "@/app/store/sync";
+import { fetch as tauriFetch, FetchType } from "@/app/utils/fetch";
 
 export type GitHubConfig = SyncStore["github"];
 export type GitHubClient = ReturnType<typeof createGitHubClient>;
@@ -36,10 +37,14 @@ export function createGitHubClient(store: SyncStore) {
     async check() {
       try {
         const { owner, repo } = parseRepo();
-        const res = await fetch(`${apiBase}/repos/${owner}/${repo}`, {
-          method: "GET",
-          headers: this.headers(),
-        });
+        const res = await tauriFetch(
+          `${apiBase}/repos/${owner}/${repo}`,
+          {
+            method: "GET",
+            headers: this.headers(),
+          },
+          FetchType.Sync,
+        );
 
         console.log("[GitHub] check repo", res.status, res.statusText);
         return res.status === 200;
@@ -55,12 +60,13 @@ export function createGitHubClient(store: SyncStore) {
         const branch = config.branch || "main";
         const fullPath = getFullPath(filePath);
 
-        const res = await fetch(
+        const res = await tauriFetch(
           `${apiBase}/repos/${owner}/${repo}/contents/${fullPath}?ref=${branch}`,
           {
             method: "GET",
             headers: this.headers(),
           },
+          FetchType.Sync,
         );
 
         console.log("[GitHub] get", filePath, res.status, res.statusText);
@@ -75,8 +81,15 @@ export function createGitHubClient(store: SyncStore) {
 
         const data = (await res.json()) as GitHubFileResponse;
 
+        // GitHub API 返回 base64 编码的内容，需要正确处理 UTF-8
         if (data.content && data.encoding === "base64") {
-          const decoded = atob(data.content.replace(/\n/g, ""));
+          const binaryString = atob(data.content.replace(/\n/g, ""));
+          // 将二进制字符串转换为 Uint8Array，然后用 TextDecoder 解码 UTF-8
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const decoded = new TextDecoder("utf-8").decode(bytes);
           return decoded;
         }
 
@@ -94,12 +107,13 @@ export function createGitHubClient(store: SyncStore) {
 
       // 获取现有文件的 SHA
       let sha: string | undefined;
-      const existingRes = await fetch(
+      const existingRes = await tauriFetch(
         `${apiBase}/repos/${owner}/${repo}/contents/${fullPath}?ref=${branch}`,
         {
           method: "GET",
           headers: this.headers(),
         },
+        FetchType.Sync,
       );
 
       if (existingRes.status === 200) {
@@ -121,13 +135,14 @@ export function createGitHubClient(store: SyncStore) {
         body.sha = sha;
       }
 
-      const res = await fetch(
+      const res = await tauriFetch(
         `${apiBase}/repos/${owner}/${repo}/contents/${fullPath}`,
         {
           method: "PUT",
           headers: this.headers(),
           body: JSON.stringify(body),
         },
+        FetchType.Sync,
       );
 
       console.log("[GitHub] set", filePath, res.status, res.statusText);

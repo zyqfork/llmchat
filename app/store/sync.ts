@@ -34,9 +34,10 @@ const DEFAULT_SYNC_STATE = {
   proxyUrl: ApiPath.Cors as string,
 
   // 同步选项
-  syncConfig: false, // 是否同步配置（手动）
-  autoSyncChat: false, // 是否自动同步聊天数据
-  encryptionPassword: "", // 加密密码，仅用于加密配置数据
+  syncChat: false, // 是否同步聊天数据
+  syncConfig: false, // 是否同步配置数据
+  autoSyncChat: false, // 是否自动同步聊天数据（需要先开启 syncChat）
+  encryptionPassword: "", // 加密密码，用于加密聊天和配置数据
 
   webdav: {
     endpoint: "",
@@ -142,11 +143,169 @@ export const useSyncStore = createPersistStore(
     },
 
     /**
-     * 获取用户配置数据（Access Store）
+     * 获取用户修改的配置数据（只同步用户修改的部分，不同步默认值）
      */
     getConfigData() {
       const appState = getLocalAppState();
-      return this.safeClone(appState[StoreKey.Access]);
+
+      // Access Store: 只提取用户配置的敏感信息
+      const accessState = appState[StoreKey.Access] as Record<string, any>;
+      const userAccess: Record<string, any> = {};
+
+      // 启用的服务商
+      const enabledProviders = Object.entries(
+        accessState.enabledProviders || {},
+      ).filter(([_, enabled]) => enabled);
+      if (enabledProviders.length > 0) {
+        userAccess.enabledProviders = Object.fromEntries(enabledProviders);
+      }
+
+      // 各服务商的 API Key 和 URL（只保存非空的）
+      const providerConfigs = [
+        { key: "openai", apiKey: "openaiApiKey", url: "openaiUrl" },
+        {
+          key: "azure",
+          apiKey: "azureApiKey",
+          url: "azureUrl",
+          extra: ["azureApiVersion"],
+        },
+        { key: "google", apiKey: "googleApiKey", url: "googleUrl" },
+        { key: "anthropic", apiKey: "anthropicApiKey", url: "anthropicUrl" },
+        { key: "bytedance", apiKey: "bytedanceApiKey", url: "bytedanceUrl" },
+        { key: "alibaba", apiKey: "alibabaApiKey", url: "alibabaUrl" },
+        { key: "moonshot", apiKey: "moonshotApiKey", url: "moonshotUrl" },
+        { key: "deepseek", apiKey: "deepseekApiKey", url: "deepseekUrl" },
+        { key: "xai", apiKey: "xaiApiKey", url: "xaiUrl" },
+        {
+          key: "siliconflow",
+          apiKey: "siliconflowApiKey",
+          url: "siliconflowUrl",
+        },
+        { key: "ollama", apiKey: "ollamaApiKey", url: "ollamaUrl" },
+      ];
+
+      providerConfigs.forEach(({ apiKey, url, extra }) => {
+        if (accessState[apiKey]) {
+          userAccess[apiKey] = accessState[apiKey];
+        }
+        if (accessState[url]) {
+          userAccess[url] = accessState[url];
+        }
+        extra?.forEach((k) => {
+          if (accessState[k]) {
+            userAccess[k] = accessState[k];
+          }
+        });
+      });
+
+      // 自定义服务商
+      if (accessState.customProviders?.length > 0) {
+        userAccess.customProviders = accessState.customProviders;
+      }
+
+      // 启用的模型列表（只保存非空的）
+      const enabledModels = Object.entries(
+        accessState.enabledModels || {},
+      ).filter(([_, models]: [string, any]) => models?.length > 0);
+      if (enabledModels.length > 0) {
+        userAccess.enabledModels = Object.fromEntries(enabledModels);
+      }
+
+      // Config Store: 提取所有用户配置
+      const configState = appState[StoreKey.Config] as Record<string, any>;
+      const userConfig: Record<string, any> = {};
+
+      // 模型配置 - 始终同步
+      if (configState.modelConfig) {
+        userConfig.modelConfig = this.safeClone(configState.modelConfig);
+      }
+
+      // TTS 配置 - 始终同步
+      if (configState.ttsConfig) {
+        userConfig.ttsConfig = this.safeClone(configState.ttsConfig);
+      }
+
+      // 实时语音配置 - 始终同步
+      if (configState.realtimeConfig) {
+        userConfig.realtimeConfig = this.safeClone(configState.realtimeConfig);
+      }
+
+      // 其他用户可能修改的配置 - 始终同步
+      const configKeys = [
+        "theme",
+        "colorScheme",
+        "fontSize",
+        "fontFamily",
+        "avatar",
+        "systemAvatar",
+        "assistantAvatar",
+        "sendPreviewBubble",
+        "enableAutoGenerateTitle",
+        "enableArtifacts",
+        "enableCodeFold",
+        "disablePromptHint",
+        "useModelIconAsAvatar",
+        "submitKey",
+        "tightBorder",
+        "sidebarWidth",
+        "sidebarCollapsed",
+      ];
+      configKeys.forEach((key) => {
+        if (configState[key] !== undefined) {
+          userConfig[key] = configState[key];
+        }
+      });
+
+      // Mask Store: 提取用户创建的助手（builtin !== true）
+      const maskState = appState[StoreKey.Mask] as Record<string, any>;
+      const userMasks = Object.entries(maskState.masks || {})
+        .filter(([id, mask]: [string, any]) => {
+          // 排除内置助手（builtin === true）
+          // 用户创建的助手 builtin 为 false 或 undefined
+          return mask.builtin !== true;
+        })
+        .reduce(
+          (acc, [id, mask]) => {
+            acc[id] = mask;
+            return acc;
+          },
+          {} as Record<string, any>,
+        );
+
+      // Prompt Store: 提取所有用户存储的提示词
+      // 用户创建的提示词存储在 prompts 对象中，内置提示词不在这里
+      const promptState = appState[StoreKey.Prompt] as Record<string, any>;
+      const userPrompts = this.safeClone(promptState.prompts || {});
+
+      // MCP 配置
+      const mcpState = appState[StoreKey.Mcp] as Record<string, any>;
+
+      const result = {
+        access: Object.keys(userAccess).length > 0 ? userAccess : undefined,
+        config: Object.keys(userConfig).length > 0 ? userConfig : undefined,
+        masks:
+          Object.keys(userMasks).length > 0 ? { masks: userMasks } : undefined,
+        prompts:
+          Object.keys(userPrompts).length > 0
+            ? { prompts: userPrompts }
+            : undefined,
+        mcp:
+          mcpState?.mcpServers && Object.keys(mcpState.mcpServers).length > 0
+            ? mcpState
+            : undefined,
+      };
+
+      console.log("[Sync] getConfigData:", {
+        accessKeys: Object.keys(userAccess),
+        configKeys: Object.keys(userConfig),
+        masksCount: Object.keys(userMasks).length,
+        promptsCount: Object.keys(userPrompts).length,
+        mcpCount: mcpState?.mcpServers
+          ? Object.keys(mcpState.mcpServers).length
+          : 0,
+      });
+
+      return result;
     },
 
     getClient() {
@@ -170,7 +329,7 @@ export const useSyncStore = createPersistStore(
     },
 
     /**
-     * 上传聊天数据到云端
+     * 上传聊天数据到云端（不加密）
      */
     async uploadChat() {
       const client = this.getClient();
@@ -182,7 +341,7 @@ export const useSyncStore = createPersistStore(
     },
 
     /**
-     * 下载聊天数据并合并
+     * 下载聊天数据并合并（不加密）
      */
     async downloadAndMergeChat() {
       const client = this.getClient();
@@ -259,7 +418,7 @@ export const useSyncStore = createPersistStore(
      * 自动同步聊天数据（双向合并）
      */
     async autoSync() {
-      if (!get().autoSyncChat || !this.cloudSync()) {
+      if (!get().syncChat || !get().autoSyncChat || !this.cloudSync()) {
         return;
       }
 
@@ -293,7 +452,7 @@ export const useSyncStore = createPersistStore(
     },
 
     /**
-     * 下载配置数据（解密并覆盖本地）
+     * 下载配置数据（解密并合并到本地）
      */
     async downloadConfig() {
       const client = this.getClient();
@@ -311,11 +470,95 @@ export const useSyncStore = createPersistStore(
         const configData = JSON.parse(decrypted);
 
         const localState = getLocalAppState();
-        const newState: Record<string, any> = { ...localState };
-        newState[StoreKey.Access] = configData;
-        setLocalAppState(newState as AppState);
 
-        console.log("[Sync] Downloaded config data");
+        // 合并 Access 配置（部分合并，不覆盖整个 store）
+        if (configData.access) {
+          const localAccess = localState[StoreKey.Access] as Record<
+            string,
+            any
+          >;
+          Object.entries(configData.access).forEach(([key, value]) => {
+            if (key === "enabledProviders" || key === "enabledModels") {
+              // 合并对象类型的配置
+              localAccess[key] = { ...localAccess[key], ...(value as object) };
+            } else if (key === "customProviders") {
+              // 合并自定义服务商（按 id 去重）
+              const existingIds = new Set(
+                (localAccess.customProviders || []).map((p: any) => p.id),
+              );
+              const newProviders = (value as any[]).filter(
+                (p) => !existingIds.has(p.id),
+              );
+              localAccess.customProviders = [
+                ...(localAccess.customProviders || []),
+                ...newProviders,
+              ];
+            } else {
+              // 直接覆盖其他配置
+              localAccess[key] = value;
+            }
+          });
+        }
+
+        // 合并 Config 配置（部分合并）
+        if (configData.config) {
+          const localConfig = localState[StoreKey.Config] as Record<
+            string,
+            any
+          >;
+          Object.entries(configData.config).forEach(([key, value]) => {
+            if (
+              typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value)
+            ) {
+              // 深度合并对象
+              localConfig[key] = { ...localConfig[key], ...(value as object) };
+            } else {
+              localConfig[key] = value;
+            }
+          });
+        }
+
+        // 合并 Masks（按 id 合并）
+        if (configData.masks?.masks) {
+          const localMasks = localState[StoreKey.Mask] as Record<string, any>;
+          localMasks.masks = { ...localMasks.masks, ...configData.masks.masks };
+        }
+
+        // 合并 Prompts（按 id 合并）
+        if (configData.prompts?.prompts) {
+          const localPrompts = localState[StoreKey.Prompt] as Record<
+            string,
+            any
+          >;
+          localPrompts.prompts = {
+            ...localPrompts.prompts,
+            ...configData.prompts.prompts,
+          };
+        }
+
+        // 合并 MCP 配置
+        if (configData.mcp?.mcpServers) {
+          const localMcp = localState[StoreKey.Mcp] as Record<string, any>;
+          localMcp.mcpServers = {
+            ...localMcp.mcpServers,
+            ...configData.mcp.mcpServers,
+          };
+          if (configData.mcp.customSystemPrompt) {
+            localMcp.customSystemPrompt = configData.mcp.customSystemPrompt;
+          }
+          if (configData.mcp.customToolsPrompt) {
+            localMcp.customToolsPrompt = configData.mcp.customToolsPrompt;
+          }
+          if (configData.mcp.callMode) {
+            localMcp.callMode = configData.mcp.callMode;
+          }
+        }
+
+        setLocalAppState(localState);
+
+        console.log("[Sync] Downloaded and merged config data");
       } catch (e) {
         console.error("[Sync] Failed to decrypt config:", e);
         showToast(
@@ -433,7 +676,7 @@ export const useSyncStore = createPersistStore(
     },
 
     /**
-     * 导入配置数据
+     * 导入配置数据（合并到本地）
      */
     async importConfigData() {
       const rawContent = await readFromFile();
@@ -441,11 +684,89 @@ export const useSyncStore = createPersistStore(
       try {
         const configData = JSON.parse(rawContent);
         const localState = getLocalAppState();
-        const newState: Record<string, any> = { ...localState };
 
-        newState[StoreKey.Access] = configData;
+        // 合并 Access 配置
+        if (configData.access) {
+          const localAccess = localState[StoreKey.Access] as Record<
+            string,
+            any
+          >;
+          Object.entries(configData.access).forEach(([key, value]) => {
+            if (key === "enabledProviders" || key === "enabledModels") {
+              localAccess[key] = { ...localAccess[key], ...(value as object) };
+            } else if (key === "customProviders") {
+              const existingIds = new Set(
+                (localAccess.customProviders || []).map((p: any) => p.id),
+              );
+              const newProviders = (value as any[]).filter(
+                (p) => !existingIds.has(p.id),
+              );
+              localAccess.customProviders = [
+                ...(localAccess.customProviders || []),
+                ...newProviders,
+              ];
+            } else {
+              localAccess[key] = value;
+            }
+          });
+        }
 
-        setLocalAppState(newState as AppState);
+        // 合并 Config 配置
+        if (configData.config) {
+          const localConfig = localState[StoreKey.Config] as Record<
+            string,
+            any
+          >;
+          Object.entries(configData.config).forEach(([key, value]) => {
+            if (
+              typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value)
+            ) {
+              localConfig[key] = { ...localConfig[key], ...(value as object) };
+            } else {
+              localConfig[key] = value;
+            }
+          });
+        }
+
+        // 合并 Masks
+        if (configData.masks?.masks) {
+          const localMasks = localState[StoreKey.Mask] as Record<string, any>;
+          localMasks.masks = { ...localMasks.masks, ...configData.masks.masks };
+        }
+
+        // 合并 Prompts
+        if (configData.prompts?.prompts) {
+          const localPrompts = localState[StoreKey.Prompt] as Record<
+            string,
+            any
+          >;
+          localPrompts.prompts = {
+            ...localPrompts.prompts,
+            ...configData.prompts.prompts,
+          };
+        }
+
+        // 合并 MCP 配置
+        if (configData.mcp?.mcpServers) {
+          const localMcp = localState[StoreKey.Mcp] as Record<string, any>;
+          localMcp.mcpServers = {
+            ...localMcp.mcpServers,
+            ...configData.mcp.mcpServers,
+          };
+          if (configData.mcp.customSystemPrompt) {
+            localMcp.customSystemPrompt = configData.mcp.customSystemPrompt;
+          }
+          if (configData.mcp.customToolsPrompt) {
+            localMcp.customToolsPrompt = configData.mcp.customToolsPrompt;
+          }
+          if (configData.mcp.callMode) {
+            localMcp.callMode = configData.mcp.callMode;
+          }
+        }
+
+        setLocalAppState(localState);
         location.reload();
       } catch (e) {
         console.error("[Import Config]", e);

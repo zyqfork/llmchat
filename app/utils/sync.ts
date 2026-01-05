@@ -8,6 +8,33 @@ import { useMaskStore } from "../store/mask";
 import { usePromptStore } from "../store/prompt";
 import { StoreKey } from "../constant";
 import { merge } from "./merge";
+import { DEFAULT_MCP_CONFIG, McpConfigData } from "../mcp/types";
+
+// MCP 配置的 localStorage key
+const MCP_CONFIG_KEY = "mcp_config";
+
+// MCP 配置的读写函数
+function getMcpConfig(): McpConfigData {
+  try {
+    const raw = localStorage.getItem(MCP_CONFIG_KEY);
+    if (!raw) return { ...DEFAULT_MCP_CONFIG };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_MCP_CONFIG };
+    if (!("mcpServers" in parsed)) return { ...DEFAULT_MCP_CONFIG };
+    return parsed as McpConfigData;
+  } catch (e) {
+    console.error("[Sync] Failed to read MCP config:", e);
+    return { ...DEFAULT_MCP_CONFIG };
+  }
+}
+
+function setMcpConfig(config: McpConfigData) {
+  try {
+    localStorage.setItem(MCP_CONFIG_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.error("[Sync] Failed to write MCP config:", e);
+  }
+}
 
 type NonFunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any ? never : K;
@@ -44,6 +71,7 @@ const LocalStateGetters = {
   [StoreKey.Config]: () => getNonFunctionFileds(useAppConfig.getState()),
   [StoreKey.Mask]: () => getNonFunctionFileds(useMaskStore.getState()),
   [StoreKey.Prompt]: () => getNonFunctionFileds(usePromptStore.getState()),
+  [StoreKey.Mcp]: () => getMcpConfig(),
 } as const;
 
 export type AppState = {
@@ -116,6 +144,17 @@ const MergeStates: StateMerger = {
   },
   [StoreKey.Config]: mergeWithUpdate<AppState[StoreKey.Config]>,
   [StoreKey.Access]: mergeWithUpdate<AppState[StoreKey.Access]>,
+  [StoreKey.Mcp]: (localState, remoteState) => {
+    // MCP 配置：合并服务器配置，本地优先
+    return {
+      ...remoteState,
+      ...localState,
+      mcpServers: {
+        ...remoteState.mcpServers,
+        ...localState.mcpServers,
+      },
+    };
+  },
 };
 
 export function getLocalAppState() {
@@ -129,9 +168,16 @@ export function getLocalAppState() {
 }
 
 export function setLocalAppState(appState: AppState) {
+  // 设置 zustand stores
   Object.entries(LocalStateSetters).forEach(([key, setter]) => {
-    setter(appState[key as keyof AppState]);
+    const storeKey = key as keyof typeof LocalStateSetters;
+    setter(appState[storeKey] as any);
   });
+
+  // 单独设置 MCP 配置（使用 localStorage）
+  if (appState[StoreKey.Mcp]) {
+    setMcpConfig(appState[StoreKey.Mcp]);
+  }
 }
 
 export function mergeAppState(localState: AppState, remoteState: AppState) {

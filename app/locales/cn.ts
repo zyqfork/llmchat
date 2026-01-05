@@ -374,14 +374,19 @@ const cn = {
           SubTitle: "仅适用于本项目自带的跨域代理",
         },
 
-        SyncConfig: {
-          Title: "同步配置",
-          SubTitle: "同步所有设置、助手、提示词等配置数据（加密存储）",
-        },
-
         SyncChat: {
           Title: "同步聊天",
-          SubTitle: "同步所有聊天记录（不加密）",
+          SubTitle: "同步所有聊天记录（加密存储）",
+        },
+
+        AutoSync: {
+          Title: "自动同步",
+          SubTitle: "发送消息后自动同步聊天数据到云端",
+        },
+
+        SyncConfig: {
+          Title: "同步配置",
+          SubTitle: "同步模型服务、助手、提示词等配置数据（加密存储）",
         },
 
         Encryption: {
@@ -436,6 +441,7 @@ const cn = {
       EmptyRemote: "云端数据为空",
       ChatData: "聊天数据",
       ConfigData: "配置数据",
+      ConfigDataDesc: "包含模型服务、模型配置、语音配置、助手、提示词等",
       AutoSync: "自动同步",
       CheckSuccess: "连接成功",
       CheckFailed: "连接失败",

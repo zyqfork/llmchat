@@ -656,6 +656,59 @@ function SyncConfigModal(props: { onClose?: () => void }) {
               ></input>
             </ListItem>
           ) : null}
+        </List>
+
+        {/* 聊天数据同步分组 */}
+        <List>
+          <ListItem
+            title={Locale.Settings.Sync.Config.SyncChat.Title}
+            subTitle={Locale.Settings.Sync.Config.SyncChat.SubTitle}
+          >
+            <input
+              type="checkbox"
+              checked={syncStore.syncChat}
+              onChange={(e) => {
+                syncStore.update(
+                  (config) => (config.syncChat = e.currentTarget.checked),
+                );
+              }}
+            ></input>
+          </ListItem>
+
+          {syncStore.syncChat && (
+            <ListItem
+              title={Locale.Settings.Sync.Config.AutoSync.Title}
+              subTitle={Locale.Settings.Sync.Config.AutoSync.SubTitle}
+            >
+              <input
+                type="checkbox"
+                checked={syncStore.autoSyncChat}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.autoSyncChat = e.currentTarget.checked),
+                  );
+                }}
+              ></input>
+            </ListItem>
+          )}
+        </List>
+
+        {/* 配置数据同步分组 */}
+        <List>
+          <ListItem
+            title={Locale.Settings.Sync.Config.SyncConfig.Title}
+            subTitle={Locale.Settings.Sync.Config.SyncConfig.SubTitle}
+          >
+            <input
+              type="checkbox"
+              checked={syncStore.syncConfig}
+              onChange={(e) => {
+                syncStore.update(
+                  (config) => (config.syncConfig = e.currentTarget.checked),
+                );
+              }}
+            ></input>
+          </ListItem>
 
           <ListItem
             title={Locale.Settings.Sync.Config.Encryption.Title}
@@ -915,32 +968,201 @@ function SyncItems() {
   const syncStore = useSyncStore();
   const chatStore = useChatStore();
   const accessStore = useAccessStore();
+  const maskStore = useMaskStore();
+  const promptStore = usePromptStore();
+  const appConfig = useAppConfig();
+
   const couldSync = useMemo(() => {
     return syncStore.cloudSync();
   }, [syncStore]);
 
   const [showSyncConfigModal, setShowSyncConfigModal] = useState(false);
 
-  const stateOverview = useMemo(() => {
+  // 统计聊天数据
+  const chatOverview = useMemo(() => {
     const sessions = chatStore.sessions;
     const messageCount = sessions.reduce((p, c) => p + c.messages.length, 0);
+    return {
+      sessions: sessions.length,
+      messages: messageCount,
+    };
+  }, [chatStore.sessions]);
 
-    // 统计配置数据（Access Store 中的用户配置）
-    const enabledProviders = Object.values(accessStore.enabledProviders).filter(
-      Boolean,
-    ).length;
+  // 统计配置数据
+  const configOverview = useMemo(() => {
+    // 模型服务配置：统计配置了 API Key 的服务商数量
+    let configuredProviders = 0;
+    const providerKeys = [
+      "openaiApiKey",
+      "azureApiKey",
+      "googleApiKey",
+      "anthropicApiKey",
+      "bytedanceApiKey",
+      "alibabaApiKey",
+      "moonshotApiKey",
+      "deepseekApiKey",
+      "xaiApiKey",
+      "siliconflowApiKey",
+      "ollamaApiKey",
+    ];
+    providerKeys.forEach((key) => {
+      if ((accessStore as any)[key]) {
+        configuredProviders++;
+      }
+    });
+
+    // 自定义服务商数量
     const customProviders = accessStore.customProviders?.length || 0;
 
+    // 助手数量（用户自定义的）
+    const userMasks = Object.values(maskStore.masks).filter(
+      (m: any) => !m.builtin,
+    ).length;
+
+    // 提示词数量（用户自定义的）
+    const userPrompts = promptStore.getUserPrompts().length;
+
+    // MCP 配置数量
+    let mcpCount = 0;
+    try {
+      const mcpRaw = localStorage.getItem("mcp_config");
+      if (mcpRaw) {
+        const mcpConfig = JSON.parse(mcpRaw);
+        mcpCount = Object.keys(mcpConfig.mcpServers || {}).length;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // 检查通用配置修改数量
+    let generalConfigCount = 0;
+    // 主题
+    if (appConfig.theme !== "auto") generalConfigCount++;
+    // 配色
+    if (appConfig.colorScheme !== "default") generalConfigCount++;
+    // 字体大小
+    if (appConfig.fontSize !== 14) generalConfigCount++;
+    // 字体
+    if (appConfig.fontFamily) generalConfigCount++;
+    // TTS
+    if (appConfig.ttsConfig?.enable) generalConfigCount++;
+    // 实时语音
+    if (appConfig.realtimeConfig?.enable) generalConfigCount++;
+    // 头像
+    if (appConfig.avatar !== "1f603") generalConfigCount++;
+
     return {
-      chat: sessions.length,
-      message: messageCount,
-      providers: enabledProviders + customProviders,
+      providers: configuredProviders + customProviders,
+      masks: userMasks,
+      prompts: userPrompts,
+      mcp: mcpCount,
+      generalConfig: generalConfigCount,
     };
-  }, [
-    chatStore.sessions,
-    accessStore.enabledProviders,
-    accessStore.customProviders,
-  ]);
+  }, [accessStore, maskStore.masks, promptStore, appConfig]);
+
+  // 生成配置数据描述
+  const configDesc = useMemo(() => {
+    const parts: string[] = [];
+    if (configOverview.providers > 0) {
+      parts.push(`${configOverview.providers} 个模型服务`);
+    }
+    if (configOverview.generalConfig > 0) {
+      parts.push(`${configOverview.generalConfig} 项通用配置`);
+    }
+    if (configOverview.masks > 0) {
+      parts.push(`${configOverview.masks} 个助手`);
+    }
+    if (configOverview.prompts > 0) {
+      parts.push(`${configOverview.prompts} 条提示词`);
+    }
+    if (configOverview.mcp > 0) {
+      parts.push(`${configOverview.mcp} 个 MCP 服务`);
+    }
+    return parts.length > 0 ? parts.join("，") : "暂无配置数据";
+  }, [configOverview]);
+
+  // 上传数据（根据配置决定上传聊天和/或配置）
+  const handleUpload = async () => {
+    if (!couldSync) return;
+
+    const willSyncChat = syncStore.syncChat;
+    const willSyncConfig = syncStore.syncConfig;
+
+    if (!willSyncChat && !willSyncConfig) {
+      showToast("请先在配置中开启同步聊天或同步配置");
+      return;
+    }
+
+    const syncItems = [];
+    if (willSyncChat) syncItems.push("聊天数据");
+    if (willSyncConfig) syncItems.push("配置数据");
+
+    if (!confirm(`确定要上传 ${syncItems.join(" 和 ")} 到云端吗？`)) return;
+
+    try {
+      if (willSyncChat) {
+        await syncStore.uploadChat();
+      }
+      if (willSyncConfig) {
+        await syncStore.uploadConfig();
+      }
+      syncStore.markSyncTime();
+      showToast(Locale.Settings.Sync.UploadSuccess);
+    } catch (e) {
+      showToast(Locale.Settings.Sync.UploadFailed);
+      console.error("[Upload]", e);
+    }
+  };
+
+  // 下载数据（根据配置决定下载聊天和/或配置）
+  const handleDownload = async () => {
+    if (!couldSync) return;
+
+    const willSyncChat = syncStore.syncChat;
+    const willSyncConfig = syncStore.syncConfig;
+
+    if (!willSyncChat && !willSyncConfig) {
+      showToast("请先在配置中开启同步聊天或同步配置");
+      return;
+    }
+
+    const syncItems = [];
+    if (willSyncChat) syncItems.push("聊天数据");
+    if (willSyncConfig) syncItems.push("配置数据");
+
+    if (!confirm(`确定要下载云端 ${syncItems.join(" 和 ")} 吗？`)) return;
+
+    try {
+      if (willSyncChat) {
+        await syncStore.downloadAndMergeChat();
+      }
+      if (willSyncConfig) {
+        await syncStore.downloadConfig();
+      }
+      syncStore.markSyncTime();
+      showToast(Locale.Settings.Sync.DownloadSuccess);
+      setTimeout(() => location.reload(), 1000);
+    } catch (e: any) {
+      if (e.message === "Remote config is empty") {
+        showToast(Locale.Settings.Sync.EmptyRemote);
+      } else {
+        showToast(Locale.Settings.Sync.DownloadFailed);
+      }
+      console.error("[Download]", e);
+    }
+  };
+
+  // 生成同步状态描述
+  const syncStatusDesc = useMemo(() => {
+    const items = [];
+    if (syncStore.syncChat) {
+      items.push(syncStore.autoSyncChat ? "聊天(自动)" : "聊天");
+    }
+    if (syncStore.syncConfig) {
+      items.push("配置");
+    }
+    return items.length > 0 ? `已开启: ${items.join(", ")}` : "未开启同步";
+  }, [syncStore.syncChat, syncStore.syncConfig, syncStore.autoSyncChat]);
 
   return (
     <>
@@ -951,8 +1173,8 @@ function SyncItems() {
             syncStore.lastProvider
               ? `${new Date(syncStore.lastSyncTime).toLocaleString()} [${
                   syncStore.lastProvider
-                }]`
-              : Locale.Settings.Sync.NotSyncYet
+                }] · ${syncStatusDesc}`
+              : `${Locale.Settings.Sync.NotSyncYet} · ${syncStatusDesc}`
           }
         >
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -964,26 +1186,28 @@ function SyncItems() {
                 setShowSyncConfigModal(true);
               }}
             />
+            {couldSync && (
+              <>
+                <IconButton
+                  icon={<UploadIcon />}
+                  text={Locale.Settings.Sync.Upload}
+                  onClick={handleUpload}
+                />
+                <IconButton
+                  icon={<DownloadIcon />}
+                  text={Locale.Settings.Sync.Download}
+                  onClick={handleDownload}
+                />
+              </>
+            )}
           </div>
         </ListItem>
 
         <ListItem
           title={Locale.Settings.Sync.ChatData}
-          subTitle={`${stateOverview.chat} 次对话，${stateOverview.message} 条消息`}
+          subTitle={`${chatOverview.sessions} 次对话，${chatOverview.messages} 条消息`}
         >
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "#666" }}>
-              {Locale.Settings.Sync.AutoSync}
-            </span>
-            <input
-              type="checkbox"
-              checked={syncStore.autoSyncChat}
-              onChange={(e) => {
-                syncStore.update(
-                  (config) => (config.autoSyncChat = e.currentTarget.checked),
-                );
-              }}
-            />
             <IconButton
               aria={Locale.Settings.Sync.ChatData + Locale.UI.Export}
               icon={<UploadIcon />}
@@ -1003,50 +1227,8 @@ function SyncItems() {
           </div>
         </ListItem>
 
-        <ListItem
-          title={Locale.Settings.Sync.ConfigData}
-          subTitle={`${stateOverview.providers} 个服务商配置`}
-        >
+        <ListItem title={Locale.Settings.Sync.ConfigData} subTitle={configDesc}>
           <div style={{ display: "flex", gap: "8px" }}>
-            {couldSync && (
-              <>
-                <IconButton
-                  icon={<UploadIcon />}
-                  text={Locale.Settings.Sync.Upload}
-                  onClick={async () => {
-                    if (confirm("确定要上传配置到云端吗？")) {
-                      try {
-                        await syncStore.uploadConfig();
-                        showToast(Locale.Settings.Sync.UploadSuccess);
-                      } catch (e) {
-                        showToast(Locale.Settings.Sync.UploadFailed);
-                        console.error("[Upload Config]", e);
-                      }
-                    }
-                  }}
-                />
-                <IconButton
-                  icon={<DownloadIcon />}
-                  text={Locale.Settings.Sync.Download}
-                  onClick={async () => {
-                    if (confirm("确定要下载云端配置覆盖本地吗？")) {
-                      try {
-                        await syncStore.downloadConfig();
-                        showToast(Locale.Settings.Sync.DownloadSuccess);
-                        setTimeout(() => location.reload(), 1000);
-                      } catch (e: any) {
-                        if (e.message === "Remote config is empty") {
-                          showToast(Locale.Settings.Sync.EmptyRemote);
-                        } else {
-                          showToast(Locale.Settings.Sync.DownloadFailed);
-                        }
-                        console.error("[Download Config]", e);
-                      }
-                    }
-                  }}
-                />
-              </>
-            )}
             <IconButton
               aria={Locale.Settings.Sync.ConfigData + Locale.UI.Export}
               icon={<UploadIcon />}
