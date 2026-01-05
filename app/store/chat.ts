@@ -673,6 +673,21 @@ export const useChatStore = createPersistStore(
         get().checkMcpJson(message);
 
         get().summarizeSession(false, targetSession);
+
+        // 触发自动同步（如果启用）
+        const { useSyncStore } = require("./sync");
+        const syncStore = useSyncStore.getState();
+        if (syncStore.autoSyncChat && syncStore.cloudSync()) {
+          // 使用防抖，避免频繁同步
+          if ((window as any).__syncDebounceTimer) {
+            clearTimeout((window as any).__syncDebounceTimer);
+          }
+          (window as any).__syncDebounceTimer = setTimeout(() => {
+            syncStore.autoSync().catch((e: any) => {
+              console.error("[AutoSync] Failed:", e);
+            });
+          }, 3000); // 3秒防抖
+        }
       },
 
       async onUserInput(

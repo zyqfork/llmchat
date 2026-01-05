@@ -351,7 +351,7 @@ const cn = {
       SubTitle: "根据对话内容生成合适的标题",
     },
     Sync: {
-      CloudState: "云端数据",
+      CloudState: "云端配置",
       NotSyncYet: "还没有进行过同步",
       Success: "同步成功",
       Fail: "同步失败",
@@ -359,7 +359,7 @@ const cn = {
       Config: {
         Modal: {
           Title: "配置云同步",
-          Check: "检查可用性",
+          Check: "检测",
         },
         SyncType: {
           Title: "同步类型",
@@ -374,16 +374,50 @@ const cn = {
           SubTitle: "仅适用于本项目自带的跨域代理",
         },
 
+        SyncConfig: {
+          Title: "同步配置",
+          SubTitle: "同步所有设置、助手、提示词等配置数据（加密存储）",
+        },
+
+        SyncChat: {
+          Title: "同步聊天",
+          SubTitle: "同步所有聊天记录（不加密）",
+        },
+
+        Encryption: {
+          Title: "加密密码",
+          SubTitle: "设置配置数据的加密密码，留空使用默认加密",
+          Placeholder: "输入加密密码",
+        },
+
         WebDav: {
           Endpoint: "WebDAV 地址",
           UserName: "用户名",
           Password: "密码",
+          BackupName: "备份名称",
         },
 
         UpStash: {
           Endpoint: "UpStash Redis REST Url",
           UserName: "备份名称",
           Password: "UpStash Redis REST Token",
+        },
+
+        GitHub: {
+          Token: "GitHub Personal Access Token",
+          Repo: "仓库 (格式: owner/repo)",
+          Branch: "分支",
+          Path: "存储路径 (可选)",
+          UserName: "备份名称",
+        },
+
+        S3: {
+          Endpoint: "S3 端点地址",
+          Bucket: "存储桶名称",
+          AccessKey: "Access Key ID",
+          SecretKey: "Secret Access Key",
+          Region: "区域",
+          UserName: "备份名称",
         },
       },
 
@@ -392,6 +426,19 @@ const cn = {
         return `${overview.chat} 次对话，${overview.message} 条消息，${overview.prompt} 条提示词，${overview.mask} 个助手`;
       },
       ImportFailed: "导入失败",
+      DecryptFailed: "解密失败，请检查加密密码是否正确",
+      Upload: "上传",
+      Download: "下载",
+      UploadSuccess: "上传成功",
+      UploadFailed: "上传失败",
+      DownloadSuccess: "下载成功，即将刷新页面",
+      DownloadFailed: "下载失败",
+      EmptyRemote: "云端数据为空",
+      ChatData: "聊天数据",
+      ConfigData: "配置数据",
+      AutoSync: "自动同步",
+      CheckSuccess: "连接成功",
+      CheckFailed: "连接失败",
     },
     Mask: {
       ModelIcon: {

@@ -548,49 +548,28 @@ function DangerItems() {
   );
 }
 
-function CheckButton() {
+function SyncConfigModal(props: { onClose?: () => void }) {
   const syncStore = useSyncStore();
-
-  const couldCheck = useMemo(() => {
-    return syncStore.cloudSync();
-  }, [syncStore]);
 
   const [checkState, setCheckState] = useState<
     "none" | "checking" | "success" | "failed"
   >("none");
 
-  async function check() {
+  async function handleCheck() {
     setCheckState("checking");
-    const valid = await syncStore.check();
-    setCheckState(valid ? "success" : "failed");
-  }
-
-  if (!couldCheck) return null;
-
-  return (
-    <IconButton
-      text={Locale.Settings.Sync.Config.Modal.Check}
-      bordered
-      onClick={check}
-      icon={
-        checkState === "none" ? (
-          <ConnectionIcon />
-        ) : checkState === "checking" ? (
-          <LoadingIcon />
-        ) : checkState === "success" ? (
-          <CloudSuccessIcon />
-        ) : checkState === "failed" ? (
-          <CloudFailIcon />
-        ) : (
-          <ConnectionIcon />
-        )
+    try {
+      const valid = await syncStore.check();
+      setCheckState(valid ? "success" : "failed");
+      if (valid) {
+        showToast(Locale.Settings.Sync.CheckSuccess);
+      } else {
+        showToast(Locale.Settings.Sync.CheckFailed);
       }
-    ></IconButton>
-  );
-}
-
-function SyncConfigModal(props: { onClose?: () => void }) {
-  const syncStore = useSyncStore();
+    } catch (e) {
+      setCheckState("failed");
+      showToast(Locale.Settings.Sync.CheckFailed);
+    }
+  }
 
   return (
     <div className="modal-mask">
@@ -598,7 +577,23 @@ function SyncConfigModal(props: { onClose?: () => void }) {
         title={Locale.Settings.Sync.Config.Modal.Title}
         onClose={() => props.onClose?.()}
         actions={[
-          <CheckButton key="check" />,
+          <IconButton
+            key="check"
+            onClick={handleCheck}
+            icon={
+              checkState === "none" ? (
+                <ConnectionIcon />
+              ) : checkState === "checking" ? (
+                <LoadingIcon />
+              ) : checkState === "success" ? (
+                <CloudSuccessIcon />
+              ) : (
+                <CloudFailIcon />
+              )
+            }
+            bordered
+            text={Locale.Settings.Sync.Config.Modal.Check}
+          />,
           <IconButton
             key="confirm"
             onClick={props.onClose}
@@ -620,6 +615,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                   (config) =>
                     (config.provider = e.target.value as ProviderType),
                 );
+                setCheckState("none");
               }}
             >
               {Object.entries(ProviderType).map(([k, v]) => (
@@ -660,6 +656,22 @@ function SyncConfigModal(props: { onClose?: () => void }) {
               ></input>
             </ListItem>
           ) : null}
+
+          <ListItem
+            title={Locale.Settings.Sync.Config.Encryption.Title}
+            subTitle={Locale.Settings.Sync.Config.Encryption.SubTitle}
+          >
+            <PasswordInput
+              value={syncStore.encryptionPassword}
+              placeholder={Locale.Settings.Sync.Config.Encryption.Placeholder}
+              onChange={(e) => {
+                syncStore.update(
+                  (config) =>
+                    (config.encryptionPassword = e.currentTarget.value),
+                );
+              }}
+            ></PasswordInput>
+          </ListItem>
         </List>
 
         {syncStore.provider === ProviderType.WebDAV && (
@@ -682,6 +694,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                 <input
                   type="text"
                   value={syncStore.webdav.username}
+                  placeholder={STORAGE_KEY}
                   onChange={(e) => {
                     syncStore.update(
                       (config) =>
@@ -690,6 +703,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                   }}
                 ></input>
               </ListItem>
+
               <ListItem title={Locale.Settings.Sync.Config.WebDav.Password}>
                 <PasswordInput
                   value={syncStore.webdav.password}
@@ -745,6 +759,153 @@ function SyncConfigModal(props: { onClose?: () => void }) {
             </ListItem>
           </List>
         )}
+
+        {syncStore.provider === ProviderType.GitHub && (
+          <List>
+            <ListItem title={Locale.Settings.Sync.Config.GitHub.Token}>
+              <PasswordInput
+                value={syncStore.github.token}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.github.token = e.currentTarget.value),
+                  );
+                }}
+              ></PasswordInput>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.GitHub.Repo}>
+              <input
+                type="text"
+                value={syncStore.github.repo}
+                placeholder="owner/repo"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.github.repo = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.GitHub.Branch}>
+              <input
+                type="text"
+                value={syncStore.github.branch}
+                placeholder="main"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.github.branch = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.GitHub.Path}>
+              <input
+                type="text"
+                value={syncStore.github.path}
+                placeholder="backup"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.github.path = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.GitHub.UserName}>
+              <input
+                type="text"
+                value={syncStore.github.username}
+                placeholder={STORAGE_KEY}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) =>
+                      (config.github.username = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+          </List>
+        )}
+
+        {syncStore.provider === ProviderType.S3 && (
+          <List>
+            <ListItem title={Locale.Settings.Sync.Config.S3.Endpoint}>
+              <input
+                type="text"
+                value={syncStore.s3.endpoint}
+                placeholder="https://s3.amazonaws.com"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.endpoint = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.S3.Bucket}>
+              <input
+                type="text"
+                value={syncStore.s3.bucket}
+                placeholder="my-bucket"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.bucket = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.S3.Region}>
+              <input
+                type="text"
+                value={syncStore.s3.region}
+                placeholder="us-east-1"
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.region = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.S3.AccessKey}>
+              <input
+                type="text"
+                value={syncStore.s3.accessKey}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.accessKey = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.S3.SecretKey}>
+              <PasswordInput
+                value={syncStore.s3.secretKey}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.secretKey = e.currentTarget.value),
+                  );
+                }}
+              ></PasswordInput>
+            </ListItem>
+
+            <ListItem title={Locale.Settings.Sync.Config.S3.UserName}>
+              <input
+                type="text"
+                value={syncStore.s3.username}
+                placeholder={STORAGE_KEY}
+                onChange={(e) => {
+                  syncStore.update(
+                    (config) => (config.s3.username = e.currentTarget.value),
+                  );
+                }}
+              ></input>
+            </ListItem>
+          </List>
+        )}
       </Modal>
     </div>
   );
@@ -753,8 +914,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
 function SyncItems() {
   const syncStore = useSyncStore();
   const chatStore = useChatStore();
-  const promptStore = usePromptStore();
-  const maskStore = useMaskStore();
+  const accessStore = useAccessStore();
   const couldSync = useMemo(() => {
     return syncStore.cloudSync();
   }, [syncStore]);
@@ -765,13 +925,22 @@ function SyncItems() {
     const sessions = chatStore.sessions;
     const messageCount = sessions.reduce((p, c) => p + c.messages.length, 0);
 
+    // 统计配置数据（Access Store 中的用户配置）
+    const enabledProviders = Object.values(accessStore.enabledProviders).filter(
+      Boolean,
+    ).length;
+    const customProviders = accessStore.customProviders?.length || 0;
+
     return {
       chat: sessions.length,
       message: messageCount,
-      prompt: Object.keys(promptStore.prompts).length,
-      mask: Object.keys(maskStore.masks).length,
+      providers: enabledProviders + customProviders,
     };
-  }, [chatStore.sessions, maskStore.masks, promptStore.prompts]);
+  }, [
+    chatStore.sessions,
+    accessStore.enabledProviders,
+    accessStore.customProviders,
+  ]);
 
   return (
     <>
@@ -786,7 +955,7 @@ function SyncItems() {
               : Locale.Settings.Sync.NotSyncYet
           }
         >
-          <div style={{ display: "flex" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <IconButton
               aria={Locale.Settings.Sync.CloudState + Locale.UI.Config}
               icon={<ConfigIcon />}
@@ -795,43 +964,103 @@ function SyncItems() {
                 setShowSyncConfigModal(true);
               }}
             />
-            {couldSync && (
-              <IconButton
-                icon={<ResetIcon />}
-                text={Locale.UI.Sync}
-                onClick={async () => {
-                  try {
-                    await syncStore.sync();
-                    showToast(Locale.Settings.Sync.Success);
-                  } catch (e) {
-                    showToast(Locale.Settings.Sync.Fail);
-                    console.error("[Sync]", e);
-                  }
-                }}
-              />
-            )}
           </div>
         </ListItem>
 
         <ListItem
-          title={Locale.Settings.Sync.LocalState}
-          subTitle={Locale.Settings.Sync.Overview(stateOverview)}
+          title={Locale.Settings.Sync.ChatData}
+          subTitle={`${stateOverview.chat} 次对话，${stateOverview.message} 条消息`}
         >
-          <div style={{ display: "flex" }}>
-            <IconButton
-              aria={Locale.Settings.Sync.LocalState + Locale.UI.Export}
-              icon={<UploadIcon />}
-              text={Locale.UI.Export}
-              onClick={() => {
-                syncStore.export();
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#666" }}>
+              {Locale.Settings.Sync.AutoSync}
+            </span>
+            <input
+              type="checkbox"
+              checked={syncStore.autoSyncChat}
+              onChange={(e) => {
+                syncStore.update(
+                  (config) => (config.autoSyncChat = e.currentTarget.checked),
+                );
               }}
             />
             <IconButton
-              aria={Locale.Settings.Sync.LocalState + Locale.UI.Import}
+              aria={Locale.Settings.Sync.ChatData + Locale.UI.Export}
+              icon={<UploadIcon />}
+              text={Locale.UI.Export}
+              onClick={() => {
+                syncStore.exportChatData();
+              }}
+            />
+            <IconButton
+              aria={Locale.Settings.Sync.ChatData + Locale.UI.Import}
               icon={<DownloadIcon />}
               text={Locale.UI.Import}
               onClick={() => {
-                syncStore.import();
+                syncStore.importChatData();
+              }}
+            />
+          </div>
+        </ListItem>
+
+        <ListItem
+          title={Locale.Settings.Sync.ConfigData}
+          subTitle={`${stateOverview.providers} 个服务商配置`}
+        >
+          <div style={{ display: "flex", gap: "8px" }}>
+            {couldSync && (
+              <>
+                <IconButton
+                  icon={<UploadIcon />}
+                  text={Locale.Settings.Sync.Upload}
+                  onClick={async () => {
+                    if (confirm("确定要上传配置到云端吗？")) {
+                      try {
+                        await syncStore.uploadConfig();
+                        showToast(Locale.Settings.Sync.UploadSuccess);
+                      } catch (e) {
+                        showToast(Locale.Settings.Sync.UploadFailed);
+                        console.error("[Upload Config]", e);
+                      }
+                    }
+                  }}
+                />
+                <IconButton
+                  icon={<DownloadIcon />}
+                  text={Locale.Settings.Sync.Download}
+                  onClick={async () => {
+                    if (confirm("确定要下载云端配置覆盖本地吗？")) {
+                      try {
+                        await syncStore.downloadConfig();
+                        showToast(Locale.Settings.Sync.DownloadSuccess);
+                        setTimeout(() => location.reload(), 1000);
+                      } catch (e: any) {
+                        if (e.message === "Remote config is empty") {
+                          showToast(Locale.Settings.Sync.EmptyRemote);
+                        } else {
+                          showToast(Locale.Settings.Sync.DownloadFailed);
+                        }
+                        console.error("[Download Config]", e);
+                      }
+                    }
+                  }}
+                />
+              </>
+            )}
+            <IconButton
+              aria={Locale.Settings.Sync.ConfigData + Locale.UI.Export}
+              icon={<UploadIcon />}
+              text={Locale.UI.Export}
+              onClick={() => {
+                syncStore.exportConfigData();
+              }}
+            />
+            <IconButton
+              aria={Locale.Settings.Sync.ConfigData + Locale.UI.Import}
+              icon={<DownloadIcon />}
+              text={Locale.UI.Import}
+              onClick={() => {
+                syncStore.importConfigData();
               }}
             />
           </div>
@@ -2244,50 +2473,83 @@ export function Settings() {
           title={Locale.Settings.FontFamily.Title}
           subTitle={Locale.Settings.FontFamily.SubTitle}
         >
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <input
-              aria-label={Locale.Settings.FontFamily.Title}
-              type="text"
-              value={config.fontFamily}
-              placeholder="默认字体"
-              style={{ width: "120px" }}
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.fontFamily = e.currentTarget.value),
-                )
-              }
-            />
-            <Select
-              style={{ width: "100px" }}
-              value=""
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === "__default__") {
-                  updateConfig((config) => (config.fontFamily = ""));
-                } else if (value) {
-                  updateConfig((config) => (config.fontFamily = value));
+          <Select
+            aria-label={Locale.Settings.FontFamily.Title}
+            value={
+              // 检查当前值是否在预设列表中
+              [
+                "",
+                "Microsoft YaHei",
+                "SimSun",
+                "SimHei",
+                "KaiTi",
+                "FangSong",
+                "PingFang SC",
+                "Hiragino Sans GB",
+                "Source Han Sans SC",
+                "Source Han Serif SC",
+                "Noto Sans SC",
+                "Arial",
+                "Helvetica Neue",
+                "Georgia",
+                "Times New Roman",
+                "Consolas",
+              ].includes(config.fontFamily)
+                ? config.fontFamily
+                : "__custom__"
+            }
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "__custom__") {
+                const customFont = prompt("请输入字体名称", config.fontFamily);
+                if (customFont !== null) {
+                  updateConfig((config) => (config.fontFamily = customFont));
                 }
-              }}
-            >
-              <option value="">选择字体</option>
-              <option value="__default__">🔄 默认字体</option>
-              <option value="Microsoft YaHei">微软雅黑</option>
-              <option value="SimSun">宋体</option>
-              <option value="SimHei">黑体</option>
-              <option value="KaiTi">楷体</option>
-              <option value="FangSong">仿宋</option>
-              <option value="PingFang SC">苹方</option>
-              <option value="Hiragino Sans GB">冬青黑体</option>
-              <option value="Source Han Sans SC">思源黑体</option>
-              <option value="Source Han Serif SC">思源宋体</option>
-              <option value="Noto Sans SC">Noto Sans SC</option>
-              <option value="Arial">Arial</option>
-              <option value="Helvetica Neue">Helvetica</option>
-              <option value="Georgia">Georgia</option>
-              <option value="Times New Roman">Times New Roman</option>
-              <option value="Consolas">Consolas</option>
-            </Select>
-          </div>
+              } else {
+                updateConfig((config) => (config.fontFamily = value));
+              }
+            }}
+          >
+            <option value="">默认字体</option>
+            <option value="Microsoft YaHei">微软雅黑</option>
+            <option value="SimSun">宋体</option>
+            <option value="SimHei">黑体</option>
+            <option value="KaiTi">楷体</option>
+            <option value="FangSong">仿宋</option>
+            <option value="PingFang SC">苹方</option>
+            <option value="Hiragino Sans GB">冬青黑体</option>
+            <option value="Source Han Sans SC">思源黑体</option>
+            <option value="Source Han Serif SC">思源宋体</option>
+            <option value="Noto Sans SC">Noto Sans SC</option>
+            <option value="Arial">Arial</option>
+            <option value="Helvetica Neue">Helvetica</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Consolas">Consolas</option>
+            <option value="__custom__">
+              {config.fontFamily &&
+              ![
+                "",
+                "Microsoft YaHei",
+                "SimSun",
+                "SimHei",
+                "KaiTi",
+                "FangSong",
+                "PingFang SC",
+                "Hiragino Sans GB",
+                "Source Han Sans SC",
+                "Source Han Serif SC",
+                "Noto Sans SC",
+                "Arial",
+                "Helvetica Neue",
+                "Georgia",
+                "Times New Roman",
+                "Consolas",
+              ].includes(config.fontFamily)
+                ? `自定义: ${config.fontFamily}`
+                : "自定义..."}
+            </option>
+          </Select>
         </ListItem>
 
         <ListItem

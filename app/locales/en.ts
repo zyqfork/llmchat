@@ -384,16 +384,51 @@ const en: LocaleType = {
             "Only applicable to the built-in CORS proxy for this project",
         },
 
+        SyncConfig: {
+          Title: "Sync Config",
+          SubTitle: "Sync all settings, assistants, prompts (encrypted)",
+        },
+
+        SyncChat: {
+          Title: "Sync Chat",
+          SubTitle: "Sync all chat history (not encrypted)",
+        },
+
+        Encryption: {
+          Title: "Encryption Password",
+          SubTitle:
+            "Set encryption password for config data, leave empty for default encryption",
+          Placeholder: "Enter encryption password",
+        },
+
         WebDav: {
           Endpoint: "WebDAV Endpoint",
           UserName: "User Name",
           Password: "Password",
+          BackupName: "Backup Name",
         },
 
         UpStash: {
           Endpoint: "UpStash Redis REST Url",
           UserName: "Backup Name",
           Password: "UpStash Redis REST Token",
+        },
+
+        GitHub: {
+          Token: "GitHub Personal Access Token",
+          Repo: "Repository (format: owner/repo)",
+          Branch: "Branch",
+          Path: "Storage Path (optional)",
+          UserName: "Backup Name",
+        },
+
+        S3: {
+          Endpoint: "S3 Endpoint",
+          Bucket: "Bucket Name",
+          AccessKey: "Access Key ID",
+          SecretKey: "Secret Access Key",
+          Region: "Region",
+          UserName: "Backup Name",
         },
       },
 
@@ -402,6 +437,19 @@ const en: LocaleType = {
         return `${overview.chat} chats，${overview.message} messages，${overview.prompt} prompts，${overview.mask} assistants`;
       },
       ImportFailed: "Failed to import from file",
+      DecryptFailed: "Decryption failed, please check your encryption password",
+      Upload: "Upload",
+      Download: "Download",
+      UploadSuccess: "Upload successful",
+      UploadFailed: "Upload failed",
+      DownloadSuccess: "Download successful, page will refresh",
+      DownloadFailed: "Download failed",
+      EmptyRemote: "Remote data is empty",
+      ChatData: "Chat Data",
+      ConfigData: "Config Data",
+      AutoSync: "Auto Sync",
+      CheckSuccess: "Connection successful",
+      CheckFailed: "Connection failed",
     },
     Mask: {
       ModelIcon: {

@@ -8,25 +8,19 @@ export type UpStashClient = ReturnType<typeof createUpstashClient>;
 
 export function createUpstashClient(store: SyncStore) {
   const config = store.upstash;
-  const storeKey = config.username.length === 0 ? STORAGE_KEY : config.username;
-  const chunkCountKey = `${storeKey}-chunk-count`;
-  const chunkIndexKey = (i: number) => `${storeKey}-chunk-${i}`;
-
-  // 使用统一的 getProxyUrl 函数
-  // 在 Tauri 环境中会返回空字符串（自动使用 Rust 代理）
   const proxyUrl = getProxyUrl(store.useProxy, store.proxyUrl);
 
-  if (store.useProxy) {
-    console.log("[Upstash] Proxy enabled, using unified fetch");
-  } else {
-    console.log("[Upstash] Direct connection (no proxy)");
-  }
+  // 将文件路径转换为 Redis key: llmchat/chat.json -> llmchat-chat-json
+  const pathToKey = (filePath: string) => {
+    return filePath.replace(/[\/\.]/g, "-");
+  };
 
   return {
     async check() {
       try {
+        const testKey = config.username || STORAGE_KEY;
         const res = await fetch(
-          this.path(`get/${storeKey}`, proxyUrl),
+          this.path(`get/${testKey}`, proxyUrl),
           {
             method: "GET",
             headers: this.headers(),
@@ -51,9 +45,7 @@ export function createUpstashClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[Upstash] get key = ", key, res.status, res.statusText);
       const resJson = (await res.json()) as { result: string };
-
       return resJson.result;
     },
 
@@ -67,32 +59,38 @@ export function createUpstashClient(store: SyncStore) {
         },
         FetchType.Sync,
       );
-
-      console.log("[Upstash] set key = ", key, res.status, res.statusText);
+      console.log("[Upstash] set key", key, res.status, res.statusText);
     },
 
-    async get() {
-      const chunkCount = Number(await this.redisGet(chunkCountKey));
-      if (!Number.isInteger(chunkCount)) return;
+    async get(filePath: string) {
+      const redisKey = pathToKey(filePath);
+      const chunkCountKey = `${redisKey}-chunk-count`;
+      const chunkIndexKey = (i: number) => `${redisKey}-chunk-${i}`;
 
-      const chunks = await Promise.all(
+      const chunkCount = Number(await this.redisGet(chunkCountKey));
+      if (!Number.isInteger(chunkCount)) return "";
+
+      const chunkList = await Promise.all(
         new Array(chunkCount)
           .fill(0)
           .map((_, i) => this.redisGet(chunkIndexKey(i))),
       );
-      console.log("[Upstash] get full chunks", chunks);
-      return chunks.join("");
+      console.log("[Upstash] get", filePath, "chunks:", chunkCount);
+      return chunkList.join("");
     },
 
-    async set(_: string, value: string) {
-      // upstash limit the max request size which is 1Mb for “Free” and “Pay as you go”
-      // so we need to split the data to chunks
+    async set(filePath: string, value: string) {
+      const redisKey = pathToKey(filePath);
+      const chunkCountKey = `${redisKey}-chunk-count`;
+      const chunkIndexKey = (i: number) => `${redisKey}-chunk-${i}`;
+
       let index = 0;
       for await (const chunk of chunks(value)) {
         await this.redisSet(chunkIndexKey(index), chunk);
         index += 1;
       }
       await this.redisSet(chunkCountKey, index.toString());
+      console.log("[Upstash] set", filePath, "chunks:", index);
     },
 
     headers() {
@@ -100,6 +98,7 @@ export function createUpstashClient(store: SyncStore) {
         Authorization: `Bearer ${config.apiKey}`,
       };
     },
+
     path(path: string, proxyUrl: string = "") {
       if (!path.endsWith("/")) {
         path += "/";
@@ -108,7 +107,6 @@ export function createUpstashClient(store: SyncStore) {
         path = path.slice(1);
       }
 
-      // 如果没有启用代理或代理 URL 为空，直接使用 Upstash 端点
       if (!proxyUrl) {
         let endpoint = config.endpoint;
         if (!endpoint.endsWith("/")) {
@@ -117,7 +115,6 @@ export function createUpstashClient(store: SyncStore) {
         return endpoint + path;
       }
 
-      // 在 standalone 模式中，使用代理服务器
       if (proxyUrl.length > 0 && !proxyUrl.endsWith("/")) {
         proxyUrl += "/";
       }
@@ -127,7 +124,6 @@ export function createUpstashClient(store: SyncStore) {
 
       try {
         let u = new URL(proxyUrl + pathPrefix + path);
-        // add query params
         u.searchParams.append("endpoint", config.endpoint);
         url = u.toString();
       } catch (e) {

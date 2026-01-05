@@ -6,24 +6,14 @@ export type WebDAVConfig = SyncStore["webdav"];
 export type WebDavClient = ReturnType<typeof createWebDavClient>;
 
 export function createWebDavClient(store: SyncStore) {
-  const folder = STORAGE_KEY;
-  const fileName = `${folder}/backup.json`;
   const config = store.webdav;
-  // 使用统一的 getProxyUrl 函数
-  // 在 Tauri 环境中会返回空字符串（自动使用 Rust 代理）
   const proxyUrl = getProxyUrl(store.useProxy, store.proxyUrl);
-
-  if (store.useProxy) {
-    console.log("[WebDav] Proxy enabled, using unified fetch");
-  } else {
-    console.log("[WebDav] Direct connection (no proxy)");
-  }
 
   return {
     async check() {
       try {
         const res = await fetch(
-          this.path(folder, proxyUrl, "MKCOL"),
+          this.path(config.username || STORAGE_KEY, proxyUrl, "MKCOL"),
           {
             method: "GET",
             headers: this.headers(),
@@ -42,13 +32,12 @@ export function createWebDavClient(store: SyncStore) {
       } catch (e) {
         console.error("[WebDav] failed to check", e);
       }
-
       return false;
     },
 
-    async get(key: string) {
+    async get(filePath: string) {
       const res = await fetch(
-        this.path(fileName, proxyUrl),
+        this.path(filePath, proxyUrl),
         {
           method: "GET",
           headers: this.headers(),
@@ -56,7 +45,7 @@ export function createWebDavClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[WebDav] get key = ", key, res.status, res.statusText);
+      console.log("[WebDav] get", filePath, res.status, res.statusText);
 
       if (404 == res.status) {
         return "";
@@ -65,9 +54,22 @@ export function createWebDavClient(store: SyncStore) {
       return await res.text();
     },
 
-    async set(key: string, value: string) {
+    async set(filePath: string, value: string) {
+      // 确保目录存在
+      const dirPath = filePath.split("/").slice(0, -1).join("/");
+      if (dirPath) {
+        await fetch(
+          this.path(dirPath, proxyUrl, "MKCOL"),
+          {
+            method: "MKCOL",
+            headers: this.headers(),
+          },
+          FetchType.Sync,
+        );
+      }
+
       const res = await fetch(
-        this.path(fileName, proxyUrl),
+        this.path(filePath, proxyUrl),
         {
           method: "PUT",
           headers: this.headers(),
@@ -76,22 +78,21 @@ export function createWebDavClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[WebDav] set key = ", key, res.status, res.statusText);
+      console.log("[WebDav] set", filePath, res.status, res.statusText);
     },
 
     headers() {
       const auth = btoa(config.username + ":" + config.password);
-
       return {
         authorization: `Basic ${auth}`,
       };
     },
+
     path(path: string, proxyUrl: string = "", proxyMethod: string = "") {
       if (path.startsWith("/")) {
         path = path.slice(1);
       }
 
-      // 如果没有启用代理或代理 URL 为空，直接使用 WebDAV 端点
       if (!proxyUrl) {
         let endpoint = config.endpoint;
         if (!endpoint.endsWith("/")) {
@@ -109,7 +110,6 @@ export function createWebDavClient(store: SyncStore) {
 
       try {
         let u = new URL(proxyUrl + pathPrefix + path);
-        // add query params
         u.searchParams.append("endpoint", config.endpoint);
         proxyMethod && u.searchParams.append("proxy_method", proxyMethod);
         url = u.toString();
