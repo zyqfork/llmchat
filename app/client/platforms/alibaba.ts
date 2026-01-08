@@ -114,6 +114,22 @@ export class QwenApi implements LLMApi {
 
   extractMessage(res: any) {
     // Response API format - check for output field
+    if (res.output && Array.isArray(res.output)) {
+      // Response API 返回的是 output 数组，提取第一个 message 的内容
+      const firstOutput = res.output.find(
+        (item: any) => item.type === "message",
+      );
+      if (firstOutput && firstOutput.content) {
+        // 提取文本内容
+        const textContent = firstOutput.content
+          .filter((item: any) => item.type === "output_text")
+          .map((item: any) => item.text)
+          .join("");
+        return textContent;
+      }
+      return res.output;
+    }
+    // 兼容旧格式
     if (res.output) {
       return res.output;
     }
@@ -159,25 +175,49 @@ export class QwenApi implements LLMApi {
     let requestPayload: any;
 
     if (useResponseApi) {
-      // Response API format
-      const lastMessage = messages[messages.length - 1];
+      // Response API format - 只发送当前用户输入，通过 conversation_id 维持上下文
+
+      // 1. 提取系统提示词 (instructions)
+      let instructions = "";
+      const systemMessages = messages.filter((msg) => msg.role === "system");
+      if (systemMessages.length > 0) {
+        instructions = systemMessages
+          .map((msg) =>
+            typeof msg.content === "string" ? msg.content : String(msg.content),
+          )
+          .join("\n");
+      }
+
+      // 2. 提取当前用户输入 (input) - 只取最后一个用户消息
+      const userMessages = messages.filter((msg) => msg.role === "user");
+      const lastUserMessage = userMessages[userMessages.length - 1];
       let input: string | any[];
 
-      if (typeof lastMessage.content === "string") {
-        input = lastMessage.content;
-      } else if (Array.isArray(lastMessage.content)) {
-        input = lastMessage.content;
-      } else {
-        input = String(lastMessage.content);
+      if (!lastUserMessage) {
+        throw new Error("No user message found for Response API");
       }
+
+      if (typeof lastUserMessage.content === "string") {
+        input = lastUserMessage.content;
+      } else if (Array.isArray(lastUserMessage.content)) {
+        input = lastUserMessage.content;
+      } else {
+        input = String(lastUserMessage.content);
+      }
+
+      // 3. 获取当前会话的 Response API 状态
+      const currentSession = useChatStore.getState().currentSession();
+      const conversationId = currentSession.responseApiConversationId;
 
       requestPayload = {
         input,
         model: modelConfig.model,
+        ...(instructions && { instructions }), // 只有存在系统提示词时才包含
         temperature: modelConfig.temperature,
-        max_tokens: modelConfig.max_tokens,
+        max_output_tokens: Math.max(modelConfig.max_tokens, 1024), // Response API 使用 max_output_tokens
         stream: shouldStream,
-        store: false,
+        store: true, // 启用状态存储以维持上下文
+        ...(conversationId && { conversation_id: conversationId }), // 如果有会话 ID 则包含
       };
     } else {
       // Chat Completions format
@@ -265,11 +305,25 @@ export class QwenApi implements LLMApi {
               const delta = json.delta;
               if (!delta) return { isThinking: false, content: "" };
 
+              // 阿里巴巴 Response API 可能包含思考内容
+              const reasoning =
+                delta.reasoning || delta.reasoning_content || "";
               const content = delta.content || delta.output || "";
-              return {
-                isThinking: false,
-                content: content,
-              };
+
+              // 如果有思考内容，优先返回思考内容
+              if (reasoning && reasoning.length > 0) {
+                return {
+                  isThinking: true,
+                  content: reasoning,
+                };
+              } else if (content && content.length > 0) {
+                return {
+                  isThinking: false,
+                  content: content,
+                };
+              }
+
+              return { isThinking: false, content: "" };
             }
 
             const choices = json.choices as Array<{
@@ -382,6 +436,12 @@ export class QwenApi implements LLMApi {
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
+
+        // For Response API, save the response body for conversation ID extraction
+        if (useResponseApi && resJson) {
+          (res as any).__responseBody = resJson;
+        }
+
         const message = this.extractMessage(resJson);
         try {
           const debugBody = JSON.parse(chatPayload.body as any);

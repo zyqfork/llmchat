@@ -1399,7 +1399,7 @@ export function Settings() {
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<ServiceProvider, boolean>
   >({
-    [ServiceProvider.OpenAI]: true, // 默认全部折叠
+    [ServiceProvider.OpenAI]: false, // 默认展开 OpenAI
     [ServiceProvider.Azure]: true,
     [ServiceProvider.Google]: true,
     [ServiceProvider.Anthropic]: true,
@@ -1527,28 +1527,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.openaiApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.openaiApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.openaiApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.openaiApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -1560,8 +1559,8 @@ export function Settings() {
           value={accessStore.openaiApiPath}
           placeholder={
             accessStore.openaiApiType === "response"
-              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
-              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+              ? "/v1/responses"
+              : "/v1/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -1941,28 +1940,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.bytedanceApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.bytedanceApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.bytedanceApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.bytedanceApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2060,28 +2058,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.alibabaApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.alibabaApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.alibabaApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.alibabaApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2179,28 +2176,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.moonshotApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.moonshotApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.moonshotApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.moonshotApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2212,8 +2208,8 @@ export function Settings() {
           value={accessStore.moonshotApiPath}
           placeholder={
             accessStore.moonshotApiType === "response"
-              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
-              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+              ? "/v1/responses"
+              : "/v1/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -2298,28 +2294,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.deepseekApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.deepseekApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.deepseekApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.deepseekApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2416,28 +2411,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.xaiApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.xaiApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.xaiApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.xaiApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2449,8 +2443,8 @@ export function Settings() {
           value={accessStore.xaiApiPath}
           placeholder={
             accessStore.xaiApiType === "response"
-              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
-              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+              ? "/v1/responses"
+              : "/v1/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -2535,28 +2529,27 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiType.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
       >
-        <Select
-          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
-          value={accessStore.siliconflowApiType}
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+          type="checkbox"
+          checked={accessStore.siliconflowApiType === "response"}
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.siliconflowApiType = e.currentTarget.value as
-                  | "chat"
-                  | "response"),
+                (access.siliconflowApiType = e.currentTarget.checked
+                  ? "response"
+                  : "chat"),
             );
           }}
-        >
-          <option value="chat">
-            {Locale.Settings.Access.OpenAI.ApiType.Chat}
-          </option>
-          <option value="response">
-            {Locale.Settings.Access.OpenAI.ApiType.Response}
-          </option>
-        </Select>
+          style={{
+            width: "18px",
+            height: "18px",
+            cursor: "pointer",
+          }}
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Access.OpenAI.ApiPath.Title}
@@ -2568,8 +2561,8 @@ export function Settings() {
           value={accessStore.siliconflowApiPath}
           placeholder={
             accessStore.siliconflowApiType === "response"
-              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
-              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+              ? "/v1/responses"
+              : "/v1/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(

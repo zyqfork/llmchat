@@ -337,6 +337,42 @@ export function stream(
         }
         const text = msg.data;
         try {
+          // 保存原始响应数据以提取会话 ID
+          try {
+            const jsonData = JSON.parse(text);
+            if (jsonData && typeof jsonData === "object") {
+              // Response API 的 conversation_id 可能在不同的字段中
+              // 尝试从多个可能的字段提取
+              const possibleConversationId =
+                jsonData.conversation_id ||
+                jsonData.id ||
+                jsonData.response?.id ||
+                jsonData.response?.conversation_id;
+
+              // 保存到响应对象中，供后续提取会话 ID 使用
+              if (!(responseRes as any).__responseBody) {
+                (responseRes as any).__responseBody = jsonData;
+                if (possibleConversationId) {
+                  console.log(
+                    "[Response API] Initial conversation ID found:",
+                    possibleConversationId,
+                  );
+                }
+              } else if (possibleConversationId) {
+                // 更新会话 ID
+                (responseRes as any).__responseBody.conversation_id =
+                  possibleConversationId;
+                (responseRes as any).__responseBody.id = possibleConversationId;
+                console.log(
+                  "[Response API] Conversation ID updated:",
+                  possibleConversationId,
+                );
+              }
+            }
+          } catch (e) {
+            // 忽略 JSON 解析错误，继续处理
+          }
+
           const chunk = parseSSE(text, runTools);
 
           // 检测到工具信息时立即通知 UI 显示工具名称

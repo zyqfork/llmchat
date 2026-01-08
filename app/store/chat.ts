@@ -147,6 +147,8 @@ export interface ChatSession {
   mcpEnabled?: boolean;
   // MCP 在当前对话中的启用状态
   mcpEnabledClients?: Record<string, boolean>;
+  // Response API 会话 ID（用于维持上下文）
+  responseApiConversationId?: string;
   // 多模型对话模式
   multiModelMode?: {
     enabled: boolean;
@@ -159,6 +161,8 @@ export interface ChatSession {
     modelMemoryPrompts: Record<string, string>;
     // 每个模型的独立总结索引
     modelSummarizeIndexes: Record<string, number>;
+    // 每个模型的 Response API 会话 ID
+    modelResponseApiConversationIds?: Record<string, string>;
   };
   // 搜索功能状态
   searchEnabled?: boolean;
@@ -799,10 +803,71 @@ export const useChatStore = createPersistStore(
               });
             } catch {}
 
+            // 处理 Response API 会话 ID
+            let responseApiConversationId: string | undefined;
+            try {
+              if (responseRes?.status === 200) {
+                const responseBody = (responseRes as any)?.__responseBody;
+                console.log(
+                  "[Response API] Response body for conversation ID extraction:",
+                  responseBody,
+                );
+                if (responseBody && typeof responseBody === "object") {
+                  // 从响应中提取会话 ID - 尝试多个可能的字段
+                  responseApiConversationId =
+                    responseBody.conversation_id ||
+                    responseBody.id ||
+                    responseBody.response?.id ||
+                    responseBody.response?.conversation_id;
+                  console.log(
+                    "[Response API] Extracted conversation ID:",
+                    responseApiConversationId,
+                  );
+                }
+              }
+            } catch (e) {
+              console.warn(
+                "[Response API] Failed to extract conversation ID:",
+                e,
+              );
+            }
+
             get().updateTargetSession(session, (session) => {
               const messageIndex = session.messages.findIndex(
                 (m) => m.id === botMessage.id,
               );
+
+              // 保存 Response API 会话 ID
+              if (responseApiConversationId) {
+                if (!session.responseApiConversationId) {
+                  session.responseApiConversationId = responseApiConversationId;
+                  console.log(
+                    "[Response API] Saved conversation ID to session:",
+                    responseApiConversationId,
+                  );
+                } else if (
+                  session.responseApiConversationId !==
+                  responseApiConversationId
+                ) {
+                  // 如果会话 ID 发生变化，更新它（虽然这种情况不应该发生）
+                  console.warn(
+                    "[Response API] Conversation ID changed from",
+                    session.responseApiConversationId,
+                    "to",
+                    responseApiConversationId,
+                  );
+                  session.responseApiConversationId = responseApiConversationId;
+                } else {
+                  console.log(
+                    "[Response API] Session already has conversation ID:",
+                    session.responseApiConversationId,
+                  );
+                }
+              } else {
+                console.log(
+                  "[Response API] No conversation ID found in response",
+                );
+              }
 
               if (messageIndex > -1) {
                 const finalBotMessage = {

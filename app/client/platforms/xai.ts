@@ -82,6 +82,25 @@ export class XAIApi implements LLMApi {
   }
 
   extractMessage(res: any) {
+    // Response API format
+    if (res.output && Array.isArray(res.output)) {
+      // Response API 返回的是 output 数组，提取第一个 message 的内容
+      const firstOutput = res.output.find(
+        (item: any) => item.type === "message",
+      );
+      if (firstOutput && firstOutput.content) {
+        // 提取文本内容
+        const textContent = firstOutput.content
+          .filter((item: any) => item.type === "output_text")
+          .map((item: any) => item.text)
+          .join("");
+        return textContent;
+      }
+      return res.output;
+    }
+    if (res.output) {
+      return res.output;
+    }
     return res.choices?.at(0)?.message?.content ?? "";
   }
 
@@ -121,11 +140,71 @@ export class XAIApi implements LLMApi {
     const controller = new AbortController();
     options.onController?.(controller);
 
+    // Check if using Response API
+    const accessStore = useAccessStore.getState();
+    const useResponseApi = accessStore.xaiApiType === "response";
+
+    let finalRequestPayload: any;
+    let apiPath: string;
+
+    if (useResponseApi) {
+      // Response API format - 只发送当前用户输入，通过 conversation_id 维持上下文
+
+      // 1. 提取系统提示词 (instructions)
+      let instructions = "";
+      const systemMessages = messages.filter((msg) => msg.role === "system");
+      if (systemMessages.length > 0) {
+        instructions = systemMessages
+          .map((msg) =>
+            typeof msg.content === "string" ? msg.content : String(msg.content),
+          )
+          .join("\n");
+      }
+
+      // 2. 提取当前用户输入 (input) - 只取最后一个用户消息
+      const userMessages = messages.filter((msg) => msg.role === "user");
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      let input: string | any[];
+
+      if (!lastUserMessage) {
+        throw new Error("No user message found for Response API");
+      }
+
+      if (typeof lastUserMessage.content === "string") {
+        input = lastUserMessage.content;
+      } else if (Array.isArray(lastUserMessage.content)) {
+        input = lastUserMessage.content;
+      } else {
+        input = String(lastUserMessage.content);
+      }
+
+      // 3. 获取当前会话的 Response API 状态
+      const currentSession = useChatStore.getState().currentSession();
+      const conversationId = currentSession.responseApiConversationId;
+
+      finalRequestPayload = {
+        input,
+        model: modelConfig.model,
+        ...(instructions && { instructions }), // 只有存在系统提示词时才包含
+        temperature: modelConfig.temperature,
+        max_output_tokens: modelConfig.max_tokens, // Response API 使用 max_output_tokens
+        stream: options.config.stream,
+        store: true, // 启用状态存储以维持上下文
+        ...(conversationId && { conversation_id: conversationId }), // 如果有会话 ID 则包含
+      };
+
+      // Use custom API path if provided, otherwise use default Response API path
+      apiPath = accessStore.xaiApiPath || XAI.ResponsePath;
+    } else {
+      finalRequestPayload = requestPayload;
+      apiPath = accessStore.xaiApiPath || XAI.ChatPath;
+    }
+
     try {
-      const chatPath = this.path(XAI.ChatPath);
+      const chatPath = this.path(apiPath);
       const chatPayload = {
         method: "POST",
-        body: JSON.stringify(requestPayload),
+        body: JSON.stringify(finalRequestPayload),
         signal: controller.signal,
         headers: getHeaders(false, {
           model: options.config.model,
@@ -160,6 +239,34 @@ export class XAIApi implements LLMApi {
           (text: string, runTools: ChatMessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
+
+            // Handle Response API streaming format
+            if (useResponseApi) {
+              const delta = json.delta;
+              if (!delta) return { isThinking: false, content: "" };
+
+              // XAI Response API 可能包含思考内容
+              const reasoning =
+                delta.reasoning || delta.reasoning_content || "";
+              const content = delta.content || delta.output || "";
+
+              // 如果有思考内容，优先返回思考内容
+              if (reasoning && reasoning.length > 0) {
+                return {
+                  isThinking: true,
+                  content: reasoning,
+                };
+              } else if (content && content.length > 0) {
+                return {
+                  isThinking: false,
+                  content: content,
+                };
+              }
+
+              return { isThinking: false, content: "" };
+            }
+
+            // Handle Chat Completions API streaming format
             const choices = json.choices as Array<{
               delta: {
                 content: string;
@@ -251,6 +358,12 @@ export class XAIApi implements LLMApi {
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
+
+        // For Response API, save the response body for conversation ID extraction
+        if (useResponseApi && resJson) {
+          (res as any).__responseBody = resJson;
+        }
+
         const message = this.extractMessage(resJson);
         try {
           const debugBody = JSON.parse(chatPayload.body as any);

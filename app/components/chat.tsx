@@ -3565,6 +3565,26 @@ function _Chat() {
                 <span className={styles["chat-assistant-name"]}>
                   {session.mask.name}
                 </span>
+                {/* Response API 会话 ID 显示 */}
+                {session.responseApiConversationId && (
+                  <span
+                    className={styles["response-api-conversation-id"]}
+                    title={`Response API 会话 ID: ${session.responseApiConversationId}`}
+                    onClick={() => {
+                      copyToClipboard(session.responseApiConversationId!);
+                      showToast("会话 ID 已复制到剪贴板");
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      color: "var(--primary)",
+                      textDecoration: "underline",
+                      marginLeft: "8px",
+                    }}
+                  >
+                    ID: {session.responseApiConversationId.slice(-8)}
+                  </span>
+                )}
               </div>
             </div>
           </div>

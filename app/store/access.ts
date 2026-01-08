@@ -76,7 +76,7 @@ const DEFAULT_ACCESS_STATE = {
 
   // 启用的服务提供商
   enabledProviders: {
-    [ServiceProvider.OpenAI]: false,
+    [ServiceProvider.OpenAI]: true, // 默认启用 OpenAI
     [ServiceProvider.Azure]: false,
     [ServiceProvider.Google]: false,
     [ServiceProvider.Anthropic]: false,

@@ -111,6 +111,21 @@ export class DoubaoApi implements LLMApi {
 
   extractMessage(res: any) {
     // Response API format - 支持多种可能的响应格式
+    if (res.output && Array.isArray(res.output)) {
+      // Response API 返回的是 output 数组，提取第一个 message 的内容
+      const firstOutput = res.output.find(
+        (item: any) => item.type === "message",
+      );
+      if (firstOutput && firstOutput.content) {
+        // 提取文本内容
+        const textContent = firstOutput.content
+          .filter((item: any) => item.type === "output_text")
+          .map((item: any) => item.text)
+          .join("");
+        return textContent;
+      }
+      return res.output;
+    }
     if (res.output) {
       // 字节跳动 Response API 非流式响应
       return typeof res.output === "string"
@@ -162,19 +177,50 @@ export class DoubaoApi implements LLMApi {
     let requestPayload: any;
 
     if (useResponseApi) {
-      const lastMessage = messages[messages.length - 1];
-      const input =
-        typeof lastMessage.content === "string"
-          ? lastMessage.content
-          : String(lastMessage.content);
+      // Response API format - 只发送当前用户输入，通过 conversation_id 维持上下文
 
-      // 字节跳动 Response API 不支持 max_tokens 字段
+      // 1. 提取系统提示词 (instructions)
+      let instructions = "";
+      const systemMessages = messages.filter((msg) => msg.role === "system");
+      if (systemMessages.length > 0) {
+        instructions = systemMessages
+          .map((msg) =>
+            typeof msg.content === "string" ? msg.content : String(msg.content),
+          )
+          .join("\n");
+      }
+
+      // 2. 提取当前用户输入 (input) - 只取最后一个用户消息
+      const userMessages = messages.filter((msg) => msg.role === "user");
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      let input: string | any[];
+
+      if (!lastUserMessage) {
+        throw new Error("No user message found for Response API");
+      }
+
+      if (typeof lastUserMessage.content === "string") {
+        input = lastUserMessage.content;
+      } else if (Array.isArray(lastUserMessage.content)) {
+        input = lastUserMessage.content;
+      } else {
+        input = String(lastUserMessage.content);
+      }
+
+      // 3. 获取当前会话的 Response API 状态
+      const currentSession = useChatStore.getState().currentSession();
+      const conversationId = currentSession.responseApiConversationId;
+
+      // 字节跳动 Response API 使用 max_output_tokens 而不是 max_tokens
       requestPayload = {
         input,
         model: modelConfig.model,
+        ...(instructions && { instructions }), // 只有存在系统提示词时才包含
         temperature: modelConfig.temperature,
+        max_output_tokens: Math.max(modelConfig.max_tokens, 1024), // Response API 使用 max_output_tokens
         stream: shouldStream,
-        store: false,
+        store: true, // 启用状态存储以维持上下文
+        ...(conversationId && { conversation_id: conversationId }), // 如果有会话 ID 则包含
       };
     } else {
       requestPayload = {
@@ -248,6 +294,17 @@ export class DoubaoApi implements LLMApi {
 
                 const eventType = json.type;
 
+                // 处理推理内容的增量（思考过程）
+                if (eventType === "response.reasoning_summary_text.delta") {
+                  const delta = json.delta || "";
+                  if (delta) {
+                    return {
+                      isThinking: true,
+                      content: delta,
+                    };
+                  }
+                }
+
                 // 处理实际输出内容的增量
                 if (eventType === "response.output_text.delta") {
                   const delta = json.delta || "";
@@ -256,16 +313,6 @@ export class DoubaoApi implements LLMApi {
                       isThinking: false,
                       content: delta,
                     };
-                  }
-                }
-
-                // 处理推理内容的增量（可选，用于显示思考过程）
-                if (eventType === "response.reasoning_summary_text.delta") {
-                  const delta = json.delta || "";
-                  if (delta) {
-                    // 推理内容可以作为思考过程显示，或者忽略
-                    // 这里我们选择忽略推理内容，只显示最终输出
-                    return { isThinking: false, content: "" };
                   }
                 }
 
@@ -426,6 +473,12 @@ export class DoubaoApi implements LLMApi {
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
+
+        // For Response API, save the response body for conversation ID extraction
+        if (useResponseApi && resJson) {
+          (res as any).__responseBody = resJson;
+        }
+
         const message = this.extractMessage(resJson);
         try {
           const debugBody = JSON.parse(chatPayload.body as any);
