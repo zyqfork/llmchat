@@ -317,9 +317,17 @@ export function getHeaders(
   if (bearerToken) {
     headers[authHeader] = bearerToken;
   } else if (isEnabledAccessControl && validString(accessStore.accessCode)) {
-    headers["Authorization"] = getBearerToken(
-      ACCESS_CODE_PREFIX + accessStore.accessCode,
-    );
+    // 对于 Anthropic、Azure、Google，即使使用 access code，也应该使用对应的认证头
+    if (isAnthropic || isAzure || isGoogle) {
+      headers[authHeader] = getBearerToken(
+        ACCESS_CODE_PREFIX + accessStore.accessCode,
+        isAzure || isAnthropic || isGoogle,
+      );
+    } else {
+      headers["Authorization"] = getBearerToken(
+        ACCESS_CODE_PREFIX + accessStore.accessCode,
+      );
+    }
   }
 
   // 为自定义服务商添加配置信息到请求头

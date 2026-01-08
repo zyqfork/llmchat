@@ -642,7 +642,7 @@ export function streamWithThink(
       }
 
       // 如果流结束时还在思考模式，添加结束标签
-      if (isInThinkingMode && modelHasReasoningCapability) {
+      if (isInThinkingMode) {
         remainText += "\n</think>";
       }
 
@@ -744,12 +744,8 @@ export function streamWithThink(
 
           if (chunk) {
             // deal with <think> and </think> tags start
-            // 只有当模型具有推理能力时才处理思考内容
-            if (
-              modelHasReasoningCapability &&
-              !chunk.isThinking &&
-              chunk.content
-            ) {
+            // 根据响应内容判断是否为思考内容，不依赖模型名称
+            if (!chunk.isThinking && chunk.content) {
               if (chunk.content.startsWith("<think>")) {
                 chunk.isThinking = true;
                 chunk.content = chunk.content.slice(7).trim();
@@ -768,8 +764,9 @@ export function streamWithThink(
             const isThinkingChanged = lastIsThinking !== chunk.isThinking;
             lastIsThinking = chunk.isThinking;
 
-            if (modelHasReasoningCapability && chunk.isThinking) {
-              // If in thinking mode and model has reasoning capability
+            // 根据响应内容判断是否显示 think，不依赖模型名称
+            if (chunk.isThinking) {
+              // If in thinking mode, add opening tag if needed
               if (!isInThinkingMode || isThinkingChanged) {
                 // If this is a new thinking block or mode changed, add opening tag
                 isInThinkingMode = true;
@@ -782,7 +779,7 @@ export function streamWithThink(
                 remainText += chunk.content || "";
               }
             } else {
-              // If in normal mode or model doesn't have reasoning capability
+              // If in normal mode
               if (isInThinkingMode || isThinkingChanged) {
                 // If switching from thinking mode to normal mode, add closing tag
                 isInThinkingMode = false;

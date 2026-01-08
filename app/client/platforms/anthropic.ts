@@ -1,4 +1,10 @@
-import { Anthropic, ApiPath, DEFAULT_MODELS, OpenaiPath } from "@/app/constant";
+import {
+  Anthropic,
+  ApiPath,
+  DEFAULT_MODELS,
+  OpenaiPath,
+  ServiceProvider,
+} from "@/app/constant";
 import { OpenAIListModelResponse } from "./openai";
 import { ChatOptions, getHeaders, LLMApi, SpeechOptions } from "../api";
 import {
@@ -261,13 +267,14 @@ export class ClaudeApi implements LLMApi {
                   | "message_delta"
                   | "message_stop";
                 content_block?: {
-                  type: "tool_use";
-                  id: string;
-                  name: string;
+                  type: "tool_use" | "thinking" | "text";
+                  id?: string;
+                  name?: string;
                 };
                 delta?: {
-                  type: "text_delta" | "input_json_delta";
+                  type: "text_delta" | "input_json_delta" | "thinking_delta";
                   text?: string;
+                  thinking?: string;
                   partial_json?: string;
                   stop_reason?: string;
                 };
@@ -289,18 +296,26 @@ export class ClaudeApi implements LLMApi {
             };
           }
 
+          // 处理思考内容
+          // 当 content_block.type 为 "thinking" 时，表示这是思考内容
+          const isThinkingContent =
+            chunkJson?.content_block?.type === "thinking" ||
+            chunkJson?.delta?.type === "thinking_delta";
+
           if (chunkJson?.content_block?.type == "tool_use") {
             index += 1;
-            const id = chunkJson?.content_block.id;
-            const name = chunkJson?.content_block.name;
-            runTools.push({
-              id,
-              type: "function",
-              function: {
-                name,
-                arguments: "",
-              },
-            });
+            const id = chunkJson?.content_block.id || "";
+            const name = chunkJson?.content_block.name || "";
+            if (id && name) {
+              runTools.push({
+                id,
+                type: "function",
+                function: {
+                  name,
+                  arguments: "",
+                },
+              });
+            }
           }
           if (
             chunkJson?.delta?.type == "input_json_delta" &&
@@ -311,9 +326,12 @@ export class ClaudeApi implements LLMApi {
               chunkJson?.delta?.partial_json;
           }
           // 返回思考内容信息
-          const content = chunkJson?.delta?.text || "";
+          // 如果是 thinking 内容，优先使用 delta.thinking，否则使用 delta.text
+          const content = isThinkingContent
+            ? chunkJson?.delta?.thinking || chunkJson?.delta?.text || ""
+            : chunkJson?.delta?.text || "";
           return {
-            isThinking: false, // Anthropic的思考内容通过<thinking>标签处理
+            isThinking: isThinkingContent, // 根据content_block类型判断是否为思考内容
             content: content,
           };
         },
@@ -357,7 +375,7 @@ export class ClaudeApi implements LLMApi {
           );
         },
         options,
-        modelCapabilities.reasoning || false, // 传递模型推理能力
+        true, // 总是启用 thinking 处理，根据响应内容判断是否显示
       );
     } else {
       const payload = {
@@ -407,13 +425,16 @@ export class ClaudeApi implements LLMApi {
   }
   async models() {
     try {
+      // 明确指定使用 Anthropic 的配置，确保使用 x-api-key 认证头
+      const headers = getHeaders(false, {
+        providerName: ServiceProvider.Anthropic,
+      });
+
       const res = await fetch(
         this.path(OpenaiPath.ListModelPath),
         {
           method: "GET",
-          headers: {
-            ...getHeaders(),
-          },
+          headers,
         },
         FetchType.LLM,
       );

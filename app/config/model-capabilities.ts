@@ -838,19 +838,25 @@ export function getEnhancedModelCapabilities(
   }
 
   // 推理能力检测
+  // 检测 Claude 3.7 和 Claude 4 系列模型（支持扩展思考）
+  const isClaude37Or4 = /claude-3-7|claude-4|claude-opus-4/i.test(modelName);
+
   if (
     /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5/i.test(
       modelName,
-    ) &&
-    !/image/i.test(modelName) // 排除包含 "image" 的模型
+    ) ||
+    isClaude37Or4
   ) {
-    capabilities.reasoning = true;
+    if (!/image/i.test(modelName)) {
+      // 排除包含 "image" 的模型
+      capabilities.reasoning = true;
 
-    // 设置thinking实现类型
-    if (/gemini/i.test(modelName)) {
-      capabilities.thinkingType = "gemini";
-    } else if (/claude/i.test(modelName)) {
-      capabilities.thinkingType = "claude";
+      // 设置thinking实现类型
+      if (/gemini/i.test(modelName)) {
+        capabilities.thinkingType = "gemini";
+      } else if (/claude/i.test(modelName)) {
+        capabilities.thinkingType = "claude";
+      }
     }
   }
 
