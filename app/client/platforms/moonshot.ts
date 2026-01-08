@@ -86,6 +86,10 @@ export class MoonshotApi implements LLMApi {
   }
 
   extractMessage(res: any) {
+    // Response API format
+    if (res.output) {
+      return res.output;
+    }
     return res.choices?.at(0)?.message?.content ?? "";
   }
 
@@ -94,6 +98,7 @@ export class MoonshotApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
+    const accessStore = useAccessStore.getState();
     const messages: ChatOptions["messages"] = [];
     for (const v of options.messages) {
       const content = getMessageTextContent(v);
@@ -109,17 +114,38 @@ export class MoonshotApi implements LLMApi {
       },
     };
 
-    const requestPayload: RequestPayload = {
-      messages,
-      stream: options.config.stream,
-      model: modelConfig.model,
-      temperature: modelConfig.temperature,
-      presence_penalty: modelConfig.presence_penalty,
-      frequency_penalty: modelConfig.frequency_penalty,
-      top_p: modelConfig.top_p,
-      // max_tokens: Math.max(modelConfig.max_tokens, 1024),
-      // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
-    };
+    const useResponseApi = accessStore.moonshotApiType === "response";
+
+    let requestPayload: any;
+
+    if (useResponseApi) {
+      const lastMessage = messages[messages.length - 1];
+      const input =
+        typeof lastMessage.content === "string"
+          ? lastMessage.content
+          : String(lastMessage.content);
+
+      requestPayload = {
+        input,
+        model: modelConfig.model,
+        temperature: modelConfig.temperature,
+        max_tokens: modelConfig.max_tokens,
+        stream: options.config.stream,
+        store: false,
+      };
+    } else {
+      requestPayload = {
+        messages,
+        stream: options.config.stream,
+        model: modelConfig.model,
+        temperature: modelConfig.temperature,
+        presence_penalty: modelConfig.presence_penalty,
+        frequency_penalty: modelConfig.frequency_penalty,
+        top_p: modelConfig.top_p,
+        // max_tokens: Math.max(modelConfig.max_tokens, 1024),
+        // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
+      };
+    }
 
     console.log("[Request] openai payload: ", requestPayload);
 
@@ -128,7 +154,17 @@ export class MoonshotApi implements LLMApi {
     options.onController?.(controller);
 
     try {
-      const chatPath = this.path(Moonshot.ChatPath);
+      // Determine API path
+      let apiPath: string;
+      if (accessStore.moonshotApiPath) {
+        apiPath = accessStore.moonshotApiPath;
+      } else if (useResponseApi) {
+        apiPath = Moonshot.ResponsePath;
+      } else {
+        apiPath = Moonshot.ChatPath;
+      }
+
+      const chatPath = this.path(apiPath);
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),

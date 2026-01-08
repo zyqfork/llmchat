@@ -113,6 +113,10 @@ export class QwenApi implements LLMApi {
   }
 
   extractMessage(res: any) {
+    // Response API format - check for output field
+    if (res.output) {
+      return res.output;
+    }
     // OpenAI 兼容格式
     return res?.choices?.at(0)?.message?.content ?? "";
   }
@@ -122,6 +126,7 @@ export class QwenApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
+    const accessStore = useAccessStore.getState();
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
@@ -147,18 +152,48 @@ export class QwenApi implements LLMApi {
     }
 
     const shouldStream = !!options.config.stream;
-    const requestPayload: RequestPayload = {
-      model: modelConfig.model,
-      messages,
-      stream: shouldStream,
-      temperature: modelConfig.temperature,
-      top_p: modelConfig.top_p === 1 ? 0.99 : modelConfig.top_p, // qwen top_p is should be < 1
-      // max_tokens: modelConfig.max_tokens,
-    };
 
-    // 添加 tools 参数（如果有）
-    if (options.tools && options.tools.length > 0) {
-      requestPayload.tools = options.tools;
+    // Check if using Response API
+    const useResponseApi = accessStore.alibabaApiType === "response";
+
+    let requestPayload: any;
+
+    if (useResponseApi) {
+      // Response API format
+      const lastMessage = messages[messages.length - 1];
+      let input: string | any[];
+
+      if (typeof lastMessage.content === "string") {
+        input = lastMessage.content;
+      } else if (Array.isArray(lastMessage.content)) {
+        input = lastMessage.content;
+      } else {
+        input = String(lastMessage.content);
+      }
+
+      requestPayload = {
+        input,
+        model: modelConfig.model,
+        temperature: modelConfig.temperature,
+        max_tokens: modelConfig.max_tokens,
+        stream: shouldStream,
+        store: false,
+      };
+    } else {
+      // Chat Completions format
+      requestPayload = {
+        model: modelConfig.model,
+        messages,
+        stream: shouldStream,
+        temperature: modelConfig.temperature,
+        top_p: modelConfig.top_p === 1 ? 0.99 : modelConfig.top_p, // qwen top_p is should be < 1
+        // max_tokens: modelConfig.max_tokens,
+      };
+
+      // 添加 tools 参数（如果有）
+      if (options.tools && options.tools.length > 0) {
+        requestPayload.tools = options.tools;
+      }
     }
 
     const controller = new AbortController();
@@ -182,7 +217,17 @@ export class QwenApi implements LLMApi {
         headers["Authorization"] = baseHeaders["Authorization"];
       }
 
-      const chatPath = this.path(Alibaba.ChatPath);
+      // Determine API path
+      let apiPath: string;
+      if (accessStore.alibabaApiPath) {
+        apiPath = accessStore.alibabaApiPath;
+      } else if (useResponseApi) {
+        apiPath = Alibaba.ResponsePath;
+      } else {
+        apiPath = Alibaba.ChatPath;
+      }
+
+      const chatPath = this.path(apiPath);
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
@@ -214,6 +259,19 @@ export class QwenApi implements LLMApi {
           (text: string, runTools: ChatMessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
+
+            // Handle Response API streaming format
+            if (useResponseApi) {
+              const delta = json.delta;
+              if (!delta) return { isThinking: false, content: "" };
+
+              const content = delta.content || delta.output || "";
+              return {
+                isThinking: false,
+                content: content,
+              };
+            }
+
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;

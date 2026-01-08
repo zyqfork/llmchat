@@ -52,7 +52,9 @@ const DEFAULT_GOOGLE_URL = isApp ? GEMINI_BASE_URL : ApiPath.Google;
 
 const DEFAULT_ANTHROPIC_URL = isApp ? ANTHROPIC_BASE_URL : ApiPath.Anthropic;
 
-const DEFAULT_BYTEDANCE_URL = isApp ? BYTEDANCE_BASE_URL : ApiPath.ByteDance;
+const DEFAULT_BYTEDANCE_URL = isApp
+  ? "https://ark.cn-beijing.volces.com/api/v3"
+  : ApiPath.ByteDance;
 
 const DEFAULT_ALIBABA_URL = isApp ? ALIBABA_BASE_URL : ApiPath.Alibaba;
 
@@ -126,6 +128,8 @@ const DEFAULT_ACCESS_STATE = {
   // openai
   openaiUrl: DEFAULT_OPENAI_URL,
   openaiApiKey: "",
+  openaiApiType: "chat" as "chat" | "response", // API type: chat completions or response API
+  openaiApiPath: "", // Custom API path, empty means use default based on API type
   openaiUseProxy: false,
   openaiProxyUrl: "",
 
@@ -154,36 +158,48 @@ const DEFAULT_ACCESS_STATE = {
   // bytedance
   bytedanceUrl: DEFAULT_BYTEDANCE_URL,
   bytedanceApiKey: "",
+  bytedanceApiType: "chat" as "chat" | "response",
+  bytedanceApiPath: "",
   bytedanceUseProxy: false,
   bytedanceProxyUrl: "",
 
   // alibaba
   alibabaUrl: DEFAULT_ALIBABA_URL,
   alibabaApiKey: "",
+  alibabaApiType: "chat" as "chat" | "response",
+  alibabaApiPath: "",
   alibabaUseProxy: false,
   alibabaProxyUrl: "",
 
   // moonshot
   moonshotUrl: DEFAULT_MOONSHOT_URL,
   moonshotApiKey: "",
+  moonshotApiType: "chat" as "chat" | "response",
+  moonshotApiPath: "",
   moonshotUseProxy: false,
   moonshotProxyUrl: "",
 
   // deepseek
   deepseekUrl: DEFAULT_DEEPSEEK_URL,
   deepseekApiKey: "",
+  deepseekApiType: "chat" as "chat" | "response",
+  deepseekApiPath: "",
   deepseekUseProxy: false,
   deepseekProxyUrl: "",
 
   // xai
   xaiUrl: DEFAULT_XAI_URL,
   xaiApiKey: "",
+  xaiApiType: "chat" as "chat" | "response",
+  xaiApiPath: "",
   xaiUseProxy: false,
   xaiProxyUrl: "",
 
   // siliconflow
   siliconflowUrl: DEFAULT_SILICONFLOW_URL,
   siliconflowApiKey: "",
+  siliconflowApiType: "chat" as "chat" | "response",
+  siliconflowApiPath: "",
   siliconflowUseProxy: false,
   siliconflowProxyUrl: "",
 

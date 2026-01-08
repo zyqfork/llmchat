@@ -156,6 +156,7 @@ export const Anthropic = {
 
 export const OpenaiPath = {
   ChatPath: "v1/chat/completions",
+  ResponsePath: "v1/responses", // Response API path
   SpeechPath: "v1/audio/speech",
   ImagePath: "v1/images/generations",
   ListModelPath: "v1/models",
@@ -177,35 +178,41 @@ export const Google = {
 };
 
 export const ByteDance = {
-  ExampleEndpoint: "https://ark.cn-beijing.volces.com/api/",
-  ChatPath: "api/v3/chat/completions",
+  ExampleEndpoint: "https://ark.cn-beijing.volces.com/api/v3",
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
 };
 
 export const Alibaba = {
   ExampleEndpoint: ALIBABA_BASE_URL,
   // OpenAI 兼容模式使用统一的路径
   ChatPath: "chat/completions",
+  ResponsePath: "responses",
 };
 
 export const Moonshot = {
   ExampleEndpoint: MOONSHOT_BASE_URL,
   ChatPath: "v1/chat/completions",
+  ResponsePath: "v1/responses",
 };
 
 export const DeepSeek = {
   ExampleEndpoint: DEEPSEEK_BASE_URL,
   ChatPath: "chat/completions",
+  ResponsePath: "responses",
   ListModelPath: "v1/models",
 };
 
 export const XAI = {
   ExampleEndpoint: XAI_BASE_URL,
   ChatPath: "v1/chat/completions",
+  ResponsePath: "v1/responses",
 };
 
 export const SiliconFlow = {
   ExampleEndpoint: SILICONFLOW_BASE_URL,
   ChatPath: "v1/chat/completions",
+  ResponsePath: "v1/responses",
   ListModelPath: "v1/models?&sub_type=chat",
 };
 

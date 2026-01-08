@@ -1527,6 +1527,50 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.openaiApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.openaiApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.openaiApiPath}
+          placeholder={
+            accessStore.openaiApiType === "response"
+              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
+              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.openaiApiPath = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
         title={Locale.Settings.Access.OpenAI.ApiKey.Title}
         subTitle={Locale.Settings.Access.OpenAI.ApiKey.SubTitle}
       >
@@ -1888,10 +1932,54 @@ export function Settings() {
           aria-label={Locale.Settings.Access.ByteDance.Endpoint.Title}
           type="text"
           value={accessStore.bytedanceUrl}
-          placeholder={ByteDance.ExampleEndpoint}
+          placeholder="https://ark.cn-beijing.volces.com/api/v3"
           onChange={(e) =>
             accessStore.update(
               (access) => (access.bytedanceUrl = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.bytedanceApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.bytedanceApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.bytedanceApiPath}
+          placeholder={
+            accessStore.bytedanceApiType === "response"
+              ? "/responses"
+              : "/chat/completions"
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.bytedanceApiPath = e.currentTarget.value),
             )
           }
         ></input>
@@ -1972,6 +2060,50 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.alibabaApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.alibabaApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.alibabaApiPath}
+          placeholder={
+            accessStore.alibabaApiType === "response"
+              ? "/responses"
+              : "/chat/completions"
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.alibabaApiPath = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
         title={Locale.Settings.Access.Alibaba.ApiKey.Title}
         subTitle={Locale.Settings.Access.Alibaba.ApiKey.SubTitle}
       >
@@ -2042,6 +2174,50 @@ export function Settings() {
           onChange={(e) =>
             accessStore.update(
               (access) => (access.moonshotUrl = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.moonshotApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.moonshotApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.moonshotApiPath}
+          placeholder={
+            accessStore.moonshotApiType === "response"
+              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
+              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.moonshotApiPath = e.currentTarget.value),
             )
           }
         ></input>
@@ -2122,6 +2298,50 @@ export function Settings() {
         ></input>
       </ListItem>
       <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.deepseekApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.deepseekApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.deepseekApiPath}
+          placeholder={
+            accessStore.deepseekApiType === "response"
+              ? "/responses"
+              : "/chat/completions"
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.deepseekApiPath = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
         title={Locale.Settings.Access.DeepSeek.ApiKey.Title}
         subTitle={Locale.Settings.Access.DeepSeek.ApiKey.SubTitle}
       >
@@ -2191,6 +2411,50 @@ export function Settings() {
           onChange={(e) =>
             accessStore.update(
               (access) => (access.xaiUrl = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.xaiApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.xaiApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.xaiApiPath}
+          placeholder={
+            accessStore.xaiApiType === "response"
+              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
+              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.xaiApiPath = e.currentTarget.value),
             )
           }
         ></input>
@@ -2266,6 +2530,50 @@ export function Settings() {
           onChange={(e) =>
             accessStore.update(
               (access) => (access.siliconflowUrl = e.currentTarget.value),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiType.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiType.SubTitle}
+      >
+        <Select
+          aria-label={Locale.Settings.Access.OpenAI.ApiType.Title}
+          value={accessStore.siliconflowApiType}
+          onChange={(e) => {
+            accessStore.update(
+              (access) =>
+                (access.siliconflowApiType = e.currentTarget.value as
+                  | "chat"
+                  | "response"),
+            );
+          }}
+        >
+          <option value="chat">
+            {Locale.Settings.Access.OpenAI.ApiType.Chat}
+          </option>
+          <option value="response">
+            {Locale.Settings.Access.OpenAI.ApiType.Response}
+          </option>
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+          type="text"
+          value={accessStore.siliconflowApiPath}
+          placeholder={
+            accessStore.siliconflowApiType === "response"
+              ? Locale.Settings.Access.OpenAI.ApiPath.ResponsePlaceholder
+              : Locale.Settings.Access.OpenAI.ApiPath.ChatPlaceholder
+          }
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.siliconflowApiPath = e.currentTarget.value),
             )
           }
         ></input>

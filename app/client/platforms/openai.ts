@@ -81,6 +81,15 @@ export interface DalleRequestPayload {
   style: DalleStyle;
 }
 
+export interface ResponseApiPayload {
+  input: string | { type: string; text?: string; image_url?: any }[];
+  model: string;
+  temperature?: number;
+  max_tokens?: number;
+  stream?: boolean;
+  store?: boolean;
+}
+
 export class ChatGPTApi implements LLMApi {
   private disableListModels = false;
 
@@ -176,6 +185,10 @@ export class ChatGPTApi implements LLMApi {
         },
       ];
     }
+    // Response API format - check for output field
+    if (res.output) {
+      return res.output;
+    }
     return res.choices?.at(0)?.message?.content ?? res;
   }
 
@@ -243,6 +256,7 @@ export class ChatGPTApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
+    const accessStore = useAccessStore.getState();
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
@@ -252,13 +266,21 @@ export class ChatGPTApi implements LLMApi {
       },
     };
 
-    let requestPayload: RequestPayload | DalleRequestPayload;
+    let requestPayload:
+      | RequestPayload
+      | DalleRequestPayload
+      | ResponseApiPayload;
 
     const isDalle3 = _isDalle3(options.config.model);
     const isO1OrO3 =
       options.config.model.startsWith("o1") ||
       options.config.model.startsWith("o3") ||
       options.config.model.startsWith("o4-mini");
+
+    // Check if using Response API
+    const useResponseApi =
+      modelConfig.providerName === ServiceProvider.OpenAI &&
+      accessStore.openaiApiType === "response";
 
     if (isDalle3) {
       const prompt = getMessageTextContent(
@@ -285,35 +307,68 @@ export class ChatGPTApi implements LLMApi {
           messages.push({ role: v.role, content });
       }
 
-      // O1 not support image, tools (plugin in ChatGPTNextWeb) and system, stream, logprobs, temperature, top_p, n, presence_penalty, frequency_penalty yet.
-      requestPayload = {
-        messages,
-        stream: options.config.stream,
-        model: modelConfig.model,
-        temperature: !isO1OrO3 ? modelConfig.temperature : 1,
-        presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
-        frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
-        top_p: !isO1OrO3 ? modelConfig.top_p : 1,
-        // max_tokens: Math.max(modelConfig.max_tokens, 1024),
-        // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
-      };
+      if (useResponseApi) {
+        // Response API format - convert messages to input
+        // For Response API, we combine all messages into a single input
+        // The last user message becomes the main input
+        const lastMessage = messages[messages.length - 1];
+        let input: string | { type: string; text?: string; image_url?: any }[];
 
-      if (isO1OrO3) {
-        // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
-        // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
-        // (https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/reasoning?tabs=python-secure#markdown-output)
-        requestPayload["messages"].unshift({
-          role: "developer",
-          content: "Formatting re-enabled",
-        });
+        if (typeof lastMessage.content === "string") {
+          input = lastMessage.content;
+        } else if (Array.isArray(lastMessage.content)) {
+          // Multimodal content
+          input = lastMessage.content.map((item: any) => {
+            if (item.type === "text") {
+              return { type: "text", text: item.text };
+            } else if (item.type === "image_url") {
+              return { type: "image_url", image_url: item.image_url };
+            }
+            return item;
+          });
+        } else {
+          input = String(lastMessage.content);
+        }
 
-        // o1/o3 uses max_completion_tokens to control the number of tokens (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-      }
+        requestPayload = {
+          input,
+          model: modelConfig.model,
+          temperature: modelConfig.temperature,
+          max_tokens: Math.max(modelConfig.max_tokens, 1024),
+          stream: options.config.stream,
+          store: false, // Can be made configurable later
+        } as ResponseApiPayload;
+      } else {
+        // O1 not support image, tools (plugin in ChatGPTNextWeb) and system, stream, logprobs, temperature, top_p, n, presence_penalty, frequency_penalty yet.
+        requestPayload = {
+          messages,
+          stream: options.config.stream,
+          model: modelConfig.model,
+          temperature: !isO1OrO3 ? modelConfig.temperature : 1,
+          presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
+          frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
+          top_p: !isO1OrO3 ? modelConfig.top_p : 1,
+          // max_tokens: Math.max(modelConfig.max_tokens, 1024),
+          // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
+        };
 
-      // add max_tokens to vision model
-      if (visionModel && !isO1OrO3) {
-        requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
+        if (isO1OrO3) {
+          // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
+          // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
+          // (https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/reasoning?tabs=python-secure#markdown-output)
+          requestPayload["messages"].unshift({
+            role: "developer",
+            content: "Formatting re-enabled",
+          });
+
+          // o1/o3 uses max_completion_tokens to control the number of tokens (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
+          requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
+        }
+
+        // add max_tokens to vision model
+        if (visionModel && !isO1OrO3) {
+          requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
+        }
       }
     }
 
@@ -349,9 +404,21 @@ export class ChatGPTApi implements LLMApi {
           ),
         );
       } else {
-        chatPath = this.path(
-          isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
-        );
+        // Determine the API path based on configuration
+        let apiPath: string;
+
+        // Check if user has custom API path
+        if (accessStore.openaiApiPath) {
+          apiPath = accessStore.openaiApiPath;
+        } else if (isDalle3) {
+          apiPath = OpenaiPath.ImagePath;
+        } else if (useResponseApi) {
+          apiPath = OpenaiPath.ResponsePath;
+        } else {
+          apiPath = OpenaiPath.ChatPath;
+        }
+
+        chatPath = this.path(apiPath);
       }
       if (shouldStream) {
         let index = -1;
@@ -377,6 +444,21 @@ export class ChatGPTApi implements LLMApi {
           // parseSSE
           (text: string, runTools: ChatMessageTool[]) => {
             const json = JSON.parse(text);
+
+            // Handle Response API streaming format
+            if (useResponseApi) {
+              // Response API uses 'delta' field directly for content
+              const delta = json.delta;
+              if (!delta) return { isThinking: false, content: "" };
+
+              const content = delta.content || delta.output || "";
+              return {
+                isThinking: false,
+                content: content,
+              };
+            }
+
+            // Handle Chat Completions API streaming format
             const choices = json.choices as Array<{
               delta: {
                 content: string;

@@ -579,8 +579,23 @@ const en: LocaleType = {
         },
 
         Endpoint: {
-          Title: "OpenAI Endpoint",
-          SubTitle: "Must start with http(s):// or use /api/openai as default",
+          Title: "Base Path",
+          SubTitle:
+            "Include protocol, domain and port, e.g. https://api.openai.com",
+        },
+
+        ApiType: {
+          Title: "API Type",
+          SubTitle: "Select the API type to use",
+          Chat: "Chat Completions API",
+          Response: "Response API",
+        },
+
+        ApiPath: {
+          Title: "API Path",
+          SubTitle: "API endpoint path, customizable",
+          ChatPlaceholder: "/v1/chat/completions",
+          ResponsePlaceholder: "/v1/responses",
         },
 
         UseProxy: {

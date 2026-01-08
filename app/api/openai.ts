@@ -7,6 +7,8 @@ import { requestOpenai } from "./common";
 
 const ALLOWED_PATH = new Set(Object.values(OpenaiPath));
 
+console.log("[OpenAI Route] Allowed paths:", Array.from(ALLOWED_PATH));
+
 function getModels(remoteModelRes: OpenAIListModelResponse) {
   // 纯前端应用，不过滤模型，由用户的API密钥权限决定
   return remoteModelRes;

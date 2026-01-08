@@ -564,8 +564,22 @@ const cn = {
         },
 
         Endpoint: {
-          Title: "接口地址",
-          SubTitle: "除默认地址外，必须包含 http(s)://",
+          Title: "基础路径 (Base Path)",
+          SubTitle: "包含协议、域名和端口，如 https://api.openai.com",
+        },
+
+        ApiType: {
+          Title: "API 类型",
+          SubTitle: "选择使用的 API 类型",
+          Chat: "Chat Completions API",
+          Response: "Response API",
+        },
+
+        ApiPath: {
+          Title: "API 路径",
+          SubTitle: "API 端点路径，可自定义",
+          ChatPlaceholder: "/v1/chat/completions",
+          ResponsePlaceholder: "/v1/responses",
         },
 
         UseProxy: {
