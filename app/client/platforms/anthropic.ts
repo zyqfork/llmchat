@@ -262,25 +262,46 @@ export class ClaudeApi implements LLMApi {
             | undefined
             | {
                 type:
+                  | "message_start"
+                  | "content_block_start"
                   | "content_block_delta"
                   | "content_block_stop"
                   | "message_delta"
-                  | "message_stop";
+                  | "message_stop"
+                  | "ping";
                 content_block?: {
                   type: "tool_use" | "thinking" | "text";
                   id?: string;
                   name?: string;
+                  text?: string;
                 };
                 delta?: {
-                  type: "text_delta" | "input_json_delta" | "thinking_delta";
+                  type:
+                    | "text_delta"
+                    | "input_json_delta"
+                    | "thinking_delta"
+                    | "signature_delta";
                   text?: string;
                   thinking?: string;
                   partial_json?: string;
                   stop_reason?: string;
+                  signature?: string;
                 };
-                index: number;
+                index?: number;
               };
           chunkJson = JSON.parse(text);
+
+          // 忽略 ping、message_start、message_stop 等事件
+          if (
+            chunkJson?.type === "ping" ||
+            chunkJson?.type === "message_start" ||
+            chunkJson?.type === "message_stop"
+          ) {
+            return {
+              isThinking: false,
+              content: "",
+            };
+          }
 
           // Handle refusal stop reason in message_delta
           if (chunkJson?.delta?.stop_reason === "refusal") {
@@ -296,43 +317,103 @@ export class ClaudeApi implements LLMApi {
             };
           }
 
-          // 处理思考内容
-          // 当 content_block.type 为 "thinking" 时，表示这是思考内容
-          const isThinkingContent =
-            chunkJson?.content_block?.type === "thinking" ||
-            chunkJson?.delta?.type === "thinking_delta";
+          // 处理 content_block_start 事件
+          // 根据文档，thinking 内容块会先发送 content_block_start 事件
+          if (chunkJson?.type === "content_block_start") {
+            const blockType = chunkJson?.content_block?.type;
 
-          if (chunkJson?.content_block?.type == "tool_use") {
-            index += 1;
-            const id = chunkJson?.content_block.id || "";
-            const name = chunkJson?.content_block.name || "";
-            if (id && name) {
-              runTools.push({
-                id,
-                type: "function",
-                function: {
-                  name,
-                  arguments: "",
-                },
-              });
+            if (blockType === "tool_use") {
+              index += 1;
+              const id = chunkJson?.content_block?.id || "";
+              const name = chunkJson?.content_block?.name || "";
+              if (id && name) {
+                runTools.push({
+                  id,
+                  type: "function",
+                  function: {
+                    name,
+                    arguments: "",
+                  },
+                });
+              }
+            }
+
+            // 对于 thinking 和 text 类型，返回空内容
+            // thinking 内容会在后续的 thinking_delta 事件中返回
+            return {
+              isThinking: blockType === "thinking",
+              content: "",
+            };
+          }
+
+          // 处理 content_block_stop 事件
+          if (chunkJson?.type === "content_block_stop") {
+            return {
+              isThinking: false,
+              content: "",
+            };
+          }
+
+          // 处理 content_block_delta 事件
+          if (chunkJson?.type === "content_block_delta") {
+            const deltaType = chunkJson?.delta?.type;
+
+            // 处理 tool_use 的 input_json_delta
+            if (
+              deltaType === "input_json_delta" &&
+              chunkJson?.delta?.partial_json
+            ) {
+              if (index >= 0 && runTools[index]) {
+                // @ts-ignore
+                runTools[index]["function"]["arguments"] +=
+                  chunkJson?.delta?.partial_json;
+              }
+              return {
+                isThinking: false,
+                content: "",
+              };
+            }
+
+            // 处理 signature_delta（thinking 内容块的签名）
+            if (deltaType === "signature_delta") {
+              // 签名用于验证 thinking 内容的完整性，不需要显示
+              return {
+                isThinking: false,
+                content: "",
+              };
+            }
+
+            // 处理 thinking_delta
+            if (deltaType === "thinking_delta") {
+              const thinkingContent = chunkJson?.delta?.thinking || "";
+              return {
+                isThinking: true,
+                content: thinkingContent,
+              };
+            }
+
+            // 处理 text_delta
+            if (deltaType === "text_delta") {
+              const textContent = chunkJson?.delta?.text || "";
+              return {
+                isThinking: false,
+                content: textContent,
+              };
             }
           }
-          if (
-            chunkJson?.delta?.type == "input_json_delta" &&
-            chunkJson?.delta?.partial_json
-          ) {
-            // @ts-ignore
-            runTools[index]["function"]["arguments"] +=
-              chunkJson?.delta?.partial_json;
+
+          // 处理 message_delta 事件（包含 usage 信息等）
+          if (chunkJson?.type === "message_delta") {
+            return {
+              isThinking: false,
+              content: "",
+            };
           }
-          // 返回思考内容信息
-          // 如果是 thinking 内容，优先使用 delta.thinking，否则使用 delta.text
-          const content = isThinkingContent
-            ? chunkJson?.delta?.thinking || chunkJson?.delta?.text || ""
-            : chunkJson?.delta?.text || "";
+
+          // 默认返回空内容
           return {
-            isThinking: isThinkingContent, // 根据content_block类型判断是否为思考内容
-            content: content,
+            isThinking: false,
+            content: "",
           };
         },
         // processToolMessage, include tool_calls message and tool call results
