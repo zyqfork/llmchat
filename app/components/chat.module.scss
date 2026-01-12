@@ -266,6 +266,8 @@
     justify-content: center;
     width: auto;
     min-width: fit-content;
+    position: relative;
+    overflow: hidden;
 
     .token-counter-text {
       white-space: nowrap;
@@ -275,6 +277,25 @@
       font-family: "Noto Sans", "SF Pro SC", "SF Pro Text", "SF Pro Icons",
         "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
       pointer-events: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    .token-counter-progress {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 0;
+      border-radius: 20px;
+      overflow: hidden;
+
+      .token-counter-progress-fill {
+        height: 100%;
+        transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        opacity: 0.75;
+      }
     }
 
     &:hover {

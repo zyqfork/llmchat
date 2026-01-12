@@ -1404,7 +1404,12 @@ export function TokenCounter(props: {
   const getProgressColor = (percentage: number) => {
     if (percentage >= 90) return "#ef4444"; // 紅色 - 危險
     if (percentage >= 70) return "#f59e0b"; // 黃色 - 警告
-    return "#22c55e"; // 綠色 - 安全
+    // 使用CSS变量获取主题色
+    return (
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim() || "#3b82f6"
+    ); // 主题色 - 安全
   };
 
   // 处理重置聊天的点击事件
@@ -1427,6 +1432,18 @@ export function TokenCounter(props: {
         title={Locale.Chat.InputActions.Reset}
       >
         <span className={styles["token-counter-text"]}>{displayText}</span>
+        {/* 只有在配置了总上下文时才显示进度条 */}
+        {!isMultiModel && maxTokens && (
+          <div className={styles["token-counter-progress"]}>
+            <div
+              className={styles["token-counter-progress-fill"]}
+              style={{
+                width: `${Math.min(progressPercentage, 100)}%`,
+                backgroundColor: getProgressColor(progressPercentage),
+              }}
+            />
+          </div>
+        )}
       </button>
       {showTooltip && (
         <div
