@@ -84,7 +84,7 @@
   .model-selector-container {
     position: relative;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
   }
 
@@ -103,7 +103,7 @@
     box-shadow: var(--card-shadow);
     animation: slide-in ease 0.3s;
     outline: none;
-    height: 36px;
+    height: 32px;
     justify-content: center;
     width: auto;
     min-width: fit-content;
