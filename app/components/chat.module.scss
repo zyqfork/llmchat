@@ -1139,7 +1139,8 @@
   box-shadow: var(--card-shadow);
 
   .chat-input-actions {
-    .chat-input-action {
+    .chat-input-action,
+    .chat-input-actions-end {
       margin-bottom: 10px;
     }
   }
