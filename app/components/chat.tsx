@@ -152,6 +152,7 @@ import {
   isWebSearchModel,
 } from "../config/model-capabilities";
 import { ProviderIcon, ModelProviderIcon } from "./provider-icon";
+import { logger } from "../utils/logger";
 
 const localStorage = safeLocalStorage();
 
@@ -777,11 +778,11 @@ function ImagePreviewModal(props: {
           className={styles["image-preview-img"]}
           onClick={(e) => e.stopPropagation()}
           onError={(e) => {
-            console.error("Image failed to load:", src);
+            logger.error("Image failed to load:", src);
             setImageError(true);
           }}
           onLoad={() => {
-            console.log("Image loaded successfully:", src);
+            logger.debug("Image loaded successfully:", src);
             setImageLoaded(true);
           }}
         />
@@ -2818,13 +2819,13 @@ function _Chat() {
           inputRef.current?.focus();
         },
         onError: (err: Error) => {
-          console.error("Optimize prompt error:", err);
+          logger.error("Optimize prompt error:", err);
           setUserInput(originalInput);
           showToast(Locale.Chat.InputActions.OptimizeError);
         },
       });
     } catch (err) {
-      console.error("Optimize prompt error:", err);
+      logger.error("Optimize prompt error:", err);
       setUserInput(originalInput);
       showToast(Locale.Chat.InputActions.OptimizeError);
     }
@@ -3091,7 +3092,7 @@ function _Chat() {
           setSpeechStatus(false);
         })
         .catch((e) => {
-          console.error("[OpenAI Speech]", e);
+          logger.error("[OpenAI Speech]", e);
           showToast(prettyObject(e));
           setSpeechStatus(false);
         })
@@ -3285,7 +3286,7 @@ function _Chat() {
     },
     code: (text) => {
       if (accessStore.disableFastLink) return;
-      console.log("[Command] got code from url: ", text);
+      logger.debug("[Command] got code from url: ", text);
       showConfirm(Locale.URLCommand.Code + `code = ${text}`).then((res) => {
         if (res) {
           accessStore.update((access) => (access.accessCode = text));
@@ -3301,7 +3302,7 @@ function _Chat() {
           url?: string;
         };
 
-        console.log("[Command] got settings from url: ", payload);
+        logger.debug("[Command] got settings from url: ", payload);
 
         if (payload.key || payload.url) {
           showConfirm(
@@ -3321,7 +3322,7 @@ function _Chat() {
           });
         }
       } catch {
-        console.error("[Command] failed to get settings from url: ", text);
+        logger.error("[Command] failed to get settings from url: ", text);
       }
     },
   });
@@ -4594,7 +4595,7 @@ function _Chat() {
                   setShowChatSidePanel(false);
                 }}
                 onStartVoice={async () => {
-                  console.log("start voice");
+                  logger.debug("start voice");
                 }}
               />
             )}

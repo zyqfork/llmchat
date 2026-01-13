@@ -19,6 +19,7 @@ import { createPersistStore } from "../utils/store";
 import { ensure } from "../utils/clone";
 import { DEFAULT_CONFIG } from "./config";
 import { getModelProvider } from "../utils/model";
+import { logger } from "../utils/logger";
 
 // 自定义服务商类型定义
 export type CustomProviderType = "openai" | "google" | "anthropic";
@@ -686,7 +687,7 @@ export const useAccessStore = createPersistStore(
         }
         return result.valid;
       } catch (error) {
-        console.error("[Access] Failed to verify access code:", error);
+        logger.error("[Access] Failed to verify access code:", error);
         return false;
       }
     },
@@ -704,7 +705,7 @@ export const useAccessStore = createPersistStore(
 
         const result = await response.json();
         if (result.error) {
-          console.error(
+          logger.error(
             "[Access] Failed to fetch server config:",
             result.message,
           );
@@ -719,7 +720,7 @@ export const useAccessStore = createPersistStore(
 
         return true;
       } catch (error) {
-        console.error("[Access] Failed to fetch server config:", error);
+        logger.error("[Access] Failed to fetch server config:", error);
         return false;
       }
     },
@@ -887,7 +888,7 @@ export const useAccessStore = createPersistStore(
           return state;
         }
 
-        console.log("[sanitizeEnabledModels] 清理启用模型:", {
+        logger.debug("[sanitizeEnabledModels] 清理启用模型:", {
           provider,
           originalEnabled: enabled,
           availableModels: Array.from(availableModelNames),
@@ -940,7 +941,7 @@ export const useAccessStore = createPersistStore(
           }));
         })
         .catch(() => {
-          console.error("[Config] failed to fetch config");
+          logger.error("[Config] failed to fetch config");
         })
         .finally(() => {
           fetchState = 2;

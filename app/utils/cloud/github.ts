@@ -1,5 +1,6 @@
 import { SyncStore } from "@/app/store/sync";
 import { fetch as tauriFetch, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export type GitHubConfig = SyncStore["github"];
 export type GitHubClient = ReturnType<typeof createGitHubClient>;
@@ -46,10 +47,10 @@ export function createGitHubClient(store: SyncStore) {
           FetchType.Sync,
         );
 
-        console.log("[GitHub] check repo", res.status, res.statusText);
+        logger.debug("[GitHub] check repo", res.status, res.statusText);
         return res.status === 200;
       } catch (e) {
-        console.error("[GitHub] failed to check", e);
+        logger.error("[GitHub] failed to check", e);
       }
       return false;
     },
@@ -69,7 +70,7 @@ export function createGitHubClient(store: SyncStore) {
           FetchType.Sync,
         );
 
-        console.log("[GitHub] get", filePath, res.status, res.statusText);
+        logger.debug("[GitHub] get", filePath, res.status, res.statusText);
 
         if (res.status === 404) {
           return "";
@@ -95,7 +96,7 @@ export function createGitHubClient(store: SyncStore) {
 
         return "";
       } catch (e) {
-        console.error("[GitHub] failed to get", e);
+        logger.error("[GitHub] failed to get", e);
         return "";
       }
     },
@@ -145,7 +146,7 @@ export function createGitHubClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[GitHub] set", filePath, res.status, res.statusText);
+      logger.debug("[GitHub] set", filePath, res.status, res.statusText);
 
       if (!res.ok) {
         const error = (await res.json()) as GitHubErrorResponse;

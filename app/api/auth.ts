@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { ACCESS_CODE_PREFIX, ModelProvider } from "../constant";
+import { logger } from "../utils/logger";
 
 function getIP(req: NextRequest) {
   let ip = req.ip ?? req.headers.get("x-real-ip");
@@ -29,8 +30,8 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
   // check if it is openai api key or user token
   const { accessCode, apiKey } = parseApiKey(authToken);
 
-  console.log("[User IP] ", getIP(req));
-  console.log("[Time] ", new Date().toLocaleString());
+  logger.debug("[User IP] ", getIP(req));
+  logger.debug("[Time] ", new Date().toLocaleString());
 
   // 检查是否有服务器端配置
   const serverAccessCode = process.env.ACCESS_CODE || "";
@@ -77,7 +78,7 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
 
   // 如果有有效的访问码和服务器端API密钥，允许通过
   if (hasValidAccessCode && serverApiKey) {
-    console.log("[Auth] use server api key");
+    logger.debug("[Auth] use server api key");
     return {
       error: false,
       useServerConfig: true,
@@ -92,7 +93,7 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
     };
   }
 
-  console.log("[Auth] use user api key");
+  logger.debug("[Auth] use user api key");
 
   return {
     error: false,

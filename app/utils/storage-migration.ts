@@ -1,5 +1,6 @@
 import { safeLocalStorage } from "@/app/utils";
 import { indexedDBStorage } from "./indexedDB-storage";
+import { logger } from "./logger";
 
 const localStorage = safeLocalStorage();
 
@@ -45,7 +46,9 @@ export class StorageMigration {
     for (const key of MIGRATION_KEYS) {
       const oldData = localStorage.getItem(key);
       if (oldData && oldData.trim() !== "") {
-        console.log(`[Migration] Found config data to migrate for key: ${key}`);
+        logger.debug(
+          `[Migration] Found config data to migrate for key: ${key}`,
+        );
         return true;
       }
     }
@@ -58,7 +61,7 @@ export class StorageMigration {
    */
   async migrate(): Promise<void> {
     try {
-      console.log("[Migration] Starting configuration migration...");
+      logger.debug("[Migration] Starting configuration migration...");
       let migratedCount = 0;
       const migrationResults: Record<string, "success" | "skipped" | "failed"> =
         {};
@@ -74,23 +77,23 @@ export class StorageMigration {
               if (this.isValidConfigData(oldData)) {
                 // 迁移数据到新存储
                 await indexedDBStorage.setItem(key, oldData);
-                console.log(`[Migration] ✅ Migrated ${key}`);
+                logger.debug(`[Migration] ✅ Migrated ${key}`);
                 migrationResults[key] = "success";
                 migratedCount++;
               } else {
-                console.warn(
+                logger.warn(
                   `[Migration] ⚠️ Invalid data format for ${key}, skipping`,
                 );
                 migrationResults[key] = "failed";
               }
             } else {
-              console.log(
+              logger.debug(
                 `[Migration] ⏭️ Skipping ${key} - already exists in new storage`,
               );
               migrationResults[key] = "skipped";
             }
           } catch (error) {
-            console.error(`[Migration] ❌ Failed to migrate ${key}:`, error);
+            logger.error(`[Migration] ❌ Failed to migrate ${key}:`, error);
             migrationResults[key] = "failed";
             // 迁移失败时保留原数据，不删除
           }
@@ -99,16 +102,16 @@ export class StorageMigration {
 
       // 标记迁移完成
       localStorage.setItem(MIGRATION_COMPLETED_KEY, "true");
-      console.log(`[Migration] ✅ Configuration migration completed!`);
-      console.log(`[Migration] Successfully migrated: ${migratedCount} items`);
-      console.log(`[Migration] Results:`, migrationResults);
+      logger.debug(`[Migration] ✅ Configuration migration completed!`);
+      logger.debug(`[Migration] Successfully migrated: ${migratedCount} items`);
+      logger.debug(`[Migration] Results:`, migrationResults);
 
       // 如果有成功迁移的项目，提示用户
       if (migratedCount > 0) {
         this.notifyUser(migratedCount, migrationResults);
       }
     } catch (error) {
-      console.error("[Migration] ❌ Migration failed:", error);
+      logger.error("[Migration] ❌ Migration failed:", error);
       throw error;
     }
   }
@@ -151,7 +154,7 @@ export class StorageMigration {
 
     const message = `🎉 配置迁移完成！\n\n已成功迁移 ${migratedCount} 项配置：\n${successItems}\n\n您的设置已保存到新的存储系统中，性能将显著提升。`;
 
-    console.log(`[Migration] ${message}`);
+    logger.debug(`[Migration] ${message}`);
 
     // 可选：显示用户通知
     setTimeout(() => {
@@ -171,7 +174,9 @@ export class StorageMigration {
    * 清理旧数据（可选，建议用户手动执行）
    */
   async cleanupOldData(): Promise<void> {
-    console.log("[Migration] 🧹 Starting cleanup of old configuration data...");
+    logger.debug(
+      "[Migration] 🧹 Starting cleanup of old configuration data...",
+    );
     let cleanedCount = 0;
 
     for (const key of MIGRATION_KEYS) {
@@ -182,15 +187,15 @@ export class StorageMigration {
 
         if (newData && oldData) {
           localStorage.removeItem(key);
-          console.log(`[Migration] 🗑️ Cleaned up old data for ${key}`);
+          logger.debug(`[Migration] 🗑️ Cleaned up old data for ${key}`);
           cleanedCount++;
         }
       } catch (error) {
-        console.warn(`[Migration] ⚠️ Failed to cleanup ${key}:`, error);
+        logger.warn(`[Migration] ⚠️ Failed to cleanup ${key}:`, error);
       }
     }
 
-    console.log(
+    logger.debug(
       `[Migration] ✅ Cleanup completed! Removed ${cleanedCount} old config items.`,
     );
   }
@@ -200,7 +205,7 @@ export class StorageMigration {
    */
   resetMigrationState(): void {
     localStorage.removeItem(MIGRATION_COMPLETED_KEY);
-    console.log("[Migration] 🔄 Migration state reset");
+    logger.debug("[Migration] 🔄 Migration state reset");
   }
 }
 
@@ -212,17 +217,17 @@ export async function initStorageMigration(): Promise<void> {
     const migration = StorageMigration.getInstance();
 
     if (await migration.shouldMigrate()) {
-      console.log(
+      logger.debug(
         "[Migration] 🚀 Starting automatic configuration migration...",
       );
       await migration.migrate();
     } else {
-      console.log(
+      logger.debug(
         "[Migration] ✨ No migration needed, all configurations are up to date.",
       );
     }
   } catch (error) {
-    console.error("[Migration] ❌ Auto-migration failed:", error);
+    logger.error("[Migration] ❌ Auto-migration failed:", error);
     // 迁移失败时不阻塞应用启动
   }
 }

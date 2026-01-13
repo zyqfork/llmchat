@@ -1,4 +1,6 @@
 // To store message streaming controller
+import { logger } from "../utils/logger";
+
 export const ChatControllerPool = {
   controllers: {} as Record<string, AbortController>,
   // 添加控制器状态跟踪，避免重复操作
@@ -54,7 +56,7 @@ export const ChatControllerPool = {
         controller.abort();
         this.controllerStates[key] = "aborted";
       } catch (error) {
-        console.error("[ChatControllerPool] Error aborting controller:", error);
+        logger.error("[ChatControllerPool] Error aborting controller:", error);
         // 即使中止失败，也标记为中止状态
         this.controllerStates[key] = "aborted";
       }
@@ -69,7 +71,7 @@ export const ChatControllerPool = {
           controller.abort();
           this.controllerStates[key] = "aborted";
         } catch (error) {
-          console.error(
+          logger.error(
             `[ChatControllerPool] Error aborting controller ${key}:`,
             error,
           );
@@ -81,7 +83,7 @@ export const ChatControllerPool = {
     });
 
     if (errors.length > 0) {
-      console.warn(
+      logger.warn(
         `[ChatControllerPool] Some controllers failed to abort: ${errors.join(
           ", ",
         )}`,
@@ -101,7 +103,7 @@ export const ChatControllerPool = {
           controller.abort();
           this.controllerStates[key] = "aborted";
         } catch (error) {
-          console.error(
+          logger.error(
             `[ChatControllerPool] Error aborting session controller ${key}:`,
             error,
           );
@@ -112,7 +114,7 @@ export const ChatControllerPool = {
     });
 
     if (errors.length > 0) {
-      console.warn(
+      logger.warn(
         `[ChatControllerPool] Some session controllers failed to abort: ${errors.join(
           ", ",
         )}`,
@@ -144,7 +146,7 @@ export const ChatControllerPool = {
         try {
           controller.abort();
         } catch (error) {
-          console.error(
+          logger.error(
             `[ChatControllerPool] Error aborting controller on remove:`,
             error,
           );
@@ -194,7 +196,7 @@ export const ChatControllerPool = {
         try {
           controller.abort();
         } catch (error) {
-          console.error(
+          logger.error(
             `[ChatControllerPool] Error aborting expired controller:`,
             error,
           );
@@ -206,7 +208,7 @@ export const ChatControllerPool = {
     });
 
     if (expiredKeys.length > 0) {
-      console.log(
+      logger.debug(
         `[ChatControllerPool] Cleaned up ${expiredKeys.length} expired controllers`,
       );
     }
@@ -229,7 +231,7 @@ export const ChatControllerPool = {
     });
 
     if (keysToRemove.length > 0) {
-      console.log(
+      logger.debug(
         `[ChatControllerPool] Cleaned up ${keysToRemove.length} controllers for session ${sessionId}`,
       );
     }

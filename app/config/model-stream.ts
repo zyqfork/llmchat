@@ -15,7 +15,7 @@ export function getModelStreamConfig(modelName: string): boolean {
       try {
         return JSON.parse(streamConfig);
       } catch (e) {
-        console.warn(`Failed to parse stream config for ${modelName}:`, e);
+        // 静默处理解析错误
       }
     }
   }

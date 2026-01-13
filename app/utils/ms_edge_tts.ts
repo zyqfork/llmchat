@@ -133,7 +133,8 @@ export class MsEdgeTTS {
 
   private _log(...o: any[]) {
     if (this._enableLogger) {
-      console.log(...o);
+      // 使用 logger 但保持静默，因为这是可选的调试日志
+      // logger.debug(...o);
     }
   }
 

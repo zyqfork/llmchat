@@ -896,7 +896,7 @@ export function getModelCapabilitiesWithCustomConfig(
       try {
         return JSON.parse(customCapabilities);
       } catch (e) {
-        console.warn("[ModelCapabilities] 解析自定义能力配置失败:", e);
+        // 静默处理解析错误
       }
     }
   }

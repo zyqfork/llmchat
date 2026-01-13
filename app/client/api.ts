@@ -21,6 +21,7 @@ import { DeepSeekApi } from "./platforms/deepseek";
 import { XAIApi } from "./platforms/xai";
 import { SiliconflowApi } from "./platforms/siliconflow";
 import { OllamaApi } from "./platforms/ollama";
+import { logger } from "../utils/logger";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -389,7 +390,7 @@ export function getClientApi(provider: ServiceProvider | string): ClientApi {
 export function normalizeProviderName(provider: string): ServiceProvider {
   // 检查 provider 是否为空
   if (!provider || typeof provider !== "string") {
-    console.warn(
+    logger.warn(
       "normalizeProviderName: provider is undefined or invalid, defaulting to OpenAI",
     );
     return ServiceProvider.OpenAI;

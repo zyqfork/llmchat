@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/app/utils/logger";
 
 export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[Proxy Route] 🚀 代理API被调用，params:", params);
-  console.log("[Proxy Route] 🚀 请求方法:", req.method);
-  console.log("[Proxy Route] 🚀 请求路径:", req.nextUrl.pathname);
+  logger.debug("[Proxy Route] 🚀 代理API被调用，params:", params);
+  logger.debug("[Proxy Route] 🚀 请求方法:", req.method);
+  logger.debug("[Proxy Route] 🚀 请求路径:", req.nextUrl.pathname);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -33,9 +34,9 @@ export async function handle(
     ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${remainingParams}`
     : endpoint;
 
-  console.log("[Proxy] Fetching URL:", fetchUrl);
-  console.log("[Proxy] Original endpoint:", endpoint);
-  console.log("[Proxy] Method:", req.method);
+  logger.debug("[Proxy] Fetching URL:", fetchUrl);
+  logger.debug("[Proxy] Original endpoint:", endpoint);
+  logger.debug("[Proxy] Method:", req.method);
 
   const skipHeaders = [
     "connection",
@@ -118,7 +119,7 @@ export async function handle(
               !errorMessage.includes("terminated") &&
               !errorMessage.includes("closed")
             ) {
-              console.error("[Proxy] Unexpected stream error:", error);
+              logger.error("[Proxy] Unexpected stream error:", error);
             }
             // 静默关闭控制器
             try {
@@ -151,8 +152,8 @@ export async function handle(
       headers: newHeaders,
     });
   } catch (error) {
-    console.error("[Proxy] Fetch error:", error);
-    console.error("[Proxy] Target URL:", fetchUrl);
+    logger.error("[Proxy] Fetch error:", error);
+    logger.error("[Proxy] Target URL:", fetchUrl);
 
     // 返回错误响应而不是抛出异常
     return NextResponse.json(

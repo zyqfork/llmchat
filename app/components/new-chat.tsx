@@ -18,6 +18,7 @@ import { useCommand } from "../command";
 import { showConfirm } from "./ui-lib";
 
 import clsx from "clsx";
+import { logger } from "../utils/logger";
 
 function MaskItem(props: { mask: Mask; onClick?: () => void }) {
   return (
@@ -102,7 +103,7 @@ export function NewChat() {
         const mask = maskStore.get(id);
         startChat(mask ?? undefined);
       } catch {
-        console.error("[New Chat] failed to create chat from mask id=", id);
+        logger.error("[New Chat] failed to create chat from mask id=", id);
       }
     },
   });

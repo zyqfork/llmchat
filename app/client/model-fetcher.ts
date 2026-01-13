@@ -2,6 +2,7 @@ import { ServiceProvider } from "../constant";
 import { useAccessStore } from "../store/access";
 import { LLMModel } from "./api";
 import { getHeaders, getClientApi } from "./api";
+import { logger } from "../utils/logger";
 
 // 统一的模型响应接口
 export interface ModelFetchResponse {
@@ -114,7 +115,7 @@ export class ModelFetcher {
           };
       }
     } catch (error) {
-      console.error(`[ModelFetcher] 获取 ${provider} 模型失败:`, error);
+      logger.error(`[ModelFetcher] 获取 ${provider} 模型失败:`, error);
       return {
         models: [],
         success: false,

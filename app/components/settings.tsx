@@ -62,6 +62,7 @@ import Locale, {
   getLang,
 } from "../locales";
 import { copyToClipboard, clientUpdate, semverCompare } from "../utils";
+import { logger } from "../utils/logger";
 import { groupBy } from "lodash-es";
 import Link from "next/link";
 import {
@@ -1110,7 +1111,7 @@ function SyncItems() {
       showToast(Locale.Settings.Sync.UploadSuccess);
     } catch (e) {
       showToast(Locale.Settings.Sync.UploadFailed);
-      console.error("[Upload]", e);
+      logger.error("[Upload]", e);
     }
   };
 
@@ -1148,7 +1149,7 @@ function SyncItems() {
       } else {
         showToast(Locale.Settings.Sync.DownloadFailed);
       }
-      console.error("[Download]", e);
+      logger.error("[Download]", e);
     }
   };
 
@@ -1284,7 +1285,7 @@ export function Settings() {
       setCurrentTab(SettingsTab.ModelService);
 
       if (provider) {
-        console.log("Switch to provider config:", provider);
+        logger.debug("Switch to provider config:", provider);
 
         // 自动展开该厂商的配置（同时处理标准厂商和自定义厂商）
         // 使用setTimeout确保在标签切换后再展开
@@ -1448,7 +1449,7 @@ export function Settings() {
         try {
           navigate(Path.Home);
         } catch (error) {
-          console.error("Navigation error:", error);
+          logger.error("Navigation error:", error);
           window.location.href = "/";
         }
       }
@@ -3934,7 +3935,7 @@ export function Settings() {
                 try {
                   navigate(Path.Home);
                 } catch (e) {
-                  console.error("Navigation error:", e);
+                  logger.error("Navigation error:", e);
                   // 如果导航失败，尝试强制刷新
                   window.location.href = "/";
                 }

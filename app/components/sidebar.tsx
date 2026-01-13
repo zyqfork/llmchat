@@ -35,6 +35,7 @@ import { isIOS, useMobileScreen } from "../utils";
 import dynamic from "next/dynamic";
 import { showConfirm, showToast } from "./ui-lib";
 import clsx from "clsx";
+import { logger } from "../utils/logger";
 
 const ChatList = dynamic(async () => (await import("./chat-list")).ChatList, {
   loading: () => null,
@@ -321,7 +322,7 @@ export function SideBar(props: { className?: string }) {
             try {
               localStorage.removeItem(UNFINISHED_INPUT(session.id));
             } catch (e) {
-              console.error("Failed to remove unfinished input:", e);
+              logger.error("Failed to remove unfinished input:", e);
             }
           }
         });

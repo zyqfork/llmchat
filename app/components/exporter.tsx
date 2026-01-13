@@ -44,6 +44,7 @@ import {
 import { MaskAvatar } from "./mask";
 import { getMaskEffectiveModel } from "../utils/model-resolver";
 import clsx from "clsx";
+import { logger } from "../utils/logger";
 
 // 模型图标 SVG 字符串（用于打印功能）
 const MODEL_ICON_SVGS: Record<string, string> = {
@@ -864,7 +865,7 @@ export function PreviewActions(props: {
         pw.focus();
         pw.print();
       } catch (err) {
-        console.error("Print failed", err);
+        logger.error("Print failed", err);
         showToast("打印失败，请检查系统打印设置");
       } finally {
         cleanup?.();
@@ -1043,7 +1044,7 @@ export function ImagePreviewer(props: {
             refreshPreview();
           });
       } catch (e) {
-        console.error("[Copy Image] ", e);
+        logger.error("[Copy Image] ", e);
         showToast(Locale.Copy.Failed);
       }
     });

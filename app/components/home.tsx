@@ -30,6 +30,7 @@ import { type ClientApi, getClientApi } from "../client/api";
 import { useAccessStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem } from "../mcp/actions.client";
+import { logger } from "../utils/logger";
 
 export function Loading(props: { noLogo?: boolean }) {
   return (
@@ -258,7 +259,7 @@ export function useLoadData() {
       // 静态导出模式下跳过模型获取（API 路由不可用）
       const clientConfig = getClientConfig();
       if (clientConfig?.buildMode === "export") {
-        console.log(
+        logger.debug(
           "[Config] Static export mode, skipping automatic model fetch",
         );
         return;
@@ -301,20 +302,20 @@ export function useLoadData() {
 
       const hasValidConfig = checkProviderValid(providerName);
 
-      console.log("[Config] Checking API key configuration:", {
+      logger.debug("[Config] Checking API key configuration:", {
         hasValidConfig,
         providerName,
       });
 
       // 只有在配置了有效的 API Key 时才获取模型列表
       if (!hasValidConfig) {
-        console.log(
+        logger.debug(
           "[Config] No valid API key configured for current provider, skipping model fetch",
         );
         return;
       }
 
-      console.log("[Config] Valid API key found, fetching models...");
+      logger.debug("[Config] Valid API key found, fetching models...");
 
       try {
         const api: ClientApi = getClientApi(providerName);
@@ -323,7 +324,7 @@ export function useLoadData() {
       } catch (e) {
         // 静默处理获取失败，避免控制台大量错误日志
         // 用户可以在模型管理界面手动获取
-        console.warn(
+        logger.warn(
           "[Config] Failed to fetch models, will use cached models. Error:",
           e instanceof Error ? e.message : e,
         );

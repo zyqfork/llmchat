@@ -1,6 +1,7 @@
 import { STORAGE_KEY } from "@/app/constant";
 import { SyncStore } from "@/app/store/sync";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export type WebDAVConfig = SyncStore["webdav"];
 export type WebDavClient = ReturnType<typeof createWebDavClient>;
@@ -23,14 +24,14 @@ export function createWebDavClient(store: SyncStore) {
         const success = [201, 200, 404, 405, 301, 302, 307, 308].includes(
           res.status,
         );
-        console.log(
+        logger.debug(
           `[WebDav] check ${success ? "success" : "failed"}, ${res.status} ${
             res.statusText
           }`,
         );
         return success;
       } catch (e) {
-        console.error("[WebDav] failed to check", e);
+        logger.error("[WebDav] failed to check", e);
       }
       return false;
     },
@@ -45,7 +46,7 @@ export function createWebDavClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[WebDav] get", filePath, res.status, res.statusText);
+      logger.debug("[WebDav] get", filePath, res.status, res.statusText);
 
       if (404 == res.status) {
         return "";
@@ -78,7 +79,7 @@ export function createWebDavClient(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[WebDav] set", filePath, res.status, res.statusText);
+      logger.debug("[WebDav] set", filePath, res.status, res.statusText);
     },
 
     headers() {

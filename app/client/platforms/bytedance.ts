@@ -24,6 +24,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -79,7 +80,7 @@ export class DoubaoApi implements LLMApi {
     // 确保 path 不以 / 开头，避免双斜杠
     const cleanPath = path.startsWith("/") ? path.slice(1) : path;
 
-    console.log("[Proxy Endpoint] ", baseUrl, cleanPath);
+    logger.debug("[Proxy Endpoint] ", baseUrl, cleanPath);
 
     // 检查是否启用代理
     if (accessStore.bytedanceUseProxy) {
@@ -101,7 +102,7 @@ export class DoubaoApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
-        console.error("[ByteDance] Failed to build proxy URL:", e);
+        logger.error("[ByteDance] Failed to build proxy URL:", e);
         return endpoint;
       }
     }
@@ -143,7 +144,7 @@ export class DoubaoApi implements LLMApi {
       return res.choices.at(0).message.content;
     }
     // 如果都没有，尝试返回整个响应的字符串表示（用于调试）
-    console.warn("[ByteDance] Unexpected response format:", res);
+    logger.warn("[ByteDance] Unexpected response format:", res);
     return "";
   }
 
@@ -449,7 +450,7 @@ export class DoubaoApi implements LLMApi {
               };
             } catch (e) {
               // JSON 解析失败或其他错误
-              console.error("[ByteDance] Failed to parse SSE chunk:", e, text);
+              logger.error("[ByteDance] Failed to parse SSE chunk:", e, text);
               return { isThinking: false, content: "" };
             }
           },
@@ -492,7 +493,7 @@ export class DoubaoApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.error("Failed to make a chat request", e);
+      logger.error("Failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }

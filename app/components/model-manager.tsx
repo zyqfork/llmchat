@@ -26,6 +26,7 @@ import {
   saveCustomContextTokens,
 } from "../config/model-context-tokens";
 import { saveModelStreamConfig } from "../config/model-stream";
+import { logger } from "../utils/logger";
 
 interface ModelManagerProps {
   provider: ServiceProvider | string; // 支持自定义服务商ID
@@ -238,7 +239,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
   // 获取当前服务商的所有模型（包含自定义模型）
   const providerModels = useMemo(() => {
-    console.log("[ModelManager] 重新计算 providerModels:", {
+    logger.debug("[ModelManager] 重新计算 providerModels:", {
       provider,
       customModels,
       apiModelsCount: apiModels.length,
@@ -249,7 +250,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     // 获取包含自定义模型的完整列表（无论是否有API模型）
     const allModels = collectModels(DEFAULT_MODELS, customModels || "");
 
-    console.log("[ModelManager] 所有模型（包含自定义）:", allModels);
+    logger.debug("[ModelManager] 所有模型（包含自定义）:", allModels);
 
     if (isCustomProvider && customProviderConfig) {
       // 对于自定义服务商，根据其类型获取相应的模型
@@ -287,11 +288,11 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
           }
         });
         const mergedModels = Array.from(modelMap.values());
-        console.log("[ModelManager] 合并API和自定义服务商模型:", mergedModels);
+        logger.debug("[ModelManager] 合并API和自定义服务商模型:", mergedModels);
         return mergedModels;
       }
 
-      console.log("[ModelManager] 自定义服务商模型:", customProviderModels);
+      logger.debug("[ModelManager] 自定义服务商模型:", customProviderModels);
       return customProviderModels;
     } else {
       // 内置服务商的原有逻辑
@@ -299,7 +300,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         (model) => model.provider.providerName === provider,
       );
 
-      console.log("[ModelManager] 默认模型:", defaultModels);
+      logger.debug("[ModelManager] 默认模型:", defaultModels);
 
       // 过滤出当前服务商的模型（包括自定义模型）
       const providerCustomModels = allModels.filter((model) => {
@@ -308,7 +309,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         const modelProviderName = model.provider.providerName.toLowerCase();
         const currentProviderName = (provider as string).toLowerCase();
 
-        console.log("[ModelManager] 模型提供商比较:", {
+        logger.debug("[ModelManager] 模型提供商比较:", {
           modelName: model.name,
           modelProviderName,
           currentProviderName,
@@ -319,7 +320,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         return modelProviderName === currentProviderName;
       });
 
-      console.log(
+      logger.debug(
         "[ModelManager] 当前服务商的自定义模型:",
         providerCustomModels,
       );
@@ -345,7 +346,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         });
 
         const mergedModels = Array.from(modelMap.values());
-        console.log("[ModelManager] 合并API和自定义模型:", mergedModels);
+        logger.debug("[ModelManager] 合并API和自定义模型:", mergedModels);
         return mergedModels;
       }
 
@@ -359,7 +360,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       });
 
       const finalResult = Array.from(modelMap.values());
-      console.log("[ModelManager] 最终模型列表:", finalResult);
+      logger.debug("[ModelManager] 最终模型列表:", finalResult);
       return finalResult;
     }
   }, [
@@ -624,7 +625,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     // 添加新模型
     const newCustomModels = [...existingModels, customModelString].join(",");
 
-    console.log("[ModelManager] 添加模型前:", {
+    logger.debug("[ModelManager] 添加模型前:", {
       currentCustomModels,
       existingModels,
       newModel: customModelString,
@@ -636,7 +637,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
     accessStore.update((access) => {
       access.customModels = newCustomModels;
-      console.log("[ModelManager] 更新后的 customModels:", access.customModels);
+      logger.debug(
+        "[ModelManager] 更新后的 customModels:",
+        access.customModels,
+      );
     });
 
     // 重置表单并关闭

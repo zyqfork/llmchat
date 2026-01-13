@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { ApiPath, GEMINI_BASE_URL, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
+import { logger } from "@/app/utils/logger";
 
 export async function handle(
   req: NextRequest,
@@ -14,7 +15,7 @@ export async function handle(
   // 检查是否有endpoint参数，如果有则使用代理模式
   const endpoint = req.nextUrl.searchParams.get("endpoint");
   if (endpoint) {
-    console.log("[Google Route] Using proxy mode with endpoint:", endpoint);
+    logger.debug("[Google Route] Using proxy mode with endpoint:", endpoint);
     const { handle: proxyHandler } = await import("./proxy");
     return proxyHandler(req, { params });
   }
@@ -42,7 +43,7 @@ export async function handle(
     const response = await request(req, apiKey, authResult.useServerConfig);
     return response;
   } catch (e) {
-    console.error("[Google] ", e);
+    logger.error("[Google] ", e);
     return NextResponse.json(prettyObject(e));
   }
 }

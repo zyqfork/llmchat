@@ -4,6 +4,7 @@ import { createPersistStore } from "../utils/store";
 import { clientUpdate } from "../utils";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import Locale from "../locales";
+import { logger } from "../utils/logger";
 
 const ONE_MINUTE = 60 * 1000;
 const isApp = !!getClientConfig()?.isApp;
@@ -71,7 +72,7 @@ async function getVersion(type: VersionType) {
       return data.at(0)?.name || "unknown";
     }
   } catch (error) {
-    console.error("[Update] Failed to fetch version:", error);
+    logger.error("[Update] Failed to fetch version:", error);
     return "unknown";
   }
 
@@ -165,11 +166,11 @@ export const useUpdateStore = createPersistStore(
               }
             }
           } catch (error) {
-            console.error("[Notification Error]", error);
+            logger.error("[Notification Error]", error);
           }
         }
       } catch (error) {
-        console.error("[Fetch Upstream Commit Id]", error);
+        logger.error("[Fetch Upstream Commit Id]", error);
       }
     },
   }),

@@ -19,6 +19,7 @@ import {
   trackAuthorizationPageButtonToCPaymentClick,
 } from "../utils/auth-settings-events";
 import clsx from "clsx";
+import { logger } from "../utils/logger";
 
 const storage = safeLocalStorage();
 
@@ -76,7 +77,7 @@ export function AuthPage() {
       // 如果没有设置环境变量访问码，直接进入
       goChat();
     } catch (error) {
-      console.error("访问码验证失败:", error);
+      logger.error("访问码验证失败:", error);
       showToast("验证失败，请重试");
       setIsVerifying(false);
     }

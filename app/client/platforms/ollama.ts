@@ -18,6 +18,7 @@ import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
 
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export interface OllamaListModelResponse {
   models: Array<{
@@ -73,7 +74,7 @@ export class OllamaApi implements LLMApi {
       baseUrl = "http://" + baseUrl;
     }
 
-    console.log("[Ollama Endpoint] ", baseUrl, path);
+    logger.debug("[Ollama Endpoint] ", baseUrl, path);
 
     // 检查是否启用代理
     if (accessStore.ollamaUseProxy) {
@@ -95,7 +96,7 @@ export class OllamaApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
-        console.error("[Ollama] Failed to build proxy URL:", e);
+        logger.error("[Ollama] Failed to build proxy URL:", e);
         return endpoint;
       }
     }
@@ -166,7 +167,7 @@ export class OllamaApi implements LLMApi {
       },
     };
 
-    console.log("[Request] ollama payload: ", requestPayload);
+    logger.debug("[Request] ollama payload: ", requestPayload);
 
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
@@ -246,7 +247,7 @@ export class OllamaApi implements LLMApi {
                 return;
               }
             } catch (e) {
-              console.error("[Ollama] Failed to parse line:", line, e);
+              logger.error("[Ollama] Failed to parse line:", line, e);
             }
           }
         }
@@ -262,7 +263,7 @@ export class OllamaApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      logger.error("[Request] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }
@@ -292,16 +293,13 @@ export class OllamaApi implements LLMApi {
       );
 
       if (!res.ok) {
-        console.error(
-          "[Ollama Models] Failed to fetch models:",
-          res.statusText,
-        );
+        logger.error("[Ollama Models] Failed to fetch models:", res.statusText);
         return [];
       }
 
       const resJson = (await res.json()) as OllamaListModelResponse;
       const models = resJson.models;
-      console.log("[Ollama Models]", models);
+      logger.debug("[Ollama Models]", models);
 
       if (!models || models.length === 0) {
         return [];
@@ -321,7 +319,7 @@ export class OllamaApi implements LLMApi {
         },
       }));
     } catch (e) {
-      console.error("[Ollama Models] Error fetching models:", e);
+      logger.error("[Ollama Models] Error fetching models:", e);
       return [];
     }
   }

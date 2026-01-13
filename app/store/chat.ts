@@ -54,6 +54,7 @@ import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
+import { logger } from "../utils/logger";
 
 const localStorage = safeLocalStorage();
 
@@ -434,7 +435,7 @@ export const useChatStore = createPersistStore(
           try {
             localStorage.removeItem(UNFINISHED_INPUT(session.id));
           } catch (e) {
-            console.error("Failed to remove unfinished input:", e);
+            logger.error("Failed to remove unfinished input:", e);
           }
         });
 
@@ -473,12 +474,12 @@ export const useChatStore = createPersistStore(
           });
 
           if (keysToRemove.length > 0) {
-            console.log(
+            logger.debug(
               `Cleaned ${keysToRemove.length} orphaned unfinished inputs`,
             );
           }
         } catch (e) {
-          console.error("Failed to clean orphaned unfinished inputs:", e);
+          logger.error("Failed to clean orphaned unfinished inputs:", e);
         }
       },
 
@@ -626,7 +627,7 @@ export const useChatStore = createPersistStore(
         try {
           localStorage.removeItem(UNFINISHED_INPUT(deletedSession.id));
         } catch (e) {
-          console.error("Failed to remove unfinished input:", e);
+          logger.error("Failed to remove unfinished input:", e);
         }
 
         // for undo delete action
@@ -688,7 +689,7 @@ export const useChatStore = createPersistStore(
           }
           (window as any).__syncDebounceTimer = setTimeout(() => {
             syncStore.autoSync().catch((e: any) => {
-              console.error("[AutoSync] Failed:", e);
+              logger.error("[AutoSync] Failed:", e);
             });
           }, 3000); // 3秒防抖
         }
@@ -808,7 +809,7 @@ export const useChatStore = createPersistStore(
             try {
               if (responseRes?.status === 200) {
                 const responseBody = (responseRes as any)?.__responseBody;
-                console.log(
+                logger.debug(
                   "[Response API] Response body for conversation ID extraction:",
                   responseBody,
                 );
@@ -819,14 +820,14 @@ export const useChatStore = createPersistStore(
                     responseBody.id ||
                     responseBody.response?.id ||
                     responseBody.response?.conversation_id;
-                  console.log(
+                  logger.debug(
                     "[Response API] Extracted conversation ID:",
                     responseApiConversationId,
                   );
                 }
               }
             } catch (e) {
-              console.warn(
+              logger.warn(
                 "[Response API] Failed to extract conversation ID:",
                 e,
               );
@@ -841,7 +842,7 @@ export const useChatStore = createPersistStore(
               if (responseApiConversationId) {
                 if (!session.responseApiConversationId) {
                   session.responseApiConversationId = responseApiConversationId;
-                  console.log(
+                  logger.debug(
                     "[Response API] Saved conversation ID to session:",
                     responseApiConversationId,
                   );
@@ -850,7 +851,7 @@ export const useChatStore = createPersistStore(
                   responseApiConversationId
                 ) {
                   // 如果会话 ID 发生变化，更新它（虽然这种情况不应该发生）
-                  console.warn(
+                  logger.warn(
                     "[Response API] Conversation ID changed from",
                     session.responseApiConversationId,
                     "to",
@@ -858,13 +859,13 @@ export const useChatStore = createPersistStore(
                   );
                   session.responseApiConversationId = responseApiConversationId;
                 } else {
-                  console.log(
+                  logger.debug(
                     "[Response API] Session already has conversation ID:",
                     session.responseApiConversationId,
                   );
                 }
               } else {
-                console.log(
+                logger.debug(
                   "[Response API] No conversation ID found in response",
                 );
               }
@@ -1190,7 +1191,7 @@ export const useChatStore = createPersistStore(
               },
               onError(error) {
                 // 为每个模型提供独立的错误处理
-                console.error(`[MultiModel] Model ${modelKey} error:`, error);
+                logger.error(`[MultiModel] Model ${modelKey} error:`, error);
 
                 // 检查是否是用户主动中止的错误
                 const isAborted =
@@ -1238,7 +1239,7 @@ export const useChatStore = createPersistStore(
               },
             });
           } catch (error) {
-            console.error(
+            logger.error(
               `[MultiModel] Model ${modelKey} request failed:`,
               error,
             );
@@ -1292,7 +1293,7 @@ export const useChatStore = createPersistStore(
           showToast(`多模型对话失败，${failedModels}个模型响应出错`);
         } else if (failedModels > 0) {
           // 部分模型失败，显示警告
-          console.warn(
+          logger.warn(
             `[MultiModel] ${failedModels}个模型响应出错，${completedModels}个模型正常完成`,
           );
         }
@@ -1377,12 +1378,10 @@ export const useChatStore = createPersistStore(
         // 如果兩者都沒有，systemPrompts 保持為空數組
 
         if (shouldInjectSystemPrompts || mcpSystemPrompt) {
-          if (process.env.NODE_ENV === "development") {
-            console.log(
-              "[Global System Prompt] ",
-              systemPrompts.at(0)?.content ?? "empty",
-            );
-          }
+          logger.debug(
+            "[Global System Prompt] ",
+            systemPrompts.at(0)?.content ?? "empty",
+          );
         }
         const memoryPrompt = get().getMemoryPrompt();
         // long term memory
@@ -1573,7 +1572,7 @@ export const useChatStore = createPersistStore(
 
         // 防止并发摘要：如果正在生成摘要，跳过
         if (session.isSummarizing) {
-          console.log(
+          logger.debug(
             "[Summarize] Already in progress for session:",
             session.id,
           );
@@ -1666,7 +1665,7 @@ export const useChatStore = createPersistStore(
                   s.memoryPrompt = filteredMessage;
                   s.isSummarizing = false; // 释放摘要锁
                 });
-                console.log(
+                logger.debug(
                   "[Summarize] Completed for session:",
                   session.id,
                   "summary length:",
@@ -1677,14 +1676,14 @@ export const useChatStore = createPersistStore(
                 get().updateTargetSession(session, (s) => {
                   s.isSummarizing = false;
                 });
-                console.error(
+                logger.error(
                   "[Summarize] Failed with status:",
                   responseRes?.status,
                 );
               }
             },
             onError(err) {
-              console.error("[Summarize] Error:", err);
+              logger.error("[Summarize] Error:", err);
               // 发生错误时释放摘要锁
               get().updateTargetSession(session, (s) => {
                 s.isSummarizing = false;
@@ -1729,7 +1728,7 @@ export const useChatStore = createPersistStore(
         );
 
         if (messageIndex < 0) {
-          console.error("[Chat] Bot message not found for retry", botMessageId);
+          logger.error("[Chat] Bot message not found for retry", botMessageId);
           return;
         }
 
@@ -1858,7 +1857,7 @@ export const useChatStore = createPersistStore(
               }
               ChatControllerPool.remove(session.id, botMessageId);
 
-              console.error("[Chat] failed to retry bot message", error);
+              logger.error("[Chat] failed to retry bot message", error);
             },
             onController(controller) {
               // 注册控制器用于停止生成
@@ -1870,7 +1869,7 @@ export const useChatStore = createPersistStore(
             },
           });
         } catch (error) {
-          console.error("[Chat] Error in retryBotMessage", error);
+          logger.error("[Chat] Error in retryBotMessage", error);
         }
       },
 

@@ -26,6 +26,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export type MultiBlockContent = {
   type: "image" | "text";
@@ -493,7 +494,7 @@ export class ClaudeApi implements LLMApi {
         } catch {}
         options.onFinish(message, res);
       } catch (e) {
-        console.error("failed to chat", e);
+        logger.error("failed to chat", e);
         options.onError?.(e as Error);
       }
     }
@@ -538,7 +539,7 @@ export class ClaudeApi implements LLMApi {
         sorted: 4,
       }));
     } catch (e) {
-      console.error("[Anthropic] failed to list models", e);
+      logger.error("[Anthropic] failed to list models", e);
       return DEFAULT_MODELS.filter(
         (m) => m.provider.providerName === "Anthropic",
       );
@@ -586,7 +587,7 @@ export class ClaudeApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return cloudflareAIGatewayUrl(u.toString());
       } catch (e) {
-        console.error("[Anthropic] Failed to build proxy URL:", e);
+        logger.error("[Anthropic] Failed to build proxy URL:", e);
         return cloudflareAIGatewayUrl(endpoint);
       }
     }

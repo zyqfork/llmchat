@@ -3,12 +3,13 @@ import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { requestOpenai } from "./common";
+import { logger } from "@/app/utils/logger";
 
 export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[Azure Route] params ", params);
+  logger.debug("[Azure Route] params ", params);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -17,7 +18,7 @@ export async function handle(
   // 检查是否有endpoint参数，如果有则使用代理模式
   const endpoint = req.nextUrl.searchParams.get("endpoint");
   if (endpoint) {
-    console.log("[Azure Route] Using proxy mode with endpoint:", endpoint);
+    logger.debug("[Azure Route] Using proxy mode with endpoint:", endpoint);
     const { handle: proxyHandler } = await import("./proxy");
     return proxyHandler(req, { params });
   }
@@ -34,7 +35,7 @@ export async function handle(
   try {
     return await requestOpenai(req, authResult.useServerConfig);
   } catch (e) {
-    console.error("[Azure] ", e);
+    logger.error("[Azure] ", e);
     return NextResponse.json(prettyObject(e));
   }
 }

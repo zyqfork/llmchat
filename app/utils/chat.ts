@@ -11,6 +11,7 @@ import {
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./fetch";
+import { logger } from "./logger";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -84,7 +85,7 @@ export async function preProcessImageContentBase(
         const url = await cacheImageToBase64Image(part?.image_url?.url);
         result.push(await transformImageUrl(url));
       } catch (error) {
-        console.error("Error processing image URL:", error);
+        logger.error("Error processing image URL:", error);
       }
     } else {
       result.push({ ...part });
@@ -237,7 +238,7 @@ export function stream(
           processToolMessage(requestPayload, toolCallMessage, toolCallResult);
           setTimeout(() => {
             // call again
-            console.debug("[ChatAPI] restart");
+            logger.debug("[ChatAPI] restart");
             running = false;
             chatApi(chatPath, headers, requestPayload, tools); // call fetchEventSource
           }, 60);
@@ -247,7 +248,7 @@ export function stream(
       if (running) {
         return;
       }
-      console.debug("[ChatAPI] end");
+      logger.debug("[ChatAPI] end");
       finished = true;
       // attach debug info to response
       try {
@@ -353,7 +354,7 @@ export function stream(
               if (!(responseRes as any).__responseBody) {
                 (responseRes as any).__responseBody = jsonData;
                 if (possibleConversationId) {
-                  console.log(
+                  logger.debug(
                     "[Response API] Initial conversation ID found:",
                     possibleConversationId,
                   );
@@ -363,7 +364,7 @@ export function stream(
                 (responseRes as any).__responseBody.conversation_id =
                   possibleConversationId;
                 (responseRes as any).__responseBody.id = possibleConversationId;
-                console.log(
+                logger.debug(
                   "[Response API] Conversation ID updated:",
                   possibleConversationId,
                 );
@@ -388,7 +389,7 @@ export function stream(
             remainText += chunk;
           }
         } catch (e) {
-          console.error("[Request] parse error", text, msg, e);
+          logger.error("[Request] parse error", text, msg, e);
         }
       },
       onclose() {
@@ -401,7 +402,7 @@ export function stream(
       openWhenHidden: true,
     });
   }
-  console.debug("[ChatAPI] start");
+  logger.debug("[ChatAPI] start");
   chatApi(chatPath, headers, requestPayload, tools); // call fetchEventSource
 }
 
@@ -466,7 +467,7 @@ async function safeCallToolFunction(
       });
 
       if (matchedFunc) {
-        console.log(
+        logger.debug(
           "[Tool Call] Function name mismatch, using:",
           matchedFunc,
           "instead of:",
@@ -474,9 +475,9 @@ async function safeCallToolFunction(
         );
         funcName = matchedFunc;
       } else {
-        console.error("[Tool Call] Function not found:", funcName);
-        console.error("[Tool Call] Available functions:", availableFuncs);
-        console.error("[Tool Call] Tried to match suffix:", toolSuffix);
+        logger.error("[Tool Call] Function not found:", funcName);
+        logger.error("[Tool Call] Available functions:", availableFuncs);
+        logger.error("[Tool Call] Tried to match suffix:", toolSuffix);
         const error = new Error(`Tool function "${funcName}" not found`);
         options?.onAfterTool?.({
           ...tool,
@@ -491,8 +492,8 @@ async function safeCallToolFunction(
         };
       }
     } else {
-      console.error("[Tool Call] Function not found:", funcName);
-      console.error("[Tool Call] Available functions:", availableFuncs);
+      logger.error("[Tool Call] Function not found:", funcName);
+      logger.error("[Tool Call] Available functions:", availableFuncs);
       const error = new Error(`Tool function "${funcName}" not found`);
       options?.onAfterTool?.({
         ...tool,
@@ -515,7 +516,7 @@ async function safeCallToolFunction(
       ? JSON.parse(tool?.function?.arguments)
       : {};
   } catch (e) {
-    console.error(
+    logger.error(
       "[Tool Call] Failed to parse arguments:",
       tool?.function?.arguments,
     );
@@ -826,7 +827,7 @@ export function streamWithThink(
             }
           }
         } catch (e) {
-          console.error("[Request] parse error", text, msg, e);
+          logger.error("[Request] parse error", text, msg, e);
           // Don't throw error for parse failures, just log them
           // 在多模型场景下，一个模型的解析错误不应该影响其他模型
         }
@@ -837,13 +838,13 @@ export function streamWithThink(
       onerror(e) {
         options?.onError?.(e);
         // 在多模型场景下，避免抛出错误影响其他模型
-        console.error("[ChatAPI] Stream error:", e);
+        logger.error("[ChatAPI] Stream error:", e);
         // 不抛出错误，让流自然结束
         finish();
       },
       openWhenHidden: true,
     });
   }
-  console.debug("[ChatAPI] start");
+  logger.debug("[ChatAPI] start");
   chatApi(chatPath, headers, requestPayload, tools); // call fetchEventSource
 }

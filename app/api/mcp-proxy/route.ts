@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/app/utils/logger";
 
 export const runtime = "edge";
 
@@ -11,10 +12,10 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleMCPProxy(req: NextRequest) {
-  console.log("🔧🔧🔧 [MCP Proxy] 工具调用请求被接收！");
-  console.log("🔧🔧🔧 [MCP Proxy] 请求方法:", req.method);
-  console.log("🔧🔧🔧 [MCP Proxy] 请求路径:", req.nextUrl.pathname);
-  console.log(
+  logger.debug("🔧🔧🔧 [MCP Proxy] 工具调用请求被接收！");
+  logger.debug("🔧🔧🔧 [MCP Proxy] 请求方法:", req.method);
+  logger.debug("🔧🔧🔧 [MCP Proxy] 请求路径:", req.nextUrl.pathname);
+  logger.debug(
     "🔧🔧🔧 [MCP Proxy] 查询参数:",
     req.nextUrl.searchParams.toString(),
   );
@@ -41,7 +42,7 @@ async function handleMCPProxy(req: NextRequest) {
     ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${remainingParams}`
     : endpoint;
 
-  console.log("🔧🔧🔧 [MCP Proxy] 代理到目标URL:", fetchUrl);
+  logger.debug("🔧🔧🔧 [MCP Proxy] 代理到目标URL:", fetchUrl);
 
   // 准备headers
   const skipHeaders = [
@@ -105,7 +106,7 @@ async function handleMCPProxy(req: NextRequest) {
       headers: newHeaders,
     });
   } catch (error) {
-    console.error("[MCP Proxy] Error:", error);
+    logger.error("[MCP Proxy] Error:", error);
     return NextResponse.json(
       {
         error: "Proxy request failed",

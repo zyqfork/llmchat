@@ -50,6 +50,10 @@ export const smartStorageManager = initSmartStorage(indexedDBStorage);
 if (typeof window !== "undefined") {
   // 延迟执行，确保页面加载完成
   setTimeout(() => {
-    initStorageMigration().catch(console.error);
+    import("./logger").then(({ logger }) => {
+      initStorageMigration().catch((error) => {
+        logger.error("[IndexedDB] Migration error:", error);
+      });
+    });
   }, 1000);
 }

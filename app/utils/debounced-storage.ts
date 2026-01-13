@@ -1,5 +1,6 @@
 import { StateStorage } from "zustand/middleware";
 import { safeLocalStorage } from "@/app/utils";
+import { logger } from "./logger";
 
 const localStorage = safeLocalStorage();
 
@@ -40,7 +41,7 @@ class DebouncedStorage implements StateStorage {
         this.pendingWrites.delete(name);
         this.pendingData.delete(name);
       } catch (error) {
-        console.error("[DebouncedStorage] Write error:", error);
+        logger.error("[DebouncedStorage] Write error:", error);
         // 失败时回退到 localStorage
         localStorage.setItem(name, value);
       }

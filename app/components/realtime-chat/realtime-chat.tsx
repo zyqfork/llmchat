@@ -23,6 +23,7 @@ import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
 import { ServiceProvider } from "@/app/constant";
 import { QwenRealtimeClient } from "@/app/lib/qwen-realtime-client";
+import { logger } from "@/app/utils/logger";
 
 interface RealtimeChatProps {
   onClose?: () => void;
@@ -131,29 +132,29 @@ export function RealtimeChat({
           },
           {
             onOpen: () => {
-              console.log("[QwenRealtime] Connected");
+              logger.debug("[QwenRealtime] Connected");
               setStatus("Connected");
             },
             onClose: (code, reason) => {
-              console.log("[QwenRealtime] Disconnected:", code, reason);
+              logger.debug("[QwenRealtime] Disconnected:", code, reason);
               setIsConnected(false);
               setStatus("Disconnected");
             },
             onSessionCreated: (sessionId) => {
-              console.log("[QwenRealtime] Session created:", sessionId);
+              logger.debug("[QwenRealtime] Session created:", sessionId);
             },
             onAudioDelta: (audioData) => {
               audioQueueRef.current.push(audioData);
               processQwenAudioQueue();
             },
             onAudioDone: () => {
-              console.log("[QwenRealtime] Audio done");
+              logger.debug("[QwenRealtime] Audio done");
             },
             onResponseDone: () => {
-              console.log("[QwenRealtime] Response done");
+              logger.debug("[QwenRealtime] Response done");
             },
             onError: (error) => {
-              console.error("[QwenRealtime] Error:", error);
+              logger.error("[QwenRealtime] Error:", error);
               setStatus(`Error: ${error.message}`);
             },
           },
@@ -163,7 +164,7 @@ export function RealtimeChat({
         setIsConnected(true);
         setStatus("Connected to Qwen TTS");
       } catch (error) {
-        console.error("Qwen connection failed:", error);
+        logger.error("Qwen connection failed:", error);
         setStatus("Connection failed");
       } finally {
         setIsConnecting(false);
@@ -180,7 +181,7 @@ export function RealtimeChat({
         qwenClientRef.current = null;
         setIsConnected(false);
       } catch (error) {
-        console.error("Qwen disconnect failed:", error);
+        logger.error("Qwen disconnect failed:", error);
       }
     }
   };
@@ -219,7 +220,7 @@ export function RealtimeChat({
 
         setIsConnected(true);
       } catch (error) {
-        console.error("Connection failed:", error);
+        logger.error("Connection failed:", error);
         setStatus("Connection failed");
       } finally {
         setIsConnecting(false);
@@ -240,7 +241,7 @@ export function RealtimeChat({
         clientRef.current = null;
         setIsConnected(false);
       } catch (error) {
-        console.error("Disconnect failed:", error);
+        logger.error("Disconnect failed:", error);
       }
     }
   };
@@ -344,7 +345,7 @@ export function RealtimeChat({
       }
     } catch (error) {
       if (clientRef.current) {
-        console.error("Response iteration error:", error);
+        logger.error("Response iteration error:", error);
       }
     }
   }, [handleInputAudio, handleResponse]);
@@ -370,7 +371,7 @@ export function RealtimeChat({
         });
         setIsRecording(true);
       } catch (error) {
-        console.error("Failed to start recording:", error);
+        logger.error("Failed to start recording:", error);
       }
     } else if (audioHandlerRef.current) {
       try {
@@ -382,7 +383,7 @@ export function RealtimeChat({
         }
         setIsRecording(false);
       } catch (error) {
-        console.error("Failed to stop recording:", error);
+        logger.error("Failed to stop recording:", error);
       }
     }
   }, [isRecording, useVAD, handleInputAudio, isQwen]);
@@ -406,14 +407,14 @@ export function RealtimeChat({
 
     initAudioHandler().catch((error) => {
       setStatus(error);
-      console.error(error);
+      logger.error(error);
     });
 
     return () => {
       if (isRecording) {
         toggleRecording();
       }
-      audioHandlerRef.current?.close().catch(console.error);
+      audioHandlerRef.current?.close().catch(logger.error);
       disconnect();
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -463,7 +464,7 @@ export function RealtimeChat({
     if (isRecording) {
       await toggleRecording();
     }
-    disconnect().catch(console.error);
+    disconnect().catch(logger.error);
   };
 
   return (

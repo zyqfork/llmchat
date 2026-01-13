@@ -27,7 +27,7 @@ export const getBuildConfig = () => {
 
       return { commitDate, commitHash };
     } catch (e) {
-      console.error("[Build Config] No git or not from git repo.");
+      // 静默处理，不需要日志
       return {
         commitDate: "unknown",
         commitHash: "unknown",

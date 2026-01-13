@@ -2,12 +2,13 @@ import { XAI_BASE_URL, ApiPath, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
+import { logger } from "@/app/utils/logger";
 
 export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[XAI Route] params ", params);
+  logger.debug("[XAI Route] params ", params);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -16,7 +17,7 @@ export async function handle(
   // 检查是否有endpoint参数，如果有则使用代理模式
   const endpoint = req.nextUrl.searchParams.get("endpoint");
   if (endpoint) {
-    console.log("[XAI Route] Using proxy mode with endpoint:", endpoint);
+    logger.debug("[XAI Route] Using proxy mode with endpoint:", endpoint);
     const { handle: proxyHandler } = await import("./proxy");
     return proxyHandler(req, { params });
   }
@@ -32,7 +33,7 @@ export async function handle(
     const response = await request(req, authResult.useServerConfig);
     return response;
   } catch (e) {
-    console.error("[XAI] ", e);
+    logger.error("[XAI] ", e);
     return NextResponse.json(prettyObject(e));
   }
 }
@@ -55,8 +56,8 @@ async function request(req: NextRequest, useServerConfig?: boolean) {
     baseUrl = baseUrl.slice(0, -1);
   }
 
-  console.log("[Proxy] ", path);
-  console.log("[Base Url]", baseUrl);
+  logger.debug("[Proxy] ", path);
+  logger.debug("[Base Url]", baseUrl);
 
   const timeoutId = setTimeout(
     () => {

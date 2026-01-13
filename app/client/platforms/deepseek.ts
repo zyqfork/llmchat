@@ -30,6 +30,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { RequestPayload } from "./openai";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export class DeepSeekApi implements LLMApi {
   private disableListModels = true;
@@ -56,7 +57,7 @@ export class DeepSeekApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
-    console.log("[Proxy Endpoint] ", baseUrl, path);
+    logger.debug("[Proxy Endpoint] ", baseUrl, path);
 
     // 检查是否启用代理
     if (accessStore.deepseekUseProxy) {
@@ -78,7 +79,7 @@ export class DeepSeekApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
-        console.error("[DeepSeek] Failed to build proxy URL:", e);
+        logger.error("[DeepSeek] Failed to build proxy URL:", e);
         return endpoint;
       }
     }
@@ -165,7 +166,7 @@ export class DeepSeekApi implements LLMApi {
       // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
     };
 
-    console.log("[Request] openai payload: ", requestPayload);
+    logger.debug("[Request] openai payload: ", requestPayload);
 
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
@@ -439,7 +440,7 @@ export class DeepSeekApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      logger.error("[Request] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }
@@ -481,7 +482,7 @@ export class DeepSeekApi implements LLMApi {
         sorted: 9,
       }));
     } catch (e) {
-      console.error("[DeepSeek] failed to list models", e);
+      logger.error("[DeepSeek] failed to list models", e);
       return DEFAULT_MODELS.filter(
         (m) => m.provider.providerName === "DeepSeek",
       );

@@ -4,10 +4,11 @@ import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { requestOpenai } from "./common";
+import { logger } from "@/app/utils/logger";
 
 const ALLOWED_PATH = new Set(Object.values(OpenaiPath));
 
-console.log("[OpenAI Route] Allowed paths:", Array.from(ALLOWED_PATH));
+logger.debug("[OpenAI Route] Allowed paths:", Array.from(ALLOWED_PATH));
 
 function getModels(remoteModelRes: OpenAIListModelResponse) {
   // 纯前端应用，不过滤模型，由用户的API密钥权限决定
@@ -18,9 +19,9 @@ export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  console.log("[OpenAI Route] 🚀 API被调用，params:", params);
-  console.log("[OpenAI Route] 🚀 请求方法:", req.method);
-  console.log("[OpenAI Route] 🚀 请求路径:", req.nextUrl.pathname);
+  logger.debug("[OpenAI Route] 🚀 API被调用，params:", params);
+  logger.debug("[OpenAI Route] 🚀 请求方法:", req.method);
+  logger.debug("[OpenAI Route] 🚀 请求路径:", req.nextUrl.pathname);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -29,7 +30,7 @@ export async function handle(
   // 检查是否有endpoint参数，如果有则使用代理模式
   const endpoint = req.nextUrl.searchParams.get("endpoint");
   if (endpoint) {
-    console.log("[OpenAI Route] Using proxy mode with endpoint:", endpoint);
+    logger.debug("[OpenAI Route] Using proxy mode with endpoint:", endpoint);
     // 使用代理逻辑
     const { handle: proxyHandler } = await import("./proxy");
     return proxyHandler(req, { params });
@@ -38,7 +39,7 @@ export async function handle(
   const subpath = params.path.join("/");
 
   if (!ALLOWED_PATH.has(subpath)) {
-    console.log("[OpenAI Route] forbidden path ", subpath);
+    logger.warn("[OpenAI Route] forbidden path ", subpath);
     return NextResponse.json(
       {
         error: true,
@@ -71,7 +72,7 @@ export async function handle(
 
     return response;
   } catch (e) {
-    console.error("[OpenAI] ", e);
+    logger.error("[OpenAI] ", e);
     return NextResponse.json(prettyObject(e));
   }
 }

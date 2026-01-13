@@ -6,6 +6,8 @@
  * - 其他环境：使用浏览器原生 fetch
  */
 
+import { logger } from "./logger";
+
 type TauriStreamResponse = {
   request_id: number;
   status: number;
@@ -91,7 +93,7 @@ export async function fetch(
   const type = fetchType || detectFetchType(url);
 
   // Tauri 环境，使用 Rust 代理
-  console.log(
+  logger.debug(
     `[Tauri Fetch ${type.toUpperCase()}] ${options?.method || "GET"} ${url}`,
   );
 
@@ -188,7 +190,7 @@ async function fetchStream(
     closed = true;
     unlisten && unlisten();
     writer.ready.then(() => {
-      writer.close().catch((e) => console.error(e));
+      writer.close().catch((e) => logger.error(e));
     });
   };
 
@@ -249,7 +251,7 @@ async function fetchStream(
 
     return response;
   } catch (e) {
-    console.error(`[Tauri Fetch ${fetchType.toUpperCase()} Stream] Error:`, e);
+    logger.error(`[Tauri Fetch ${fetchType.toUpperCase()} Stream] Error:`, e);
     close();
     return new Response("", { status: 599 });
   }
@@ -290,7 +292,7 @@ async function fetchNonStream(
       headers: respHeaders,
     });
   } catch (e) {
-    console.error(`[Tauri Fetch ${fetchType.toUpperCase()}] Error:`, e);
+    logger.error(`[Tauri Fetch ${fetchType.toUpperCase()}] Error:`, e);
     throw e;
   }
 }
@@ -312,7 +314,7 @@ export function getProxyUrl(
   // 在 Tauri 环境中，不使用 HTTP 代理服务器
   // 因为所有请求都通过 Rust 后端发送
   if (isTauriApp()) {
-    console.log("[Tauri Fetch] Using Rust backend proxy");
+    logger.debug("[Tauri Fetch] Using Rust backend proxy");
     return "";
   }
 

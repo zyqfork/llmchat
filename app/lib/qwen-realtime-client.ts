@@ -4,6 +4,8 @@
  * 文档: https://help.aliyun.com/zh/model-studio/qwen-tts-realtime
  */
 
+import { logger } from "@/app/utils/logger";
+
 export type QwenVoice =
   | "Cherry" // 芊悦 - 阳光积极、亲切自然小姐姐
   | "Serena" // 苏瑶 - 温柔小姐姐
@@ -99,7 +101,7 @@ export class QwenRealtimeClient {
         ]);
 
         this.ws.onopen = () => {
-          console.log("[QwenRealtime] WebSocket connected");
+          logger.debug("[QwenRealtime] WebSocket connected");
           this.isConnected = true;
           this.callbacks.onOpen?.();
           // 连接成功后更新会话配置
@@ -108,7 +110,7 @@ export class QwenRealtimeClient {
         };
 
         this.ws.onclose = (event) => {
-          console.log(
+          logger.debug(
             "[QwenRealtime] WebSocket closed:",
             event.code,
             event.reason,
@@ -118,7 +120,7 @@ export class QwenRealtimeClient {
         };
 
         this.ws.onerror = (error) => {
-          console.error("[QwenRealtime] WebSocket error:", error);
+          logger.error("[QwenRealtime] WebSocket error:", error);
           this.callbacks.onError?.(new Error("WebSocket connection error"));
           reject(error);
         };
@@ -140,12 +142,12 @@ export class QwenRealtimeClient {
       switch (type) {
         case "session.created":
           this.sessionId = message.session?.id;
-          console.log("[QwenRealtime] Session created:", this.sessionId);
+          logger.debug("[QwenRealtime] Session created:", this.sessionId);
           this.callbacks.onSessionCreated?.(this.sessionId || "");
           break;
 
         case "session.updated":
-          console.log("[QwenRealtime] Session updated");
+          logger.debug("[QwenRealtime] Session updated");
           break;
 
         case "response.audio.delta":
@@ -157,35 +159,35 @@ export class QwenRealtimeClient {
           break;
 
         case "response.audio.done":
-          console.log("[QwenRealtime] Audio done");
+          logger.debug("[QwenRealtime] Audio done");
           this.callbacks.onAudioDone?.();
           break;
 
         case "response.done":
-          console.log("[QwenRealtime] Response done");
+          logger.debug("[QwenRealtime] Response done");
           this.callbacks.onResponseDone?.();
           break;
 
         case "session.finished":
-          console.log("[QwenRealtime] Session finished");
+          logger.debug("[QwenRealtime] Session finished");
           break;
 
         case "error":
-          console.error("[QwenRealtime] Error:", message.error);
+          logger.error("[QwenRealtime] Error:", message.error);
           this.callbacks.onError?.(
             new Error(message.error?.message || "Unknown error"),
           );
           break;
 
         case "input_text_buffer.committed":
-          console.log("[QwenRealtime] Text buffer committed");
+          logger.debug("[QwenRealtime] Text buffer committed");
           break;
 
         default:
-          console.log("[QwenRealtime] Unknown message type:", type);
+          logger.debug("[QwenRealtime] Unknown message type:", type);
       }
     } catch (error) {
-      console.error("[QwenRealtime] Failed to parse message:", error);
+      logger.error("[QwenRealtime] Failed to parse message:", error);
     }
   }
 
@@ -200,7 +202,7 @@ export class QwenRealtimeClient {
 
   private sendEvent(event: any) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error("[QwenRealtime] WebSocket not connected");
+      logger.error("[QwenRealtime] WebSocket not connected");
       return;
     }
     event.event_id = this.generateEventId();

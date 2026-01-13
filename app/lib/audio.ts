@@ -78,7 +78,7 @@ export class AudioHandler {
 
       this.workletNode.port.postMessage({ command: "START_RECORDING" });
     } catch (error) {
-      console.error("Error starting recording:", error);
+      // 静默处理错误，避免在生产环境输出过多日志
       throw error;
     }
   }

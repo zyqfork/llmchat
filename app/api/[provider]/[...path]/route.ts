@@ -12,17 +12,18 @@ import { handle as siliconflowHandler } from "../../siliconflow";
 import { handle as xaiHandler } from "../../xai";
 import { handle as proxyHandler } from "../../proxy";
 import { handle as customProviderHandler } from "../../custom-provider";
+import { logger } from "@/app/utils/logger";
 
 async function handle(
   req: NextRequest,
   { params }: { params: { provider: string; path: string[] } },
 ) {
   const apiPath = `/api/${params.provider}`;
-  console.log(`🔥🔥🔥 [${params.provider} Route] API路由被调用！`);
-  console.log(`🔥🔥🔥 [${params.provider} Route] params:`, params);
-  console.log(`🔥🔥🔥 [${params.provider} Route] apiPath:`, apiPath);
-  console.log(`🔥🔥🔥 [${params.provider} Route] 请求方法:`, req.method);
-  console.log(
+  logger.debug(`🔥🔥🔥 [${params.provider} Route] API路由被调用！`);
+  logger.debug(`🔥🔥🔥 [${params.provider} Route] params:`, params);
+  logger.debug(`🔥🔥🔥 [${params.provider} Route] apiPath:`, apiPath);
+  logger.debug(`🔥🔥🔥 [${params.provider} Route] 请求方法:`, req.method);
+  logger.debug(
     `🔥🔥🔥 [${params.provider} Route] 请求路径:`,
     req.nextUrl.pathname,
   );

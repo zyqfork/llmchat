@@ -44,6 +44,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { fetch } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -154,7 +155,7 @@ export class ChatGPTApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return cloudflareAIGatewayUrl(u.toString());
       } catch (e) {
-        console.error("[OpenAI] Failed to build proxy URL:", e);
+        logger.error("[OpenAI] Failed to build proxy URL:", e);
         // 如果代理URL构建失败，回退到直接URL
         return cloudflareAIGatewayUrl(endpoint);
       }

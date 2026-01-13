@@ -470,10 +470,7 @@ export function getModelContextTokens(
           return parsed;
         }
       } catch (e) {
-        console.warn(
-          `Failed to parse custom context tokens for ${modelName}:`,
-          e,
-        );
+        // 静默处理解析错误
       }
     }
   }

@@ -2,6 +2,7 @@
  * 性能优化工具集
  */
 import React from "react";
+import { logger } from "./logger";
 
 // 防抖 Hook
 export function useDebounce<T>(value: T, delay: number): T {
@@ -113,7 +114,7 @@ export function measurePerformance(name: string, fn: () => void) {
   const start = performance.now();
   fn();
   const end = performance.now();
-  console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
+  logger.debug(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
 }
 
 // 请求去重 Hook

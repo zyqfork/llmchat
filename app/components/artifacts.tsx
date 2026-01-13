@@ -22,6 +22,7 @@ import { copyToClipboard, downloadAs } from "../utils";
 import { Path, ApiPath, REPO_URL } from "@/app/constant";
 import { Loading } from "./home";
 import styles from "./artifacts.module.scss";
+import { logger } from "../utils/logger";
 
 type HTMLPreviewProps = {
   code: string;
@@ -426,7 +427,7 @@ export function ArtifactsPrintButton({
         setLoading(false);
       }, 3000);
     } catch (error) {
-      console.error("[Print Artifacts] ", error);
+      logger.error("[Print Artifacts] ", error);
       showToast("打印失败，请重试");
       setLoading(false);
     }

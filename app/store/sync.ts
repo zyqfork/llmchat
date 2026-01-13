@@ -13,6 +13,7 @@ import { showToast } from "../components/ui-lib";
 import Locale from "../locales";
 import { createSyncClient, ProviderType } from "../utils/cloud";
 import { encrypt, decrypt } from "../utils/crypto";
+import { logger } from "../utils/logger";
 
 export interface WebDavConfig {
   server: string;
@@ -129,7 +130,7 @@ export const useSyncStore = createPersistStore(
         });
         return JSON.parse(result);
       } catch (e) {
-        console.error("[Sync] Failed to clone object:", e);
+        logger.error("[Sync] Failed to clone object:", e);
         return {} as T;
       }
     },
@@ -295,7 +296,7 @@ export const useSyncStore = createPersistStore(
             : undefined,
       };
 
-      console.log("[Sync] getConfigData:", {
+      logger.debug("[Sync] getConfigData:", {
         accessKeys: Object.keys(userAccess),
         configKeys: Object.keys(userConfig),
         masksCount: Object.keys(userMasks).length,
@@ -337,7 +338,7 @@ export const useSyncStore = createPersistStore(
       const chatData = this.getChatData();
       const filePath = `${username}/${CHAT_FILE_NAME}`;
       await client.set(filePath, JSON.stringify(chatData));
-      console.log("[Sync] Uploaded chat data:", filePath);
+      logger.debug("[Sync] Uploaded chat data:", filePath);
     },
 
     /**
@@ -350,7 +351,7 @@ export const useSyncStore = createPersistStore(
 
       const remoteData = await client.get(filePath);
       if (!remoteData || remoteData === "") {
-        console.log("[Sync] No remote chat data found");
+        logger.debug("[Sync] No remote chat data found");
         return;
       }
 
@@ -407,10 +408,10 @@ export const useSyncStore = createPersistStore(
               new Date(a.lastUpdate).getTime(),
           );
           setLocalAppState(localState);
-          console.log("[Sync] Merged remote chat data");
+          logger.debug("[Sync] Merged remote chat data");
         }
       } catch (e) {
-        console.error("[Sync] Failed to parse remote chat data:", e);
+        logger.error("[Sync] Failed to parse remote chat data:", e);
       }
     },
 
@@ -428,9 +429,9 @@ export const useSyncStore = createPersistStore(
         // 再上传本地数据
         await this.uploadChat();
         this.markSyncTime();
-        console.log("[Sync] Auto sync completed");
+        logger.debug("[Sync] Auto sync completed");
       } catch (e) {
-        console.error("[Sync] Auto sync failed:", e);
+        logger.error("[Sync] Auto sync failed:", e);
       }
     },
 
@@ -448,7 +449,7 @@ export const useSyncStore = createPersistStore(
       );
       const filePath = `${username}/${CONFIG_FILE_NAME}`;
       await client.set(filePath, encryptedConfig);
-      console.log("[Sync] Uploaded config data:", filePath);
+      logger.debug("[Sync] Uploaded config data:", filePath);
     },
 
     /**
@@ -558,9 +559,9 @@ export const useSyncStore = createPersistStore(
 
         setLocalAppState(localState);
 
-        console.log("[Sync] Downloaded and merged config data");
+        logger.debug("[Sync] Downloaded and merged config data");
       } catch (e) {
-        console.error("[Sync] Failed to decrypt config:", e);
+        logger.error("[Sync] Failed to decrypt config:", e);
         showToast(
           Locale.Settings.Sync.DecryptFailed || "解密失败，请检查加密密码",
         );
@@ -590,7 +591,7 @@ export const useSyncStore = createPersistStore(
         setLocalAppState(localState);
         location.reload();
       } catch (e) {
-        console.error("[Import]", e);
+        logger.error("[Import]", e);
         showToast(Locale.Settings.Sync.ImportFailed);
       }
     },
@@ -655,7 +656,7 @@ export const useSyncStore = createPersistStore(
         setLocalAppState(localState);
         location.reload();
       } catch (e) {
-        console.error("[Import Chat]", e);
+        logger.error("[Import Chat]", e);
         showToast(Locale.Settings.Sync.ImportFailed);
       }
     },
@@ -769,7 +770,7 @@ export const useSyncStore = createPersistStore(
         setLocalAppState(localState);
         location.reload();
       } catch (e) {
-        console.error("[Import Config]", e);
+        logger.error("[Import Config]", e);
         showToast(Locale.Settings.Sync.ImportFailed);
       }
     },

@@ -9,6 +9,7 @@ import { usePromptStore } from "../store/prompt";
 import { StoreKey } from "../constant";
 import { merge } from "./merge";
 import { DEFAULT_MCP_CONFIG, McpConfigData } from "../mcp/types";
+import { logger } from "./logger";
 
 // MCP 配置的 localStorage key
 const MCP_CONFIG_KEY = "mcp_config";
@@ -23,7 +24,7 @@ function getMcpConfig(): McpConfigData {
     if (!("mcpServers" in parsed)) return { ...DEFAULT_MCP_CONFIG };
     return parsed as McpConfigData;
   } catch (e) {
-    console.error("[Sync] Failed to read MCP config:", e);
+    logger.error("[Sync] Failed to read MCP config:", e);
     return { ...DEFAULT_MCP_CONFIG };
   }
 }
@@ -32,7 +33,7 @@ function setMcpConfig(config: McpConfigData) {
   try {
     localStorage.setItem(MCP_CONFIG_KEY, JSON.stringify(config));
   } catch (e) {
-    console.error("[Sync] Failed to write MCP config:", e);
+    logger.error("[Sync] Failed to write MCP config:", e);
   }
 }
 

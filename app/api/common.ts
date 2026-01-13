@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
 import { getModelProvider } from "../utils/model";
+import { logger } from "../utils/logger";
 
 export async function requestOpenai(
   req: NextRequest,
@@ -48,8 +49,8 @@ export async function requestOpenai(
     baseUrl = baseUrl.slice(0, -1);
   }
 
-  console.log("[Proxy] ", path);
-  console.log("[Base Url]", baseUrl);
+  logger.debug("[Proxy] ", path);
+  logger.debug("[Base Url]", baseUrl);
 
   const timeoutId = setTimeout(
     () => {
@@ -69,7 +70,7 @@ export async function requestOpenai(
   }
 
   const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
-  console.log("fetchUrl", fetchUrl);
+  logger.debug("fetchUrl", fetchUrl);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": "application/json",

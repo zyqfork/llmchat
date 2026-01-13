@@ -34,6 +34,7 @@ import {
 } from "@/app/utils";
 import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabilities";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -82,7 +83,7 @@ export class QwenApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
-    console.log("[Proxy Endpoint] ", baseUrl, path);
+    logger.debug("[Proxy Endpoint] ", baseUrl, path);
 
     // 检查是否启用代理
     if (accessStore.alibabaUseProxy) {
@@ -104,7 +105,7 @@ export class QwenApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
-        console.error("[Alibaba] Failed to build proxy URL:", e);
+        logger.error("[Alibaba] Failed to build proxy URL:", e);
         return endpoint;
       }
     }
@@ -455,7 +456,7 @@ export class QwenApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      logger.error("[Request] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }
@@ -469,13 +470,13 @@ export class QwenApi implements LLMApi {
   async models(): Promise<LLMModel[]> {
     try {
       const modelsPath = this.path("models");
-      console.log("[Alibaba] Fetching models from:", modelsPath);
+      logger.debug("[Alibaba] Fetching models from:", modelsPath);
 
       const headers = getHeaders(false, {
         model: "",
         providerName: ServiceProvider.Alibaba,
       });
-      console.log("[Alibaba] Request headers:", headers);
+      logger.debug("[Alibaba] Request headers:", headers);
 
       const response = await fetch(
         modelsPath,
@@ -486,7 +487,7 @@ export class QwenApi implements LLMApi {
         FetchType.LLM,
       );
 
-      console.log(
+      logger.debug(
         "[Alibaba] Response status:",
         response.status,
         response.statusText,
@@ -497,7 +498,7 @@ export class QwenApi implements LLMApi {
       }
 
       const data = await response.json();
-      console.log("[Alibaba] Received models count:", data.data?.length || 0);
+      logger.debug("[Alibaba] Received models count:", data.data?.length || 0);
 
       // 转换为 LLMModel 格式
       const models: LLMModel[] = (data.data || []).map((model: any) => ({
@@ -513,10 +514,10 @@ export class QwenApi implements LLMApi {
         sorted: 0,
       }));
 
-      console.log("[Alibaba] Successfully fetched models:", models.length);
+      logger.debug("[Alibaba] Successfully fetched models:", models.length);
       return models;
     } catch (error) {
-      console.error("[Alibaba] Failed to fetch models:", error);
+      logger.error("[Alibaba] Failed to fetch models:", error);
       return [];
     }
   }

@@ -1,5 +1,6 @@
 import { SyncStore } from "@/app/store/sync";
 import { fetch as tauriFetch, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export type S3Config = SyncStore["s3"];
 export type S3Client = ReturnType<typeof createS3Client>;
@@ -154,10 +155,10 @@ export function createS3Client(store: SyncStore) {
           FetchType.Sync,
         );
 
-        console.log("[S3] check", res.status, res.statusText);
+        logger.debug("[S3] check", res.status, res.statusText);
         return [200, 404, 403].includes(res.status);
       } catch (e) {
-        console.error("[S3] failed to check", e);
+        logger.error("[S3] failed to check", e);
       }
       return false;
     },
@@ -182,7 +183,7 @@ export function createS3Client(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[S3] get", filePath, res.status, res.statusText);
+      logger.debug("[S3] get", filePath, res.status, res.statusText);
 
       if (res.status === 404) {
         return "";
@@ -212,7 +213,7 @@ export function createS3Client(store: SyncStore) {
         FetchType.Sync,
       );
 
-      console.log("[S3] set", filePath, res.status, res.statusText);
+      logger.debug("[S3] set", filePath, res.status, res.statusText);
     },
   };
 }

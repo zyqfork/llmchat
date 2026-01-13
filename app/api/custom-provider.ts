@@ -3,6 +3,7 @@ import { CustomProvider } from "../store/access";
 import { handle as openaiHandler } from "./openai";
 import { handle as googleHandler } from "./google";
 import { handle as anthropicHandler } from "./anthropic";
+import { logger } from "../utils/logger";
 
 // 获取自定义服务商配置
 function getCustomProviderConfig(req: NextRequest): CustomProvider | null {
@@ -21,7 +22,7 @@ function getCustomProviderConfig(req: NextRequest): CustomProvider | null {
     }
     return null;
   } catch (error) {
-    console.error("[Custom Provider] Failed to get config:", error);
+    logger.error("[Custom Provider] Failed to get config:", error);
     return null;
   }
 }
@@ -31,7 +32,7 @@ export async function handle(
   req: NextRequest,
   { params }: { params: { provider: string; path: string[] } },
 ) {
-  console.log("[Custom Provider Route] params ", params);
+  logger.debug("[Custom Provider Route] params ", params);
 
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });

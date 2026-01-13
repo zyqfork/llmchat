@@ -25,6 +25,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { preProcessImageContent } from "@/app/utils/chat";
 import { RequestPayload } from "./openai";
 import { fetch, getProxyUrl, FetchType } from "@/app/utils/fetch";
+import { logger } from "@/app/utils/logger";
 
 export class XAIApi implements LLMApi {
   private disableListModels = true;
@@ -51,7 +52,7 @@ export class XAIApi implements LLMApi {
       baseUrl = "https://" + baseUrl;
     }
 
-    console.log("[Proxy Endpoint] ", baseUrl, path);
+    logger.debug("[Proxy Endpoint] ", baseUrl, path);
 
     // 检查是否启用代理
     if (accessStore.xaiUseProxy) {
@@ -73,7 +74,7 @@ export class XAIApi implements LLMApi {
         u.searchParams.append("endpoint", endpoint);
         return u.toString();
       } catch (e) {
-        console.error("[XAI] Failed to build proxy URL:", e);
+        logger.error("[XAI] Failed to build proxy URL:", e);
         return endpoint;
       }
     }
@@ -134,7 +135,7 @@ export class XAIApi implements LLMApi {
       max_tokens: modelConfig.max_tokens,
     };
 
-    console.log("[Request] xai payload: ", requestPayload);
+    logger.debug("[Request] xai payload: ", requestPayload);
 
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
@@ -377,7 +378,7 @@ export class XAIApi implements LLMApi {
         options.onFinish(message, res);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      logger.error("[Request] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
   }

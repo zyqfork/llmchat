@@ -10,6 +10,7 @@ import {
 import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 // import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
 import { fetch as tauriStreamFetch } from "./utils/fetch";
+import { logger } from "./utils/logger";
 import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
 import { ModelSize } from "./typing";
@@ -415,7 +416,7 @@ export function safeLocalStorage(): {
     }
   } catch (e) {
     if (isBrowser) {
-      console.error("localStorage is not available:", e);
+      logger.error("localStorage is not available:", e);
     }
     storage = null;
   }
@@ -427,7 +428,7 @@ export function safeLocalStorage(): {
       } else {
         // 只在浏览器环境输出警告，服务端静默处理
         if (isBrowser) {
-          console.warn(
+          logger.warn(
             `Attempted to get item "${key}" from localStorage, but localStorage is not available.`,
           );
         }
@@ -440,7 +441,7 @@ export function safeLocalStorage(): {
       } else {
         // 只在浏览器环境输出警告，服务端静默处理
         if (isBrowser) {
-          console.warn(
+          logger.warn(
             `Attempted to set item "${key}" in localStorage, but localStorage is not available.`,
           );
         }
@@ -452,7 +453,7 @@ export function safeLocalStorage(): {
       } else {
         // 只在浏览器环境输出警告，服务端静默处理
         if (isBrowser) {
-          console.warn(
+          logger.warn(
             `Attempted to remove item "${key}" from localStorage, but localStorage is not available.`,
           );
         }
@@ -464,7 +465,7 @@ export function safeLocalStorage(): {
       } else {
         // 只在浏览器环境输出警告，服务端静默处理
         if (isBrowser) {
-          console.warn(
+          logger.warn(
             "Attempted to clear localStorage, but localStorage is not available.",
           );
         }
@@ -500,7 +501,7 @@ export async function clientUpdate() {
       await relaunch();
     }
   } catch (e) {
-    console.error("[Check Update Error]", e);
+    logger.error("[Check Update Error]", e);
     showToast(Locale.Settings.Update.Failed);
   }
 }

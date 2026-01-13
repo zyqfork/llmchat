@@ -1,5 +1,6 @@
 import { DEFAULT_MODELS, ServiceProvider } from "../constant";
 import { LLMModel } from "../client/api";
+import { logger } from "./logger";
 
 const CustomSeq = {
   val: -1000, //To ensure the custom model located at front, start from -1000, refer to constant.ts
@@ -171,7 +172,7 @@ export function collectModels(
   models: readonly LLMModel[],
   customModels: string,
 ) {
-  console.log("[collectModels] 输入参数:", {
+  logger.debug("[collectModels] 输入参数:", {
     modelsCount: models.length,
     customModels,
   });
@@ -179,12 +180,12 @@ export function collectModels(
   // 直接计算结果，不再使用缓存
   const modelTable = collectModelTable(models, customModels);
 
-  console.log("[collectModels] 模型表:", modelTable);
+  logger.debug("[collectModels] 模型表:", modelTable);
 
   let allModels = Object.values(modelTable);
   allModels = sortModelTable(allModels);
 
-  console.log("[collectModels] 最终模型列表:", allModels);
+  logger.debug("[collectModels] 最终模型列表:", allModels);
 
   return allModels;
 }
