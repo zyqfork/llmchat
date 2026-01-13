@@ -2201,3 +2201,152 @@
     transform: scale(0.95);
   }
 }
+
+/* ===== 虚拟滚动优化样式 ===== */
+
+/* 虚拟滚动容器优化 */
+.chat-message-list {
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  will-change: scroll-position;
+  
+  /* 优化滚动性能 */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  
+  /* 减少重绘 */
+  contain: layout style paint;
+  
+  /* 自定义滚动条 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-in-light);
+    border-radius: 3px;
+    
+    &:hover {
+      background: var(--icon-color);
+    }
+  }
+}
+
+/* 滚动到底部按钮 */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  z-index: 10;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: var(--primary-hover, var(--primary));
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* 消息项性能优化 */
+.chat-message {
+  /* 减少重排重绘 */
+  contain: layout style;
+  
+  /* 优化动画性能 */
+  &.streaming {
+    .chat-message-item {
+      /* 流式消息的动画优化 */
+      animation: fadeIn 0.3s ease-in-out;
+    }
+  }
+}
+
+/* 消息加载状态优化 */
+.loading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--gray);
+  font-size: 12px;
+}
+
+/* 虚拟滚动项目容器 */
+.virtual-message-item {
+  /* 确保正确的层叠上下文 */
+  position: relative;
+  z-index: 1;
+  
+  /* 优化渲染性能 */
+  contain: layout style paint;
+  will-change: transform;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .scroll-to-bottom-btn {
+    width: 36px;
+    height: 36px;
+    bottom: 16px;
+    right: 16px;
+    font-size: 16px;
+  }
+  
+  .chat-message-list {
+    /* 移动端滚动优化 */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .scroll-to-bottom-btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* 减少动画的用户偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .chat-message-list {
+    scroll-behavior: auto;
+  }
+  
+  .scroll-to-bottom-btn {
+    transition: none;
+  }
+  
+  .chat-message.streaming .chat-message-item {
+    animation: none;
+  }
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

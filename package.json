@@ -28,6 +28,7 @@
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@next/third-parties": "^14.1.0",
     "@svgr/webpack": "^6.5.1",
+    "@tanstack/react-virtual": "^3.13.18",
     "@vercel/analytics": "^0.1.11",
     "antd": "^5.26.6",
     "axios": "^1.7.5",
