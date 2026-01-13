@@ -1309,7 +1309,15 @@ export function TokenCounter(props: {
   // 计算当前对话的Token数量（排除思考内容）
   const calculateUsedTokens = () => {
     const messages = props.session.messages;
-    return messages.reduce((total: number, message: ChatMessage) => {
+    const clearContextIndex = props.session.clearContextIndex;
+
+    // 如果设置了清除上下文索引，只计算该索引之后的消息
+    const messagesToCount =
+      clearContextIndex !== undefined
+        ? messages.slice(clearContextIndex)
+        : messages;
+
+    return messagesToCount.reduce((total: number, message: ChatMessage) => {
       if (message.isError) return total;
       return (
         total +
@@ -1329,8 +1337,13 @@ export function TokenCounter(props: {
   const contextConfig = getModelContextTokens(props.currentModel);
   const maxTokens = contextConfig?.contextTokens;
 
-  // 计算当前上下文数量
-  const currentContextCount = props.session.messages.length;
+  // 计算当前上下文数量（考虑清除上下文索引）
+  const clearContextIndex = props.session.clearContextIndex;
+  const effectiveMessages =
+    clearContextIndex !== undefined
+      ? props.session.messages.slice(clearContextIndex)
+      : props.session.messages;
+  const currentContextCount = effectiveMessages.length;
   const maxContextCount = modelConfig.historyMessageCount;
 
   // 计算预估Token数（包括用户输入）
@@ -1344,7 +1357,21 @@ export function TokenCounter(props: {
     ? multiModelMode.selectedModels.map((modelKey) => {
         const [modelName] = modelKey.split("@");
         const modelMessages = multiModelMode.modelMessages[modelKey] || [];
-        const modelUsedTokens = modelMessages.reduce(
+
+        // 如果设置了清除上下文索引，只计算该索引之后的消息
+        const messagesToCount =
+          clearContextIndex !== undefined
+            ? modelMessages.filter((msg) => {
+                // 找到消息在session.messages中的索引
+                const originalIndex = props.session.messages.findIndex(
+                  (m) => m.id === msg.id,
+                );
+                // 只计算索引 >= clearContextIndex 的消息
+                return originalIndex >= clearContextIndex;
+              })
+            : modelMessages;
+
+        const modelUsedTokens = messagesToCount.reduce(
           (total: number, message: ChatMessage) => {
             if (message.isError) return total;
             return (
