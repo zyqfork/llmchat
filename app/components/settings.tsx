@@ -1560,8 +1560,8 @@ export function Settings() {
           value={accessStore.openaiApiPath}
           placeholder={
             accessStore.openaiApiType === "response"
-              ? "/v1/responses"
-              : "/v1/chat/completions"
+              ? "/responses"
+              : "/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -2209,8 +2209,8 @@ export function Settings() {
           value={accessStore.moonshotApiPath}
           placeholder={
             accessStore.moonshotApiType === "response"
-              ? "/v1/responses"
-              : "/v1/chat/completions"
+              ? "/responses"
+              : "/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -2444,8 +2444,8 @@ export function Settings() {
           value={accessStore.xaiApiPath}
           placeholder={
             accessStore.xaiApiType === "response"
-              ? "/v1/responses"
-              : "/v1/chat/completions"
+              ? "/responses"
+              : "/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(
@@ -2562,8 +2562,8 @@ export function Settings() {
           value={accessStore.siliconflowApiPath}
           placeholder={
             accessStore.siliconflowApiType === "response"
-              ? "/v1/responses"
-              : "/v1/chat/completions"
+              ? "/responses"
+              : "/chat/completions"
           }
           onChange={(e) =>
             accessStore.update(

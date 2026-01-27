@@ -600,8 +600,8 @@ const en: LocaleType = {
         ApiPath: {
           Title: "API Path",
           SubTitle: "API endpoint path, customizable",
-          ChatPlaceholder: "/v1/chat/completions",
-          ResponsePlaceholder: "/v1/responses",
+          ChatPlaceholder: "/chat/completions",
+          ResponsePlaceholder: "/responses",
         },
 
         UseProxy: {

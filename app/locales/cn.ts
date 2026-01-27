@@ -584,8 +584,8 @@ const cn = {
         ApiPath: {
           Title: "API 路径",
           SubTitle: "API 端点路径，可自定义",
-          ChatPlaceholder: "/v1/chat/completions",
-          ResponsePlaceholder: "/v1/responses",
+          ChatPlaceholder: "/chat/completions",
+          ResponsePlaceholder: "/responses",
         },
 
         UseProxy: {

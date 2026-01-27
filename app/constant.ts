@@ -11,24 +11,24 @@ export const FETCH_COMMIT_URL = `https://api.github.com/repos/${OWNER}/${REPO}/c
 export const FETCH_TAG_URL = `https://api.github.com/repos/${OWNER}/${REPO}/tags?per_page=1`;
 export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 
-export const OPENAI_BASE_URL = "https://api.openai.com";
-export const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
+export const OPENAI_BASE_URL = "https://api.openai.com/v1";
+export const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 
 export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/";
 
-export const BYTEDANCE_BASE_URL = "https://ark.cn-beijing.volces.com";
+export const BYTEDANCE_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
 // 使用 OpenAI 兼容模式的 base URL
 export const ALIBABA_BASE_URL =
   "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
-export const MOONSHOT_BASE_URL = "https://api.moonshot.cn";
+export const MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1";
 
-export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 
-export const XAI_BASE_URL = "https://api.x.ai";
+export const XAI_BASE_URL = "https://api.x.ai/v1";
 
-export const SILICONFLOW_BASE_URL = "https://api.siliconflow.cn";
+export const SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1";
 
 export const CACHE_URL_PREFIX = "/api/cache";
 export const UPLOAD_URL = `${CACHE_URL_PREFIX}/upload`;
@@ -148,18 +148,18 @@ export enum ModelProvider {
 }
 
 export const Anthropic = {
-  ChatPath: "v1/messages",
-  ChatPath1: "v1/complete",
+  ChatPath: "messages",
+  ChatPath1: "complete",
   ExampleEndpoint: "https://api.anthropic.com",
   Vision: "2023-06-01",
 };
 
 export const OpenaiPath = {
-  ChatPath: "v1/chat/completions",
-  ResponsePath: "v1/responses", // Response API path
-  SpeechPath: "v1/audio/speech",
-  ImagePath: "v1/images/generations",
-  ListModelPath: "v1/models",
+  ChatPath: "chat/completions",
+  ResponsePath: "responses", // Response API path
+  SpeechPath: "audio/speech",
+  ImagePath: "images/generations",
+  ListModelPath: "models",
 };
 
 export const Azure = {
@@ -192,28 +192,28 @@ export const Alibaba = {
 
 export const Moonshot = {
   ExampleEndpoint: MOONSHOT_BASE_URL,
-  ChatPath: "v1/chat/completions",
-  ResponsePath: "v1/responses",
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
 };
 
 export const DeepSeek = {
   ExampleEndpoint: DEEPSEEK_BASE_URL,
   ChatPath: "chat/completions",
   ResponsePath: "responses",
-  ListModelPath: "v1/models",
+  ListModelPath: "models",
 };
 
 export const XAI = {
   ExampleEndpoint: XAI_BASE_URL,
-  ChatPath: "v1/chat/completions",
-  ResponsePath: "v1/responses",
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
 };
 
 export const SiliconFlow = {
   ExampleEndpoint: SILICONFLOW_BASE_URL,
-  ChatPath: "v1/chat/completions",
-  ResponsePath: "v1/responses",
-  ListModelPath: "v1/models?&sub_type=chat",
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
+  ListModelPath: "models?&sub_type=chat",
 };
 
 export const Ollama = {
