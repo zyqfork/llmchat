@@ -169,7 +169,7 @@ export class AudioHandler {
     view.setUint32(40, byteLength, true); // data chunk length
 
     // using data.buffer, so no need to setUint16 to view.
-    return new Blob([view, data.buffer], { type: "audio/mpeg" });
+    return new Blob([view, data.buffer as ArrayBuffer], { type: "audio/mpeg" });
   }
   savePlayFile() {
     // @ts-ignore

@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom";
 import { jest } from "@jest/globals";
 
+// @ts-ignore
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,
@@ -18,5 +19,6 @@ global.fetch = jest.fn(() =>
     blob: () => Promise.resolve(new Blob()),
     formData: () => Promise.resolve(new FormData()),
     text: () => Promise.resolve(""),
+    clone: () => ({} as Response),
   } as Response),
 );

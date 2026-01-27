@@ -197,7 +197,7 @@ export class QwenRealtimeClient {
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    return bytes.buffer;
+    return bytes.buffer as ArrayBuffer;
   }
 
   private sendEvent(event: any) {
