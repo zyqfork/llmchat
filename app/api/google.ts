@@ -1,8 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { auth } from "./auth";
-import { ApiPath, GEMINI_BASE_URL, ModelProvider } from "@/app/constant";
-import { prettyObject } from "@/app/utils/format";
+import {
+  ApiPath,
+  GEMINI_BASE_URL,
+  ModelProvider,
+  Google,
+} from "@/app/constant";
 import { logger } from "@/app/utils/logger";
+import {
+  handleChatRequest,
+  parseChatRequest,
+  convertMessages,
+  handleModelsRequest,
+  type OpenAICompatibleConfig,
+} from "@/app/api/sdk-utils";
+import { prettyObject } from "@/app/utils/format";
+import { NextResponse } from "next/server";
 
 export async function handle(
   req: NextRequest,
@@ -27,21 +40,81 @@ export async function handle(
     });
   }
 
-  // 获取API密钥（优先使用服务器配置）
-  let apiKey = "";
-  if (authResult.useServerConfig) {
-    apiKey = process.env.GOOGLE_API_KEY || "";
-  } else {
-    const bearToken =
-      req.headers.get("x-goog-api-key") ||
-      req.headers.get("Authorization") ||
-      "";
-    apiKey = bearToken.trim().replaceAll("Bearer ", "").trim();
-  }
-
   try {
-    const response = await request(req, apiKey, authResult.useServerConfig);
-    return response;
+    const path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Google, "");
+
+    // 获取API密钥
+    let apiKey = "";
+    if (authResult.useServerConfig) {
+      apiKey = process.env.GOOGLE_API_KEY || "";
+    } else {
+      const bearToken =
+        req.headers.get("x-goog-api-key") ||
+        req.headers.get("Authorization") ||
+        "";
+      apiKey = bearToken.trim().replaceAll("Bearer ", "").trim();
+    }
+
+    if (!apiKey) {
+      throw new Error("Missing API key");
+    }
+
+    // 获取Base URL
+    const baseURL = authResult.useServerConfig
+      ? process.env.GOOGLE_BASE_URL || GEMINI_BASE_URL
+      : GEMINI_BASE_URL;
+
+    const normalizedBaseURL = baseURL.startsWith("http")
+      ? baseURL
+      : `https://${baseURL}`;
+
+    // 处理模型列表请求
+    if (path === "/v1beta/models" || path === "/models") {
+      logger.debug("[Google] Using SDK for models list");
+      return await handleModelsRequest({
+        provider: "google",
+        apiKey,
+        baseURL: normalizedBaseURL,
+      });
+    }
+
+    // 处理聊天请求 - Google使用不同的路径格式
+    if (
+      path.includes("streamGenerateContent") ||
+      path.includes("generateContent")
+    ) {
+      logger.debug("[Google] Using SDK for chat");
+
+      const chatParams = await parseChatRequest(req);
+
+      // 从路径中提取模型名称，例如 /v1beta/models/gemini-pro:streamGenerateContent
+      const modelMatch = path.match(/\/v1beta\/models\/([^:]+)/);
+      const modelName = modelMatch
+        ? modelMatch[1]
+        : chatParams.model || "gemini-pro";
+
+      return await handleChatRequest({
+        provider: "google",
+        apiKey,
+        baseURL: normalizedBaseURL,
+        model: modelName,
+        messages: convertMessages(chatParams.messages),
+        stream: chatParams.stream || path.includes("streamGenerateContent"),
+        temperature: chatParams.temperature,
+        maxTokens: chatParams.max_tokens,
+        topP: chatParams.top_p,
+        // Google不支持这些参数
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stop: chatParams.stop,
+      });
+    }
+
+    // 不支持的端点
+    return NextResponse.json(
+      { error: true, msg: "Endpoint not supported with SDK" },
+      { status: 400 },
+    );
   } catch (e) {
     logger.error("[Google] ", e);
     return NextResponse.json(prettyObject(e));
@@ -66,69 +139,3 @@ export const preferredRegion = [
   "sin1",
   "syd1",
 ];
-
-async function request(
-  req: NextRequest,
-  apiKey: string,
-  useServerConfig?: boolean,
-) {
-  const controller = new AbortController();
-
-  let baseUrl = useServerConfig
-    ? process.env.GOOGLE_BASE_URL || GEMINI_BASE_URL
-    : GEMINI_BASE_URL;
-
-  let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Google, "");
-
-  if (!baseUrl.startsWith("http")) {
-    baseUrl = `https://${baseUrl}`;
-  }
-
-  if (baseUrl.endsWith("/")) {
-    baseUrl = baseUrl.slice(0, -1);
-  }
-
-  const timeoutId = setTimeout(
-    () => {
-      controller.abort();
-    },
-    10 * 60 * 1000,
-  );
-  const fetchUrl = `${baseUrl}${path}${
-    req?.nextUrl?.searchParams?.get("alt") === "sse" ? "?alt=sse" : ""
-  }`;
-
-  const fetchOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-      "x-goog-api-key":
-        req.headers.get("x-goog-api-key") ||
-        (req.headers.get("Authorization") ?? "").replace("Bearer ", ""),
-    },
-    method: req.method,
-    body: req.body,
-    // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
-    redirect: "manual",
-    // @ts-ignore
-    duplex: "half",
-    signal: controller.signal,
-  };
-
-  try {
-    const res = await fetch(fetchUrl, fetchOptions);
-    // to prevent browser prompt for credentials
-    const newHeaders = new Headers(res.headers);
-    newHeaders.delete("www-authenticate");
-    // to disable nginx buffering
-    newHeaders.set("X-Accel-Buffering", "no");
-
-    return new Response(res.body, {
-      status: res.status,
-      statusText: res.statusText,
-      headers: newHeaders,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}

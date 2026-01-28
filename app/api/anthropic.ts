@@ -2,149 +2,28 @@ import {
   ANTHROPIC_BASE_URL,
   Anthropic,
   ApiPath,
-  ServiceProvider,
   ModelProvider,
 } from "@/app/constant";
-import { prettyObject } from "@/app/utils/format";
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "./auth";
-import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
-import { logger } from "@/app/utils/logger";
+import { NextRequest } from "next/server";
+import { handleProviderRequest } from "@/app/api/sdk-utils";
 
 const ALLOWD_PATH = new Set([Anthropic.ChatPath, Anthropic.ChatPath1]);
+const CHAT_PATHS = [Anthropic.ChatPath, Anthropic.ChatPath1];
 
 export async function handle(
   req: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  logger.debug("[Anthropic Route] params ", params);
-
-  if (req.method === "OPTIONS") {
-    return NextResponse.json({ body: "OK" }, { status: 200 });
-  }
-
-  // 检查是否有endpoint参数，如果有则使用代理模式
-  const endpoint = req.nextUrl.searchParams.get("endpoint");
-  if (endpoint) {
-    logger.debug("[Anthropic Route] Using proxy mode with endpoint:", endpoint);
-    const { handle: proxyHandler } = await import("./proxy");
-    return proxyHandler(req, { params });
-  }
-
-  const subpath = params.path.join("/");
-
-  if (!ALLOWD_PATH.has(subpath)) {
-    logger.warn("[Anthropic Route] forbidden path ", subpath);
-    return NextResponse.json(
-      {
-        error: true,
-        msg: "you are not allowed to request " + subpath,
-      },
-      {
-        status: 403,
-      },
-    );
-  }
-
-  const authResult = auth(req, ModelProvider.Claude);
-  if (authResult.error) {
-    return NextResponse.json(authResult, {
-      status: 401,
-    });
-  }
-
-  try {
-    const response = await request(req, authResult.useServerConfig);
-    return response;
-  } catch (e) {
-    logger.error("[Anthropic] ", e);
-    return NextResponse.json(prettyObject(e));
-  }
-}
-
-async function request(req: NextRequest, useServerConfig?: boolean) {
-  const controller = new AbortController();
-
-  let authHeaderName = "x-api-key";
-  let authValue = "";
-
-  if (useServerConfig) {
-    authValue = process.env.ANTHROPIC_API_KEY || "";
-  } else {
-    authValue =
-      req.headers.get(authHeaderName) ||
-      req.headers.get("Authorization")?.replaceAll("Bearer ", "").trim() ||
-      "";
-  }
-
-  let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Anthropic, "");
-
-  let baseUrl = useServerConfig
-    ? process.env.ANTHROPIC_BASE_URL || ANTHROPIC_BASE_URL
-    : ANTHROPIC_BASE_URL;
-
-  if (!baseUrl.startsWith("http")) {
-    baseUrl = `https://${baseUrl}`;
-  }
-
-  if (baseUrl.endsWith("/")) {
-    baseUrl = baseUrl.slice(0, -1);
-  }
-
-  logger.debug("[Proxy] ", path);
-  logger.debug("[Base Url]", baseUrl);
-
-  const timeoutId = setTimeout(
-    () => {
-      controller.abort();
-    },
-    10 * 60 * 1000,
-  );
-
-  // try rebuild url, when using cloudflare ai gateway in server
-  const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}${path}`);
-
-  const fetchOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-      "anthropic-dangerous-direct-browser-access": "true",
-      [authHeaderName]: authValue,
-      "anthropic-version":
-        req.headers.get("anthropic-version") || Anthropic.Vision,
-    },
-    method: req.method,
-    body: req.body,
-    redirect: "manual",
-    // @ts-ignore
-    duplex: "half",
-    signal: controller.signal,
-  };
-
-  // 纯前端应用，不限制模型使用，由用户API密钥权限决定
-  // console.log("[Anthropic request]", fetchOptions.headers, req.method);
-  try {
-    const res = await fetch(fetchUrl, fetchOptions);
-
-    // console.log(
-    //   "[Anthropic response]",
-    //   res.status,
-    //   "   ",
-    //   res.headers,
-    //   res.url,
-    // );
-    // to prevent browser prompt for credentials
-    const newHeaders = new Headers(res.headers);
-    newHeaders.delete("www-authenticate");
-    // to disable nginx buffering
-    newHeaders.set("X-Accel-Buffering", "no");
-
-    return new Response(res.body, {
-      status: res.status,
-      statusText: res.statusText,
-      headers: newHeaders,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return handleProviderRequest(req, params, {
+    providerName: "Anthropic",
+    modelProvider: ModelProvider.Claude,
+    allowedPaths: ALLOWD_PATH,
+    chatPaths: CHAT_PATHS,
+    apiPath: ApiPath.Anthropic,
+    defaultBaseURL: ANTHROPIC_BASE_URL,
+    envApiKeyName: "ANTHROPIC_API_KEY",
+    envBaseURLName: "ANTHROPIC_BASE_URL",
+    provider: "anthropic",
+    authHeaderName: "x-api-key",
+  });
 }
