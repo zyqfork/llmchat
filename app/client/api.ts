@@ -11,6 +11,7 @@ import {
   ModelType,
   useAccessStore,
   useChatStore,
+  CustomProviderType,
 } from "../store";
 import { unifiedChat, UnifiedChatOptions } from "./unified-api";
 import { logger } from "../utils/logger";
@@ -383,15 +384,16 @@ export function normalizeProviderName(provider: string): string {
 
     if (customProvider) {
       // 根据自定义服务商类型返回对应的ServiceProvider
-      switch (customProvider.type) {
-        case "google":
-          return ServiceProvider.Google.id;
-        case "anthropic":
-          return ServiceProvider.Anthropic.id;
-        case "openai":
-        default:
-          return ServiceProvider.OpenAI.id;
-      }
+      const typeToProviderMap: Record<CustomProviderType, string> = {
+        openai: ServiceProvider.OpenAI.id,
+        google: ServiceProvider.Google.id,
+        anthropic: ServiceProvider.Anthropic.id,
+      };
+
+      return (
+        typeToProviderMap[customProvider.type as CustomProviderType] ||
+        ServiceProvider.OpenAI.id
+      );
     }
   }
 

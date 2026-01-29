@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { ServiceProvider, DEFAULT_MODELS } from "../constant";
-import { useAccessStore } from "../store/access";
+import { useAccessStore, CustomProviderType } from "../store/access";
 import { LLMModel } from "../client/api";
 import { ModelFetcher } from "../client/model-fetcher";
 import { showToast } from "./ui-lib";
@@ -250,19 +250,20 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
     if (isCustomProvider && customProviderConfig) {
       // 对于自定义服务商，根据其类型获取相应的模型
+      // 根据自定义厂商类型映射到对应的内置厂商
+      const typeToProviderMap: Record<CustomProviderType, string> = {
+        openai: ServiceProvider.OpenAI.name,
+        google: ServiceProvider.Google.name,
+        anthropic: ServiceProvider.Anthropic.name,
+      };
+
+      const providerName = typeToProviderMap[customProviderConfig.type];
+      if (!providerName) {
+        return [];
+      }
+
       const baseModels = DEFAULT_MODELS.filter((model) => {
-        switch (customProviderConfig.type) {
-          case "openai":
-            return model.provider.providerName === ServiceProvider.OpenAI.name;
-          case "google":
-            return model.provider.providerName === ServiceProvider.Google.name;
-          case "anthropic":
-            return (
-              model.provider.providerName === ServiceProvider.Anthropic.name
-            );
-          default:
-            return false;
-        }
+        return model.provider.providerName === providerName;
       });
 
       // 为自定义服务商创建模型副本，使用自定义服务商的ID

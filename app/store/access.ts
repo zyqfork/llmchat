@@ -3,16 +3,47 @@ import {
   ServiceProvider,
   getAllProviders,
   StoreKey,
-  OPENAI_BASE_URL,
-  ANTHROPIC_BASE_URL,
 } from "../constant";
 import { getHeaders } from "../client/api";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
-import { ensure } from "../utils/clone";
 import { DEFAULT_CONFIG } from "./config";
 import { getModelProvider } from "../utils/model";
 import { logger } from "../utils/logger";
+
+// 动态生成服务器端厂商配置状态
+function createServerProvidersState(): Record<string, any> {
+  const state: Record<string, any> = {};
+  getAllProviders().forEach((provider) => {
+    state[provider.id] = {
+      hasApiKey: false,
+      hasBaseUrl: false,
+    };
+
+    // Azure 特殊处理 - 需要 API 版本
+    if (provider.id === "azure") {
+      state[provider.id].hasApiVersion = false;
+    }
+  });
+  return state;
+}
+
+// 动态生成服务器端配置缓存
+function createServerConfigState(): Record<string, any> {
+  const state: Record<string, any> = {};
+  getAllProviders().forEach((provider) => {
+    state[provider.id] = {
+      apiKey: "",
+      baseUrl: "",
+    };
+
+    // Azure 特殊处理 - 需要 API 版本
+    if (provider.id === "azure") {
+      state[provider.id].apiVersion = "";
+    }
+  });
+  return state;
+}
 
 // 动态生成provider状态对象
 function createProviderState<T>(defaultValue: T): Record<string, T> {
@@ -155,91 +186,11 @@ const DEFAULT_ACCESS_STATE = {
   // 是否设置了服务器端服务商配置
   hasServerProviderConfig: false,
 
-  // 服务器端各服务商配置状态
-  serverProviders: {
-    openai: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    google: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    anthropic: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    azure: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-      hasApiVersion: false,
-    },
-    alibaba: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    moonshot: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    deepseek: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    xai: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-    siliconflow: {
-      hasApiKey: false,
-      hasBaseUrl: false,
-    },
-  },
+  // 服务器端各服务商配置状态（动态生成）
+  serverProviders: createServerProvidersState(),
 
-  // 服务器端配置缓存
-  serverConfig: {
-    openai: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    google: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    anthropic: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    azure: {
-      apiKey: "",
-      baseUrl: "",
-      apiVersion: "",
-    },
-    bytedance: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    alibaba: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    moonshot: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    deepseek: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    xai: {
-      apiKey: "",
-      baseUrl: "",
-    },
-    siliconflow: {
-      apiKey: "",
-      baseUrl: "",
-    },
-  },
+  // 服务器端配置缓存（动态生成）
+  serverConfig: createServerConfigState(),
 
   // tts config
   edgeTTSVoiceName: "zh-CN-YunxiNeural",
@@ -259,16 +210,6 @@ export type AccessControlStore = typeof DEFAULT_ACCESS_STATE & {
   getEffectiveProviderConfig: (provider: string) => any;
   hasValidProviderConfig: (provider: string) => boolean;
   hasAnyValidProviderConfig: () => boolean;
-  isValidAzure: () => boolean;
-  isValidGoogle: () => boolean;
-  isValidAnthropic: () => boolean;
-  isValidByteDance: () => boolean;
-  isValidAlibaba: () => boolean;
-  isValidMoonshot: () => boolean;
-  isValidDeepSeek: () => boolean;
-  isValidXAI: () => boolean;
-  isValidSiliconFlow: () => boolean;
-  isValidOllama: () => boolean;
   addCustomProvider: (
     provider: Omit<CustomProvider, "id" | "created">,
   ) => string;
@@ -430,60 +371,11 @@ export const useAccessStore = createPersistStore(
 
     // 检查是否有任何有效的服务商配置（包括服务器端配置）
     hasAnyValidProviderConfig() {
-      const providers = [
-        "openai",
-        "google",
-        "anthropic",
-        "azure",
-        "alibaba",
-        "moonshot",
-        "deepseek",
-        "xai",
-        "siliconflow",
-      ];
+      // 动态获取所有厂商ID，避免写死
+      const providers = getAllProviders().map((provider) => provider.id);
       return providers.some((provider) =>
         this.hasValidProviderConfig(provider),
       );
-    },
-
-    isValidAzure() {
-      return this.isValidProvider("azure");
-    },
-
-    isValidGoogle() {
-      return this.isValidProvider("google");
-    },
-
-    isValidAnthropic() {
-      return this.isValidProvider("anthropic");
-    },
-
-    isValidAlibaba() {
-      return this.isValidProvider("alibaba");
-    },
-
-    isValidMoonshotAI() {
-      return this.isValidProvider("moonshotai");
-    },
-
-    isValidDeepSeek() {
-      return this.isValidProvider("deepseek");
-    },
-
-    isValidXAI() {
-      return this.isValidProvider("xai");
-    },
-
-    isValidSiliconFlow() {
-      return this.isValidProvider("siliconflow");
-    },
-
-    isValidOllama() {
-      return this.isValidProvider("ollama");
-    },
-
-    isValidOpenRouter() {
-      return this.isValidProvider("openrouter");
     },
 
     // 动态获取provider的API key
@@ -672,19 +564,12 @@ export const useAccessStore = createPersistStore(
         this.isValidCustomProvider(provider.id),
       );
 
-      return (
-        this.isValidOpenAI() ||
-        this.isValidAzure() ||
-        this.isValidGoogle() ||
-        this.isValidAnthropic() ||
-        this.isValidAlibaba() ||
-        this.isValidMoonshotAI() ||
-        this.isValidDeepSeek() ||
-        this.isValidXAI() ||
-        this.isValidSiliconFlow() ||
-        this.isValidOpenRouter() ||
-        hasValidCustomProvider
+      // 动态检查所有厂商，避免写死
+      const hasValidBuiltinProvider = getAllProviders().some((provider) =>
+        this.isValidProvider(provider.id),
       );
+
+      return hasValidBuiltinProvider || hasValidCustomProvider;
     },
 
     // 异步版本的授权检查，支持服务器端访问码验证

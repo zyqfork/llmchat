@@ -4,6 +4,7 @@ import {
   getProviderConfig,
   getAllProviders,
 } from "../constant";
+import { CustomProviderType } from "../store/access";
 import {
   OpenAI,
   Azure,
@@ -246,19 +247,15 @@ export const ProviderIcon = React.memo(function ProviderIcon({
   let actualProviderName: string;
   if (provider.startsWith("custom_")) {
     // 根据兼容类型映射到对应的内置服务商
-    switch (customProviderType) {
-      case "openai":
-        actualProviderName = ServiceProvider.OpenAI.name;
-        break;
-      case "google":
-        actualProviderName = ServiceProvider.Google.name;
-        break;
-      case "anthropic":
-        actualProviderName = ServiceProvider.Anthropic.name;
-        break;
-      default:
-        actualProviderName = ServiceProvider.OpenAI.name; // 默认使用OpenAI图标
-    }
+    const typeToProviderMap: Record<CustomProviderType, string> = {
+      openai: ServiceProvider.OpenAI.name,
+      google: ServiceProvider.Google.name,
+      anthropic: ServiceProvider.Anthropic.name,
+    };
+
+    actualProviderName =
+      typeToProviderMap[customProviderType as CustomProviderType] ||
+      ServiceProvider.OpenAI.name;
   } else {
     actualProviderName = provider;
   }

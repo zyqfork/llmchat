@@ -1,5 +1,5 @@
 import { ServiceProvider } from "../constant";
-import { useAccessStore } from "../store/access";
+import { useAccessStore, CustomProviderType } from "../store/access";
 import { LLMModel } from "./api";
 import { getHeaders, getClientApi } from "./api";
 import { logger } from "../utils/logger";
@@ -282,22 +282,24 @@ export class ModelFetcher {
     customProvider: any,
   ): Promise<ModelFetchResponse> {
     // 根据自定义服务商的类型调用相应的方法
-    switch (customProvider.type) {
-      case "openai":
-        return await this.fetchOpenAIModels(ServiceProvider.OpenAI.id);
+    const typeToFetcherMap: Record<
+      CustomProviderType,
+      () => Promise<ModelFetchResponse>
+    > = {
+      openai: () => this.fetchOpenAIModels(ServiceProvider.OpenAI.id),
+      anthropic: () => this.fetchAnthropicModels(),
+      google: () => this.fetchGoogleModels(),
+    };
 
-      case "anthropic":
-        return await this.fetchAnthropicModels();
-
-      case "google":
-        return await this.fetchGoogleModels();
-
-      default:
-        return {
-          models: [],
-          success: false,
-          error: `不支持的自定义服务商类型: ${customProvider.type}`,
-        };
+    const fetcher = typeToFetcherMap[customProvider.type as CustomProviderType];
+    if (fetcher) {
+      return await fetcher();
     }
+
+    return {
+      models: [],
+      success: false,
+      error: `不支持的自定义服务商类型: ${customProvider.type}`,
+    };
   }
 }

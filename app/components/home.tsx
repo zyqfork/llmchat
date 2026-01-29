@@ -11,7 +11,7 @@ import LoadingIcon from "../icons/three-dots.svg";
 import { getCSSVar, useMobileScreen } from "../utils";
 
 import dynamic from "next/dynamic";
-import { Path, SlotID } from "../constant";
+import { Path, SlotID, getAllProviders } from "../constant";
 import { ErrorBoundary } from "./error";
 
 import { getISOLang } from "../locales";
@@ -267,35 +267,21 @@ export function useLoadData() {
 
       // 检查当前使用的 provider 是否有有效配置
       const checkProviderValid = (provider: string) => {
-        switch (provider) {
-          case "OpenAI":
-            return accessStore.isValidOpenAI();
-          case "Azure":
-            return accessStore.isValidAzure();
-          case "Google":
-            return accessStore.isValidGoogle();
-          case "Anthropic":
-            return accessStore.isValidAnthropic();
-          case "Alibaba":
-            return accessStore.isValidAlibaba();
-          case "Moonshot":
-            return accessStore.isValidMoonshotAI();
-          case "DeepSeek":
-            return accessStore.isValidDeepSeek();
-          case "XAI":
-            return accessStore.isValidXAI();
-          case "SiliconFlow":
-            return accessStore.isValidSiliconFlow();
-          case "Ollama":
-            // Ollama 需要检查 URL 是否配置
-            return !!(accessStore as any).ollamaUrl;
-          default:
-            // 自定义 provider
-            if (provider.startsWith("custom_")) {
-              return accessStore.isValidCustomProvider(provider);
-            }
-            return false;
+        // 自定义 provider
+        if (provider.startsWith("custom_")) {
+          return accessStore.isValidCustomProvider(provider);
         }
+
+        // 内置 provider - 动态映射厂商名称到ID
+        const providerConfig = getAllProviders().find(
+          (p) => p.name === provider || p.modelProvider === provider,
+        );
+
+        if (providerConfig) {
+          return accessStore.isValidProvider(providerConfig.id);
+        }
+
+        return false;
       };
 
       const hasValidConfig = checkProviderValid(providerName);

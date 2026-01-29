@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAccessStore, useAppConfig } from "../store";
+import { useAccessStore, useAppConfig, CustomProviderType } from "../store";
 import { collectModelsWithDefaultModel } from "./model";
 import { LLMModel } from "../client/api";
 
@@ -203,23 +203,19 @@ export function useEnabledModels() {
 function getBaseModelsForProviderType(type: string): LLMModel[] {
   const { DEFAULT_MODELS, ServiceProvider } = require("../constant");
 
-  switch (type) {
-    case "openai":
-      return DEFAULT_MODELS.filter(
-        (m: LLMModel) =>
-          m.provider.providerName === ServiceProvider.OpenAI.name,
-      );
-    case "google":
-      return DEFAULT_MODELS.filter(
-        (m: LLMModel) =>
-          m.provider.providerName === ServiceProvider.Google.name,
-      );
-    case "anthropic":
-      return DEFAULT_MODELS.filter(
-        (m: LLMModel) =>
-          m.provider.providerName === ServiceProvider.Anthropic.name,
-      );
-    default:
-      return [];
+  // 根据自定义厂商类型映射到对应的内置厂商
+  const typeToProviderMap: Record<CustomProviderType, string> = {
+    openai: ServiceProvider.OpenAI.name,
+    google: ServiceProvider.Google.name,
+    anthropic: ServiceProvider.Anthropic.name,
+  };
+
+  const providerName = typeToProviderMap[type as CustomProviderType];
+  if (!providerName) {
+    return [];
   }
+
+  return DEFAULT_MODELS.filter(
+    (m: LLMModel) => m.provider.providerName === providerName,
+  );
 }

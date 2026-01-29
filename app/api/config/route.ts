@@ -1,65 +1,41 @@
 import { NextResponse } from "next/server";
+import { getAllProviders } from "../../constant";
 
 // 从环境变量获取配置
 function getServerConfig() {
   const accessCode = process.env.ACCESS_CODE || "";
 
-  // 各服务商环境变量配置
-  const openaiApiKey = process.env.OPENAI_API_KEY || "";
-  const openaiBaseUrl = process.env.OPENAI_BASE_URL || "";
+  // 动态获取所有厂商的环境变量配置
+  const providers = getAllProviders();
+  const providerConfigs: Record<string, any> = {};
+  const envValues: string[] = [];
 
-  const googleApiKey = process.env.GOOGLE_API_KEY || "";
-  const googleBaseUrl = process.env.GOOGLE_BASE_URL || "";
+  providers.forEach((provider) => {
+    const apiKey = process.env[provider.envApiKeyName] || "";
+    const baseUrl = provider.envBaseUrlName
+      ? process.env[provider.envBaseUrlName] || ""
+      : "";
 
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY || "";
-  const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL || "";
+    // 收集环境变量值用于检查是否有配置
+    if (apiKey) envValues.push(apiKey);
+    if (baseUrl) envValues.push(baseUrl);
 
-  const azureApiKey = process.env.AZURE_API_KEY || "";
-  const azureBaseUrl = process.env.AZURE_BASE_URL || "";
-  const azureApiVersion = process.env.AZURE_API_VERSION || "";
+    // 构建配置对象
+    providerConfigs[provider.id] = {
+      hasApiKey: !!apiKey,
+      hasBaseUrl: !!baseUrl,
+    };
 
-  const bytedanceApiKey = process.env.BYTEDANCE_API_KEY || "";
-  const bytedanceBaseUrl = process.env.BYTEDANCE_BASE_URL || "";
-
-  const alibabaApiKey = process.env.ALIBABA_API_KEY || "";
-  const alibabaBaseUrl = process.env.ALIBABA_BASE_URL || "";
-
-  const moonshotApiKey = process.env.MOONSHOT_API_KEY || "";
-  const moonshotBaseUrl = process.env.MOONSHOT_BASE_URL || "";
-
-  const deepseekApiKey = process.env.DEEPSEEK_API_KEY || "";
-  const deepseekBaseUrl = process.env.DEEPSEEK_BASE_URL || "";
-
-  const xaiApiKey = process.env.XAI_API_KEY || "";
-  const xaiBaseUrl = process.env.XAI_BASE_URL || "";
-
-  const siliconflowApiKey = process.env.SILICONFLOW_API_KEY || "";
-  const siliconflowBaseUrl = process.env.SILICONFLOW_BASE_URL || "";
+    // Azure 特殊处理 - 需要 API 版本
+    if (provider.id === "azure") {
+      const apiVersion = process.env.AZURE_API_VERSION || "";
+      if (apiVersion) envValues.push(apiVersion);
+      providerConfigs[provider.id].hasApiVersion = !!apiVersion;
+    }
+  });
 
   // 如果设置了任何服务商环境变量，强制启用访问码
-  const hasProviderConfig = !!(
-    openaiApiKey ||
-    openaiBaseUrl ||
-    googleApiKey ||
-    googleBaseUrl ||
-    anthropicApiKey ||
-    anthropicBaseUrl ||
-    azureApiKey ||
-    azureBaseUrl ||
-    azureApiVersion ||
-    bytedanceApiKey ||
-    bytedanceBaseUrl ||
-    alibabaApiKey ||
-    alibabaBaseUrl ||
-    moonshotApiKey ||
-    moonshotBaseUrl ||
-    deepseekApiKey ||
-    deepseekBaseUrl ||
-    xaiApiKey ||
-    xaiBaseUrl ||
-    siliconflowApiKey ||
-    siliconflowBaseUrl
-  );
+  const hasProviderConfig = envValues.some((value) => !!value);
 
   const needCode = !!accessCode || hasProviderConfig;
 
@@ -76,50 +52,8 @@ function getServerConfig() {
     hasServerAccessCode: !!accessCode,
     // 告诉前端是否设置了服务商环境变量配置（不暴露实际配置）
     hasServerProviderConfig: hasProviderConfig,
-    // 各服务商服务器配置状态
-    serverProviders: {
-      openai: {
-        hasApiKey: !!openaiApiKey,
-        hasBaseUrl: !!openaiBaseUrl,
-      },
-      google: {
-        hasApiKey: !!googleApiKey,
-        hasBaseUrl: !!googleBaseUrl,
-      },
-      anthropic: {
-        hasApiKey: !!anthropicApiKey,
-        hasBaseUrl: !!anthropicBaseUrl,
-      },
-      azure: {
-        hasApiKey: !!azureApiKey,
-        hasBaseUrl: !!azureBaseUrl,
-        hasApiVersion: !!azureApiVersion,
-      },
-      bytedance: {
-        hasApiKey: !!bytedanceApiKey,
-        hasBaseUrl: !!bytedanceBaseUrl,
-      },
-      alibaba: {
-        hasApiKey: !!alibabaApiKey,
-        hasBaseUrl: !!alibabaBaseUrl,
-      },
-      moonshot: {
-        hasApiKey: !!moonshotApiKey,
-        hasBaseUrl: !!moonshotBaseUrl,
-      },
-      deepseek: {
-        hasApiKey: !!deepseekApiKey,
-        hasBaseUrl: !!deepseekBaseUrl,
-      },
-      xai: {
-        hasApiKey: !!xaiApiKey,
-        hasBaseUrl: !!xaiBaseUrl,
-      },
-      siliconflow: {
-        hasApiKey: !!siliconflowApiKey,
-        hasBaseUrl: !!siliconflowBaseUrl,
-      },
-    },
+    // 各服务商服务器配置状态（动态生成）
+    serverProviders: providerConfigs,
   };
 }
 
