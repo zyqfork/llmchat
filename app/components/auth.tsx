@@ -2,7 +2,7 @@ import styles from "./auth.module.scss";
 import { IconButton } from "./button";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Path, SAAS_CHAT_URL } from "../constant";
+import { Path, SAAS_CHAT_URL, getAllProviders } from "../constant";
 import { useAccessStore } from "../store";
 import Locale from "../locales";
 import Delete from "../icons/close.svg";
@@ -37,7 +37,11 @@ export function AuthPage() {
 
   const resetAccessCode = () => {
     accessStore.update((access) => {
-      access.openaiApiKey = "";
+      // 重置所有provider的API key
+      getAllProviders().forEach((provider) => {
+        const apiKeyField = provider.storeKeys.apiKey;
+        (access as any)[apiKeyField] = "";
+      });
       access.accessCode = "";
     });
   }; // Reset access code to empty string
@@ -149,24 +153,26 @@ export function AuthPage() {
               <PasswordInput
                 style={{ marginTop: "3vh", marginBottom: "3vh" }}
                 aria-label={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
-                value={accessStore.openaiApiKey}
+                value={(accessStore as any).openaiApiKey || ""}
                 type="text"
                 placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
                 onChange={(e) => {
                   accessStore.update(
-                    (access) => (access.openaiApiKey = e.currentTarget.value),
+                    (access) =>
+                      ((access as any).openaiApiKey = e.currentTarget.value),
                   );
                 }}
               />
               <PasswordInput
                 style={{ marginTop: "3vh", marginBottom: "3vh" }}
                 aria-label={Locale.Settings.Access.Google.ApiKey.Placeholder}
-                value={accessStore.googleApiKey}
+                value={(accessStore as any).googleApiKey || ""}
                 type="text"
                 placeholder={Locale.Settings.Access.Google.ApiKey.Placeholder}
                 onChange={(e) => {
                   accessStore.update(
-                    (access) => (access.googleApiKey = e.currentTarget.value),
+                    (access) =>
+                      ((access as any).googleApiKey = e.currentTarget.value),
                   );
                 }}
               />

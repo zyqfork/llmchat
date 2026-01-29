@@ -1497,7 +1497,7 @@ export function Settings() {
             subTitle={
               <span className={styles["long-text-wrap"]}>
                 {Locale.Settings.Access.OpenAI.Endpoint.SubTitle +
-                  provider.defaultBaseUrl}
+                  (provider as any).defaultBaseUrl}
               </span>
             }
           >
@@ -1505,7 +1505,7 @@ export function Settings() {
               aria-label={Locale.Settings.Access.OpenAI.Endpoint.Title}
               type="text"
               value={(accessStore as any)[storeKeys.baseUrl] || ""}
-              placeholder={provider.defaultBaseUrl}
+              placeholder={(provider as any).defaultBaseUrl}
               onChange={(e) =>
                 accessStore.update(
                   (access) =>
@@ -1622,11 +1622,12 @@ export function Settings() {
             <input
               aria-label={Locale.Settings.Access.Google.ApiVersion.Title}
               type="text"
-              value={accessStore.googleApiVersion}
+              value={(accessStore as any).googleApiVersion || ""}
               placeholder="2023-08-01-preview"
               onChange={(e) =>
                 accessStore.update(
-                  (access) => (access.googleApiVersion = e.currentTarget.value),
+                  (access) =>
+                    ((access as any).googleApiVersion = e.currentTarget.value),
                 )
               }
             />
@@ -1672,12 +1673,13 @@ export function Settings() {
             <input
               aria-label={Locale.Settings.Access.Anthropic.ApiVerion.Title}
               type="text"
-              value={accessStore.anthropicApiVersion}
+              value={(accessStore as any).anthropicApiVersion || ""}
               placeholder="2023-06-01"
               onChange={(e) =>
                 accessStore.update(
                   (access) =>
-                    (access.anthropicApiVersion = e.currentTarget.value),
+                    ((access as any).anthropicApiVersion =
+                      e.currentTarget.value),
                 )
               }
             />

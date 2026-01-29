@@ -81,51 +81,46 @@ export const EXPORT_MESSAGE_CLASS_NAME = "export-markdown";
 
 // 厂商配置接口
 export interface ProviderConfig {
-  id: string;
-  name: string;
-  modelProvider: string;
-  iconUrl: string;
-  sdkType:
-    | "openai"
-    | "openai-compatible"
-    | "anthropic"
-    | "google"
-    | "xai"
-    | "azure";
-  defaultBaseUrl: string;
-  apiPath: string;
-  proxyPath?: string;
-  envApiKeyName: string;
-  envBaseUrlName?: string;
-  authHeaderName?: string;
+  id: string; // 厂商ID，用于API路径和标识
+  name: string; // 显示名称
+  modelProvider: string; // 模型提供商标识
+  iconUrl: string; // 图标URL，使用models.dev/logos/{provider}.svg
+  sdkType: "openai" | "openai-compatible" | "anthropic" | "google" | "xai" | "azure"; // SDK类型
+  apiPath: string; // API路径
+  proxyPath?: string; // 代理路径（可选）
+  envApiKeyName: string; // 环境变量API Key名称
+  envBaseUrlName?: string; // 环境变量Base URL名称（可选）
+  authHeaderName?: string; // 认证头名称（默认为Authorization）
+  // 支持的端点路径
   endpoints: {
-    chat: string;
-    response?: string;
-    image?: string;
-    speech?: string;
-    models?: string;
+    chat: string; // 聊天端点
+    response?: string; // 响应API端点（可选）
+    image?: string; // 图像生成端点（可选）
+    speech?: string; // 语音生成端点（可选）
+    models?: string; // 模型列表端点（可选）
   };
+  // Azure特有配置
   azure?: {
     resourceName?: string;
     apiVersion?: string;
   };
+  // UI配置
   ui?: {
-    defaultCollapsed?: boolean;
-    showResponseApi?: boolean;
-    showProxy?: boolean;
-    showApiPath?: boolean;
-    showEndpoint?: boolean;
-    showApiVersion?: boolean;
+    defaultCollapsed?: boolean; // 默认是否折叠，默认true（除了OpenAI）
+    showResponseApi?: boolean; // 是否显示Response API选项，默认false
+    showProxy?: boolean; // 是否显示代理选项，默认true
+    showApiPath?: boolean; // 是否显示API路径选项，默认true
+    showEndpoint?: boolean; // 是否显示端点配置，默认true
   };
+  // 访问存储字段映射
   storeKeys: {
-    apiKey: string;
-    baseUrl: string;
-    apiType?: string;
-    apiPath?: string;
-    useProxy?: string;
-    proxyUrl?: string;
-    apiVersion?: string;
-    resourceName?: string;
+    apiKey: string; // API Key在store中的字段名
+    baseUrl: string; // Base URL在store中的字段名
+    apiType?: string; // API类型在store中的字段名（用于Response API）
+    apiPath?: string; // API路径在store中的字段名
+    useProxy?: string; // 是否使用代理在store中的字段名
+    proxyUrl?: string; // 代理URL在store中的字段名
+    apiVersion?: string; // API版本在store中的字段名（Azure专用）
   };
 }
 

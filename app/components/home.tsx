@@ -288,7 +288,7 @@ export function useLoadData() {
             return accessStore.isValidSiliconFlow();
           case "Ollama":
             // Ollama 需要检查 URL 是否配置
-            return !!accessStore.ollamaUrl;
+            return !!(accessStore as any).ollamaUrl;
           default:
             // 自定义 provider
             if (provider.startsWith("custom_")) {

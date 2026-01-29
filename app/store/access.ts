@@ -23,6 +23,57 @@ function createProviderState<T>(defaultValue: T): Record<string, T> {
   return state;
 }
 
+// 动态生成provider字段的默认状态
+function createProviderFieldsState(): Record<string, any> {
+  const state: Record<string, any> = {};
+  const isApp = getClientConfig()?.buildMode === "export";
+
+  getAllProviders().forEach((provider) => {
+    const storeKeys = provider.storeKeys;
+
+    // 设置默认值
+    state[storeKeys.apiKey] = "";
+
+    // 根据是否为App模式设置baseUrl
+    if (isApp) {
+      state[storeKeys.baseUrl] = provider.defaultBaseUrl;
+    } else {
+      state[storeKeys.baseUrl] = provider.apiPath;
+    }
+
+    // 根据SDK能力添加可选字段
+    if (storeKeys.apiType) {
+      state[storeKeys.apiType] = "chat";
+    }
+    if (storeKeys.apiPath) {
+      state[storeKeys.apiPath] = "";
+    }
+    if (storeKeys.useProxy) {
+      state[storeKeys.useProxy] = false;
+    }
+    if (storeKeys.proxyUrl) {
+      state[storeKeys.proxyUrl] = "";
+    }
+    if (storeKeys.apiVersion) {
+      // 根据provider设置默认API版本
+      if (provider.id === "azure") {
+        state[storeKeys.apiVersion] = "2023-08-01-preview";
+      } else if (provider.id === "google") {
+        state[storeKeys.apiVersion] = "v1";
+      } else if (provider.id === "anthropic") {
+        state[storeKeys.apiVersion] = "2023-06-01";
+      } else {
+        state[storeKeys.apiVersion] = "";
+      }
+    }
+    if (storeKeys.resourceName) {
+      state[storeKeys.resourceName] = "";
+    }
+  });
+
+  return state;
+}
+
 // 自定义服务商类型定义
 export type CustomProviderType = "openai" | "google" | "anthropic";
 
@@ -48,38 +99,6 @@ export interface CustomProvider {
 let fetchState = 0; // 0 not fetch, 1 fetching, 2 done
 
 const isApp = getClientConfig()?.buildMode === "export";
-
-const DEFAULT_OPENAI_URL = isApp
-  ? OPENAI_BASE_URL
-  : ServiceProvider.OpenAI.apiPath;
-
-const DEFAULT_GOOGLE_URL = isApp
-  ? ServiceProvider.Google.defaultBaseUrl
-  : ServiceProvider.Google.apiPath;
-
-const DEFAULT_ANTHROPIC_URL = isApp
-  ? ANTHROPIC_BASE_URL
-  : ServiceProvider.Anthropic.apiPath;
-
-const DEFAULT_ALIBABA_URL = isApp
-  ? ServiceProvider.Alibaba.defaultBaseUrl
-  : ServiceProvider.Alibaba.apiPath;
-
-const DEFAULT_MOONSHOT_URL = isApp
-  ? ServiceProvider.MoonshotAI.defaultBaseUrl
-  : ServiceProvider.MoonshotAI.apiPath;
-
-const DEFAULT_DEEPSEEK_URL = isApp
-  ? ServiceProvider.DeepSeek.defaultBaseUrl
-  : ServiceProvider.DeepSeek.apiPath;
-
-const DEFAULT_XAI_URL = isApp
-  ? ServiceProvider.XAI.defaultBaseUrl
-  : ServiceProvider.XAI.apiPath;
-
-const DEFAULT_SILICONFLOW_URL = isApp
-  ? ServiceProvider.SiliconFlow.defaultBaseUrl
-  : ServiceProvider.SiliconFlow.apiPath;
 
 const DEFAULT_ACCESS_STATE = {
   accessCode: "",
@@ -108,88 +127,11 @@ const DEFAULT_ACCESS_STATE = {
     "idle" | "loading" | "success" | "error"
   >,
 
-  // openai
-  openaiUrl: DEFAULT_OPENAI_URL,
-  openaiApiKey: "",
-  openaiApiType: "chat" as "chat" | "response", // API type: chat completions or response API
-  openaiApiPath: "", // Custom API path, empty means use default based on API type
-  openaiUseProxy: false,
-  openaiProxyUrl: "",
+  // 动态生成的provider字段
+  ...createProviderFieldsState(),
 
-  // azure
-  azureUrl: "",
-  azureApiKey: "",
-  azureApiVersion: "2023-08-01-preview",
-  azureUseProxy: false,
-  azureProxyUrl: "",
-
-  // google ai studio
-  googleUrl: DEFAULT_GOOGLE_URL,
-  googleApiKey: "",
-  googleApiVersion: "v1",
+  // Google特有字段（需要特殊处理）
   googleSafetySettings: GoogleSafetySettingsThreshold.BLOCK_ONLY_HIGH,
-  googleUseProxy: false,
-  googleProxyUrl: "",
-
-  // anthropic
-  anthropicUrl: DEFAULT_ANTHROPIC_URL,
-  anthropicApiKey: "",
-  anthropicApiVersion: "2023-06-01",
-  anthropicUseProxy: false,
-  anthropicProxyUrl: "",
-
-  // alibaba
-  alibabaUrl: DEFAULT_ALIBABA_URL,
-  alibabaApiKey: "",
-  alibabaApiType: "chat" as "chat" | "response",
-  alibabaApiPath: "",
-  alibabaUseProxy: false,
-  alibabaProxyUrl: "",
-
-  // moonshot
-  moonshotUrl: DEFAULT_MOONSHOT_URL,
-  moonshotApiKey: "",
-  moonshotApiType: "chat" as "chat" | "response",
-  moonshotApiPath: "",
-  moonshotUseProxy: false,
-  moonshotProxyUrl: "",
-
-  // deepseek
-  deepseekUrl: DEFAULT_DEEPSEEK_URL,
-  deepseekApiKey: "",
-  deepseekApiType: "chat" as "chat" | "response",
-  deepseekApiPath: "",
-  deepseekUseProxy: false,
-  deepseekProxyUrl: "",
-
-  // xai
-  xaiUrl: DEFAULT_XAI_URL,
-  xaiApiKey: "",
-  xaiApiType: "chat" as "chat" | "response",
-  xaiApiPath: "",
-  xaiUseProxy: false,
-  xaiProxyUrl: "",
-
-  // siliconflow
-  siliconflowUrl: DEFAULT_SILICONFLOW_URL,
-  siliconflowApiKey: "",
-  siliconflowApiType: "chat" as "chat" | "response",
-  siliconflowApiPath: "",
-  siliconflowUseProxy: false,
-  siliconflowProxyUrl: "",
-
-  // ollama
-  ollamaUrl: "http://localhost:11434",
-  ollamaApiKey: "",
-  ollamaUseProxy: false,
-  ollamaProxyUrl: "",
-
-  // openrouter
-  openrouterUrl: "https://openrouter.ai/api/v1",
-  openrouterApiKey: "",
-  openrouterApiPath: "",
-  openrouterUseProxy: false,
-  openrouterProxyUrl: "",
 
   // 自定义服务商
   customProviders: [] as CustomProvider[],
@@ -374,8 +316,35 @@ export const useAccessStore = createPersistStore(
       return get().edgeTTSVoiceName;
     },
 
+    // 通用的provider验证方法
+    isValidProvider(providerId: string): boolean {
+      const provider = getAllProviders().find((p) => p.id === providerId);
+      if (!provider) return false;
+
+      const state = get();
+      const storeKeys = provider.storeKeys;
+
+      // Ollama通常不需要API Key
+      if (provider.id === "ollama") {
+        return true;
+      }
+
+      // 检查API Key是否存在
+      const apiKey = (state as any)[storeKeys.apiKey];
+      if (!apiKey) return false;
+
+      // 根据provider类型添加额外的必需字段检查
+      if (provider.id === "azure") {
+        const baseUrl = (state as any)[storeKeys.baseUrl];
+        const apiVersion = (state as any)[storeKeys.apiVersion!];
+        return !!(apiKey && baseUrl && apiVersion);
+      }
+
+      return true;
+    },
+
     isValidOpenAI() {
-      return ensure(get(), ["openaiApiKey"]);
+      return this.isValidProvider("openai");
     },
 
     // 获取有效的 OpenAI 配置（优先级：前端配置 > 服务器配置）
@@ -383,10 +352,17 @@ export const useAccessStore = createPersistStore(
       const state = get();
 
       // 如果前端有配置，优先使用前端配置
-      if (state.openaiApiKey) {
+      const openaiApiKey = (state as any)[
+        ServiceProvider.OpenAI.storeKeys.apiKey
+      ];
+      const openaiUrl = (state as any)[
+        ServiceProvider.OpenAI.storeKeys.baseUrl
+      ];
+
+      if (openaiApiKey) {
         return {
-          apiKey: state.openaiApiKey,
-          baseUrl: state.openaiUrl || "https://api.openai.com/v1",
+          apiKey: openaiApiKey,
+          baseUrl: openaiUrl || "https://api.openai.com/v1",
           source: "frontend" as const,
         };
       }
@@ -410,120 +386,33 @@ export const useAccessStore = createPersistStore(
     },
 
     // 获取有效的服务商配置（通用方法）
-    getEffectiveProviderConfig(provider: string) {
+    getEffectiveProviderConfig(providerId: string) {
       const state = get();
+      const provider = getAllProviders().find((p) => p.id === providerId);
 
-      // 根据服务商类型获取前端配置
-      let frontendConfig = null;
-      switch (provider) {
-        case "openai":
-          if (state.openaiApiKey) {
-            frontendConfig = {
-              apiKey: state.openaiApiKey,
-              baseUrl: state.openaiUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "google":
-          if (state.googleApiKey) {
-            frontendConfig = {
-              apiKey: state.googleApiKey,
-              baseUrl: state.googleUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "anthropic":
-          if (state.anthropicApiKey) {
-            frontendConfig = {
-              apiKey: state.anthropicApiKey,
-              baseUrl: state.anthropicUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "azure":
-          if (state.azureApiKey) {
-            frontendConfig = {
-              apiKey: state.azureApiKey,
-              baseUrl: state.azureUrl || "",
-              apiVersion: state.azureApiVersion || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "alibaba":
-          if (state.alibabaApiKey) {
-            frontendConfig = {
-              apiKey: state.alibabaApiKey,
-              baseUrl: state.alibabaUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "moonshot":
-          if (state.moonshotApiKey) {
-            frontendConfig = {
-              apiKey: state.moonshotApiKey,
-              baseUrl: state.moonshotUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "deepseek":
-          if (state.deepseekApiKey) {
-            frontendConfig = {
-              apiKey: state.deepseekApiKey,
-              baseUrl: state.deepseekUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "xai":
-          if (state.xaiApiKey) {
-            frontendConfig = {
-              apiKey: state.xaiApiKey,
-              baseUrl: state.xaiUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "siliconflow":
-          if (state.siliconflowApiKey) {
-            frontendConfig = {
-              apiKey: state.siliconflowApiKey,
-              baseUrl: state.siliconflowUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-        case "ollama":
-          frontendConfig = {
-            apiKey: state.ollamaApiKey || "",
-            baseUrl: state.ollamaUrl || "http://localhost:11434",
-            source: "frontend" as const,
-          };
-          break;
-        case "openrouter":
-          if (state.openrouterApiKey) {
-            frontendConfig = {
-              apiKey: state.openrouterApiKey,
-              baseUrl: state.openrouterUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
-      }
+      if (!provider) return null;
 
-      // 如果有前端配置，优先使用
-      if (frontendConfig) {
-        return frontendConfig;
+      const storeKeys = provider.storeKeys;
+
+      // 检查前端配置
+      const apiKey = (state as any)[storeKeys.apiKey];
+      if (apiKey) {
+        const config: any = {
+          apiKey,
+          baseUrl: (state as any)[storeKeys.baseUrl] || provider.defaultBaseUrl,
+          source: "frontend" as const,
+        };
+
+        // 添加可选字段
+        if (storeKeys.apiVersion) {
+          config.apiVersion = (state as any)[storeKeys.apiVersion] || "";
+        }
+
+        return config;
       }
 
       // 否则使用服务器配置
-      const serverConfig =
-        state.serverConfig[provider as keyof typeof state.serverConfig];
+      const serverConfig = (state.serverConfig as any)[providerId];
       if (serverConfig && serverConfig.apiKey) {
         return {
           ...serverConfig,
@@ -558,43 +447,93 @@ export const useAccessStore = createPersistStore(
     },
 
     isValidAzure() {
-      return ensure(get(), ["azureUrl", "azureApiKey", "azureApiVersion"]);
+      return this.isValidProvider("azure");
     },
 
     isValidGoogle() {
-      return ensure(get(), ["googleApiKey"]);
+      return this.isValidProvider("google");
     },
 
     isValidAnthropic() {
-      return ensure(get(), ["anthropicApiKey"]);
+      return this.isValidProvider("anthropic");
     },
 
     isValidAlibaba() {
-      return ensure(get(), ["alibabaApiKey"]);
+      return this.isValidProvider("alibaba");
     },
 
     isValidMoonshotAI() {
-      return ensure(get(), ["moonshotApiKey"]);
+      return this.isValidProvider("moonshotai");
     },
+
     isValidDeepSeek() {
-      return ensure(get(), ["deepseekApiKey"]);
+      return this.isValidProvider("deepseek");
     },
 
     isValidXAI() {
-      return ensure(get(), ["xaiApiKey"]);
+      return this.isValidProvider("xai");
     },
 
     isValidSiliconFlow() {
-      return ensure(get(), ["siliconflowApiKey"]);
+      return this.isValidProvider("siliconflow");
     },
 
     isValidOllama() {
-      // Ollama 通常不需要 API Key，只要有 URL 就可以
-      return true;
+      return this.isValidProvider("ollama");
     },
 
     isValidOpenRouter() {
-      return ensure(get(), ["openrouterApiKey"]);
+      return this.isValidProvider("openrouter");
+    },
+
+    // 动态获取provider的API key
+    getProviderApiKey(providerId: string): string {
+      const provider = getAllProviders().find((p) => p.id === providerId);
+      if (!provider) return "";
+
+      const state = get();
+      return (state as any)[provider.storeKeys.apiKey] || "";
+    },
+
+    // 动态获取provider的base URL
+    getProviderBaseUrl(providerId: string): string {
+      const provider = getAllProviders().find((p) => p.id === providerId);
+      if (!provider) return "";
+
+      const state = get();
+      return (
+        (state as any)[provider.storeKeys.baseUrl] || provider.defaultBaseUrl
+      );
+    },
+
+    // 动态获取provider的完整配置
+    getProviderConfig(providerId: string): any {
+      const provider = getAllProviders().find((p) => p.id === providerId);
+      if (!provider) return {};
+
+      const state = get();
+      const config: any = {};
+
+      // 获取所有相关字段
+      Object.entries(provider.storeKeys).forEach(([key, storeKey]) => {
+        if (storeKey) {
+          config[key] = (state as any)[storeKey];
+        }
+      });
+
+      return config;
+    },
+
+    // 动态获取provider的特定字段值
+    getProviderField(providerId: string, fieldName: string): any {
+      const provider = getAllProviders().find((p) => p.id === providerId);
+      if (!provider) return undefined;
+
+      const storeKey = (provider.storeKeys as any)[fieldName];
+      if (!storeKey) return undefined;
+
+      const state = get();
+      return (state as any)[storeKey];
     },
 
     // 自定义服务商管理方法
@@ -743,7 +682,6 @@ export const useAccessStore = createPersistStore(
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
         this.isValidSiliconFlow() ||
-        this.isValidOllama() ||
         this.isValidOpenRouter() ||
         hasValidCustomProvider
       );

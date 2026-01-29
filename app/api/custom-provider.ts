@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CustomProvider } from "../store/access";
-import { handle as openaiHandler } from "./openai";
-import { handle as googleHandler } from "./google";
-import { handle as anthropicHandler } from "./anthropic";
+import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
 
 // 获取自定义服务商配置
@@ -71,18 +69,68 @@ export async function handle(
     body: req.body,
   });
 
-  // 根据自定义服务商类型路由到相应的处理器
-  switch (customConfig.type) {
-    case "openai":
-      return openaiHandler(modifiedReq, { params });
-    case "google":
-      return googleHandler(modifiedReq, { params });
-    case "anthropic":
-      return anthropicHandler(modifiedReq, { params });
-    default:
-      return NextResponse.json(
-        { error: `Unsupported custom provider type: ${customConfig.type}` },
-        { status: 400 },
-      );
+  // 现在直接使用统一的代理逻辑，而不是导入 handle 函数
+  // 构建目标 URL
+  const provider = getAllProviders().find((p) => p.id === customConfig.type);
+  if (!provider) {
+    return NextResponse.json(
+      { error: `Provider type ${customConfig.type} not found` },
+      { status: 404 },
+    );
   }
+
+  const targetUrl = new URL(
+    params.path.join("/"),
+    customConfig.endpoint || (provider as any).defaultBaseUrl,
+  );
+
+  // 复制查询参数
+  const searchParams = new URLSearchParams(req.nextUrl.searchParams);
+  targetUrl.search = searchParams.toString();
+
+  // 准备请求头
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+
+  // 设置认证头
+  const authHeader = provider.authHeaderName || "Authorization";
+  if (authHeader === "Authorization") {
+    headers.set("Authorization", `Bearer ${customConfig.apiKey}`);
+  } else {
+    headers.set(authHeader, customConfig.apiKey);
+  }
+
+  // 复制其他必要的头
+  const allowedHeaders = ["user-agent", "accept", "accept-encoding"];
+  allowedHeaders.forEach((header) => {
+    const value = req.headers.get(header);
+    if (value) {
+      headers.set(header, value);
+    }
+  });
+
+  // 准备请求体
+  let body: string | undefined;
+  if (req.method !== "GET" && req.method !== "DELETE") {
+    body = await req.text();
+  }
+
+  // 发送请求
+  const response = await fetch(targetUrl.toString(), {
+    method: req.method,
+    headers,
+    body,
+  });
+
+  // 返回响应
+  const responseBody = await response.text();
+
+  return new NextResponse(responseBody, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: {
+      "Content-Type":
+        response.headers.get("Content-Type") || "application/json",
+    },
+  });
 }

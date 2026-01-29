@@ -3305,11 +3305,13 @@ function _Chat() {
             if (!res) return;
             if (payload.key) {
               accessStore.update(
-                (access) => (access.openaiApiKey = payload.key!),
+                (access) => ((access as any).openaiApiKey = payload.key!),
               );
             }
             if (payload.url) {
-              accessStore.update((access) => (access.openaiUrl = payload.url!));
+              accessStore.update(
+                (access) => ((access as any).openaiUrl = payload.url!),
+              );
             }
             accessStore.update((access) => (access.useCustomConfig = true));
           });
