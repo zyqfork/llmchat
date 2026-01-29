@@ -73,7 +73,7 @@ const DynamicProviderIcon = React.memo(function DynamicProviderIcon({
             width: size,
             height: size,
             backgroundColor: "#ccc",
-            borderRadius: "4px",
+            borderRadius: "6px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -88,15 +88,60 @@ const DynamicProviderIcon = React.memo(function DynamicProviderIcon({
     );
   }
 
+  // 计算实际图标大小，让图标更大一点，但保持在容器内
+  const iconSize = Math.max(size * 0.92, size - 2);
+
   return (
-    <img
-      src={iconUrl}
-      alt={`${providerId} icon`}
-      width={size}
-      height={size}
-      onError={() => setError(true)}
-      style={{ borderRadius: "4px" }}
-    />
+    <div
+      style={{
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "6px",
+        overflow: "hidden",
+      }}
+    >
+      <img
+        src={iconUrl}
+        alt={`${providerId} icon`}
+        width={iconSize}
+        height={iconSize}
+        onError={() => setError(true)}
+        style={{
+          borderRadius: "4px",
+          objectFit: "contain",
+          maxWidth: "100%",
+          maxHeight: "100%",
+        }}
+      />
+    </div>
+  );
+});
+
+// 图标容器组件，确保所有图标都能很好地居中
+const IconContainer = React.memo(function IconContainer({
+  children,
+  size,
+}: {
+  children: React.ReactNode;
+  size: number;
+}) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "6px",
+        overflow: "hidden",
+      }}
+    >
+      {children}
+    </div>
   );
 });
 
@@ -296,72 +341,150 @@ export const ProviderIcon = React.memo(function ProviderIcon({
   switch (iconType) {
     case "gpt3":
       return (
-        <OpenAI.Avatar
-          {...iconProps}
-          type="gpt3"
-          style={{ color: "#ffffff" }}
-        />
+        <IconContainer size={size}>
+          <OpenAI.Avatar
+            {...iconProps}
+            type="gpt3"
+            style={{ color: "#ffffff" }}
+          />
+        </IconContainer>
       );
 
     case "gpt4":
       return (
-        <OpenAI.Avatar
-          {...iconProps}
-          type="gpt4"
-          style={{ color: "#ffffff" }}
-        />
+        <IconContainer size={size}>
+          <OpenAI.Avatar
+            {...iconProps}
+            type="gpt4"
+            style={{ color: "#ffffff" }}
+          />
+        </IconContainer>
       );
 
     case "o1":
       return (
-        <OpenAI.Avatar {...iconProps} type="o1" style={{ color: "#ffffff" }} />
+        <IconContainer size={size}>
+          <OpenAI.Avatar
+            {...iconProps}
+            type="o1"
+            style={{ color: "#ffffff" }}
+          />
+        </IconContainer>
       );
 
     case "claude":
-      return <Claude.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Claude.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "gemini":
-      return <Gemini.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Gemini.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "kimi":
-      return <Kimi.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Kimi.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "qwen":
-      return <Qwen.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Qwen.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "wenxin":
-      return <Wenxin.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Wenxin.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "llama":
-      return <Meta.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <Meta.Color {...iconProps} />
+        </IconContainer>
+      );
 
     case "deepseek":
-      return <DeepSeek.Color {...iconProps} />;
+      return (
+        <IconContainer size={size}>
+          <DeepSeek.Color {...iconProps} />
+        </IconContainer>
+      );
 
     default:
       // 根据厂商显示默认图标
       switch (actualProviderName) {
         case ServiceProvider.OpenAI.name:
-          return <OpenAI.Avatar {...iconProps} style={{ color: "#ffffff" }} />;
+          return (
+            <IconContainer size={size}>
+              <OpenAI.Avatar {...iconProps} style={{ color: "#ffffff" }} />
+            </IconContainer>
+          );
         case ServiceProvider.Azure.name:
-          return <Azure.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Azure.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.Google.name:
-          return <Gemini.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Gemini.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.Anthropic.name:
-          return <Claude.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Claude.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.Alibaba.name:
-          return <Qwen.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Qwen.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.MoonshotAI.name:
-          return <Kimi.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Kimi.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.DeepSeek.name:
-          return <DeepSeek.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <DeepSeek.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.XAI.name:
-          return <Grok {...iconProps} style={{ color: Grok.colorPrimary }} />;
+          return (
+            <IconContainer size={size}>
+              <Grok {...iconProps} style={{ color: Grok.colorPrimary }} />
+            </IconContainer>
+          );
         case ServiceProvider.SiliconFlow.name:
-          return <SiliconCloud.Color {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <SiliconCloud.Color {...iconProps} />
+            </IconContainer>
+          );
         case ServiceProvider.OllamaCloud.name:
         case ServiceProvider.Ollama.name:
-          return <Ollama {...iconProps} />;
+          return (
+            <IconContainer size={size}>
+              <Ollama {...iconProps} />
+            </IconContainer>
+          );
         default:
           // 通用AI图标
           return (
@@ -369,14 +492,15 @@ export const ProviderIcon = React.memo(function ProviderIcon({
               style={{
                 width: size,
                 height: size,
-                borderRadius: "4px",
+                borderRadius: "6px",
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "white",
-                fontSize: size * 0.5,
-                fontWeight: "bold",
+                fontSize: Math.max(size * 0.45, 12),
+                fontWeight: "600",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
               }}
             >
               AI
@@ -476,8 +600,27 @@ const ModelAvatar = React.memo(function ModelAvatar({
   }
 
   return (
-    <div className="no-dark">
-      <LlmIcon width={size} height={size} />
+    <div
+      className="no-dark"
+      style={{
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "6px",
+        overflow: "hidden",
+      }}
+    >
+      <LlmIcon
+        width={Math.max(size * 0.92, size - 2)}
+        height={Math.max(size * 0.92, size - 2)}
+        style={{
+          maxWidth: "100%",
+          maxHeight: "100%",
+          objectFit: "contain",
+        }}
+      />
     </div>
   );
 });
