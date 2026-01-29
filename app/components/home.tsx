@@ -276,12 +276,10 @@ export function useLoadData() {
             return accessStore.isValidGoogle();
           case "Anthropic":
             return accessStore.isValidAnthropic();
-          case "ByteDance":
-            return accessStore.isValidByteDance();
           case "Alibaba":
             return accessStore.isValidAlibaba();
           case "Moonshot":
-            return accessStore.isValidMoonshot();
+            return accessStore.isValidMoonshotAI();
           case "DeepSeek":
             return accessStore.isValidDeepSeek();
           case "XAI":

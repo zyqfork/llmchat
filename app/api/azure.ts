@@ -1,5 +1,6 @@
-import { ModelProvider, ApiPath } from "@/app/constant";
 import { NextRequest } from "next/server";
+import { auth } from "./auth";
+import { ServiceProvider, ModelProvider } from "@/app/constant";
 import { logger } from "@/app/utils/logger";
 import {
   handleChatRequest,
@@ -10,7 +11,8 @@ import {
 } from "@/app/api/sdk-utils";
 import { prettyObject } from "@/app/utils/format";
 import { NextResponse } from "next/server";
-import { auth } from "./auth";
+
+const providerConfig = ServiceProvider.Azure;
 
 export async function handle(
   req: NextRequest,
@@ -40,11 +42,14 @@ export async function handle(
   }
 
   try {
-    const path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Azure, "");
+    const path = `${req.nextUrl.pathname}`.replaceAll(
+      providerConfig.apiPath,
+      "",
+    );
 
     // 获取API密钥
     const apiKey = authResult.useServerConfig
-      ? process.env.AZURE_API_KEY || ""
+      ? process.env[providerConfig.envApiKeyName] || ""
       : req.headers.get("Authorization")?.replace("Bearer ", "") ||
         req.headers.get("api-key") ||
         "";
@@ -59,7 +64,9 @@ export async function handle(
     const deploymentName = deploymentMatch ? deploymentMatch[1] : "";
 
     const apiVersion =
-      req.nextUrl.searchParams.get("api-version") || "2024-02-01";
+      req.nextUrl.searchParams.get("api-version") ||
+      providerConfig.azure?.apiVersion ||
+      "2024-02-01";
 
     // 从环境变量或请求头获取资源名称
     const resourceName = authResult.useServerConfig
@@ -67,13 +74,13 @@ export async function handle(
       : req.headers.get("azure-resource-name") || "";
 
     // 处理聊天请求
-    if (path.includes("chat/completions")) {
+    if (path.includes(providerConfig.endpoints.chat)) {
       logger.debug("[Azure] Using SDK for chat");
 
       const chatParams = await parseChatRequest(req);
 
       return await handleChatRequest({
-        provider: "azure",
+        provider: providerConfig.sdkType,
         apiKey,
         baseURL: "", // Azure SDK不需要baseURL
         model: chatParams.model,

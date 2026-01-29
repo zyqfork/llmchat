@@ -2,7 +2,7 @@ import { ServiceProvider, ModelProvider } from "@/app/constant";
 import { NextRequest } from "next/server";
 import { handleProviderRequest } from "@/app/api/sdk-utils";
 
-const providerConfig = ServiceProvider.DeepSeek;
+const providerConfig = ServiceProvider.MoonshotAI;
 
 export async function handle(
   req: NextRequest,
@@ -10,7 +10,7 @@ export async function handle(
 ) {
   return handleProviderRequest(req, params, {
     providerName: providerConfig.name,
-    modelProvider: ModelProvider.DeepSeek,
+    modelProvider: ModelProvider.MoonshotAI,
     allowedPaths: new Set([
       providerConfig.endpoints.chat,
       providerConfig.endpoints.response!,

@@ -48,6 +48,8 @@ export interface OpenAICompatibleConfig extends SDKConfig {
   resourceName?: string;
   deploymentName?: string;
   apiVersion?: string;
+  // 厂商特定选项
+  providerOptions?: Record<string, any>;
 }
 
 /**
@@ -138,6 +140,7 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         name: config.providerName || "custom-provider",
         apiKey: config.apiKey,
         baseURL: config.baseURL,
+        includeUsage: true, // 在流式响应中包含使用信息
       });
       model = provider(config.model);
     }
@@ -359,10 +362,13 @@ export async function handleImageRequest(config: {
       });
       model = azureProvider.image(config.deploymentName || config.model); // 明确使用image API
     } else {
-      // OpenAI兼容厂商通常不支持图像生成，抛出错误
-      throw new Error(
-        `Image generation not supported for provider: ${config.providerName}`,
-      );
+      // OpenAI兼容厂商 - 支持图像生成
+      const provider = createOpenAICompatible({
+        name: config.providerName || "custom-provider",
+        apiKey: config.apiKey,
+        baseURL: config.baseURL,
+      });
+      model = provider.imageModel(config.model); // 使用imageModel方法
     }
 
     const requestParams: any = {

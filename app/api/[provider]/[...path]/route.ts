@@ -1,12 +1,11 @@
-import { ApiPath } from "@/app/constant";
+import { ServiceProvider } from "@/app/constant";
 import { NextRequest } from "next/server";
 import { handle as openaiHandler } from "../../openai";
 import { handle as azureHandler } from "../../azure";
 import { handle as googleHandler } from "../../google";
 import { handle as anthropicHandler } from "../../anthropic";
-import { handle as bytedanceHandler } from "../../bytedance";
 import { handle as alibabaHandler } from "../../alibaba";
-import { handle as moonshotHandler } from "../../moonshot";
+import { handle as moonshotaiHandler } from "../../moonshotai";
 import { handle as deepseekHandler } from "../../deepseek";
 import { handle as siliconflowHandler } from "../../siliconflow";
 import { handle as xaiHandler } from "../../xai";
@@ -34,25 +33,23 @@ async function handle(
   }
 
   switch (apiPath) {
-    case ApiPath.Azure:
+    case ServiceProvider.Azure.apiPath:
       return azureHandler(req, { params });
-    case ApiPath.Google:
+    case ServiceProvider.Google.apiPath:
       return googleHandler(req, { params });
-    case ApiPath.Anthropic:
+    case ServiceProvider.Anthropic.apiPath:
       return anthropicHandler(req, { params });
-    case ApiPath.ByteDance:
-      return bytedanceHandler(req, { params });
-    case ApiPath.Alibaba:
+    case ServiceProvider.Alibaba.apiPath:
       return alibabaHandler(req, { params });
-    case ApiPath.Moonshot:
-      return moonshotHandler(req, { params });
-    case ApiPath.DeepSeek:
+    case ServiceProvider.MoonshotAI.apiPath:
+      return moonshotaiHandler(req, { params });
+    case ServiceProvider.DeepSeek.apiPath:
       return deepseekHandler(req, { params });
-    case ApiPath.XAI:
+    case ServiceProvider.XAI.apiPath:
       return xaiHandler(req, { params });
-    case ApiPath.SiliconFlow:
+    case ServiceProvider.SiliconFlow.apiPath:
       return siliconflowHandler(req, { params });
-    case ApiPath.OpenAI:
+    case ServiceProvider.OpenAI.apiPath:
       return openaiHandler(req, { params });
     default:
       return proxyHandler(req, { params });

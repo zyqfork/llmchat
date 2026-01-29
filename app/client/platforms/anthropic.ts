@@ -1,10 +1,14 @@
-import {
-  Anthropic,
-  ApiPath,
-  DEFAULT_MODELS,
-  OpenaiPath,
-  ServiceProvider,
-} from "@/app/constant";
+import { DEFAULT_MODELS, ServiceProvider } from "@/app/constant";
+
+// Anthropic API endpoints
+const Anthropic = {
+  ChatPath: "messages",
+};
+
+// OpenAI endpoints (for models list)
+const OpenaiPath = {
+  ListModelPath: "models",
+};
 import { OpenAIListModelResponse } from "./openai";
 import { ChatOptions, getHeaders, LLMApi, SpeechOptions } from "../api";
 import {
@@ -509,7 +513,7 @@ export class ClaudeApi implements LLMApi {
     try {
       // 明确指定使用 Anthropic 的配置，确保使用 x-api-key 认证头
       const headers = getHeaders(false, {
-        providerName: ServiceProvider.Anthropic,
+        providerName: ServiceProvider.Anthropic.id,
       });
 
       const res = await fetch(
@@ -531,9 +535,9 @@ export class ClaudeApi implements LLMApi {
         name: m.id,
         available: true,
         provider: {
-          id: "anthropic",
-          providerName: "Anthropic",
-          providerType: "anthropic",
+          id: ServiceProvider.Anthropic.id,
+          providerName: ServiceProvider.Anthropic.name,
+          providerType: ServiceProvider.Anthropic.id,
           sorted: 4,
         },
         sorted: 4,
@@ -541,7 +545,7 @@ export class ClaudeApi implements LLMApi {
     } catch (e) {
       logger.error("[Anthropic] failed to list models", e);
       return DEFAULT_MODELS.filter(
-        (m) => m.provider.providerName === "Anthropic",
+        (m) => m.provider.providerName === ServiceProvider.Anthropic.name,
       );
     }
   }
@@ -558,7 +562,9 @@ export class ClaudeApi implements LLMApi {
     if (baseUrl.trim().length === 0) {
       const isApp = !!getClientConfig()?.isApp;
 
-      baseUrl = isApp ? ANTHROPIC_BASE_URL : ApiPath.Anthropic;
+      baseUrl = isApp
+        ? ServiceProvider.Anthropic.defaultBaseUrl
+        : ServiceProvider.Anthropic.apiPath;
     }
 
     if (!baseUrl.startsWith("http") && !baseUrl.startsWith("/api")) {
@@ -581,7 +587,7 @@ export class ClaudeApi implements LLMApi {
       }
 
       // 在 standalone 模式中，使用代理服务器
-      const proxyPath = "/api/anthropic/";
+      const proxyPath = ServiceProvider.Anthropic.apiPath + "/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);

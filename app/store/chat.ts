@@ -228,9 +228,9 @@ function getSummarizeModel(
     }
   }
   if (currentModel.startsWith("gemini")) {
-    return [GEMINI_SUMMARIZE_MODEL, ServiceProvider.Google];
+    return [GEMINI_SUMMARIZE_MODEL, ServiceProvider.Google.id];
   } else if (currentModel.startsWith("deepseek-")) {
-    return [DEEPSEEK_SUMMARIZE_MODEL, ServiceProvider.DeepSeek];
+    return [DEEPSEEK_SUMMARIZE_MODEL, ServiceProvider.DeepSeek.id];
   }
 
   return [currentModel, providerName];
@@ -1027,7 +1027,7 @@ export const useChatStore = createPersistStore(
           const modelConfig = {
             ...session.mask.modelConfig,
             model: modelName as ModelType,
-            providerName: providerId as ServiceProvider,
+            providerName: providerId as string,
           };
           modelConfigs[modelKey] = modelConfig;
 
@@ -1507,7 +1507,7 @@ export const useChatStore = createPersistStore(
           providerName = sessionCompressConfig.providerName;
         }
 
-        const api: ClientApi = getClientApi(providerName as ServiceProvider);
+        const api: ClientApi = getClientApi(providerName as string);
 
         // remove error messages if any
         const messages = session.messages;

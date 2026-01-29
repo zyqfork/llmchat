@@ -1,10 +1,11 @@
 "use client";
-import {
-  ApiPath,
-  Alibaba,
-  ALIBABA_BASE_URL,
-  ServiceProvider,
-} from "@/app/constant";
+import { ServiceProvider } from "@/app/constant";
+
+// Alibaba API endpoints
+const Alibaba = {
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
+};
 import {
   useAccessStore,
   useAppConfig,
@@ -73,13 +74,18 @@ export class QwenApi implements LLMApi {
 
     if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
-      baseUrl = isApp ? ALIBABA_BASE_URL : ApiPath.Alibaba;
+      baseUrl = isApp
+        ? ServiceProvider.Alibaba.defaultBaseUrl
+        : ServiceProvider.Alibaba.apiPath;
     }
 
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (!baseUrl.startsWith("http") && !baseUrl.startsWith(ApiPath.Alibaba)) {
+    if (
+      !baseUrl.startsWith("http") &&
+      !baseUrl.startsWith(ServiceProvider.Alibaba.apiPath)
+    ) {
       baseUrl = "https://" + baseUrl;
     }
 
@@ -99,7 +105,7 @@ export class QwenApi implements LLMApi {
       }
 
       // 在 standalone 模式中，使用代理服务器
-      const proxyPath = "/api/alibaba/";
+      const proxyPath = ServiceProvider.Alibaba.apiPath + "/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
@@ -474,7 +480,7 @@ export class QwenApi implements LLMApi {
 
       const headers = getHeaders(false, {
         model: "",
-        providerName: ServiceProvider.Alibaba,
+        providerName: ServiceProvider.Alibaba.id,
       });
       logger.debug("[Alibaba] Request headers:", headers);
 
@@ -506,9 +512,9 @@ export class QwenApi implements LLMApi {
         displayName: model.id,
         available: true,
         provider: {
-          id: "alibaba",
-          providerName: ServiceProvider.Alibaba,
-          providerType: "alibaba",
+          id: ServiceProvider.Alibaba.id,
+          providerName: ServiceProvider.Alibaba.name,
+          providerType: ServiceProvider.Alibaba.id,
           sorted: 4, // 与 DEFAULT_MODELS 中的 sorted 值保持一致
         },
         sorted: 0,

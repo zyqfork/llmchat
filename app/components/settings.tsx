@@ -66,25 +66,18 @@ import { logger } from "../utils/logger";
 import { groupBy } from "lodash-es";
 import Link from "next/link";
 import {
-  Anthropic,
-  Azure,
-  ByteDance,
-  Alibaba,
-  Moonshot,
-  XAI,
-  Google,
+  ServiceProvider,
+  getAllProviders,
+  getProviderConfig,
+  ProviderConfig,
   GoogleSafetySettingsThreshold,
   OPENAI_BASE_URL,
   Path,
   RELEASE_URL,
   STORAGE_KEY,
-  ServiceProvider,
   SlotID,
   UPDATE_URL,
   SAAS_CHAT_URL,
-  DeepSeek,
-  SiliconFlow,
-  Ollama,
 } from "../constant";
 import { Prompt, SearchService, usePromptStore } from "../store/prompt";
 import { ErrorBoundary } from "./error";
@@ -993,19 +986,10 @@ function SyncItems() {
   const configOverview = useMemo(() => {
     // 模型服务配置：统计配置了 API Key 的服务商数量
     let configuredProviders = 0;
-    const providerKeys = [
-      "openaiApiKey",
-      "azureApiKey",
-      "googleApiKey",
-      "anthropicApiKey",
-      "bytedanceApiKey",
-      "alibabaApiKey",
-      "moonshotApiKey",
-      "deepseekApiKey",
-      "xaiApiKey",
-      "siliconflowApiKey",
-      "ollamaApiKey",
-    ];
+    // 动态生成 provider keys 从 ServiceProvider 配置
+    const providerKeys = getAllProviders().map(
+      (provider) => provider.storeKeys.apiKey,
+    );
     providerKeys.forEach((key) => {
       if ((accessStore as any)[key]) {
         configuredProviders++;
@@ -1292,7 +1276,7 @@ export function Settings() {
         setTimeout(() => {
           setCollapsedProviders((prev) => ({
             ...prev,
-            [provider as ServiceProvider]: false,
+            [provider]: false,
           }));
 
           setCollapsedCustomProviders((prev) => ({
@@ -1381,9 +1365,7 @@ export function Settings() {
     "optimize" | "topic" | "summarize" | null
   >(null);
   const [showModelManager, setShowModelManager] = useState(false);
-  const [currentProvider, setCurrentProvider] = useState<
-    ServiceProvider | string | null
-  >(null);
+  const [currentProvider, setCurrentProvider] = useState<string | null>(null);
   const [showAddCustomProvider, setShowAddCustomProvider] = useState(false);
   const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
   const [modelConfigForm, setModelConfigForm] = useState({
@@ -1398,19 +1380,15 @@ export function Settings() {
     contextTokens: undefined as number | undefined,
   });
   const [collapsedProviders, setCollapsedProviders] = useState<
-    Record<ServiceProvider, boolean>
-  >({
-    [ServiceProvider.OpenAI]: false, // 默认展开 OpenAI
-    [ServiceProvider.Azure]: true,
-    [ServiceProvider.Google]: true,
-    [ServiceProvider.Anthropic]: true,
-    [ServiceProvider.ByteDance]: true,
-    [ServiceProvider.Alibaba]: true,
-    [ServiceProvider.Moonshot]: true,
-    [ServiceProvider.XAI]: true,
-    [ServiceProvider.DeepSeek]: true,
-    [ServiceProvider.SiliconFlow]: true,
-    [ServiceProvider.Ollama]: true,
+    Record<string, boolean>
+  >(() => {
+    // 动态生成初始折叠状态
+    const initialState: Record<string, boolean> = {};
+    getAllProviders().forEach((provider) => {
+      // 使用 UI 配置中的 defaultCollapsed 设置，默认为 true（除了 OpenAI）
+      initialState[provider.name] = provider.ui?.defaultCollapsed ?? true;
+    });
+    return initialState;
   });
 
   // 自定义服务商的折叠状态 - 默认全部折叠
@@ -1505,1201 +1483,255 @@ export function Settings() {
       </ListItem>
     );
 
-  const openAIConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.OpenAI.Endpoint.SubTitle}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.Endpoint.Title}
-          type="text"
-          value={accessStore.openaiUrl}
-          placeholder={OPENAI_BASE_URL}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.openaiUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.openaiApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.openaiApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.openaiApiPath}
-          placeholder={
-            accessStore.openaiApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.openaiApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiKey.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.OpenAI.ApiKey.Title}
-          value={accessStore.openaiApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.openaiApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseProxy.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.openaiUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.openaiUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.openaiUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.OpenAI.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
-            type="text"
-            value={accessStore.openaiProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.openaiProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
+  // 动态生成厂商配置组件
+  const createProviderConfigComponent = (provider: ProviderConfig) => {
+    const storeKeys = provider.storeKeys;
+    const ui = provider.ui || {};
 
-  const azureConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Azure.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Azure.Endpoint.SubTitle +
-              Azure.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Azure.Endpoint.Title}
-          type="text"
-          value={accessStore.azureUrl}
-          placeholder={Azure.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.azureUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Azure.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Azure.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Azure.ApiKey.Title}
-          value={accessStore.azureApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Azure.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.azureApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Azure.ApiVerion.Title}
-        subTitle={Locale.Settings.Access.Azure.ApiVerion.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Azure.ApiVerion.Title}
-          type="text"
-          value={accessStore.azureApiVersion}
-          placeholder="2023-08-01-preview"
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.azureApiVersion = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Azure.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Azure.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Azure.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.azureUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.azureUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.azureUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Azure.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Azure.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Azure.ProxyUrl.Title}
-            type="text"
-            value={accessStore.azureProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.azureProxyUrl = e.currentTarget.value),
-              )
+    return (
+      <>
+        {/* 端点配置 */}
+        {ui.showEndpoint !== false && (
+          <ListItem
+            title={Locale.Settings.Access.OpenAI.Endpoint.Title}
+            subTitle={
+              <span className={styles["long-text-wrap"]}>
+                {Locale.Settings.Access.OpenAI.Endpoint.SubTitle +
+                  provider.defaultBaseUrl}
+              </span>
             }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
+          >
+            <input
+              aria-label={Locale.Settings.Access.OpenAI.Endpoint.Title}
+              type="text"
+              value={(accessStore as any)[storeKeys.baseUrl] || ""}
+              placeholder={provider.defaultBaseUrl}
+              onChange={(e) =>
+                accessStore.update(
+                  (access) =>
+                    ((access as any)[storeKeys.baseUrl] =
+                      e.currentTarget.value),
+                )
+              }
+            />
+          </ListItem>
+        )}
 
-  const googleConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Google.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Google.Endpoint.SubTitle +
-              Google.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Google.Endpoint.Title}
-          type="text"
-          value={accessStore.googleUrl}
-          placeholder={Google.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.googleUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Google.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Google.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Google.ApiKey.Title}
-          value={accessStore.googleApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Google.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.googleApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Google.ApiVersion.Title}
-        subTitle={Locale.Settings.Access.Google.ApiVersion.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Google.ApiVersion.Title}
-          type="text"
-          value={accessStore.googleApiVersion}
-          placeholder="2023-08-01-preview"
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.googleApiVersion = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Google.GoogleSafetySettings.Title}
-        subTitle={Locale.Settings.Access.Google.GoogleSafetySettings.SubTitle}
-      >
-        <Select
-          aria-label={Locale.Settings.Access.Google.GoogleSafetySettings.Title}
-          value={accessStore.googleSafetySettings}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.googleSafetySettings = e.target
-                  .value as GoogleSafetySettingsThreshold),
-            );
-          }}
-        >
-          {Object.entries(GoogleSafetySettingsThreshold).map(([k, v]) => (
-            <option value={v} key={k}>
-              {k}
-            </option>
-          ))}
-        </Select>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Google.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Google.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Google.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.googleUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.googleUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.googleUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Google.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Google.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Google.ProxyUrl.Title}
-            type="text"
-            value={accessStore.googleProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.googleProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
+        {/* Response API 选项 */}
+        {ui.showResponseApi && storeKeys.apiType && (
+          <ListItem
+            title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+            subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
+              type="checkbox"
+              checked={(accessStore as any)[storeKeys.apiType!] === "response"}
+              onChange={(e) => {
+                accessStore.update(
+                  (access) =>
+                    ((access as any)[storeKeys.apiType!] = e.currentTarget
+                      .checked
+                      ? "response"
+                      : "chat"),
+                );
+              }}
+              style={{
+                width: "18px",
+                height: "18px",
+                cursor: "pointer",
+              }}
+            />
+          </ListItem>
+        )}
 
-  const anthropicConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Anthropic.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Anthropic.Endpoint.SubTitle +
-              Anthropic.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Anthropic.Endpoint.Title}
-          type="text"
-          value={accessStore.anthropicUrl}
-          placeholder={Anthropic.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.anthropicUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Anthropic.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Anthropic.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Anthropic.ApiKey.Title}
-          value={accessStore.anthropicApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Anthropic.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.anthropicApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Anthropic.ApiVerion.Title}
-        subTitle={Locale.Settings.Access.Anthropic.ApiVerion.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Anthropic.ApiVerion.Title}
-          type="text"
-          value={accessStore.anthropicApiVersion}
-          placeholder={Anthropic.Vision}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.anthropicApiVersion = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Anthropic.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Anthropic.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Anthropic.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.anthropicUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.anthropicUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.anthropicUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Anthropic.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Anthropic.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Anthropic.ProxyUrl.Title}
-            type="text"
-            value={accessStore.anthropicProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.anthropicProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
+        {/* API 路径配置 */}
+        {ui.showApiPath !== false && storeKeys.apiPath && (
+          <ListItem
+            title={Locale.Settings.Access.OpenAI.ApiPath.Title}
+            subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
+              type="text"
+              value={(accessStore as any)[storeKeys.apiPath!] || ""}
+              placeholder={
+                storeKeys.apiType &&
+                (accessStore as any)[storeKeys.apiType!] === "response"
+                  ? "/responses"
+                  : "/chat/completions"
+              }
+              onChange={(e) =>
+                accessStore.update(
+                  (access) =>
+                    ((access as any)[storeKeys.apiPath!] =
+                      e.currentTarget.value),
+                )
+              }
+            />
+          </ListItem>
+        )}
 
-  const byteDanceConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.ByteDance.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.ByteDance.Endpoint.SubTitle +
-              ByteDance.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.ByteDance.Endpoint.Title}
-          type="text"
-          value={accessStore.bytedanceUrl}
-          placeholder="https://ark.cn-beijing.volces.com/api/v3"
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.bytedanceUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.bytedanceApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.bytedanceApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.bytedanceApiPath}
-          placeholder={
-            accessStore.bytedanceApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.bytedanceApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.ByteDance.ApiKey.Title}
-        subTitle={Locale.Settings.Access.ByteDance.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.ByteDance.ApiKey.Title}
-          value={accessStore.bytedanceApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.ByteDance.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.bytedanceApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.ByteDance.UseProxy.Title}
-        subTitle={Locale.Settings.Access.ByteDance.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.ByteDance.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.bytedanceUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.bytedanceUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.bytedanceUseProxy && (
+        {/* API Key */}
         <ListItem
-          title={Locale.Settings.Access.ByteDance.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.ByteDance.ProxyUrl.SubTitle}
+          title={Locale.Settings.Access.OpenAI.ApiKey.Title}
+          subTitle={Locale.Settings.Access.OpenAI.ApiKey.SubTitle}
         >
-          <input
-            aria-label={Locale.Settings.Access.ByteDance.ProxyUrl.Title}
+          <PasswordInput
+            aria-label={Locale.Settings.Access.OpenAI.ApiKey.Title}
+            value={(accessStore as any)[storeKeys.apiKey] || ""}
             type="text"
-            value={accessStore.bytedanceProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.bytedanceProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
-
-  const alibabaConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Alibaba.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Alibaba.Endpoint.SubTitle +
-              Alibaba.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Alibaba.Endpoint.Title}
-          type="text"
-          value={accessStore.alibabaUrl}
-          placeholder={Alibaba.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.alibabaUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.alibabaApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.alibabaApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.alibabaApiPath}
-          placeholder={
-            accessStore.alibabaApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.alibabaApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Alibaba.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Alibaba.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Alibaba.ApiKey.Title}
-          value={accessStore.alibabaApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Alibaba.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.alibabaApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Alibaba.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Alibaba.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Alibaba.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.alibabaUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.alibabaUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.alibabaUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Alibaba.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Alibaba.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Alibaba.ProxyUrl.Title}
-            type="text"
-            value={accessStore.alibabaProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.alibabaProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
-
-  const moonshotConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Moonshot.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Moonshot.Endpoint.SubTitle +
-              Moonshot.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Moonshot.Endpoint.Title}
-          type="text"
-          value={accessStore.moonshotUrl}
-          placeholder={Moonshot.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.moonshotUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.moonshotApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.moonshotApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.moonshotApiPath}
-          placeholder={
-            accessStore.moonshotApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.moonshotApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Moonshot.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Moonshot.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Moonshot.ApiKey.Title}
-          value={accessStore.moonshotApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Moonshot.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.moonshotApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Moonshot.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Moonshot.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Moonshot.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.moonshotUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.moonshotUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.moonshotUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Moonshot.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Moonshot.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Moonshot.ProxyUrl.Title}
-            type="text"
-            value={accessStore.moonshotProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.moonshotProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
-
-  const deepseekConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.DeepSeek.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.DeepSeek.Endpoint.SubTitle +
-              DeepSeek.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.DeepSeek.Endpoint.Title}
-          type="text"
-          value={accessStore.deepseekUrl}
-          placeholder={DeepSeek.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.deepseekUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.deepseekApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.deepseekApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.deepseekApiPath}
-          placeholder={
-            accessStore.deepseekApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.deepseekApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.DeepSeek.ApiKey.Title}
-        subTitle={Locale.Settings.Access.DeepSeek.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.DeepSeek.ApiKey.Title}
-          value={accessStore.deepseekApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.DeepSeek.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.deepseekApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.DeepSeek.UseProxy.Title}
-        subTitle={Locale.Settings.Access.DeepSeek.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.DeepSeek.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.deepseekUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.deepseekUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.deepseekUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.DeepSeek.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.DeepSeek.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.DeepSeek.ProxyUrl.Title}
-            type="text"
-            value={accessStore.deepseekProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.deepseekProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
-
-  const XAIConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.XAI.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.XAI.Endpoint.Title}
-          type="text"
-          value={accessStore.xaiUrl}
-          placeholder={XAI.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.xaiUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.xaiApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.xaiApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.xaiApiPath}
-          placeholder={
-            accessStore.xaiApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.xaiApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.XAI.ApiKey.Title}
-        subTitle={Locale.Settings.Access.XAI.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.XAI.ApiKey.Title}
-          value={accessStore.xaiApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.XAI.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.xaiApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.XAI.UseProxy.Title}
-        subTitle={Locale.Settings.Access.XAI.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.XAI.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.xaiUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.xaiUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.xaiUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.XAI.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.XAI.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.XAI.ProxyUrl.Title}
-            type="text"
-            value={accessStore.xaiProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.xaiProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
-
-  const siliconflowConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.SiliconFlow.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.SiliconFlow.Endpoint.SubTitle +
-              SiliconFlow.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.SiliconFlow.Endpoint.Title}
-          type="text"
-          value={accessStore.siliconflowUrl}
-          placeholder={SiliconFlow.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.siliconflowUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-        subTitle={Locale.Settings.Access.OpenAI.UseResponseApi.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.UseResponseApi.Title}
-          type="checkbox"
-          checked={accessStore.siliconflowApiType === "response"}
-          onChange={(e) => {
-            accessStore.update(
-              (access) =>
-                (access.siliconflowApiType = e.currentTarget.checked
-                  ? "response"
-                  : "chat"),
-            );
-          }}
-          style={{
-            width: "18px",
-            height: "18px",
-            cursor: "pointer",
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.OpenAI.ApiPath.Title}
-        subTitle={Locale.Settings.Access.OpenAI.ApiPath.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.OpenAI.ApiPath.Title}
-          type="text"
-          value={accessStore.siliconflowApiPath}
-          placeholder={
-            accessStore.siliconflowApiType === "response"
-              ? "/responses"
-              : "/chat/completions"
-          }
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.siliconflowApiPath = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.SiliconFlow.ApiKey.Title}
-        subTitle={Locale.Settings.Access.SiliconFlow.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.SiliconFlow.ApiKey.Title}
-          value={accessStore.siliconflowApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.SiliconFlow.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.siliconflowApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.SiliconFlow.UseProxy.Title}
-        subTitle={Locale.Settings.Access.SiliconFlow.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.SiliconFlow.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.siliconflowUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) =>
-                (access.siliconflowUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.siliconflowUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.SiliconFlow.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.SiliconFlow.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.SiliconFlow.ProxyUrl.Title}
-            type="text"
-            value={accessStore.siliconflowProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
+            placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
+            onChange={(e) => {
               accessStore.update(
                 (access) =>
-                  (access.siliconflowProxyUrl = e.currentTarget.value),
-              )
-            }
-          ></input>
+                  ((access as any)[storeKeys.apiKey] = e.currentTarget.value),
+              );
+            }}
+          />
         </ListItem>
-      )}
-    </>
-  );
 
-  const ollamaConfigComponent = (
-    <>
-      <ListItem
-        title={Locale.Settings.Access.Ollama.Endpoint.Title}
-        subTitle={
-          <span className={styles["long-text-wrap"]}>
-            {Locale.Settings.Access.Ollama.Endpoint.SubTitle +
-              Ollama.ExampleEndpoint}
-          </span>
-        }
-      >
-        <input
-          aria-label={Locale.Settings.Access.Ollama.Endpoint.Title}
-          type="text"
-          value={accessStore.ollamaUrl}
-          placeholder={Ollama.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.ollamaUrl = e.currentTarget.value),
-            )
-          }
-        ></input>
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Ollama.ApiKey.Title}
-        subTitle={Locale.Settings.Access.Ollama.ApiKey.SubTitle}
-      >
-        <PasswordInput
-          aria-label={Locale.Settings.Access.Ollama.ApiKey.Title}
-          value={accessStore.ollamaApiKey}
-          type="text"
-          placeholder={Locale.Settings.Access.Ollama.ApiKey.Placeholder}
-          onChange={(e) => {
-            accessStore.update(
-              (access) => (access.ollamaApiKey = e.currentTarget.value),
-            );
-          }}
-        />
-      </ListItem>
-      <ListItem
-        title={Locale.Settings.Access.Ollama.UseProxy.Title}
-        subTitle={Locale.Settings.Access.Ollama.UseProxy.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Access.Ollama.UseProxy.Title}
-          type="checkbox"
-          checked={accessStore.ollamaUseProxy}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.ollamaUseProxy = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-      {accessStore.ollamaUseProxy && (
-        <ListItem
-          title={Locale.Settings.Access.Ollama.ProxyUrl.Title}
-          subTitle={Locale.Settings.Access.Ollama.ProxyUrl.SubTitle}
-        >
-          <input
-            aria-label={Locale.Settings.Access.Ollama.ProxyUrl.Title}
-            type="text"
-            value={accessStore.ollamaProxyUrl}
-            placeholder="http://localhost:port"
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.ollamaProxyUrl = e.currentTarget.value),
-              )
+        {/* Azure API Version */}
+        {provider.id === "azure" && storeKeys.apiVersion && (
+          <ListItem
+            title={Locale.Settings.Access.Azure.ApiVerion.Title}
+            subTitle={Locale.Settings.Access.Azure.ApiVerion.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.Azure.ApiVerion.Title}
+              type="text"
+              value={(accessStore as any)[storeKeys.apiVersion!] || ""}
+              placeholder="2023-08-01-preview"
+              onChange={(e) =>
+                accessStore.update(
+                  (access) =>
+                    ((access as any)[storeKeys.apiVersion!] =
+                      e.currentTarget.value),
+                )
+              }
+            />
+          </ListItem>
+        )}
+
+        {/* Google API Version */}
+        {provider.id === "google" && (
+          <ListItem
+            title={Locale.Settings.Access.Google.ApiVersion.Title}
+            subTitle={Locale.Settings.Access.Google.ApiVersion.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.Google.ApiVersion.Title}
+              type="text"
+              value={accessStore.googleApiVersion}
+              placeholder="2023-08-01-preview"
+              onChange={(e) =>
+                accessStore.update(
+                  (access) => (access.googleApiVersion = e.currentTarget.value),
+                )
+              }
+            />
+          </ListItem>
+        )}
+
+        {/* Google Safety Settings */}
+        {provider.id === "google" && (
+          <ListItem
+            title={Locale.Settings.Access.Google.GoogleSafetySettings.Title}
+            subTitle={
+              Locale.Settings.Access.Google.GoogleSafetySettings.SubTitle
             }
-          ></input>
-        </ListItem>
-      )}
-    </>
-  );
+          >
+            <Select
+              aria-label={
+                Locale.Settings.Access.Google.GoogleSafetySettings.Title
+              }
+              value={accessStore.googleSafetySettings}
+              onChange={(e) => {
+                accessStore.update(
+                  (access) =>
+                    (access.googleSafetySettings = e.target
+                      .value as GoogleSafetySettingsThreshold),
+                );
+              }}
+            >
+              {Object.entries(GoogleSafetySettingsThreshold).map(([k, v]) => (
+                <option value={v} key={k}>
+                  {k}
+                </option>
+              ))}
+            </Select>
+          </ListItem>
+        )}
+
+        {/* Anthropic API Version */}
+        {provider.id === "anthropic" && (
+          <ListItem
+            title={Locale.Settings.Access.Anthropic.ApiVerion.Title}
+            subTitle={Locale.Settings.Access.Anthropic.ApiVerion.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.Anthropic.ApiVerion.Title}
+              type="text"
+              value={accessStore.anthropicApiVersion}
+              placeholder="2023-06-01"
+              onChange={(e) =>
+                accessStore.update(
+                  (access) =>
+                    (access.anthropicApiVersion = e.currentTarget.value),
+                )
+              }
+            />
+          </ListItem>
+        )}
+
+        {/* 代理配置 */}
+        {ui.showProxy !== false && storeKeys.useProxy && (
+          <ListItem
+            title={Locale.Settings.Access.OpenAI.UseProxy.Title}
+            subTitle={Locale.Settings.Access.OpenAI.UseProxy.SubTitle}
+          >
+            <input
+              aria-label={Locale.Settings.Access.OpenAI.UseProxy.Title}
+              type="checkbox"
+              checked={(accessStore as any)[storeKeys.useProxy!] || false}
+              onChange={(e) =>
+                accessStore.update(
+                  (access) =>
+                    ((access as any)[storeKeys.useProxy!] =
+                      e.currentTarget.checked),
+                )
+              }
+            />
+          </ListItem>
+        )}
+
+        {/* 代理 URL */}
+        {ui.showProxy !== false &&
+          storeKeys.useProxy &&
+          storeKeys.proxyUrl &&
+          (accessStore as any)[storeKeys.useProxy!] && (
+            <ListItem
+              title={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
+              subTitle={Locale.Settings.Access.OpenAI.ProxyUrl.SubTitle}
+            >
+              <input
+                aria-label={Locale.Settings.Access.OpenAI.ProxyUrl.Title}
+                type="text"
+                value={(accessStore as any)[storeKeys.proxyUrl!] || ""}
+                placeholder="http://localhost:port"
+                onChange={(e) =>
+                  accessStore.update(
+                    (access) =>
+                      ((access as any)[storeKeys.proxyUrl!] =
+                        e.currentTarget.value),
+                  )
+                }
+              />
+            </ListItem>
+          )}
+      </>
+    );
+  };
 
   // 分页标签配置
   const tabConfig = [
@@ -3403,86 +2435,14 @@ export function Settings() {
     );
   };
 
-  // 服务提供商配置（包含自定义服务商）
-  const builtinProviderConfigs = [
-    {
-      provider: ServiceProvider.OpenAI,
-      name: "OpenAI",
-      description: Locale.Settings.Access.Provider.Description.OpenAI,
-      configComponent: openAIConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Azure,
-      name: "Azure OpenAI",
-      description: Locale.Settings.Access.Provider.Description.Azure,
-      configComponent: azureConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Google,
-      name: "Google",
-      description: Locale.Settings.Access.Provider.Description.Google,
-      configComponent: googleConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Anthropic,
-      name: "Anthropic",
-      description: Locale.Settings.Access.Provider.Description.Anthropic,
-      configComponent: anthropicConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.ByteDance,
-      name: Locale.Settings.Access.Provider.Name.ByteDance,
-      description: Locale.Settings.Access.Provider.Description.ByteDance,
-      configComponent: byteDanceConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Alibaba,
-      name: Locale.Settings.Access.Provider.Name.Alibaba,
-      description: Locale.Settings.Access.Provider.Description.Alibaba,
-      configComponent: alibabaConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Moonshot,
-      name: Locale.Settings.Access.Provider.Name.Moonshot,
-      description: Locale.Settings.Access.Provider.Description.Moonshot,
-      configComponent: moonshotConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.DeepSeek,
-      name: "DeepSeek",
-      description: Locale.Settings.Access.Provider.Description.DeepSeek,
-      configComponent: deepseekConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.XAI,
-      name: "xAI",
-      description: Locale.Settings.Access.Provider.Description.XAI,
-      configComponent: XAIConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.SiliconFlow,
-      name: "SiliconFlow",
-      description: Locale.Settings.Access.Provider.Description.SiliconFlow,
-      configComponent: siliconflowConfigComponent,
-      isCustom: false,
-    },
-    {
-      provider: ServiceProvider.Ollama,
-      name: "Ollama",
-      description: Locale.Settings.Access.Provider.Description.Ollama,
-      configComponent: ollamaConfigComponent,
-      isCustom: false,
-    },
-  ];
+  // 动态生成服务提供商配置
+  const builtinProviderConfigs = getAllProviders().map((provider) => ({
+    provider: provider.name, // 使用provider name作为标识
+    name: provider.name,
+    description: `${provider.name} API服务`, // 可以后续从locale中获取
+    configComponent: createProviderConfigComponent(provider), // 使用动态生成的配置组件
+    isCustom: false,
+  }));
 
   // 合并内置服务商和自定义服务商
   const customProviderConfigs = accessStore.customProviders.map(
@@ -3515,13 +2475,10 @@ export function Settings() {
                 ? accessStore.customProviders.find(
                     (p) => p.id === config.provider,
                   )?.enabled || false
-                : accessStore.enabledProviders?.[
-                    config.provider as ServiceProvider
-                  ] || false;
+                : accessStore.enabledProviders?.[config.provider] || false;
               const isCollapsed = config.isCustom
                 ? collapsedCustomProviders[config.provider as string] ?? true
-                : collapsedProviders[config.provider as ServiceProvider] ||
-                  false;
+                : collapsedProviders[config.provider] || false;
 
               return (
                 <div
@@ -3559,23 +2516,18 @@ export function Settings() {
                           } else {
                             accessStore.update((access) => {
                               if (!access.enabledProviders) {
-                                access.enabledProviders = {
-                                  [ServiceProvider.OpenAI]: false,
-                                  [ServiceProvider.Azure]: false,
-                                  [ServiceProvider.Google]: false,
-                                  [ServiceProvider.Anthropic]: false,
-                                  [ServiceProvider.ByteDance]: false,
-                                  [ServiceProvider.Alibaba]: false,
-                                  [ServiceProvider.Moonshot]: false,
-                                  [ServiceProvider.XAI]: false,
-                                  [ServiceProvider.DeepSeek]: false,
-                                  [ServiceProvider.SiliconFlow]: false,
-                                  [ServiceProvider.Ollama]: false,
-                                } as Record<ServiceProvider, boolean>;
+                                // 动态初始化 enabledProviders
+                                const initialProviders: Record<
+                                  string,
+                                  boolean
+                                > = {};
+                                getAllProviders().forEach((provider) => {
+                                  initialProviders[provider.name] = false;
+                                });
+                                access.enabledProviders = initialProviders;
                               }
-                              access.enabledProviders[
-                                config.provider as ServiceProvider
-                              ] = e.target.checked;
+                              access.enabledProviders[config.provider] =
+                                e.target.checked;
                             });
                           }
                         }}
@@ -3596,8 +2548,7 @@ export function Settings() {
                             } else {
                               setCollapsedProviders((prev) => ({
                                 ...prev,
-                                [config.provider as ServiceProvider]:
-                                  !prev[config.provider as ServiceProvider],
+                                [config.provider]: !prev[config.provider],
                               }));
                             }
                           }}
@@ -3744,7 +2695,7 @@ export function Settings() {
       // 对于自定义服务商，检查是否存在且启用
       const isProviderEnabled = isCustomProvider
         ? customProvider && customProvider.enabled
-        : enabledProviders[providerName as ServiceProvider];
+        : enabledProviders[providerName];
 
       if (!isProviderEnabled) return false;
 
@@ -3779,10 +2730,7 @@ export function Settings() {
   });
 
   // 打开模型配置弹窗
-  const openModelConfig = (
-    provider: ServiceProvider | string,
-    modelName: string,
-  ) => {
+  const openModelConfig = (provider: string, modelName: string) => {
     const currentCapabilities = getModelCapabilitiesWithCustomConfig(modelName);
 
     // 获取当前上下文Token数配置

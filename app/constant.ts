@@ -14,22 +14,6 @@ export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 export const OPENAI_BASE_URL = "https://api.openai.com/v1";
 export const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 
-export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/";
-
-export const BYTEDANCE_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-
-// 使用 OpenAI 兼容模式的 base URL
-export const ALIBABA_BASE_URL =
-  "https://dashscope.aliyuncs.com/compatible-mode/v1";
-
-export const MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1";
-
-export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
-
-export const XAI_BASE_URL = "https://api.x.ai/v1";
-
-export const SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1";
-
 export const CACHE_URL_PREFIX = "/api/cache";
 export const UPLOAD_URL = `${CACHE_URL_PREFIX}/upload`;
 
@@ -54,22 +38,6 @@ export enum Path {
   Artifacts = "/artifacts",
   SearchChat = "/search-chat",
   McpMarket = "/mcp-market",
-}
-
-export enum ApiPath {
-  Cors = "",
-  Azure = "/api/azure",
-  OpenAI = "/api/openai",
-  Anthropic = "/api/anthropic",
-  Google = "/api/google",
-  ByteDance = "/api/bytedance",
-  Alibaba = "/api/alibaba",
-  Moonshot = "/api/moonshot",
-
-  Artifacts = "/api/artifacts",
-  XAI = "/api/xai",
-  DeepSeek = "/api/deepseek",
-  SiliconFlow = "/api/siliconflow",
 }
 
 export enum SlotID {
@@ -111,18 +79,444 @@ export const REQUEST_TIMEOUT_MS_FOR_THINKING = REQUEST_TIMEOUT_MS * 5;
 
 export const EXPORT_MESSAGE_CLASS_NAME = "export-markdown";
 
-export enum ServiceProvider {
-  OpenAI = "OpenAI",
-  Azure = "Azure",
-  Google = "Google",
-  Anthropic = "Anthropic",
-  ByteDance = "ByteDance",
-  Alibaba = "Alibaba",
-  Moonshot = "Moonshot",
-  XAI = "XAI",
-  DeepSeek = "DeepSeek",
-  SiliconFlow = "SiliconFlow",
-  Ollama = "Ollama",
+// 厂商配置接口
+export interface ProviderConfig {
+  id: string; // 厂商ID，用于API路径和标识
+  name: string; // 显示名称
+  modelProvider: string; // 模型提供商标识
+  iconUrl: string; // 图标URL，使用models.dev/logos/{provider}.svg
+  sdkType:
+    | "openai"
+    | "openai-compatible"
+    | "anthropic"
+    | "google"
+    | "xai"
+    | "azure"; // SDK类型
+  defaultBaseUrl: string; // 默认Base URL
+  apiPath: string; // API路径
+  proxyPath?: string; // 代理路径（可选）
+  envApiKeyName: string; // 环境变量API Key名称
+  envBaseUrlName?: string; // 环境变量Base URL名称（可选）
+  authHeaderName?: string; // 认证头名称（默认为Authorization）
+  // 支持的端点路径
+  endpoints: {
+    chat: string; // 聊天端点
+    response?: string; // 响应API端点（可选）
+    image?: string; // 图像生成端点（可选）
+    speech?: string; // 语音生成端点（可选）
+    models?: string; // 模型列表端点（可选）
+  };
+  // Azure特有配置
+  azure?: {
+    resourceName?: string;
+    apiVersion?: string;
+  };
+  // UI配置
+  ui?: {
+    defaultCollapsed?: boolean; // 默认是否折叠，默认true（除了OpenAI）
+    showResponseApi?: boolean; // 是否显示Response API选项，默认false
+    showProxy?: boolean; // 是否显示代理选项，默认true
+    showApiPath?: boolean; // 是否显示API路径选项，默认true
+    showEndpoint?: boolean; // 是否显示端点配置，默认true
+  };
+  // 访问存储字段映射
+  storeKeys: {
+    apiKey: string; // API Key在store中的字段名
+    baseUrl: string; // Base URL在store中的字段名
+    apiType?: string; // API类型在store中的字段名（用于Response API）
+    apiPath?: string; // API路径在store中的字段名
+    useProxy?: string; // 是否使用代理在store中的字段名
+    proxyUrl?: string; // 代理URL在store中的字段名
+    apiVersion?: string; // API版本在store中的字段名（Azure专用）
+  };
+}
+
+// 厂商配置对象
+export const ServiceProvider: Record<string, ProviderConfig> = {
+  OpenAI: {
+    id: "openai",
+    name: "OpenAI",
+    modelProvider: "GPT",
+    iconUrl: "https://models.dev/logos/openai.svg",
+    sdkType: "openai",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    apiPath: "/api/openai",
+    envApiKeyName: "OPENAI_API_KEY",
+    envBaseUrlName: "OPENAI_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      image: "images/generations",
+      speech: "audio/speech",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: false, // OpenAI 默认展开
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "openaiApiKey",
+      baseUrl: "openaiUrl",
+      apiType: "openaiApiType",
+      apiPath: "openaiApiPath",
+      useProxy: "openaiUseProxy",
+      proxyUrl: "openaiProxyUrl",
+    },
+  },
+  Azure: {
+    id: "azure",
+    name: "Azure OpenAI",
+    modelProvider: "GPT",
+    iconUrl: "https://models.dev/logos/azure.svg",
+    sdkType: "azure",
+    defaultBaseUrl: "", // Azure使用动态URL
+    apiPath: "/api/azure",
+    envApiKeyName: "AZURE_API_KEY",
+    envBaseUrlName: "AZURE_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      image: "images/generations",
+      speech: "audio/speech",
+      models: "models",
+    },
+    azure: {
+      apiVersion: "2024-02-01",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: true,
+      showApiPath: false,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "azureApiKey",
+      baseUrl: "azureUrl",
+      useProxy: "azureUseProxy",
+      proxyUrl: "azureProxyUrl",
+      apiVersion: "azureApiVersion",
+    },
+  },
+  Google: {
+    id: "google",
+    name: "Google",
+    modelProvider: "GeminiPro",
+    iconUrl: "https://models.dev/logos/google.svg",
+    sdkType: "google",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/",
+    apiPath: "/api/google",
+    envApiKeyName: "GOOGLE_API_KEY",
+    envBaseUrlName: "GOOGLE_BASE_URL",
+    authHeaderName: "x-goog-api-key",
+    endpoints: {
+      chat: "v1beta/models/{model}:streamGenerateContent",
+      models: "v1beta/models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: true,
+      showApiPath: false,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "googleApiKey",
+      baseUrl: "googleUrl",
+      useProxy: "googleUseProxy",
+      proxyUrl: "googleProxyUrl",
+    },
+  },
+  Anthropic: {
+    id: "anthropic",
+    name: "Anthropic",
+    modelProvider: "Claude",
+    iconUrl: "https://models.dev/logos/anthropic.svg",
+    sdkType: "anthropic",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
+    apiPath: "/api/anthropic",
+    envApiKeyName: "ANTHROPIC_API_KEY",
+    envBaseUrlName: "ANTHROPIC_BASE_URL",
+    authHeaderName: "x-api-key",
+    endpoints: {
+      chat: "messages",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: true,
+      showApiPath: false,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "anthropicApiKey",
+      baseUrl: "anthropicUrl",
+      useProxy: "anthropicUseProxy",
+      proxyUrl: "anthropicProxyUrl",
+    },
+  },
+  Alibaba: {
+    id: "alibaba",
+    name: "Alibaba Cloud",
+    modelProvider: "Qwen",
+    iconUrl: "https://models.dev/logos/alibaba.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    apiPath: "/api/alibaba",
+    envApiKeyName: "ALIBABA_API_KEY",
+    envBaseUrlName: "ALIBABA_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "alibabaApiKey",
+      baseUrl: "alibabaUrl",
+      apiType: "alibabaApiType",
+      apiPath: "alibabaApiPath",
+      useProxy: "alibabaUseProxy",
+      proxyUrl: "alibabaProxyUrl",
+    },
+  },
+  MoonshotAI: {
+    id: "moonshotai",
+    name: "MoonshotAI",
+    modelProvider: "MoonshotAI",
+    iconUrl: "https://models.dev/logos/moonshot.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://api.moonshot.cn/v1",
+    apiPath: "/api/moonshotai",
+    envApiKeyName: "MOONSHOT_API_KEY",
+    envBaseUrlName: "MOONSHOT_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "moonshotApiKey",
+      baseUrl: "moonshotUrl",
+      apiType: "moonshotApiType",
+      apiPath: "moonshotApiPath",
+      useProxy: "moonshotUseProxy",
+      proxyUrl: "moonshotProxyUrl",
+    },
+  },
+  XAI: {
+    id: "xai",
+    name: "xAI",
+    modelProvider: "XAI",
+    iconUrl: "https://models.dev/logos/xai.svg",
+    sdkType: "xai",
+    defaultBaseUrl: "https://api.x.ai/v1",
+    apiPath: "/api/xai",
+    envApiKeyName: "XAI_API_KEY",
+    envBaseUrlName: "XAI_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "xaiApiKey",
+      baseUrl: "xaiUrl",
+      apiType: "xaiApiType",
+      apiPath: "xaiApiPath",
+      useProxy: "xaiUseProxy",
+      proxyUrl: "xaiProxyUrl",
+    },
+  },
+  DeepSeek: {
+    id: "deepseek",
+    name: "DeepSeek",
+    modelProvider: "DeepSeek",
+    iconUrl: "https://models.dev/logos/deepseek.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://api.deepseek.com/v1",
+    apiPath: "/api/deepseek",
+    envApiKeyName: "DEEPSEEK_API_KEY",
+    envBaseUrlName: "DEEPSEEK_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "deepseekApiKey",
+      baseUrl: "deepseekUrl",
+      apiType: "deepseekApiType",
+      apiPath: "deepseekApiPath",
+      useProxy: "deepseekUseProxy",
+      proxyUrl: "deepseekProxyUrl",
+    },
+  },
+  SiliconFlow: {
+    id: "siliconflow",
+    name: "SiliconFlow",
+    modelProvider: "SiliconFlow",
+    iconUrl: "https://models.dev/logos/siliconflow.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://api.siliconflow.cn/v1",
+    apiPath: "/api/siliconflow",
+    envApiKeyName: "SILICONFLOW_API_KEY",
+    envBaseUrlName: "SILICONFLOW_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models?&sub_type=chat",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: true,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "siliconflowApiKey",
+      baseUrl: "siliconflowUrl",
+      apiType: "siliconflowApiType",
+      apiPath: "siliconflowApiPath",
+      useProxy: "siliconflowUseProxy",
+      proxyUrl: "siliconflowProxyUrl",
+    },
+  },
+  OllamaCloud: {
+    id: "ollama-cloud",
+    name: "Ollama Cloud",
+    modelProvider: "OllamaCloud",
+    iconUrl: "https://models.dev/logos/ollama.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://api.ollama-cloud.com/v1",
+    apiPath: "/api/ollama-cloud",
+    envApiKeyName: "OLLAMA_CLOUD_API_KEY",
+    envBaseUrlName: "OLLAMA_CLOUD_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      response: "responses",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "ollamaCloudApiKey",
+      baseUrl: "ollamaCloudUrl",
+      apiPath: "ollamaCloudApiPath",
+      useProxy: "ollamaCloudUseProxy",
+      proxyUrl: "ollamaCloudProxyUrl",
+    },
+  },
+  OpenRouter: {
+    id: "openrouter",
+    name: "OpenRouter",
+    modelProvider: "OpenRouter",
+    iconUrl: "https://models.dev/logos/openrouter.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    apiPath: "/api/openrouter",
+    envApiKeyName: "OPENROUTER_API_KEY",
+    envBaseUrlName: "OPENROUTER_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: true,
+      showApiPath: true,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "openrouterApiKey",
+      baseUrl: "openrouterUrl",
+      apiPath: "openrouterApiPath",
+      useProxy: "openrouterUseProxy",
+      proxyUrl: "openrouterProxyUrl",
+    },
+  },
+  Ollama: {
+    id: "ollama",
+    name: "Ollama",
+    modelProvider: "Ollama",
+    iconUrl: "https://models.dev/logos/ollama.svg",
+    sdkType: "openai-compatible",
+    defaultBaseUrl: "http://localhost:11434/v1",
+    apiPath: "/api/ollama",
+    envApiKeyName: "OLLAMA_API_KEY",
+    envBaseUrlName: "OLLAMA_BASE_URL",
+    endpoints: {
+      chat: "chat/completions",
+      models: "models",
+    },
+    ui: {
+      defaultCollapsed: true,
+      showResponseApi: false,
+      showProxy: false, // 本地服务，通常不需要代理
+      showApiPath: false,
+      showEndpoint: true,
+    },
+    storeKeys: {
+      apiKey: "ollamaApiKey",
+      baseUrl: "ollamaUrl",
+    },
+  },
+};
+
+// 为了向后兼容，提供一个获取厂商配置的辅助函数
+export function getProviderConfig(
+  providerId: string,
+): ProviderConfig | undefined {
+  return Object.values(ServiceProvider).find(
+    (provider) => provider.id === providerId,
+  );
+}
+
+// 获取所有厂商ID列表
+export function getAllProviderIds(): string[] {
+  return Object.values(ServiceProvider).map((provider) => provider.id);
+}
+
+// 获取所有厂商配置列表
+export function getAllProviders(): ProviderConfig[] {
+  return Object.values(ServiceProvider);
 }
 
 // Google API safety settings, see https://ai.google.dev/gemini-api/docs/safety-settings
@@ -138,89 +532,15 @@ export enum ModelProvider {
   GPT = "GPT",
   GeminiPro = "GeminiPro", // 现在使用官方 SDK 实现
   Claude = "Claude",
-  Doubao = "Doubao",
   Qwen = "Qwen",
-  Moonshot = "Moonshot",
+  MoonshotAI = "MoonshotAI",
   XAI = "XAI",
   DeepSeek = "DeepSeek",
   SiliconFlow = "SiliconFlow",
+  OllamaCloud = "OllamaCloud",
   Ollama = "Ollama",
+  OpenRouter = "OpenRouter",
 }
-
-export const Anthropic = {
-  ChatPath: "messages",
-  ChatPath1: "complete",
-  ExampleEndpoint: "https://api.anthropic.com",
-  Vision: "2023-06-01",
-};
-
-export const OpenaiPath = {
-  ChatPath: "chat/completions",
-  ResponsePath: "responses", // Response API path
-  SpeechPath: "audio/speech",
-  ImagePath: "images/generations",
-  ListModelPath: "models",
-};
-
-export const Azure = {
-  ChatPath: (deployName: string, apiVersion: string) =>
-    `deployments/${deployName}/chat/completions?api-version=${apiVersion}`,
-  // https://<your_resource_name>.openai.azure.com/openai/deployments/<your_deployment_name>/images/generations?api-version=<api_version>
-  ImagePath: (deployName: string, apiVersion: string) =>
-    `deployments/${deployName}/images/generations?api-version=${apiVersion}`,
-  ExampleEndpoint: "https://{resource-url}/openai",
-};
-
-export const Google = {
-  ExampleEndpoint: "https://generativelanguage.googleapis.com/",
-  ChatPath: (modelName: string) =>
-    `v1beta/models/${modelName}:streamGenerateContent`,
-};
-
-export const ByteDance = {
-  ExampleEndpoint: "https://ark.cn-beijing.volces.com/api/v3",
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-};
-
-export const Alibaba = {
-  ExampleEndpoint: ALIBABA_BASE_URL,
-  // OpenAI 兼容模式使用统一的路径
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-};
-
-export const Moonshot = {
-  ExampleEndpoint: MOONSHOT_BASE_URL,
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-};
-
-export const DeepSeek = {
-  ExampleEndpoint: DEEPSEEK_BASE_URL,
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-  ListModelPath: "models",
-};
-
-export const XAI = {
-  ExampleEndpoint: XAI_BASE_URL,
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-};
-
-export const SiliconFlow = {
-  ExampleEndpoint: SILICONFLOW_BASE_URL,
-  ChatPath: "chat/completions",
-  ResponsePath: "responses",
-  ListModelPath: "models?&sub_type=chat",
-};
-
-export const Ollama = {
-  ExampleEndpoint: "http://localhost:11434",
-  ChatPath: "api/chat",
-  ListModelPath: "api/tags",
-};
 
 export const DEFAULT_INPUT_TEMPLATE = `{{input}}`; // input / time / model / lang
 // export const DEFAULT_SYSTEM_TEMPLATE = `
@@ -574,38 +894,6 @@ const anthropicModels = [
   "claude-3-haiku-20240307",
 ];
 
-const bytedanceModels = [
-  // Doubao 1.5 系列
-  "doubao-1-5-vision-pro-32k-250115",
-  "doubao-1-5-pro-32k-250115",
-  "doubao-1-5-pro-32k-character-250228",
-  "doubao-1-5-pro-256k-250115",
-  "doubao-1-5-lite-32k-250115",
-  "doubao-1-5-thinking-pro-m",
-  "doubao-1-5-thinking-vision-pro",
-  // Doubao Pro 系列
-  "doubao-pro-32k-241215",
-  "doubao-pro-32k-functioncall-241028",
-  "doubao-pro-32k-character-241215",
-  "doubao-pro-256k-241115",
-  // Doubao Lite 系列
-  "doubao-lite-4k-character-240828",
-  "doubao-lite-32k-240828",
-  "doubao-lite-32k-character-241015",
-  "doubao-lite-128k-240828",
-  // 视觉模型
-  "doubao-vision-lite-32k-241015",
-  // 嵌入模型
-  "doubao-embedding-large-text-240915",
-  "doubao-embedding-text-240715",
-  "doubao-embedding-vision-241215",
-  // DeepSeek 系列 (豆包平台)
-  "deepseek-r1-250120",
-  "deepseek-r1-distill-qwen-32b-250120",
-  "deepseek-r1-distill-qwen-7b-250120",
-  "deepseek-v3-250324",
-];
-
 const alibabaModes = [
   // Qwen 3 系列
   "qwen3-235b-a22b",
@@ -690,9 +978,9 @@ export const DEFAULT_MODELS = [
     sorted: seq++, // Global sequence sort(index)
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "openai",
-      providerName: "OpenAI",
-      providerType: "openai",
+      id: ServiceProvider.OpenAI.id,
+      providerName: ServiceProvider.OpenAI.name,
+      providerType: ServiceProvider.OpenAI.id,
       sorted: 1, // 这里是固定的，确保顺序与之前内置的版本一致
     },
   })),
@@ -702,9 +990,9 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "azure",
-      providerName: "Azure",
-      providerType: "azure",
+      id: ServiceProvider.Azure.id,
+      providerName: ServiceProvider.Azure.name,
+      providerType: ServiceProvider.Azure.id,
       sorted: 2,
     },
   })),
@@ -714,9 +1002,9 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "google",
-      providerName: "Google",
-      providerType: "google",
+      id: ServiceProvider.Google.id,
+      providerName: ServiceProvider.Google.name,
+      providerType: ServiceProvider.Google.id,
       sorted: 3,
     },
   })),
@@ -726,22 +1014,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "anthropic",
-      providerName: "Anthropic",
-      providerType: "anthropic",
+      id: ServiceProvider.Anthropic.id,
+      providerName: ServiceProvider.Anthropic.name,
+      providerType: ServiceProvider.Anthropic.id,
       sorted: 4,
-    },
-  })),
-  ...bytedanceModels.map((name) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: "bytedance",
-      providerName: "ByteDance",
-      providerType: "bytedance",
-      sorted: 5,
     },
   })),
   ...alibabaModes.map((name) => ({
@@ -750,10 +1026,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "alibaba",
-      providerName: "Alibaba",
-      providerType: "alibaba",
-      sorted: 6,
+      id: ServiceProvider.Alibaba.id,
+      providerName: ServiceProvider.Alibaba.name,
+      providerType: ServiceProvider.Alibaba.id,
+      sorted: 5,
     },
   })),
   ...moonshotModes.map((name) => ({
@@ -762,10 +1038,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "moonshot",
-      providerName: "Moonshot",
-      providerType: "moonshot",
-      sorted: 7,
+      id: ServiceProvider.MoonshotAI.id,
+      providerName: ServiceProvider.MoonshotAI.name,
+      providerType: ServiceProvider.MoonshotAI.id,
+      sorted: 6,
     },
   })),
   ...xAIModes.map((name) => ({
@@ -774,10 +1050,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "xai",
-      providerName: "XAI",
-      providerType: "xai",
-      sorted: 8,
+      id: ServiceProvider.XAI.id,
+      providerName: ServiceProvider.XAI.name,
+      providerType: ServiceProvider.XAI.id,
+      sorted: 7,
     },
   })),
   ...deepseekModels.map((name) => ({
@@ -786,10 +1062,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "deepseek",
-      providerName: "DeepSeek",
-      providerType: "deepseek",
-      sorted: 9,
+      id: ServiceProvider.DeepSeek.id,
+      providerName: ServiceProvider.DeepSeek.name,
+      providerType: ServiceProvider.DeepSeek.id,
+      sorted: 8,
     },
   })),
   ...siliconflowModels.map((name) => ({
@@ -798,10 +1074,10 @@ export const DEFAULT_MODELS = [
     sorted: seq++,
     contextTokens: getModelContextTokens(name)?.contextTokens,
     provider: {
-      id: "siliconflow",
-      providerName: "SiliconFlow",
-      providerType: "siliconflow",
-      sorted: 10,
+      id: ServiceProvider.SiliconFlow.id,
+      providerName: ServiceProvider.SiliconFlow.name,
+      providerType: ServiceProvider.SiliconFlow.id,
+      sorted: 9,
     },
   })),
 ] as const;

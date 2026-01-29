@@ -1,14 +1,28 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
 import {
-  ApiPath,
   OPENAI_BASE_URL,
   DEFAULT_MODELS,
-  OpenaiPath,
-  Azure,
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
 } from "@/app/constant";
+
+// OpenAI API endpoints
+const OpenaiPath = {
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
+  ImagePath: "images/generations",
+  SpeechPath: "audio/speech",
+  ListModelPath: "models",
+};
+
+// Azure API endpoints
+const Azure = {
+  ChatPath: (deployName: string, apiVersion: string) =>
+    `deployments/${deployName}/chat/completions?api-version=${apiVersion}`,
+  ImagePath: (deployName: string, apiVersion: string) =>
+    `deployments/${deployName}/images/generations?api-version=${apiVersion}`,
+};
 import {
   ChatMessageTool,
   useAccessStore,
@@ -114,8 +128,10 @@ export class ChatGPTApi implements LLMApi {
 
     if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
-      const apiPath = isAzure ? ApiPath.Azure : ApiPath.OpenAI;
-      baseUrl = isApp ? OPENAI_BASE_URL : apiPath;
+      const providerConfig = isAzure
+        ? ServiceProvider.Azure
+        : ServiceProvider.OpenAI;
+      baseUrl = isApp ? providerConfig.defaultBaseUrl : providerConfig.apiPath;
     }
 
     if (baseUrl.endsWith("/")) {
@@ -124,7 +140,7 @@ export class ChatGPTApi implements LLMApi {
     if (
       !baseUrl.startsWith("http") &&
       !isAzure &&
-      !baseUrl.startsWith(ApiPath.OpenAI)
+      !baseUrl.startsWith(ServiceProvider.OpenAI.apiPath)
     ) {
       baseUrl = "https://" + baseUrl;
     }
@@ -149,7 +165,9 @@ export class ChatGPTApi implements LLMApi {
       }
 
       // 在 standalone 模式中，使用代理服务器
-      const proxyPath = isAzure ? "/api/azure/" : "/api/openai/";
+      const proxyPath = isAzure
+        ? ServiceProvider.Azure.apiPath + "/"
+        : ServiceProvider.OpenAI.apiPath + "/";
       try {
         const u = new URL(proxyUrl + proxyPath + path);
         u.searchParams.append("endpoint", endpoint);
@@ -293,7 +311,7 @@ export class ChatGPTApi implements LLMApi {
 
     // Check if using Response API
     const useResponseApi =
-      modelConfig.providerName === ServiceProvider.OpenAI &&
+      modelConfig.providerName === ServiceProvider.OpenAI.id &&
       accessStore.openaiApiType === "response";
 
     if (isDalle3) {
@@ -416,7 +434,7 @@ export class ChatGPTApi implements LLMApi {
 
     try {
       let chatPath = "";
-      if (modelConfig.providerName === ServiceProvider.Azure) {
+      if (modelConfig.providerName === ServiceProvider.Azure.id) {
         // find model, and get displayName as deployName
         const { models: configModels, customModels: configCustomModels } =
           useAppConfig.getState();
@@ -433,7 +451,7 @@ export class ChatGPTApi implements LLMApi {
         const model = models.find(
           (model) =>
             model.name === modelConfig.model &&
-            model?.provider?.providerName === ServiceProvider.Azure,
+            model?.provider?.providerName === ServiceProvider.Azure.name,
         );
         chatPath = this.path(
           (isDalle3 ? Azure.ImagePath : Azure.ChatPath)(

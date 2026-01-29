@@ -1,5 +1,10 @@
 "use client";
-import { ApiPath, Ollama, DEFAULT_MODELS } from "@/app/constant";
+import { DEFAULT_MODELS, ServiceProvider } from "@/app/constant";
+
+// Ollama API endpoints
+const Ollama = {
+  ChatPath: "chat/completions",
+};
 import {
   useAccessStore,
   useAppConfig,

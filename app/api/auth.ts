@@ -51,13 +51,10 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
       case ModelProvider.Claude:
         serverApiKey = process.env.ANTHROPIC_API_KEY || "";
         break;
-      case ModelProvider.Doubao:
-        serverApiKey = process.env.BYTEDANCE_API_KEY || "";
-        break;
       case ModelProvider.Qwen:
         serverApiKey = process.env.ALIBABA_API_KEY || "";
         break;
-      case ModelProvider.Moonshot:
+      case ModelProvider.MoonshotAI:
         serverApiKey = process.env.MOONSHOT_API_KEY || "";
         break;
       case ModelProvider.DeepSeek:

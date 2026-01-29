@@ -13,9 +13,9 @@ import {
 } from "@/app/lib/qwen-realtime-client";
 
 const providers = [
-  { value: ServiceProvider.OpenAI, label: "OpenAI" },
-  { value: ServiceProvider.Azure, label: "Azure" },
-  { value: ServiceProvider.Alibaba, label: "通义千问 (Qwen)" },
+  { value: ServiceProvider.OpenAI.id, label: "OpenAI" },
+  { value: ServiceProvider.Azure.id, label: "Azure" },
+  { value: ServiceProvider.Alibaba.id, label: "通义千问 (Qwen)" },
 ];
 
 const openaiModels = ["gpt-4o-realtime-preview-2024-10-01"];
@@ -26,9 +26,9 @@ export function RealtimeConfigList(props: {
   realtimeConfig: RealtimeConfig;
   updateConfig: (updater: (config: RealtimeConfig) => void) => void;
 }) {
-  const isAzure = props.realtimeConfig.provider === ServiceProvider.Azure;
-  const isQwen = props.realtimeConfig.provider === ServiceProvider.Alibaba;
-  const isOpenAI = props.realtimeConfig.provider === ServiceProvider.OpenAI;
+  const isAzure = props.realtimeConfig.provider === ServiceProvider.Azure.id;
+  const isQwen = props.realtimeConfig.provider === ServiceProvider.Alibaba.id;
+  const isOpenAI = props.realtimeConfig.provider === ServiceProvider.OpenAI.id;
 
   const azureConfigComponent = isAzure && (
     <>
@@ -162,8 +162,7 @@ export function RealtimeConfigList(props: {
               value={props.realtimeConfig.provider}
               onChange={(e) => {
                 props.updateConfig(
-                  (config) =>
-                    (config.provider = e.target.value as ServiceProvider),
+                  (config) => (config.provider = e.target.value as string),
                 );
               }}
             >

@@ -18,7 +18,6 @@ import BotIconDeepseek from "../icons/llm-icons/deepseek.svg";
 import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
 import BotIconQwen from "../icons/llm-icons/qwen.svg";
 import BotIconGrok from "../icons/llm-icons/grok.svg";
-import BotIconDoubao from "../icons/llm-icons/doubao.svg";
 import BotIconOllama from "../icons/llm-icons/ollama.svg";
 
 export function getEmojiUrl(unified: string, style: EmojiStyle) {
@@ -105,11 +104,6 @@ const MODEL_ICON_MAP: Array<{
     // xAI Grok 系列
     test: (name) => name.startsWith("grok"),
     icon: BotIconGrok,
-  },
-  {
-    // ByteDance Doubao 系列
-    test: (name) => name.startsWith("doubao") || name.startsWith("ep-"),
-    icon: BotIconDoubao,
   },
   {
     // Ollama 系列

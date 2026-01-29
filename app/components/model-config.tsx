@@ -255,7 +255,7 @@ export function ModelConfigList(props: {
         ></input>
       </ListItem>
 
-      {props.modelConfig?.providerName == ServiceProvider.Google ? null : (
+      {props.modelConfig?.providerName == ServiceProvider.Google.id ? null : (
         <>
           <ListItem
             title={Locale.Settings.PresencePenalty.Title}

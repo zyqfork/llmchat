@@ -1,5 +1,9 @@
 import React from "react";
-import { ServiceProvider } from "../constant";
+import {
+  ServiceProvider,
+  getProviderConfig,
+  getAllProviders,
+} from "../constant";
 import {
   OpenAI,
   Azure,
@@ -11,7 +15,6 @@ import {
   Kimi,
   Qwen,
   Wenxin,
-  Doubao,
   Meta,
   Ollama,
 } from "@lobehub/icons";
@@ -28,12 +31,59 @@ import BotIconDeepseek from "../icons/llm-icons/deepseek.svg";
 import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
 import BotIconQwen from "../icons/llm-icons/qwen.svg";
 import BotIconGrok from "../icons/llm-icons/grok.svg";
-import BotIconDoubao from "../icons/llm-icons/doubao.svg";
 import BotIconOllama from "../icons/llm-icons/ollama.svg";
+
+// 动态图标组件，支持从models.dev获取图标
+const DynamicProviderIcon = React.memo(function DynamicProviderIcon({
+  providerId,
+  size = 24,
+  fallback,
+}: {
+  providerId: string;
+  size?: number;
+  fallback?: React.ReactNode;
+}) {
+  const [iconUrl, setIconUrl] = React.useState<string | null>(null);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    const providerConfig = getProviderConfig(providerId);
+    if (providerConfig?.iconUrl) {
+      setIconUrl(providerConfig.iconUrl);
+      setError(false);
+    }
+  }, [providerId]);
+
+  if (error || !iconUrl) {
+    return (
+      fallback || (
+        <div
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: "#ccc",
+            borderRadius: "50%",
+          }}
+        />
+      )
+    );
+  }
+
+  return (
+    <img
+      src={iconUrl}
+      alt={`${providerId} icon`}
+      width={size}
+      height={size}
+      onError={() => setError(true)}
+      style={{ borderRadius: "4px" }}
+    />
+  );
+});
 
 // 根据模型名称判断应该使用的图标类型
 function getModelIconType(
-  provider: ServiceProvider,
+  providerName: string,
   modelName?: string,
 ):
   | "gpt3"
@@ -44,7 +94,6 @@ function getModelIconType(
   | "kimi"
   | "qwen"
   | "wenxin"
-  | "doubao"
   | "llama"
   | "deepseek"
   | "default" {
@@ -80,8 +129,6 @@ function getModelIconType(
     return "o1";
   // 嵌入模型的特殊处理 - 根据具体模型名称识别提供商
   if (lowerModelName.includes("embedding")) {
-    // 豆包嵌入模型
-    if (lowerModelName.includes("doubao")) return "doubao";
     // 阿里云Qwen嵌入模型
     if (
       lowerModelName.includes("qwen") ||
@@ -100,8 +147,6 @@ function getModelIconType(
     // 其他嵌入模型使用默认图标
     return "default";
   }
-  if (lowerModelName.includes("doubao") || lowerModelName.includes("豆包"))
-    return "doubao";
   if (lowerModelName.includes("kimi") || lowerModelName.includes("moonshot"))
     return "kimi";
   if (lowerModelName.includes("wenxin") || lowerModelName.includes("文心"))
@@ -110,8 +155,8 @@ function getModelIconType(
 
   // 服务商特定模型判断 - 作为后备
   if (
-    provider === ServiceProvider.OpenAI ||
-    provider === ServiceProvider.Azure
+    providerName === ServiceProvider.OpenAI.name ||
+    providerName === ServiceProvider.Azure.name
   ) {
     if (
       lowerModelName.includes("o1") ||
@@ -132,27 +177,23 @@ function getModelIconType(
       return "gpt4"; // 嵌入模型使用GPT-4图标
   }
 
-  if (provider === ServiceProvider.Anthropic) {
+  if (providerName === ServiceProvider.Anthropic.name) {
     return "claude"; // Anthropic 主要提供 Claude 模型
   }
 
-  if (provider === ServiceProvider.Google) {
+  if (providerName === ServiceProvider.Google.name) {
     return "gemini"; // Google 主要提供 Gemini 模型
   }
 
-  if (provider === ServiceProvider.Moonshot) {
-    return "kimi"; // 月之暗面主要提供 Kimi 模型
-  }
-
-  if (provider === ServiceProvider.Alibaba) {
+  if (providerName === ServiceProvider.Alibaba.name) {
     return "qwen"; // 阿里云主要提供 Qwen 模型
   }
 
-  if (provider === ServiceProvider.ByteDance) {
-    return "doubao"; // 字节跳动主要提供豆包模型
+  if (providerName === ServiceProvider.MoonshotAI.name) {
+    return "kimi"; // 月之暗面主要提供 Kimi 模型
   }
 
-  if (provider === ServiceProvider.DeepSeek) {
+  if (providerName === ServiceProvider.DeepSeek.name) {
     return "deepseek"; // DeepSeek 主要提供 DeepSeek 模型
   }
 
@@ -160,10 +201,11 @@ function getModelIconType(
 }
 
 interface ProviderIconProps {
-  provider: ServiceProvider | string; // 支持自定义服务商ID
+  provider: string; // 支持厂商名称或ID
   size?: number;
   modelName?: string; // 新增：模型名称，用于显示具体模型的图标
   customProviderType?: string; // 新增：自定义服务商的兼容类型
+  useDynamicIcon?: boolean; // 是否使用动态图标（从models.dev获取）
 }
 
 export const ProviderIcon = React.memo(function ProviderIcon({
@@ -171,31 +213,57 @@ export const ProviderIcon = React.memo(function ProviderIcon({
   size = 24,
   modelName,
   customProviderType,
+  useDynamicIcon = false,
 }: ProviderIconProps) {
   const iconProps = { size };
 
+  // 如果启用动态图标，优先使用models.dev的图标
+  if (useDynamicIcon) {
+    const providerConfig =
+      getProviderConfig(provider) ||
+      getAllProviders().find((p) => p.name === provider);
+    if (providerConfig) {
+      return (
+        <DynamicProviderIcon
+          providerId={providerConfig.id}
+          size={size}
+          fallback={
+            // 如果动态图标加载失败，使用传统图标作为fallback
+            <ProviderIcon
+              provider={provider}
+              size={size}
+              modelName={modelName}
+              customProviderType={customProviderType}
+              useDynamicIcon={false}
+            />
+          }
+        />
+      );
+    }
+  }
+
   // 如果是自定义服务商，根据兼容类型确定实际的服务商类型
-  let actualProvider: ServiceProvider;
-  if (typeof provider === "string" && provider.startsWith("custom_")) {
+  let actualProviderName: string;
+  if (provider.startsWith("custom_")) {
     // 根据兼容类型映射到对应的内置服务商
     switch (customProviderType) {
       case "openai":
-        actualProvider = ServiceProvider.OpenAI;
+        actualProviderName = ServiceProvider.OpenAI.name;
         break;
       case "google":
-        actualProvider = ServiceProvider.Google;
+        actualProviderName = ServiceProvider.Google.name;
         break;
       case "anthropic":
-        actualProvider = ServiceProvider.Anthropic;
+        actualProviderName = ServiceProvider.Anthropic.name;
         break;
       default:
-        actualProvider = ServiceProvider.OpenAI; // 默认使用OpenAI图标
+        actualProviderName = ServiceProvider.OpenAI.name; // 默认使用OpenAI图标
     }
   } else {
-    actualProvider = provider as ServiceProvider;
+    actualProviderName = provider;
   }
 
-  const iconType = getModelIconType(actualProvider, modelName);
+  const iconType = getModelIconType(actualProviderName, modelName);
 
   // 根据模型类型显示相应的图标
   switch (iconType) {
@@ -240,9 +308,6 @@ export const ProviderIcon = React.memo(function ProviderIcon({
     case "wenxin":
       return <Wenxin.Color {...iconProps} />;
 
-    case "doubao":
-      return <Doubao.Color {...iconProps} />;
-
     case "llama":
       return <Meta.Color {...iconProps} />;
 
@@ -251,48 +316,48 @@ export const ProviderIcon = React.memo(function ProviderIcon({
 
     default:
       // 如果没有具体模型信息，则根据服务商显示图标
-      switch (actualProvider) {
-        case ServiceProvider.OpenAI:
+      switch (actualProviderName) {
+        case ServiceProvider.OpenAI.name:
           // OpenAI 默认显示彩色背景 + 白色线条的 Avatar
           return <OpenAI.Avatar {...iconProps} style={{ color: "#ffffff" }} />;
 
-        case ServiceProvider.Azure:
+        case ServiceProvider.Azure.name:
           // Azure 提供的是 OpenAI 模型，显示 Azure 彩色图标
           return <Azure.Color {...iconProps} />;
 
-        case ServiceProvider.Google:
+        case ServiceProvider.Google.name:
           // Google 主要提供 Gemini 模型，显示 Gemini 彩色图标
           return <Gemini.Color {...iconProps} />;
 
-        case ServiceProvider.Anthropic:
+        case ServiceProvider.Anthropic.name:
           // Anthropic 主要提供 Claude 模型，显示 Claude 彩色图标
           return <Claude.Color {...iconProps} />;
 
-        case ServiceProvider.ByteDance:
-          // 字节跳动主要提供豆包模型，显示豆包彩色图标
-          return <Doubao.Color {...iconProps} />;
-
-        case ServiceProvider.Alibaba:
+        case ServiceProvider.Alibaba.name:
           // 阿里云主要提供 Qwen 模型，显示 Qwen 彩色图标
           return <Qwen.Color {...iconProps} />;
 
-        case ServiceProvider.Moonshot:
+        case ServiceProvider.MoonshotAI.name:
           // 月之暗面主要提供 Kimi 模型，显示 Kimi 彩色图标
           return <Kimi.Color {...iconProps} />;
 
-        case ServiceProvider.DeepSeek:
+        case ServiceProvider.DeepSeek.name:
           // DeepSeek 主要提供 DeepSeek 模型，显示 DeepSeek 彩色图标
           return <DeepSeek.Color {...iconProps} />;
 
-        case ServiceProvider.XAI:
+        case ServiceProvider.XAI.name:
           // xAI 主要提供 Grok 模型，显示 Grok 图标（使用品牌色）
           return <Grok {...iconProps} style={{ color: Grok.colorPrimary }} />;
 
-        case ServiceProvider.SiliconFlow:
+        case ServiceProvider.SiliconFlow.name:
           // SiliconFlow 是聚合服务，显示 SiliconCloud 彩色图标
           return <SiliconCloud.Color {...iconProps} />;
 
-        case ServiceProvider.Ollama:
+        case ServiceProvider.OllamaCloud.name:
+          // OllamaCloud 云端模型服务，使用 Ollama 图标
+          return <Ollama {...iconProps} />;
+
+        case ServiceProvider.Ollama.name:
           // Ollama 本地模型服务，使用项目自带的 SVG 图标
           return (
             <div className="no-dark">
@@ -339,12 +404,8 @@ const ModelAvatar = React.memo(function ModelAvatar({
 
     // 嵌入模型的特殊处理
     if (lowerModelName.includes("embedding")) {
-      // 豆包嵌入模型
-      if (lowerModelName.includes("doubao")) {
-        LlmIcon = BotIconDoubao;
-      }
       // 阿里云Qwen嵌入模型
-      else if (
+      if (
         lowerModelName.includes("qwen") ||
         lowerModelName.includes("text-embedding-v2")
       ) {
@@ -412,11 +473,6 @@ const ModelAvatar = React.memo(function ModelAvatar({
       LlmIcon = BotIconQwen;
     } else if (lowerModelName.startsWith("grok")) {
       LlmIcon = BotIconGrok;
-    } else if (
-      lowerModelName.startsWith("doubao") ||
-      lowerModelName.startsWith("ep-")
-    ) {
-      LlmIcon = BotIconDoubao;
     } else if (lowerModelName.startsWith("ollama")) {
       LlmIcon = BotIconOllama;
     }
@@ -435,7 +491,7 @@ export const ModelProviderIcon = React.memo(function ModelProviderIcon({
   size = 32,
   modelName,
 }: {
-  provider: ServiceProvider | string; // 支持自定义服务商
+  provider: string; // 支持自定义服务商
   size?: number;
   modelName?: string;
 }) {

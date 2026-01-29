@@ -264,7 +264,6 @@ const ProviderTooltip = ({
       Azure: "azure",
       Google: "google",
       Anthropic: "anthropic",
-      ByteDance: "bytedance",
       Alibaba: "alibaba",
       Moonshot: "moonshot",
       XAI: "xai",
@@ -1671,7 +1670,7 @@ export function ChatActions(props: {
   // switch model
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
-    session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
+    session.mask.modelConfig?.providerName || ServiceProvider.OpenAI.id;
 
   // 使用新的高效hook直接获取启用的模型
   const enabledModels = useEnabledModels();
@@ -1824,7 +1823,7 @@ export function ChatActions(props: {
     chatStore.updateTargetSession(sessionRef.current, (session) => {
       session.mask.modelConfig.model = nextModel.name;
       session.mask.modelConfig.providerName = nextModel?.provider
-        ?.providerName as ServiceProvider;
+        ?.providerName as string;
 
       // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
       const modelCapabilities = getModelCapabilitiesWithCustomConfig(
@@ -1842,11 +1841,7 @@ export function ChatActions(props: {
       const autoThreshold = getModelCompressThreshold(nextModel.name);
       session.mask.modelConfig.compressMessageLengthThreshold = autoThreshold;
     });
-    showToast(
-      nextModel?.provider?.providerName == "ByteDance"
-        ? nextModel.displayName
-        : nextModel.name,
-    );
+    showToast(nextModel.name);
   }, 100); // 100ms 防抖
 
   const leftActions = (
@@ -2148,11 +2143,7 @@ export function ChatActions(props: {
                 (m) => m.name == model && m?.provider?.id == providerId,
               );
 
-              if (providerId == "ByteDance") {
-                showToast(selectedModel?.displayName ?? "");
-              } else {
-                showToast(selectedModel?.displayName || model);
-              }
+              showToast(selectedModel?.displayName || model);
             }}
           />
         )}
@@ -2753,7 +2744,7 @@ function _Chat() {
       // 使用配置的优化模型，优先级：会话配置 > 全局配置 > 当前聊天模型
       // 空字符串表示使用全局配置
       let optimizeModel: string;
-      let optimizeProviderName: string | ServiceProvider;
+      let optimizeProviderName: string;
 
       if (modelConfig.optimizeModel) {
         // 会话级别配置了优化模型
@@ -2771,7 +2762,9 @@ function _Chat() {
         optimizeProviderName = modelConfig.providerName;
       }
 
-      const api = getClientApi(optimizeProviderName || ServiceProvider.OpenAI);
+      const api = getClientApi(
+        optimizeProviderName || ServiceProvider.OpenAI.id,
+      );
 
       let optimizedText = "";
 

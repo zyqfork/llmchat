@@ -57,44 +57,39 @@ export class ModelFetcher {
   /**
    * 从指定服务商获取可用模型列表
    */
-  static async fetchModels(
-    provider: ServiceProvider | string,
-  ): Promise<ModelFetchResponse> {
+  static async fetchModels(provider: string): Promise<ModelFetchResponse> {
     try {
       const accessStore = useAccessStore.getState();
 
       switch (provider) {
-        case ServiceProvider.OpenAI:
-          return await this.fetchOpenAIModels(ServiceProvider.OpenAI);
+        case ServiceProvider.OpenAI.id:
+          return await this.fetchOpenAIModels(ServiceProvider.OpenAI.id);
 
-        case ServiceProvider.Azure:
-          return await this.fetchOpenAIModels(ServiceProvider.Azure);
+        case ServiceProvider.Azure.id:
+          return await this.fetchOpenAIModels(ServiceProvider.Azure.id);
 
-        case ServiceProvider.Anthropic:
+        case ServiceProvider.Anthropic.id:
           return await this.fetchAnthropicModels();
 
-        case ServiceProvider.Google:
+        case ServiceProvider.Google.id:
           return await this.fetchGoogleModels();
 
-        case ServiceProvider.DeepSeek:
+        case ServiceProvider.DeepSeek.id:
           return await this.fetchDeepSeekModels();
 
-        case ServiceProvider.Moonshot:
+        case ServiceProvider.MoonshotAI.id:
           return await this.fetchMoonshotModels();
 
-        case ServiceProvider.ByteDance:
-          return await this.fetchByteDanceModels();
-
-        case ServiceProvider.Alibaba:
+        case ServiceProvider.Alibaba.id:
           return await this.fetchAlibabaModels();
 
-        case ServiceProvider.XAI:
+        case ServiceProvider.XAI.id:
           return await this.fetchXAIModels();
 
-        case ServiceProvider.SiliconFlow:
+        case ServiceProvider.SiliconFlow.id:
           return await this.fetchSiliconFlowModels();
 
-        case ServiceProvider.Ollama:
+        case ServiceProvider.Ollama.id:
           return await this.fetchOllamaModels();
 
         default:
@@ -125,10 +120,10 @@ export class ModelFetcher {
   }
 
   /**
-   * 获取OpenAI格式的模型（OpenAI、Azure、Moonshot、ByteDance等）
+   * 获取OpenAI格式的模型（OpenAI、Azure、Moonshot等）
    */
   private static async fetchOpenAIModels(
-    provider: ServiceProvider,
+    provider: string,
   ): Promise<ModelFetchResponse> {
     const api = getClientApi(provider);
     try {
@@ -153,7 +148,7 @@ export class ModelFetcher {
    * 注意：Anthropic目前没有公开的模型列表API，尝试使用OpenAI兼容格式
    */
   private static async fetchAnthropicModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.Anthropic);
+    const api = getClientApi(ServiceProvider.Anthropic.id);
     try {
       const models = await api.llm.models();
       return {
@@ -176,7 +171,7 @@ export class ModelFetcher {
    * 使用Google Generative Language API的正确端点
    */
   private static async fetchGoogleModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.Google);
+    const api = getClientApi(ServiceProvider.Google.id);
     try {
       const models = await api.llm.models();
       return {
@@ -199,7 +194,7 @@ export class ModelFetcher {
    * 使用DeepSeek官方API端点
    */
   private static async fetchDeepSeekModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.DeepSeek);
+    const api = getClientApi(ServiceProvider.DeepSeek.id);
     try {
       const models = await api.llm.models();
       return {
@@ -221,49 +216,46 @@ export class ModelFetcher {
    * 获取Moonshot模型（兼容OpenAI格式）
    */
   private static async fetchMoonshotModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.Moonshot);
-  }
-
-  /**
-   * 获取ByteDance模型（兼容OpenAI格式）
-   */
-  private static async fetchByteDanceModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.ByteDance);
+    return await this.fetchOpenAICompatibleModels(
+      ServiceProvider.MoonshotAI.id,
+    );
   }
 
   /**
    * 获取Alibaba模型（兼容OpenAI格式）
    */
   private static async fetchAlibabaModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.Alibaba);
+    return await this.fetchOpenAICompatibleModels(ServiceProvider.Alibaba.id);
   }
 
   /**
    * 获取XAI模型（兼容OpenAI格式）
    */
   private static async fetchXAIModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.XAI);
+    return await this.fetchOpenAICompatibleModels(ServiceProvider.XAI.id);
   }
 
   /**
    * 获取SiliconFlow模型（兼容OpenAI格式）
    */
   private static async fetchSiliconFlowModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.SiliconFlow);
+    return await this.fetchOpenAICompatibleModels(
+      ServiceProvider.SiliconFlow.id,
+    );
   }
 
   /**
    * 获取Ollama模型
    */
   private static async fetchOllamaModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.Ollama);
+    return await this.fetchOpenAICompatibleModels(ServiceProvider.Ollama.id);
   }
 
   /**
    * 通用的OpenAI兼容格式模型获取
    */
   private static async fetchOpenAICompatibleModels(
-    provider: ServiceProvider,
+    provider: string,
   ): Promise<ModelFetchResponse> {
     const api = getClientApi(provider);
     try {
@@ -292,7 +284,7 @@ export class ModelFetcher {
     // 根据自定义服务商的类型调用相应的方法
     switch (customProvider.type) {
       case "openai":
-        return await this.fetchOpenAIModels(ServiceProvider.OpenAI);
+        return await this.fetchOpenAIModels(ServiceProvider.OpenAI.id);
 
       case "anthropic":
         return await this.fetchAnthropicModels();

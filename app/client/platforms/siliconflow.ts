@@ -1,11 +1,13 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
-import {
-  ApiPath,
-  SILICONFLOW_BASE_URL,
-  SiliconFlow,
-  DEFAULT_MODELS,
-} from "@/app/constant";
+import { DEFAULT_MODELS, ServiceProvider } from "@/app/constant";
+
+// SiliconFlow API endpoints
+const SiliconFlow = {
+  ChatPath: "chat/completions",
+  ResponsePath: "responses",
+  ListModelPath: "models",
+};
 import {
   useAccessStore,
   useAppConfig,
@@ -59,8 +61,9 @@ export class SiliconflowApi implements LLMApi {
 
     if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
-      const apiPath = ApiPath.SiliconFlow;
-      baseUrl = isApp ? SILICONFLOW_BASE_URL : apiPath;
+      baseUrl = isApp
+        ? ServiceProvider.SiliconFlow.defaultBaseUrl
+        : ServiceProvider.SiliconFlow.apiPath;
     }
 
     if (baseUrl.endsWith("/")) {
@@ -68,7 +71,7 @@ export class SiliconflowApi implements LLMApi {
     }
     if (
       !baseUrl.startsWith("http") &&
-      !baseUrl.startsWith(ApiPath.SiliconFlow)
+      !baseUrl.startsWith(ServiceProvider.SiliconFlow.apiPath)
     ) {
       baseUrl = "https://" + baseUrl;
     }

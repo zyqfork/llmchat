@@ -3,6 +3,7 @@ import {
   ACCESS_CODE_PREFIX,
   ModelProvider,
   ServiceProvider,
+  getProviderConfig,
 } from "../constant";
 import {
   ChatMessageTool,
@@ -14,7 +15,6 @@ import {
 import { ChatGPTApi, DalleRequestPayload } from "./platforms/openai";
 import { GoogleGenAIApi } from "./platforms/google-genai";
 import { ClaudeApi } from "./platforms/anthropic";
-import { DoubaoApi } from "./platforms/bytedance";
 import { QwenApi } from "./platforms/alibaba";
 import { MoonshotApi } from "./platforms/moonshot";
 import { DeepSeekApi } from "./platforms/deepseek";
@@ -143,13 +143,10 @@ export class ClientApi {
       case ModelProvider.Claude:
         this.llm = new ClaudeApi();
         break;
-      case ModelProvider.Doubao:
-        this.llm = new DoubaoApi();
-        break;
       case ModelProvider.Qwen:
         this.llm = new QwenApi();
         break;
-      case ModelProvider.Moonshot:
+      case ModelProvider.MoonshotAI:
         this.llm = new MoonshotApi();
         break;
       case ModelProvider.DeepSeek:
@@ -221,16 +218,15 @@ export function getHeaders(
       modelConfig.providerName as string,
     );
 
-    const isGoogle = normalizedProviderName === ServiceProvider.Google;
-    const isAzure = normalizedProviderName === ServiceProvider.Azure;
-    const isAnthropic = normalizedProviderName === ServiceProvider.Anthropic;
-    const isByteDance = normalizedProviderName === ServiceProvider.ByteDance;
-    const isAlibaba = normalizedProviderName === ServiceProvider.Alibaba;
-    const isMoonshot = normalizedProviderName === ServiceProvider.Moonshot;
-    const isDeepSeek = normalizedProviderName === ServiceProvider.DeepSeek;
-    const isXAI = normalizedProviderName === ServiceProvider.XAI;
+    const isGoogle = normalizedProviderName === ServiceProvider.Google.id;
+    const isAzure = normalizedProviderName === ServiceProvider.Azure.id;
+    const isAnthropic = normalizedProviderName === ServiceProvider.Anthropic.id;
+    const isAlibaba = normalizedProviderName === ServiceProvider.Alibaba.id;
+    const isMoonshot = normalizedProviderName === ServiceProvider.MoonshotAI.id;
+    const isDeepSeek = normalizedProviderName === ServiceProvider.DeepSeek.id;
+    const isXAI = normalizedProviderName === ServiceProvider.XAI.id;
     const isSiliconFlow =
-      normalizedProviderName === ServiceProvider.SiliconFlow;
+      normalizedProviderName === ServiceProvider.SiliconFlow.id;
 
     // 检查是否是自定义服务商
     const isCustomProvider =
@@ -251,8 +247,6 @@ export function getHeaders(
         ? accessStore.azureApiKey
         : isAnthropic
         ? accessStore.anthropicApiKey
-        : isByteDance
-        ? accessStore.bytedanceApiKey
         : isAlibaba
         ? accessStore.alibabaApiKey
         : isMoonshot
@@ -269,7 +263,6 @@ export function getHeaders(
       isGoogle,
       isAzure,
       isAnthropic,
-      isByteDance,
       isAlibaba,
       isMoonshot,
       isDeepSeek,
@@ -296,7 +289,6 @@ export function getHeaders(
     isGoogle,
     isAzure,
     isAnthropic,
-    isByteDance,
     isAlibaba,
     isMoonshot,
     isDeepSeek,
@@ -345,37 +337,34 @@ export function getHeaders(
   return headers;
 }
 
-export function getClientApi(provider: ServiceProvider | string): ClientApi {
+export function getClientApi(provider: string): ClientApi {
   // 标准化provider名称，支持provider.id、provider.providerName和自定义服务商
   const normalizedProvider = normalizeProviderName(provider as string);
 
   let selectedApi: ClientApi;
   switch (normalizedProvider) {
-    case ServiceProvider.Google:
+    case ServiceProvider.Google.id:
       selectedApi = new ClientApi(ModelProvider.GeminiPro);
       break;
-    case ServiceProvider.Anthropic:
+    case ServiceProvider.Anthropic.id:
       selectedApi = new ClientApi(ModelProvider.Claude);
       break;
-    case ServiceProvider.ByteDance:
-      selectedApi = new ClientApi(ModelProvider.Doubao);
-      break;
-    case ServiceProvider.Alibaba:
+    case ServiceProvider.Alibaba.id:
       selectedApi = new ClientApi(ModelProvider.Qwen);
       break;
-    case ServiceProvider.Moonshot:
-      selectedApi = new ClientApi(ModelProvider.Moonshot);
+    case ServiceProvider.MoonshotAI.id:
+      selectedApi = new ClientApi(ModelProvider.MoonshotAI);
       break;
-    case ServiceProvider.DeepSeek:
+    case ServiceProvider.DeepSeek.id:
       selectedApi = new ClientApi(ModelProvider.DeepSeek);
       break;
-    case ServiceProvider.XAI:
+    case ServiceProvider.XAI.id:
       selectedApi = new ClientApi(ModelProvider.XAI);
       break;
-    case ServiceProvider.SiliconFlow:
+    case ServiceProvider.SiliconFlow.id:
       selectedApi = new ClientApi(ModelProvider.SiliconFlow);
       break;
-    case ServiceProvider.Ollama:
+    case ServiceProvider.Ollama.id:
       selectedApi = new ClientApi(ModelProvider.Ollama);
       break;
     default:
@@ -387,13 +376,13 @@ export function getClientApi(provider: ServiceProvider | string): ClientApi {
 }
 
 // 标准化provider名称，将provider.id转换为ServiceProvider枚举值
-export function normalizeProviderName(provider: string): ServiceProvider {
+export function normalizeProviderName(provider: string): string {
   // 检查 provider 是否为空
   if (!provider || typeof provider !== "string") {
     logger.warn(
       "normalizeProviderName: provider is undefined or invalid, defaulting to OpenAI",
     );
-    return ServiceProvider.OpenAI;
+    return ServiceProvider.OpenAI.id;
   }
 
   // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
@@ -408,37 +397,37 @@ export function normalizeProviderName(provider: string): ServiceProvider {
       // 根据自定义服务商类型返回对应的ServiceProvider
       switch (customProvider.type) {
         case "google":
-          return ServiceProvider.Google;
+          return ServiceProvider.Google.id;
         case "anthropic":
-          return ServiceProvider.Anthropic;
+          return ServiceProvider.Anthropic.id;
         case "openai":
         default:
-          return ServiceProvider.OpenAI;
+          return ServiceProvider.OpenAI.id;
       }
     }
   }
 
-  // 创建一个映射表，将provider.id映射到ServiceProvider枚举值
-  const providerIdMap: Record<string, ServiceProvider> = {
-    openai: ServiceProvider.OpenAI,
-    azure: ServiceProvider.Azure,
-    google: ServiceProvider.Google,
-    anthropic: ServiceProvider.Anthropic,
-    bytedance: ServiceProvider.ByteDance,
-    alibaba: ServiceProvider.Alibaba,
-    moonshot: ServiceProvider.Moonshot,
-    xai: ServiceProvider.XAI,
-    deepseek: ServiceProvider.DeepSeek,
-    siliconflow: ServiceProvider.SiliconFlow,
-    ollama: ServiceProvider.Ollama,
+  // 创建一个映射表，将provider.id映射到ServiceProvider.id
+  const providerIdMap: Record<string, string> = {
+    openai: ServiceProvider.OpenAI.id,
+    azure: ServiceProvider.Azure.id,
+    google: ServiceProvider.Google.id,
+    anthropic: ServiceProvider.Anthropic.id,
+    alibaba: ServiceProvider.Alibaba.id,
+    moonshotai: ServiceProvider.MoonshotAI.id,
+    xai: ServiceProvider.XAI.id,
+    deepseek: ServiceProvider.DeepSeek.id,
+    siliconflow: ServiceProvider.SiliconFlow.id,
+    ollama: ServiceProvider.Ollama.id,
   };
 
-  // 如果provider已经是ServiceProvider枚举值，直接返回
-  if (Object.values(ServiceProvider).includes(provider as ServiceProvider)) {
-    return provider as ServiceProvider;
+  // 如果provider已经是ServiceProvider.id，直接返回
+  const allProviderIds = Object.values(ServiceProvider).map((p) => p.id);
+  if (allProviderIds.includes(provider)) {
+    return provider;
   }
 
-  // 如果provider是provider.id格式，转换为ServiceProvider枚举值
+  // 如果provider是provider.id格式，转换为ServiceProvider.id
   const lowerProvider = provider.toLowerCase();
   const normalizedProvider = providerIdMap[lowerProvider];
 
@@ -447,7 +436,7 @@ export function normalizeProviderName(provider: string): ServiceProvider {
   }
 
   // 默认返回OpenAI
-  return ServiceProvider.OpenAI;
+  return ServiceProvider.OpenAI.id;
 }
 
 // 自定义服务商现在直接使用内置的API，不再需要CustomProviderApi

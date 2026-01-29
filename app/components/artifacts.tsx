@@ -19,7 +19,7 @@ import Locale from "../locales";
 import { Modal, showToast } from "./ui-lib";
 import { HTMLPreviewModal } from "./html-preview-modal";
 import { copyToClipboard, downloadAs } from "../utils";
-import { Path, ApiPath, REPO_URL } from "@/app/constant";
+import { Path, REPO_URL } from "@/app/constant";
 import { Loading } from "./home";
 import styles from "./artifacts.module.scss";
 import { logger } from "../utils/logger";
@@ -452,7 +452,7 @@ export function Artifacts() {
 
   useEffect(() => {
     if (id) {
-      fetch(`${ApiPath.Artifacts}?id=${id}`)
+      fetch(`/api/artifacts?id=${id}`)
         .then((res) => {
           if (res.status > 300) {
             throw Error("can not get content");

@@ -1,5 +1,5 @@
 import { getClientConfig } from "../config/client";
-import { ApiPath, STORAGE_KEY, StoreKey } from "../constant";
+import { STORAGE_KEY, StoreKey } from "../constant";
 import { createPersistStore } from "../utils/store";
 import {
   AppState,
@@ -32,7 +32,7 @@ const CONFIG_FILE_NAME = "config.json";
 const DEFAULT_SYNC_STATE = {
   provider: ProviderType.WebDAV,
   useProxy: true,
-  proxyUrl: ApiPath.Cors as string,
+  proxyUrl: "/api/cors" as string,
 
   // 同步选项
   syncChat: false, // 是否同步聊天数据

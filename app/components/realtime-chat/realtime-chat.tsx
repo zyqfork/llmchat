@@ -61,8 +61,8 @@ export function RealtimeChat({
   const apiKey = config.realtimeConfig.apiKey;
   const model = config.realtimeConfig.model;
   const provider = config.realtimeConfig.provider;
-  const azure = provider === ServiceProvider.Azure;
-  const isQwen = provider === ServiceProvider.Alibaba;
+  const azure = provider === ServiceProvider.Azure.id;
+  const isQwen = provider === ServiceProvider.Alibaba.id;
   const azureEndpoint = config.realtimeConfig.azure.endpoint;
   const azureDeployment = config.realtimeConfig.azure.deployment;
   const voice = config.realtimeConfig.voice;

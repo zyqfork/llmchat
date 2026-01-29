@@ -1,11 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "./auth";
-import {
-  ApiPath,
-  GEMINI_BASE_URL,
-  ModelProvider,
-  Google,
-} from "@/app/constant";
+import { ServiceProvider, ModelProvider } from "@/app/constant";
 import { logger } from "@/app/utils/logger";
 import {
   handleChatRequest,
@@ -16,6 +11,8 @@ import {
 } from "@/app/api/sdk-utils";
 import { prettyObject } from "@/app/utils/format";
 import { NextResponse } from "next/server";
+
+const providerConfig = ServiceProvider.Google;
 
 export async function handle(
   req: NextRequest,
@@ -41,15 +38,18 @@ export async function handle(
   }
 
   try {
-    const path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Google, "");
+    const path = `${req.nextUrl.pathname}`.replaceAll(
+      providerConfig.apiPath,
+      "",
+    );
 
     // 获取API密钥
     let apiKey = "";
     if (authResult.useServerConfig) {
-      apiKey = process.env.GOOGLE_API_KEY || "";
+      apiKey = process.env[providerConfig.envApiKeyName] || "";
     } else {
       const bearToken =
-        req.headers.get("x-goog-api-key") ||
+        req.headers.get(providerConfig.authHeaderName!) ||
         req.headers.get("Authorization") ||
         "";
       apiKey = bearToken.trim().replaceAll("Bearer ", "").trim();
@@ -61,18 +61,19 @@ export async function handle(
 
     // 获取Base URL
     const baseURL = authResult.useServerConfig
-      ? process.env.GOOGLE_BASE_URL || GEMINI_BASE_URL
-      : GEMINI_BASE_URL;
+      ? process.env[providerConfig.envBaseUrlName!] ||
+        providerConfig.defaultBaseUrl
+      : providerConfig.defaultBaseUrl;
 
     const normalizedBaseURL = baseURL.startsWith("http")
       ? baseURL
       : `https://${baseURL}`;
 
     // 处理模型列表请求
-    if (path === "/v1beta/models" || path === "/models") {
+    if (path === `/${providerConfig.endpoints.models}` || path === "/models") {
       logger.debug("[Google] Using SDK for models list");
       return await handleModelsRequest({
-        provider: "google",
+        provider: providerConfig.sdkType,
         apiKey,
         baseURL: normalizedBaseURL,
       });
@@ -94,7 +95,7 @@ export async function handle(
         : chatParams.model || "gemini-pro";
 
       return await handleChatRequest({
-        provider: "google",
+        provider: providerConfig.sdkType,
         apiKey,
         baseURL: normalizedBaseURL,
         model: modelName,

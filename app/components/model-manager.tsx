@@ -29,7 +29,7 @@ import { saveModelStreamConfig } from "../config/model-stream";
 import { logger } from "../utils/logger";
 
 interface ModelManagerProps {
-  provider: ServiceProvider | string; // 支持自定义服务商ID
+  provider: string; // 支持自定义服务商ID
   onClose: () => void;
 }
 
@@ -135,10 +135,6 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
   "DeepSeek R1": ["deepseek-r1"],
   "DeepSeek V3": ["deepseek-v3"],
   DeepSeek: ["deepseek-chat", "deepseek-reasoner"],
-  "Doubao 1.5": ["doubao-1-5"],
-  "Doubao Pro": ["doubao-pro"],
-  "Doubao Lite": ["doubao-lite"],
-  "Doubao Vision": ["doubao-vision"],
   "Qwen 3": ["qwen3"],
   "Qwen 2.5": ["qwen2.5"],
   "Qwen 2": ["qwen2"],
@@ -257,11 +253,13 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       const baseModels = DEFAULT_MODELS.filter((model) => {
         switch (customProviderConfig.type) {
           case "openai":
-            return model.provider.providerName === ServiceProvider.OpenAI;
+            return model.provider.providerName === ServiceProvider.OpenAI.name;
           case "google":
-            return model.provider.providerName === ServiceProvider.Google;
+            return model.provider.providerName === ServiceProvider.Google.name;
           case "anthropic":
-            return model.provider.providerName === ServiceProvider.Anthropic;
+            return (
+              model.provider.providerName === ServiceProvider.Anthropic.name
+            );
           default:
             return false;
         }
@@ -556,7 +554,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   const toggleModel = (modelName: string) => {
     accessStore.update((access) => {
       if (!access.enabledModels) {
-        access.enabledModels = {} as Record<ServiceProvider, string[]>;
+        access.enabledModels = {} as Record<string, string[]>;
       }
       if (!access.enabledModels[provider]) {
         access.enabledModels[provider] = [];

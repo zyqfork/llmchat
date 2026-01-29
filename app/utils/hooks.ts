@@ -206,15 +206,18 @@ function getBaseModelsForProviderType(type: string): LLMModel[] {
   switch (type) {
     case "openai":
       return DEFAULT_MODELS.filter(
-        (m: LLMModel) => m.provider.providerName === ServiceProvider.OpenAI,
+        (m: LLMModel) =>
+          m.provider.providerName === ServiceProvider.OpenAI.name,
       );
     case "google":
       return DEFAULT_MODELS.filter(
-        (m: LLMModel) => m.provider.providerName === ServiceProvider.Google,
+        (m: LLMModel) =>
+          m.provider.providerName === ServiceProvider.Google.name,
       );
     case "anthropic":
       return DEFAULT_MODELS.filter(
-        (m: LLMModel) => m.provider.providerName === ServiceProvider.Anthropic,
+        (m: LLMModel) =>
+          m.provider.providerName === ServiceProvider.Anthropic.name,
       );
     default:
       return [];

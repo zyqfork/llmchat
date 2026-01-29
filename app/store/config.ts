@@ -73,7 +73,7 @@ export const DEFAULT_CONFIG = {
 
   modelConfig: {
     model: "gpt-4o-mini" as ModelType,
-    providerName: "OpenAI" as ServiceProvider,
+    providerName: "OpenAI" as string,
     temperature: 0.7,
     top_p: 0.95,
     max_tokens: 8000,
@@ -108,7 +108,7 @@ export const DEFAULT_CONFIG = {
 
   realtimeConfig: {
     enable: false,
-    provider: "OpenAI" as ServiceProvider,
+    provider: "OpenAI" as string,
     model: "gpt-4o-realtime-preview-2024-10-01",
     apiKey: "",
     azure: {

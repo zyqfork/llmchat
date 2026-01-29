@@ -1,17 +1,10 @@
 import {
   GoogleSafetySettingsThreshold,
   ServiceProvider,
+  getAllProviders,
   StoreKey,
-  ApiPath,
   OPENAI_BASE_URL,
   ANTHROPIC_BASE_URL,
-  GEMINI_BASE_URL,
-  BYTEDANCE_BASE_URL,
-  ALIBABA_BASE_URL,
-  MOONSHOT_BASE_URL,
-  DEEPSEEK_BASE_URL,
-  XAI_BASE_URL,
-  SILICONFLOW_BASE_URL,
 } from "../constant";
 import { getHeaders } from "../client/api";
 import { getClientConfig } from "../config/client";
@@ -20,6 +13,15 @@ import { ensure } from "../utils/clone";
 import { DEFAULT_CONFIG } from "./config";
 import { getModelProvider } from "../utils/model";
 import { logger } from "../utils/logger";
+
+// 动态生成provider状态对象
+function createProviderState<T>(defaultValue: T): Record<string, T> {
+  const state: Record<string, T> = {};
+  getAllProviders().forEach((provider) => {
+    state[provider.name] = defaultValue;
+  });
+  return state;
+}
 
 // 自定义服务商类型定义
 export type CustomProviderType = "openai" | "google" | "anthropic";
@@ -47,82 +49,62 @@ let fetchState = 0; // 0 not fetch, 1 fetching, 2 done
 
 const isApp = getClientConfig()?.buildMode === "export";
 
-const DEFAULT_OPENAI_URL = isApp ? OPENAI_BASE_URL : ApiPath.OpenAI;
+const DEFAULT_OPENAI_URL = isApp
+  ? OPENAI_BASE_URL
+  : ServiceProvider.OpenAI.apiPath;
 
-const DEFAULT_GOOGLE_URL = isApp ? GEMINI_BASE_URL : ApiPath.Google;
+const DEFAULT_GOOGLE_URL = isApp
+  ? ServiceProvider.Google.defaultBaseUrl
+  : ServiceProvider.Google.apiPath;
 
-const DEFAULT_ANTHROPIC_URL = isApp ? ANTHROPIC_BASE_URL : ApiPath.Anthropic;
+const DEFAULT_ANTHROPIC_URL = isApp
+  ? ANTHROPIC_BASE_URL
+  : ServiceProvider.Anthropic.apiPath;
 
-const DEFAULT_BYTEDANCE_URL = isApp
-  ? "https://ark.cn-beijing.volces.com/api/v3"
-  : ApiPath.ByteDance;
+const DEFAULT_ALIBABA_URL = isApp
+  ? ServiceProvider.Alibaba.defaultBaseUrl
+  : ServiceProvider.Alibaba.apiPath;
 
-const DEFAULT_ALIBABA_URL = isApp ? ALIBABA_BASE_URL : ApiPath.Alibaba;
+const DEFAULT_MOONSHOT_URL = isApp
+  ? ServiceProvider.MoonshotAI.defaultBaseUrl
+  : ServiceProvider.MoonshotAI.apiPath;
 
-const DEFAULT_MOONSHOT_URL = isApp ? MOONSHOT_BASE_URL : ApiPath.Moonshot;
+const DEFAULT_DEEPSEEK_URL = isApp
+  ? ServiceProvider.DeepSeek.defaultBaseUrl
+  : ServiceProvider.DeepSeek.apiPath;
 
-const DEFAULT_DEEPSEEK_URL = isApp ? DEEPSEEK_BASE_URL : ApiPath.DeepSeek;
-
-const DEFAULT_XAI_URL = isApp ? XAI_BASE_URL : ApiPath.XAI;
+const DEFAULT_XAI_URL = isApp
+  ? ServiceProvider.XAI.defaultBaseUrl
+  : ServiceProvider.XAI.apiPath;
 
 const DEFAULT_SILICONFLOW_URL = isApp
-  ? SILICONFLOW_BASE_URL
-  : ApiPath.SiliconFlow;
+  ? ServiceProvider.SiliconFlow.defaultBaseUrl
+  : ServiceProvider.SiliconFlow.apiPath;
 
 const DEFAULT_ACCESS_STATE = {
   accessCode: "",
   useCustomConfig: true, // 默认启用自定义配置
 
-  provider: ServiceProvider.OpenAI,
+  provider: ServiceProvider.OpenAI.name,
 
   // 启用的服务提供商
   enabledProviders: {
-    [ServiceProvider.OpenAI]: true, // 默认启用 OpenAI
-    [ServiceProvider.Azure]: false,
-    [ServiceProvider.Google]: false,
-    [ServiceProvider.Anthropic]: false,
-    [ServiceProvider.ByteDance]: false,
-    [ServiceProvider.Alibaba]: false,
-    [ServiceProvider.Moonshot]: false,
-    [ServiceProvider.XAI]: false,
-    [ServiceProvider.DeepSeek]: false,
-    [ServiceProvider.SiliconFlow]: false,
-  } as Record<ServiceProvider, boolean>,
+    ...createProviderState(false),
+    [ServiceProvider.OpenAI.name]: true, // 默认启用 OpenAI
+  },
 
   // 每个服务商启用的模型列表（支持自定义服务商）
-  enabledModels: {
-    [ServiceProvider.OpenAI]: [] as string[],
-    [ServiceProvider.Azure]: [] as string[],
-    [ServiceProvider.Google]: [] as string[],
-    [ServiceProvider.Anthropic]: [] as string[],
-    [ServiceProvider.ByteDance]: [] as string[],
-    [ServiceProvider.Alibaba]: [] as string[],
-    [ServiceProvider.Moonshot]: [] as string[],
-    [ServiceProvider.XAI]: [] as string[],
-    [ServiceProvider.DeepSeek]: [] as string[],
-    [ServiceProvider.SiliconFlow]: [] as string[],
-  } as Record<ServiceProvider | string, string[]>,
+  enabledModels: createProviderState([] as string[]),
 
   // 是否从API获取可用模型（每个服务商独立控制）
-  fetchModelsFromAPI: {
-    [ServiceProvider.OpenAI]: true,
-    [ServiceProvider.Azure]: true,
-    [ServiceProvider.Google]: true,
-    [ServiceProvider.Anthropic]: true,
-    [ServiceProvider.ByteDance]: true,
-    [ServiceProvider.Alibaba]: true,
-    [ServiceProvider.Moonshot]: true,
-    [ServiceProvider.XAI]: true,
-    [ServiceProvider.DeepSeek]: true,
-    [ServiceProvider.SiliconFlow]: true,
-  } as Record<ServiceProvider | string, boolean>,
+  fetchModelsFromAPI: createProviderState(true),
 
   // 从API获取的模型列表缓存
-  apiModelsCache: {} as Record<ServiceProvider | string, any[]>,
+  apiModelsCache: {} as Record<string, any[]>,
 
   // 模型获取状态
   modelsFetchStatus: {} as Record<
-    ServiceProvider | string,
+    string,
     "idle" | "loading" | "success" | "error"
   >,
 
@@ -155,14 +137,6 @@ const DEFAULT_ACCESS_STATE = {
   anthropicApiVersion: "2023-06-01",
   anthropicUseProxy: false,
   anthropicProxyUrl: "",
-
-  // bytedance
-  bytedanceUrl: DEFAULT_BYTEDANCE_URL,
-  bytedanceApiKey: "",
-  bytedanceApiType: "chat" as "chat" | "response",
-  bytedanceApiPath: "",
-  bytedanceUseProxy: false,
-  bytedanceProxyUrl: "",
 
   // alibaba
   alibabaUrl: DEFAULT_ALIBABA_URL,
@@ -210,6 +184,13 @@ const DEFAULT_ACCESS_STATE = {
   ollamaUseProxy: false,
   ollamaProxyUrl: "",
 
+  // openrouter
+  openrouterUrl: "https://openrouter.ai/api/v1",
+  openrouterApiKey: "",
+  openrouterApiPath: "",
+  openrouterUseProxy: false,
+  openrouterProxyUrl: "",
+
   // 自定义服务商
   customProviders: [] as CustomProvider[],
 
@@ -250,10 +231,6 @@ const DEFAULT_ACCESS_STATE = {
       hasApiKey: false,
       hasBaseUrl: false,
       hasApiVersion: false,
-    },
-    bytedance: {
-      hasApiKey: false,
-      hasBaseUrl: false,
     },
     alibaba: {
       hasApiKey: false,
@@ -476,15 +453,6 @@ export const useAccessStore = createPersistStore(
             };
           }
           break;
-        case "bytedance":
-          if (state.bytedanceApiKey) {
-            frontendConfig = {
-              apiKey: state.bytedanceApiKey,
-              baseUrl: state.bytedanceUrl || "",
-              source: "frontend" as const,
-            };
-          }
-          break;
         case "alibaba":
           if (state.alibabaApiKey) {
             frontendConfig = {
@@ -537,6 +505,15 @@ export const useAccessStore = createPersistStore(
             source: "frontend" as const,
           };
           break;
+        case "openrouter":
+          if (state.openrouterApiKey) {
+            frontendConfig = {
+              apiKey: state.openrouterApiKey,
+              baseUrl: state.openrouterUrl || "",
+              source: "frontend" as const,
+            };
+          }
+          break;
       }
 
       // 如果有前端配置，优先使用
@@ -569,7 +546,6 @@ export const useAccessStore = createPersistStore(
         "google",
         "anthropic",
         "azure",
-        "bytedance",
         "alibaba",
         "moonshot",
         "deepseek",
@@ -593,15 +569,11 @@ export const useAccessStore = createPersistStore(
       return ensure(get(), ["anthropicApiKey"]);
     },
 
-    isValidByteDance() {
-      return ensure(get(), ["bytedanceApiKey"]);
-    },
-
     isValidAlibaba() {
       return ensure(get(), ["alibabaApiKey"]);
     },
 
-    isValidMoonshot() {
+    isValidMoonshotAI() {
       return ensure(get(), ["moonshotApiKey"]);
     },
     isValidDeepSeek() {
@@ -619,6 +591,10 @@ export const useAccessStore = createPersistStore(
     isValidOllama() {
       // Ollama 通常不需要 API Key，只要有 URL 就可以
       return true;
+    },
+
+    isValidOpenRouter() {
+      return ensure(get(), ["openrouterApiKey"]);
     },
 
     // 自定义服务商管理方法
@@ -762,13 +738,13 @@ export const useAccessStore = createPersistStore(
         this.isValidAzure() ||
         this.isValidGoogle() ||
         this.isValidAnthropic() ||
-        this.isValidByteDance() ||
         this.isValidAlibaba() ||
-        this.isValidMoonshot() ||
+        this.isValidMoonshotAI() ||
         this.isValidDeepSeek() ||
         this.isValidXAI() ||
         this.isValidSiliconFlow() ||
         this.isValidOllama() ||
+        this.isValidOpenRouter() ||
         hasValidCustomProvider
       );
     },
@@ -793,10 +769,7 @@ export const useAccessStore = createPersistStore(
     },
 
     // 设置是否从API获取模型
-    setFetchModelsFromAPI(
-      provider: ServiceProvider | string,
-      enabled: boolean,
-    ) {
+    setFetchModelsFromAPI(provider: string, enabled: boolean) {
       set((state) => ({
         ...state,
         fetchModelsFromAPI: {
@@ -808,7 +781,7 @@ export const useAccessStore = createPersistStore(
 
     // 设置模型获取状态
     setModelsFetchStatus(
-      provider: ServiceProvider | string,
+      provider: string,
       status: "idle" | "loading" | "success" | "error",
     ) {
       set((state) => ({
@@ -821,7 +794,7 @@ export const useAccessStore = createPersistStore(
     },
 
     // 缓存从API获取的模型
-    setApiModelsCache(provider: ServiceProvider | string, models: any[]) {
+    setApiModelsCache(provider: string, models: any[]) {
       set((state) => ({
         ...state,
         apiModelsCache: {
@@ -832,7 +805,7 @@ export const useAccessStore = createPersistStore(
     },
 
     // 清除模型缓存
-    clearApiModelsCache(provider?: ServiceProvider | string) {
+    clearApiModelsCache(provider?: string) {
       set((state) => ({
         ...state,
         apiModelsCache: provider
@@ -842,7 +815,7 @@ export const useAccessStore = createPersistStore(
     },
 
     sanitizeEnabledModels(
-      provider: ServiceProvider | string,
+      provider: string,
       availableModels: { name: string }[],
     ) {
       set((state) => {
