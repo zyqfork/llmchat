@@ -1,5 +1,10 @@
 import { NextRequest } from "next/server";
-import { ACCESS_CODE_PREFIX, ModelProvider } from "../constant";
+import {
+  ACCESS_CODE_PREFIX,
+  ModelProvider,
+  ServiceProvider,
+  getAllProviders,
+} from "../constant";
 import { logger } from "../utils/logger";
 
 function getIP(req: NextRequest) {
@@ -38,34 +43,15 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
   const hasValidAccessCode =
     serverAccessCode && accessCode === serverAccessCode;
 
-  // 获取服务器端API密钥（根据模型提供商）
+  // 获取服务器端API密钥（动态根据模型提供商）
   let serverApiKey = "";
   if (hasValidAccessCode) {
-    switch (modelProvider) {
-      case ModelProvider.GPT:
-        serverApiKey = process.env.OPENAI_API_KEY || "";
-        break;
-      case ModelProvider.GeminiPro:
-        serverApiKey = process.env.GOOGLE_API_KEY || "";
-        break;
-      case ModelProvider.Claude:
-        serverApiKey = process.env.ANTHROPIC_API_KEY || "";
-        break;
-      case ModelProvider.Qwen:
-        serverApiKey = process.env.ALIBABA_API_KEY || "";
-        break;
-      case ModelProvider.MoonshotAI:
-        serverApiKey = process.env.MOONSHOT_API_KEY || "";
-        break;
-      case ModelProvider.DeepSeek:
-        serverApiKey = process.env.DEEPSEEK_API_KEY || "";
-        break;
-      case ModelProvider.XAI:
-        serverApiKey = process.env.XAI_API_KEY || "";
-        break;
-      case ModelProvider.SiliconFlow:
-        serverApiKey = process.env.SILICONFLOW_API_KEY || "";
-        break;
+    // 查找对应的服务提供商配置
+    const provider = getAllProviders().find(
+      (p) => p.modelProvider === modelProvider,
+    );
+    if (provider) {
+      serverApiKey = process.env[provider.envApiKeyName] || "";
     }
   }
 

@@ -4,6 +4,7 @@ import {
   ModelProvider,
   ServiceProvider,
   getProviderConfig,
+  getAllProviders,
 } from "../constant";
 import {
   ChatMessageTool,
@@ -253,15 +254,8 @@ export function getHeaders(
       modelConfig.providerName as string,
     );
 
-    const isGoogle = normalizedProviderName === ServiceProvider.Google.id;
-    const isAzure = normalizedProviderName === ServiceProvider.Azure.id;
-    const isAnthropic = normalizedProviderName === ServiceProvider.Anthropic.id;
-    const isAlibaba = normalizedProviderName === ServiceProvider.Alibaba.id;
-    const isMoonshot = normalizedProviderName === ServiceProvider.MoonshotAI.id;
-    const isDeepSeek = normalizedProviderName === ServiceProvider.DeepSeek.id;
-    const isXAI = normalizedProviderName === ServiceProvider.XAI.id;
-    const isSiliconFlow =
-      normalizedProviderName === ServiceProvider.SiliconFlow.id;
+    // 获取厂商配置
+    const providerConfig = getProviderConfig(normalizedProviderName);
 
     // 检查是否是自定义服务商
     const isCustomProvider =
@@ -281,14 +275,7 @@ export function getHeaders(
         : accessStore.getProviderApiKey(normalizedProviderName);
 
     return {
-      isGoogle,
-      isAzure,
-      isAnthropic,
-      isAlibaba,
-      isMoonshot,
-      isDeepSeek,
-      isXAI,
-      isSiliconFlow,
+      providerConfig,
       isCustomProvider,
       customProvider,
       apiKey,
@@ -298,24 +285,12 @@ export function getHeaders(
   }
 
   function getAuthHeader(): string {
-    return isAzure
-      ? "api-key"
-      : isAnthropic
-      ? "x-api-key"
-      : isGoogle
-      ? "x-goog-api-key"
-      : "Authorization";
+    const { providerConfig } = getConfig();
+    return providerConfig?.authHeaderName || "Authorization";
   }
 
   const {
-    isGoogle,
-    isAzure,
-    isAnthropic,
-    isAlibaba,
-    isMoonshot,
-    isDeepSeek,
-    isXAI,
-    isSiliconFlow,
+    providerConfig,
     isCustomProvider,
     customProvider,
     apiKey,
@@ -324,19 +299,22 @@ export function getHeaders(
 
   const authHeader = getAuthHeader();
 
-  const bearerToken = getBearerToken(
-    apiKey,
-    isAzure || isAnthropic || isGoogle,
+  // 判断是否需要特殊的认证处理（非标准 Authorization 头）
+  const needsSpecialAuth = !!(
+    providerConfig?.authHeaderName &&
+    providerConfig.authHeaderName !== "Authorization"
   );
+
+  const bearerToken = getBearerToken(apiKey, needsSpecialAuth);
 
   if (bearerToken) {
     headers[authHeader] = bearerToken;
   } else if (isEnabledAccessControl && validString(accessStore.accessCode)) {
-    // 对于 Anthropic、Azure、Google，即使使用 access code，也应该使用对应的认证头
-    if (isAnthropic || isAzure || isGoogle) {
+    // 对于需要特殊认证头的厂商，即使使用 access code，也应该使用对应的认证头
+    if (needsSpecialAuth) {
       headers[authHeader] = getBearerToken(
         ACCESS_CODE_PREFIX + accessStore.accessCode,
-        isAzure || isAnthropic || isGoogle,
+        needsSpecialAuth,
       );
     } else {
       headers["Authorization"] = getBearerToken(
@@ -397,22 +375,14 @@ export function normalizeProviderName(provider: string): string {
     }
   }
 
-  // 创建一个映射表，将provider.id映射到ServiceProvider.id
-  const providerIdMap: Record<string, string> = {
-    openai: ServiceProvider.OpenAI.id,
-    azure: ServiceProvider.Azure.id,
-    google: ServiceProvider.Google.id,
-    anthropic: ServiceProvider.Anthropic.id,
-    alibaba: ServiceProvider.Alibaba.id,
-    moonshotai: ServiceProvider.MoonshotAI.id,
-    xai: ServiceProvider.XAI.id,
-    deepseek: ServiceProvider.DeepSeek.id,
-    siliconflow: ServiceProvider.SiliconFlow.id,
-    ollama: ServiceProvider.Ollama.id,
-  };
+  // 创建动态映射表，将provider.id映射到ServiceProvider.id
+  const providerIdMap: Record<string, string> = {};
+  getAllProviders().forEach((provider) => {
+    providerIdMap[provider.id.toLowerCase()] = provider.id;
+  });
 
   // 如果provider已经是ServiceProvider.id，直接返回
-  const allProviderIds = Object.values(ServiceProvider).map((p) => p.id);
+  const allProviderIds = getAllProviders().map((p) => p.id);
   if (allProviderIds.includes(provider)) {
     return provider;
   }
@@ -425,8 +395,8 @@ export function normalizeProviderName(provider: string): string {
     return normalizedProvider;
   }
 
-  // 默认返回OpenAI
-  return ServiceProvider.OpenAI.id;
+  // 默认返回第一个可用的提供商
+  return getAllProviders()[0]?.id || ServiceProvider.OpenAI.id;
 }
 
 // 自定义服务商现在直接使用内置的API，不再需要CustomProviderApi

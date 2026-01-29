@@ -1,5 +1,51 @@
 import { getModelContextTokens } from "./config/model-context-tokens";
 
+// 尝试导入生成的配置，如果不存在则使用默认配置
+let MODELS_DEV_CONFIG: any = {};
+
+try {
+  const generatedConfig = require("./config/generated/models-config");
+  MODELS_DEV_CONFIG = generatedConfig.MODELS_DEV_CONFIG || {};
+} catch (error) {
+  console.warn(
+    "Generated models config not found, using fallback configuration",
+  );
+}
+
+// 辅助函数：从生成的配置中获取知识截止日期
+function getKnowledgeCutoffFromConfig(): Record<string, string> {
+  const cutoffDates: Record<string, string> = {};
+
+  Object.values(MODELS_DEV_CONFIG).forEach((provider: any) => {
+    if (provider.models) {
+      Object.entries(provider.models).forEach(
+        ([modelId, modelData]: [string, any]) => {
+          if (modelData.knowledge) {
+            cutoffDates[modelId] = modelData.knowledge;
+          }
+        },
+      );
+    }
+  });
+
+  return cutoffDates;
+}
+
+// 辅助函数：从生成的配置中获取厂商模型列表
+function getProviderModelsFromConfig(providerId: string): string[] {
+  const provider = MODELS_DEV_CONFIG[providerId];
+  return provider?.models ? Object.keys(provider.models) : [];
+}
+
+// 辅助函数：获取厂商模型列表（优先使用生成的配置，否则使用 fallback）
+function getProviderModels(
+  providerId: string,
+  fallbackModels: string[],
+): string[] {
+  const generatedModels = getProviderModelsFromConfig(providerId);
+  return generatedModels.length > 0 ? generatedModels : fallbackModels;
+}
+
 export const OWNER = "zyqfork";
 export const REPO = "llmchat";
 export const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
@@ -135,7 +181,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "openai",
     name: "OpenAI",
     modelProvider: "GPT",
-    iconUrl: "https://models.dev/logos/openai.svg",
+    iconUrl: "/logos/openai.svg",
     sdkType: "openai",
     defaultBaseUrl: "https://api.openai.com/v1",
     apiPath: "/api/openai",
@@ -168,7 +214,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "azure",
     name: "Azure OpenAI",
     modelProvider: "GPT",
-    iconUrl: "https://models.dev/logos/azure.svg",
+    iconUrl: "/logos/azure.svg",
     sdkType: "azure",
     defaultBaseUrl: "", // Azure使用动态URL
     apiPath: "/api/azure",
@@ -202,7 +248,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "google",
     name: "Google",
     modelProvider: "GeminiPro",
-    iconUrl: "https://models.dev/logos/google.svg",
+    iconUrl: "/logos/google.svg",
     sdkType: "google",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/",
     apiPath: "/api/google",
@@ -231,7 +277,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "anthropic",
     name: "Anthropic",
     modelProvider: "Claude",
-    iconUrl: "https://models.dev/logos/anthropic.svg",
+    iconUrl: "/logos/anthropic.svg",
     sdkType: "anthropic",
     defaultBaseUrl: "https://api.anthropic.com/v1",
     apiPath: "/api/anthropic",
@@ -260,7 +306,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "alibaba",
     name: "Alibaba Cloud",
     modelProvider: "Qwen",
-    iconUrl: "https://models.dev/logos/alibaba.svg",
+    iconUrl: "/logos/alibaba.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     apiPath: "/api/alibaba",
@@ -291,7 +337,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "moonshotai",
     name: "MoonshotAI",
     modelProvider: "MoonshotAI",
-    iconUrl: "https://models.dev/logos/moonshot.svg",
+    iconUrl: "/logos/moonshot.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.moonshot.cn/v1",
     apiPath: "/api/moonshotai",
@@ -322,7 +368,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "xai",
     name: "xAI",
     modelProvider: "XAI",
-    iconUrl: "https://models.dev/logos/xai.svg",
+    iconUrl: "/logos/xai.svg",
     sdkType: "xai",
     defaultBaseUrl: "https://api.x.ai/v1",
     apiPath: "/api/xai",
@@ -353,7 +399,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "deepseek",
     name: "DeepSeek",
     modelProvider: "DeepSeek",
-    iconUrl: "https://models.dev/logos/deepseek.svg",
+    iconUrl: "/logos/deepseek.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.deepseek.com/v1",
     apiPath: "/api/deepseek",
@@ -384,7 +430,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "siliconflow",
     name: "SiliconFlow",
     modelProvider: "SiliconFlow",
-    iconUrl: "https://models.dev/logos/siliconflow.svg",
+    iconUrl: "/logos/siliconflow.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.siliconflow.cn/v1",
     apiPath: "/api/siliconflow",
@@ -415,7 +461,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "ollama-cloud",
     name: "Ollama Cloud",
     modelProvider: "OllamaCloud",
-    iconUrl: "https://models.dev/logos/ollama.svg",
+    iconUrl: "/logos/ollama.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.ollama-cloud.com/v1",
     apiPath: "/api/ollama-cloud",
@@ -445,7 +491,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "zai",
     name: "ZAI",
     modelProvider: "ZAI",
-    iconUrl: "https://models.dev/logos/zai.svg",
+    iconUrl: "/logos/zai.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.zai.com/v1",
     apiPath: "/api/zai",
@@ -476,7 +522,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "ollama",
     name: "Ollama",
     modelProvider: "Ollama",
-    iconUrl: "https://models.dev/logos/ollama.svg",
+    iconUrl: "/logos/ollama.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "http://localhost:11434/v1",
     apiPath: "/api/ollama",
@@ -627,6 +673,9 @@ export const DEEPSEEK_SUMMARIZE_MODEL = "deepseek-chat";
 export const MCP_TOOL_THRESHOLD = 10; // 当工具数量超过此值时使用强化提示词模式
 
 export const KnowledgeCutOffDate: Record<string, string> = {
+  // 优先使用生成的配置，如果没有则使用默认配置
+  ...getKnowledgeCutoffFromConfig(),
+  // 默认配置作为 fallback
   default: "2021-09",
   "gpt-4-turbo": "2023-12",
   "gpt-4-turbo-2024-04-09": "2023-12",
@@ -764,7 +813,8 @@ export const VISION_MODEL_REGEXES = [
 
 export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
 
-const openaiModels = [
+// 使用生成的模型配置，如果没有则使用 fallback 配置
+const fallbackOpenaiModels = [
   // As of July 2024, gpt-4o-mini should be used in place of gpt-3.5-turbo,
   // as it is cheaper, more capable, multimodal, and just as fast. gpt-3.5-turbo is still available for use in the API.
   "gpt-3.5-turbo",
@@ -832,7 +882,7 @@ const openaiModels = [
   "gpt-image-1",
 ];
 
-const googleModels = [
+const fallbackGoogleModels = [
   // Gemini 3 系列
   "gemini-3-pro",
   "gemini-3-pro-001",
@@ -871,7 +921,7 @@ const googleModels = [
   "gemma-3-27b",
 ];
 
-const anthropicModels = [
+const fallbackAnthropicModels = [
   // Claude 4.5 系列
   "claude-opus-4-5",
   "claude-opus-4-5-20251125",
@@ -945,7 +995,7 @@ const deepseekModels = [
   "deepseek-reasoner",
 ];
 
-const xAIModes = [
+const xAIModels = [
   // Grok 3 系列
   "grok-3",
   "grok-3-fast",
@@ -971,8 +1021,25 @@ const siliconflowModels = [
 ];
 
 let seq = 1000; // 内置的模型序号生成器从1000开始
+
+// 获取各厂商的模型列表（优先使用生成的配置）
+const openaiModelsList = getProviderModels("openai", fallbackOpenaiModels);
+const googleModelsList = getProviderModels("google", fallbackGoogleModels);
+const anthropicModelsList = getProviderModels(
+  "anthropic",
+  fallbackAnthropicModels,
+);
+const alibabaModelsList = getProviderModels("alibaba", alibabaModes);
+const moonshotModelsList = getProviderModels("moonshotai", moonshotModes);
+const xaiModelsList = getProviderModels("xai", xAIModels);
+const deepseekModelsList = getProviderModels("deepseek", deepseekModels);
+const siliconflowModelsList = getProviderModels(
+  "siliconflow",
+  siliconflowModels,
+);
+
 export const DEFAULT_MODELS = [
-  ...openaiModels.map((name) => ({
+  ...openaiModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++, // Global sequence sort(index)
@@ -984,7 +1051,7 @@ export const DEFAULT_MODELS = [
       sorted: 1, // 这里是固定的，确保顺序与之前内置的版本一致
     },
   })),
-  ...openaiModels.map((name) => ({
+  ...openaiModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -996,7 +1063,7 @@ export const DEFAULT_MODELS = [
       sorted: 2,
     },
   })),
-  ...googleModels.map((name) => ({
+  ...googleModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1008,7 +1075,7 @@ export const DEFAULT_MODELS = [
       sorted: 3,
     },
   })),
-  ...anthropicModels.map((name) => ({
+  ...anthropicModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1020,7 +1087,7 @@ export const DEFAULT_MODELS = [
       sorted: 4,
     },
   })),
-  ...alibabaModes.map((name) => ({
+  ...alibabaModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1032,7 +1099,7 @@ export const DEFAULT_MODELS = [
       sorted: 5,
     },
   })),
-  ...moonshotModes.map((name) => ({
+  ...moonshotModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1044,7 +1111,7 @@ export const DEFAULT_MODELS = [
       sorted: 6,
     },
   })),
-  ...xAIModes.map((name) => ({
+  ...xaiModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1056,7 +1123,7 @@ export const DEFAULT_MODELS = [
       sorted: 7,
     },
   })),
-  ...deepseekModels.map((name) => ({
+  ...deepseekModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,
@@ -1068,7 +1135,7 @@ export const DEFAULT_MODELS = [
       sorted: 8,
     },
   })),
-  ...siliconflowModels.map((name) => ({
+  ...siliconflowModelsList.map((name: string) => ({
     name,
     available: true,
     sorted: seq++,

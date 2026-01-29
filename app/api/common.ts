@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
+import { OPENAI_BASE_URL, ServiceProvider, getAllProviders } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
 import { getModelProvider } from "../utils/model";
 import { logger } from "../utils/logger";
@@ -17,7 +17,10 @@ export async function requestOpenai(
 
   // 如果使用服务器配置，使用服务器端的API密钥
   if (useServerConfig) {
-    authValue = `Bearer ${process.env.OPENAI_API_KEY || ""}`;
+    // 动态获取对应的环境变量名
+    const openaiProvider = getAllProviders().find((p) => p.id === "openai");
+    const apiKeyEnvName = openaiProvider?.envApiKeyName || "OPENAI_API_KEY";
+    authValue = `Bearer ${process.env[apiKeyEnvName] || ""}`;
     authHeaderName = "Authorization";
   } else {
     if (isAzure) {
