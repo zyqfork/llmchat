@@ -123,3 +123,25 @@ export async function DELETE(
 ) {
   return handleRequest(req, params, "DELETE");
 }
+
+// 为静态导出生成参数
+export async function generateStaticParams() {
+  const providers = getAllProviders();
+
+  // 为每个厂商生成基本的路径参数
+  const params = [];
+
+  for (const provider of providers) {
+    // 为每个厂商添加常见的API端点
+    const commonPaths = [["chat", "completions"], ["models"], ["responses"]];
+
+    for (const path of commonPaths) {
+      params.push({
+        provider: provider.id,
+        path: path,
+      });
+    }
+  }
+
+  return params;
+}
