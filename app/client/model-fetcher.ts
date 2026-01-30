@@ -1,53 +1,18 @@
-import { ServiceProvider } from "../constant";
+import {
+  ServiceProvider,
+  getProviderConfig,
+  getAllProviders,
+} from "../constant";
 import { useAccessStore, CustomProviderType } from "../store/access";
 import { LLMModel } from "./api";
-import { getHeaders, getClientApi } from "./api";
 import { logger } from "../utils/logger";
+import { fetch } from "../utils/fetch";
 
 // 统一的模型响应接口
 export interface ModelFetchResponse {
   models: LLMModel[];
   success: boolean;
   error?: string;
-}
-
-// OpenAI格式的模型响应
-interface OpenAIModelResponse {
-  object: string;
-  data: Array<{
-    id: string;
-    object: string;
-    owned_by?: string;
-    created?: number;
-  }>;
-}
-
-// Anthropic格式的模型响应
-interface AnthropicModelResponse {
-  data: Array<{
-    id: string;
-    display_name: string;
-    created_at: string;
-    type: string;
-  }>;
-  has_more: boolean;
-  first_id?: string;
-  last_id?: string;
-}
-
-// Google格式的模型响应（基于官方API）
-interface GoogleModelResponse {
-  models: Array<{
-    name: string;
-    baseModelId: string;
-    version: string;
-    displayName: string;
-    description?: string;
-    supportedGenerationMethods?: string[];
-    inputTokenLimit?: number;
-    outputTokenLimit?: number;
-  }>;
-  nextPageToken?: string;
 }
 
 /**
@@ -61,53 +26,46 @@ export class ModelFetcher {
     try {
       const accessStore = useAccessStore.getState();
 
-      switch (provider) {
-        case ServiceProvider.OpenAI.id:
-          return await this.fetchOpenAIModels(ServiceProvider.OpenAI.id);
+      // 标准化 provider 参数：支持通过 ID 或名称查找
+      let providerId: string;
+      let providerConfig = getProviderConfig(provider);
 
-        case ServiceProvider.Azure.id:
-          return await this.fetchOpenAIModels(ServiceProvider.Azure.id);
+      if (!providerConfig) {
+        // 如果通过 ID 找不到，尝试通过名称查找
+        const allProviders = getAllProviders();
+        providerConfig = allProviders.find((p) => p.name === provider);
+      }
 
-        case ServiceProvider.Anthropic.id:
-          return await this.fetchAnthropicModels();
+      if (!providerConfig) {
+        return {
+          models: [],
+          success: false,
+          error: `不支持的服务商: ${provider}`,
+        };
+      }
 
-        case ServiceProvider.Google.id:
-          return await this.fetchGoogleModels();
+      providerId = providerConfig.id;
 
-        case ServiceProvider.DeepSeek.id:
-          return await this.fetchDeepSeekModels();
+      // 检查是否启用了代理
+      const useProxyKey = providerConfig.storeKeys.useProxy;
+      const useProxy = useProxyKey ? (accessStore as any)[useProxyKey] : false;
 
-        case ServiceProvider.MoonshotAI.id:
-          return await this.fetchMoonshotModels();
+      // 处理自定义服务商
+      if (typeof provider === "string" && provider.startsWith("custom_")) {
+        const customProvider = accessStore.customProviders.find(
+          (p) => p.id === provider,
+        );
+        if (customProvider) {
+          return await this.fetchCustomProviderModels(customProvider);
+        }
+      }
 
-        case ServiceProvider.Alibaba.id:
-          return await this.fetchAlibabaModels();
-
-        case ServiceProvider.XAI.id:
-          return await this.fetchXAIModels();
-
-        case ServiceProvider.SiliconFlow.id:
-          return await this.fetchSiliconFlowModels();
-
-        case ServiceProvider.Ollama.id:
-          return await this.fetchOllamaModels();
-
-        default:
-          // 处理自定义服务商
-          if (typeof provider === "string" && provider.startsWith("custom_")) {
-            const customProvider = accessStore.customProviders.find(
-              (p) => p.id === provider,
-            );
-            if (customProvider) {
-              return await this.fetchCustomProviderModels(customProvider);
-            }
-          }
-
-          return {
-            models: [],
-            success: false,
-            error: `不支持的服务商: ${provider}`,
-          };
+      if (useProxy) {
+        // 使用代理时，通过本地 /api/models 接口
+        return await this.fetchModelsViaProxy(providerId);
+      } else {
+        // 不使用代理时，直接请求远程 API
+        return await this.fetchModelsDirectly(providerId, providerConfig);
       }
     } catch (error) {
       logger.error(`[ModelFetcher] 获取 ${provider} 模型失败:`, error);
@@ -120,159 +78,249 @@ export class ModelFetcher {
   }
 
   /**
-   * 获取OpenAI格式的模型（OpenAI、Azure、Moonshot等）
+   * 通过代理获取模型列表（使用本地 /api/models 接口）
    */
-  private static async fetchOpenAIModels(
-    provider: string,
+  private static async fetchModelsViaProxy(
+    providerId: string,
   ): Promise<ModelFetchResponse> {
-    const api = getClientApi(provider);
     try {
-      const models = await api.llm.models();
+      const response = await fetch(`/api/models?provider=${providerId}`);
+
+      if (!response.ok) {
+        // 如果代理 API 不可用（如静态导出模式），回退到直接请求
+        if (response.status === 404) {
+          logger.warn(
+            `[ModelFetcher] Proxy API not available, falling back to direct request for ${providerId}`,
+          );
+          const providerConfig = getProviderConfig(providerId);
+          if (providerConfig) {
+            return await this.fetchModelsDirectly(providerId, providerConfig);
+          }
+        }
+
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const models = await response.json();
+
       return {
-        models,
+        models: Array.isArray(models) ? models : [],
         success: true,
       };
     } catch (error) {
+      // 如果是网络错误或 API 不存在，尝试直接请求
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        logger.warn(
+          `[ModelFetcher] Proxy API fetch failed, falling back to direct request for ${providerId}`,
+        );
+        const providerConfig = getProviderConfig(providerId);
+        if (providerConfig) {
+          return await this.fetchModelsDirectly(providerId, providerConfig);
+        }
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
         models: [],
         success: false,
-        error: `${provider}模型列表获取失败。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
+        error: `${providerId}模型列表获取失败（代理模式）。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
       };
     }
   }
 
   /**
-   * 获取Anthropic模型
-   * 注意：Anthropic目前没有公开的模型列表API，尝试使用OpenAI兼容格式
+   * 直接请求远程 API 获取模型列表
    */
-  private static async fetchAnthropicModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.Anthropic.id);
-    try {
-      const models = await api.llm.models();
-      return {
-        models,
-        success: true,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      return {
-        models: [],
-        success: false,
-        error: `Anthropic模型列表获取失败。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
-      };
-    }
-  }
-
-  /**
-   * 获取Google模型
-   * 使用Google Generative Language API的正确端点
-   */
-  private static async fetchGoogleModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.Google.id);
-    try {
-      const models = await api.llm.models();
-      return {
-        models,
-        success: true,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      return {
-        models: [],
-        success: false,
-        error: `Google模型列表获取失败。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
-      };
-    }
-  }
-
-  /**
-   * 获取DeepSeek模型
-   * 使用DeepSeek官方API端点
-   */
-  private static async fetchDeepSeekModels(): Promise<ModelFetchResponse> {
-    const api = getClientApi(ServiceProvider.DeepSeek.id);
-    try {
-      const models = await api.llm.models();
-      return {
-        models,
-        success: true,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      return {
-        models: [],
-        success: false,
-        error: `DeepSeek模型列表获取失败。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
-      };
-    }
-  }
-
-  /**
-   * 获取Moonshot模型（兼容OpenAI格式）
-   */
-  private static async fetchMoonshotModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(
-      ServiceProvider.MoonshotAI.id,
-    );
-  }
-
-  /**
-   * 获取Alibaba模型（兼容OpenAI格式）
-   */
-  private static async fetchAlibabaModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.Alibaba.id);
-  }
-
-  /**
-   * 获取XAI模型（兼容OpenAI格式）
-   */
-  private static async fetchXAIModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.XAI.id);
-  }
-
-  /**
-   * 获取SiliconFlow模型（兼容OpenAI格式）
-   */
-  private static async fetchSiliconFlowModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(
-      ServiceProvider.SiliconFlow.id,
-    );
-  }
-
-  /**
-   * 获取Ollama模型
-   */
-  private static async fetchOllamaModels(): Promise<ModelFetchResponse> {
-    return await this.fetchOpenAICompatibleModels(ServiceProvider.Ollama.id);
-  }
-
-  /**
-   * 通用的OpenAI兼容格式模型获取
-   */
-  private static async fetchOpenAICompatibleModels(
-    provider: string,
+  private static async fetchModelsDirectly(
+    providerId: string,
+    providerConfig: any,
   ): Promise<ModelFetchResponse> {
-    const api = getClientApi(provider);
     try {
-      const models = await api.llm.models();
-      return {
-        models,
-        success: true,
+      const accessStore = useAccessStore.getState();
+
+      // 获取 API 配置
+      const apiKey = (accessStore as any)[providerConfig.storeKeys.apiKey];
+      const baseUrl =
+        (accessStore as any)[providerConfig.storeKeys.baseUrl] ||
+        providerConfig.defaultBaseUrl;
+
+      if (!apiKey && providerId !== "ollama") {
+        throw new Error(`缺少 API Key`);
+      }
+
+      // 构建请求 URL
+      const modelsEndpoint = providerConfig.endpoints.models || "models";
+      const requestUrl = `${baseUrl}/${modelsEndpoint}`;
+
+      // 构建请求头
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
       };
+
+      // 根据不同厂商设置认证头
+      if (apiKey) {
+        switch (providerId) {
+          case "openai":
+          case "deepseek":
+          case "moonshotai":
+          case "xai":
+          case "siliconflow":
+          case "zai":
+          case "ollama-cloud":
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            break;
+          case "anthropic":
+            headers["x-api-key"] = apiKey;
+            headers["anthropic-version"] = "2023-06-01";
+            break;
+          case "google":
+            headers["x-goog-api-key"] = apiKey;
+            break;
+          case "alibaba":
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            break;
+          case "azure":
+            headers["api-key"] = apiKey;
+            const apiVersion = (accessStore as any)[
+              providerConfig.storeKeys.apiVersion!
+            ];
+            if (apiVersion) {
+              // Azure 使用查询参数传递 API 版本
+              const url = new URL(requestUrl);
+              url.searchParams.set("api-version", apiVersion);
+              return await this.makeDirectRequest(
+                url.toString(),
+                headers,
+                providerId,
+              );
+            }
+            break;
+        }
+      }
+
+      return await this.makeDirectRequest(requestUrl, headers, providerId);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
         models: [],
         success: false,
-        error: `${provider}模型列表获取失败。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
+        error: `${providerId}模型列表获取失败（直连模式）。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
       };
     }
+  }
+
+  /**
+   * 执行直接请求并处理响应
+   */
+  private static async makeDirectRequest(
+    url: string,
+    headers: Record<string, string>,
+    providerId: string,
+  ): Promise<ModelFetchResponse> {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // 标准化不同厂商的响应格式
+    let models: LLMModel[] = [];
+
+    switch (providerId) {
+      case "openai":
+      case "deepseek":
+      case "moonshotai":
+      case "xai":
+      case "siliconflow":
+      case "zai":
+      case "ollama-cloud":
+      case "ollama":
+      case "alibaba":
+        // OpenAI 兼容格式
+        if (data.data && Array.isArray(data.data)) {
+          models = data.data.map((model: any, index: number) => ({
+            name: model.id,
+            available: true,
+            sorted: index,
+            provider: {
+              id: providerId,
+              providerName: providerId,
+              providerType: providerId,
+              sorted: 0,
+            },
+          }));
+        }
+        break;
+
+      case "anthropic":
+        // Anthropic 格式
+        if (data.data && Array.isArray(data.data)) {
+          models = data.data.map((model: any, index: number) => ({
+            name: model.id,
+            available: true,
+            sorted: index,
+            provider: {
+              id: providerId,
+              providerName: providerId,
+              providerType: providerId,
+              sorted: 0,
+            },
+          }));
+        }
+        break;
+
+      case "google":
+        // Google 格式
+        if (data.models && Array.isArray(data.models)) {
+          models = data.models
+            .filter(
+              (model: any) => model.name && model.name.startsWith("models/"),
+            )
+            .map((model: any, index: number) => ({
+              name: model.name.replace("models/", ""),
+              available: true,
+              sorted: index,
+              provider: {
+                id: providerId,
+                providerName: providerId,
+                providerType: providerId,
+                sorted: 0,
+              },
+            }));
+        }
+        break;
+
+      default:
+        // 默认处理
+        if (Array.isArray(data)) {
+          models = data.map((model: any, index: number) => ({
+            name: typeof model === "string" ? model : model.id || model.name,
+            available: true,
+            sorted: index,
+            provider: {
+              id: providerId,
+              providerName: providerId,
+              providerType: providerId,
+              sorted: 0,
+            },
+          }));
+        }
+        break;
+    }
+
+    return {
+      models,
+      success: true,
+    };
   }
 
   /**
@@ -286,9 +334,10 @@ export class ModelFetcher {
       CustomProviderType,
       () => Promise<ModelFetchResponse>
     > = {
-      openai: () => this.fetchOpenAIModels(ServiceProvider.OpenAI.id),
-      anthropic: () => this.fetchAnthropicModels(),
-      google: () => this.fetchGoogleModels(),
+      openai: () => this.fetchModelsDirectly("openai", ServiceProvider.OpenAI),
+      anthropic: () =>
+        this.fetchModelsDirectly("anthropic", ServiceProvider.Anthropic),
+      google: () => this.fetchModelsDirectly("google", ServiceProvider.Google),
     };
 
     const fetcher = typeToFetcherMap[customProvider.type as CustomProviderType];

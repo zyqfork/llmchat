@@ -199,6 +199,162 @@ export const FETCH_COMMIT_URL = `https://api.github.com/repos/${OWNER}/${REPO}/c
 export const FETCH_TAG_URL = `https://api.github.com/repos/${OWNER}/${REPO}/tags?per_page=1`;
 export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 
+// ==================== 模型图标匹配规则 ====================
+
+// 支持的 Lobehub 图标类型
+export type ModelIconType =
+  | "openai"
+  | "azure"
+  | "claude"
+  | "gemini"
+  | "meta"
+  | "deepseek"
+  | "kimi"
+  | "qwen"
+  | "wenxin"
+  | "grok"
+  | "siliconcloud"
+  | "ollama";
+
+// 模型名称到图标类型的匹配规则（按优先级排序）
+export const MODEL_ICON_RULES: Array<{
+  patterns: string[];
+  iconType: ModelIconType;
+  description: string;
+}> = [
+  // OpenAI 系列
+  {
+    patterns: ["gpt-3"],
+    iconType: "openai",
+    description: "GPT-3 系列模型",
+  },
+  {
+    patterns: ["gpt-4", "chatgpt-4o", "gpt-5"],
+    iconType: "openai",
+    description: "GPT-4/5 系列模型",
+  },
+  {
+    patterns: ["o1", "o3", "o4"],
+    iconType: "openai",
+    description: "OpenAI O 系列推理模型",
+  },
+
+  // 其他厂商模型
+  {
+    patterns: ["claude"],
+    iconType: "claude",
+    description: "Anthropic Claude 系列",
+  },
+  {
+    patterns: ["gemini", "learnlm"],
+    iconType: "gemini",
+    description: "Google Gemini 系列",
+  },
+  {
+    patterns: ["llama"],
+    iconType: "meta",
+    description: "Meta LLaMA 系列",
+  },
+  {
+    patterns: ["deepseek"],
+    iconType: "deepseek",
+    description: "DeepSeek 系列",
+  },
+  {
+    patterns: ["kimi", "moonshot"],
+    iconType: "kimi",
+    description: "月之暗面 Kimi 系列",
+  },
+  {
+    patterns: ["qwen", "qwq", "qvq"],
+    iconType: "qwen",
+    description: "阿里云通义千问系列",
+  },
+  {
+    patterns: ["wenxin", "文心"],
+    iconType: "wenxin",
+    description: "百度文心系列",
+  },
+  {
+    patterns: ["grok"],
+    iconType: "grok",
+    description: "xAI Grok 系列",
+  },
+  {
+    patterns: ["ollama"],
+    iconType: "ollama",
+    description: "Ollama 本地模型",
+  },
+];
+
+// 厂商名称到图标类型的映射
+export const PROVIDER_ICON_MAP: Record<string, ModelIconType> = {
+  // 主要厂商 - 支持 ID 和 Name 两种形式
+  openai: "openai",
+  "azure openai": "azure",
+  azure: "azure",
+  anthropic: "claude",
+  google: "gemini",
+  "alibaba cloud": "qwen",
+  alibaba: "qwen",
+  moonshotai: "kimi",
+  moonshot: "kimi",
+  deepseek: "deepseek",
+  meta: "meta",
+  xai: "grok",
+  siliconflow: "siliconcloud",
+  ollama: "ollama",
+  "ollama cloud": "ollama",
+
+  // 中文厂商名称
+  阿里巴巴: "qwen",
+  阿里云: "qwen",
+  月之暗面: "kimi",
+  智谱: "claude",
+  百度: "wenxin",
+  腾讯: "meta",
+};
+
+/**
+ * 根据模型名称获取对应的图标类型
+ * @param modelName 模型名称
+ * @returns 图标类型或 null
+ */
+export function getModelIconType(modelName: string): ModelIconType | null {
+  if (!modelName) return null;
+
+  const lowerModelName = modelName.toLowerCase();
+
+  // 按优先级顺序匹配规则
+  for (const rule of MODEL_ICON_RULES) {
+    if (
+      rule.patterns.some((pattern) =>
+        lowerModelName.includes(pattern.toLowerCase()),
+      )
+    ) {
+      return rule.iconType;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 根据厂商名称获取对应的图标类型
+ * @param providerName 厂商名称
+ * @returns 图标类型或 null
+ */
+export function getProviderIconType(
+  providerName: string,
+): ModelIconType | null {
+  if (!providerName) return null;
+
+  const lowerProviderName = providerName.toLowerCase();
+  return PROVIDER_ICON_MAP[lowerProviderName] || null;
+}
+
+// ==================== 原有配置 ====================
+
 export const OPENAI_BASE_URL = "https://api.openai.com/v1";
 export const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 

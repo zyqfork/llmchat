@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import {
   ServiceProvider,
   getProviderConfig,
@@ -19,6 +20,16 @@ import {
   Meta,
   Ollama,
 } from "@lobehub/icons";
+
+// 导入 Lobehub 图标工具函数
+import {
+  getProviderLobehubIcon,
+  getProviderLobehubIconSafe,
+  getModelLobehubIconSafe,
+  getProviderLobehubIconType,
+  isSupportedLobehubIcon,
+  LobehubIconType,
+} from "../utils/lobehub-icons";
 
 // 导入项目自带的 SVG 图标
 import BotIconDefault from "../icons/llm-icons/default.svg";
@@ -103,7 +114,7 @@ const DynamicProviderIcon = React.memo(function DynamicProviderIcon({
         overflow: "hidden",
       }}
     >
-      <img
+      <Image
         src={iconUrl}
         alt={`${providerId} icon`}
         width={iconSize}
@@ -314,7 +325,13 @@ export const ProviderIcon = React.memo(function ProviderIcon({
     }
   }
 
-  // 优先使用 ServiceProvider 中配置的动态图标
+  // 1. 优先尝试使用 Lobehub 图标
+  const lobehubIcon = getProviderLobehubIconSafe(actualProviderName, size);
+  if (lobehubIcon) {
+    return <IconContainer size={size}>{lobehubIcon}</IconContainer>;
+  }
+
+  // 2. 如果启用动态图标，尝试使用 ServiceProvider 中配置的图标
   if (useDynamicIcon) {
     return (
       <DynamicProviderIcon
@@ -334,7 +351,7 @@ export const ProviderIcon = React.memo(function ProviderIcon({
     );
   }
 
-  // 传统图标逻辑（作为fallback）
+  // 3. 传统图标逻辑（作为最终fallback）
   const iconType = getModelIconType(actualProviderName, modelName);
 
   // 根据模型类型显示相应的图标
@@ -625,7 +642,7 @@ const ModelAvatar = React.memo(function ModelAvatar({
   );
 });
 
-// 为模型管理页面提供更大的图标，优先使用ServiceProvider配置的图标
+// 为模型管理页面提供更大的图标，优先使用 Lobehub 图标
 export const ModelProviderIcon = React.memo(function ModelProviderIcon({
   provider,
   size = 32,
@@ -635,7 +652,21 @@ export const ModelProviderIcon = React.memo(function ModelProviderIcon({
   size?: number;
   modelName?: string;
 }) {
-  // 优先使用 ServiceProvider 中配置的动态图标
+  // 1. 优先基于模型名称尝试使用 Lobehub 图标
+  if (modelName) {
+    const modelLobehubIcon = getModelLobehubIconSafe(modelName, size);
+    if (modelLobehubIcon) {
+      return <IconContainer size={size}>{modelLobehubIcon}</IconContainer>;
+    }
+  }
+
+  // 2. 如果模型名称无法匹配，基于服务商尝试使用 Lobehub 图标
+  const providerLobehubIcon = getProviderLobehubIconSafe(provider, size);
+  if (providerLobehubIcon) {
+    return <IconContainer size={size}>{providerLobehubIcon}</IconContainer>;
+  }
+
+  // 3. 尝试使用 ServiceProvider 中配置的动态图标
   const providerConfig =
     getProviderConfig(provider) ||
     getAllProviders().find((p) => p.name === provider);
@@ -650,6 +681,6 @@ export const ModelProviderIcon = React.memo(function ModelProviderIcon({
     );
   }
 
-  // 如果没有配置图标，使用项目自带的 SVG 图标作为fallback
+  // 4. 如果没有配置图标，使用项目自带的 SVG 图标作为最终fallback
   return <ModelAvatar modelName={modelName} size={size} />;
 });

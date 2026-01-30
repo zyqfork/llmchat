@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/app/utils/logger";
 import { auth } from "./auth";
 import { prettyObject } from "@/app/utils/format";
+import { getProviderConfig } from "@/app/constant";
 
 // 定义消息类型
 export interface Message {
@@ -483,24 +484,79 @@ export async function handleModelsRequest(config: {
     | "xai"
     | "azure";
   providerName?: string;
+  providerId?: string; // 新增：提供商ID，用于获取详细配置
   apiKey: string;
   baseURL: string;
 }) {
   try {
-    // 对于模型列表，我们使用简单的fetch请求，因为AI SDK主要专注于生成任务
-    const url = `${config.baseURL}/models`;
+    // 获取提供商配置以确定正确的端点和认证方式
+    const providerConfig = config.providerId
+      ? getProviderConfig(config.providerId)
+      : null;
+
+    // 构建模型列表请求URL
+    let url: string;
+    if (providerConfig?.endpoints?.models) {
+      // 使用配置中的 models 端点
+      const modelsEndpoint = providerConfig.endpoints.models;
+
+      // 处理特殊的端点格式（如 Google 的模板格式）
+      if (modelsEndpoint.includes("{model}")) {
+        // 对于 Google 这种需要模板的，直接使用基础端点
+        url = `${config.baseURL}/${modelsEndpoint.split("/")[0]}`;
+      } else {
+        url = `${config.baseURL}/${modelsEndpoint}`;
+      }
+    } else {
+      // 默认使用 /models 端点
+      url = `${config.baseURL}/models`;
+    }
+
+    // 构建请求头
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
-    if (config.provider === "anthropic") {
-      headers["x-api-key"] = config.apiKey;
-      headers["anthropic-version"] = "2023-06-01";
-    } else if (config.provider === "google") {
-      headers["x-goog-api-key"] = config.apiKey;
-    } else {
-      headers["Authorization"] = `Bearer ${config.apiKey}`;
+    // 根据提供商类型设置认证头
+    switch (config.provider) {
+      case "anthropic":
+        headers["x-api-key"] = config.apiKey;
+        headers["anthropic-version"] = "2023-06-01";
+        break;
+
+      case "google":
+        headers["x-goog-api-key"] = config.apiKey;
+        break;
+
+      case "azure":
+        headers["api-key"] = config.apiKey;
+        // Azure 可能需要特殊的 URL 格式
+        if (providerConfig?.azure?.apiVersion) {
+          url += `?api-version=${providerConfig.azure.apiVersion}`;
+        }
+        break;
+
+      case "openai":
+      case "openai-compatible":
+      case "xai":
+      default:
+        // 大多数提供商使用 Bearer token
+        if (config.apiKey && config.apiKey.trim() !== "") {
+          headers["Authorization"] = `Bearer ${config.apiKey}`;
+        }
+        break;
     }
+
+    // 添加提供商特定的头信息
+    if (providerConfig?.authHeaderName && config.apiKey) {
+      headers[providerConfig.authHeaderName] = config.apiKey;
+    }
+
+    logger.debug(`[SDK Utils] Fetching models from: ${url}`, {
+      provider: config.provider,
+      providerName: config.providerName,
+      providerId: config.providerId,
+    });
 
     const response = await fetch(url, {
       method: "GET",
@@ -508,15 +564,137 @@ export async function handleModelsRequest(config: {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      logger.error(`[SDK Utils] Models request failed:`, {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        provider: config.provider,
+        error: errorText,
+      });
+      throw new Error(
+        `HTTP error! status: ${response.status}, message: ${errorText}`,
+      );
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+
+    // 标准化响应格式
+    const standardizedData = standardizeModelsResponse(
+      data,
+      config.provider,
+      config.providerId,
+    );
+
+    logger.debug(
+      `[SDK Utils] Successfully fetched ${
+        standardizedData.data?.length || 0
+      } models from ${config.providerName || config.provider}`,
+    );
+
+    return NextResponse.json(standardizedData);
   } catch (error) {
-    logger.error("[SDK Utils] Models request error:", error);
+    logger.error(
+      `[SDK Utils] Models request error for ${
+        config.providerName || config.provider
+      }:`,
+      error,
+    );
     throw error;
   }
+}
+
+/**
+ * 标准化不同提供商的模型列表响应格式
+ */
+function standardizeModelsResponse(
+  data: any,
+  provider: string,
+  providerId?: string,
+): any {
+  // 如果已经是标准的 OpenAI 格式，直接返回
+  if (data.object === "list" && Array.isArray(data.data)) {
+    return data;
+  }
+
+  // 处理不同提供商的响应格式
+  switch (provider) {
+    case "google":
+      // Google 返回 { models: [...] } 格式
+      if (data.models && Array.isArray(data.models)) {
+        return {
+          object: "list",
+          data: data.models.map((model: any) => ({
+            id:
+              model.name?.replace("models/", "") ||
+              model.baseModelId ||
+              model.id,
+            object: "model",
+            created: Date.now(),
+            owned_by: "google",
+            displayName: model.displayName,
+            description: model.description,
+          })),
+        };
+      }
+      break;
+
+    case "anthropic":
+      // Anthropic 可能返回不同的格式
+      if (data.data && Array.isArray(data.data)) {
+        return {
+          object: "list",
+          data: data.data.map((model: any) => ({
+            id: model.id,
+            object: "model",
+            created: model.created_at
+              ? new Date(model.created_at).getTime()
+              : Date.now(),
+            owned_by: "anthropic",
+            displayName: model.display_name,
+          })),
+        };
+      }
+      break;
+
+    case "azure":
+      // Azure 可能有特殊的响应格式
+      if (data.data && Array.isArray(data.data)) {
+        return {
+          object: "list",
+          data: data.data.map((model: any) => ({
+            id: model.id,
+            object: "model",
+            created: model.created || Date.now(),
+            owned_by: "azure",
+          })),
+        };
+      }
+      break;
+
+    default:
+      // 对于其他提供商，尝试智能转换
+      if (Array.isArray(data)) {
+        // 如果直接是数组
+        return {
+          object: "list",
+          data: data.map((model: any) => ({
+            id: typeof model === "string" ? model : model.id || model.name,
+            object: "model",
+            created: model.created || Date.now(),
+            owned_by: providerId || provider,
+          })),
+        };
+      }
+      break;
+  }
+
+  // 如果无法识别格式，返回原始数据但包装成标准格式
+  return {
+    object: "list",
+    data: Array.isArray(data) ? data : data.data || [],
+    original: data, // 保留原始数据以便调试
+  };
 }
 
 /**
@@ -676,9 +854,29 @@ export async function handleProviderRequest(
     // 处理模型列表请求
     if (config.modelListPath && path === config.modelListPath) {
       logger.debug(`[${config.providerName}] Using SDK for models list`);
+
+      // 尝试从 providerName 推断 providerId
+      let providerId: string | undefined;
+      try {
+        const { getAllProviders } = await import("@/app/constant");
+        const allProviders = getAllProviders();
+        const matchedProvider = allProviders.find(
+          (p) =>
+            p.name === config.providerName ||
+            p.modelProvider === config.modelProvider,
+        );
+        providerId = matchedProvider?.id;
+      } catch (error) {
+        logger.warn(
+          `[${config.providerName}] Could not determine providerId:`,
+          error,
+        );
+      }
+
       return await handleModelsRequest({
         provider: config.provider,
         providerName: config.providerDisplayName,
+        providerId,
         apiKey,
         baseURL: normalizedBaseURL,
       });

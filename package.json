@@ -4,10 +4,10 @@
   "license": "mit",
   "scripts": {
     "dev": "NODE_OPTIONS='--no-deprecation' next dev",
-    "build": "npm run fetch-models && cross-env BUILD_MODE=standalone next build && node scripts/copy-standalone.js",
+    "build": "cross-env BUILD_MODE=standalone next build && node scripts/copy-standalone.js",
     "start": "node --no-deprecation .next/standalone/server.js",
     "lint": "next lint",
-    "export": "npm run fetch-models && cross-env BUILD_MODE=export BUILD_APP=1 NEXT_DIST_DIR=dist next build",
+    "export": "cross-env BUILD_MODE=export BUILD_APP=1 NEXT_DIST_DIR=dist next build",
     "export:dev": "cross-env BUILD_MODE=export BUILD_APP=1 NODE_OPTIONS='--no-deprecation' next dev",
     "export:debug": "cross-env BUILD_MODE=export BUILD_APP=1 DEBUG_BUILD=true NEXT_DIST_DIR=dist next build",
     "app:dev": "yarn tauri dev",
