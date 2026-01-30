@@ -592,9 +592,8 @@ const en: LocaleType = {
         },
 
         UseResponseApi: {
-          Title: "Use Response API for Chat",
-          SubTitle:
-            "When enabled, chat will use Response API while other features still use Chat Completions API",
+          Title: "Use Response API",
+          SubTitle: "When enabled, use Response API for model calls",
         },
 
         ApiPath: {

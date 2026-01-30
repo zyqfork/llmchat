@@ -28,7 +28,7 @@ import {
   getModelLobehubIconSafe,
   getProviderLobehubIconType,
   isSupportedLobehubIcon,
-  LobehubIconType,
+  ModelIconType,
 } from "../utils/lobehub-icons";
 
 // 导入项目自带的 SVG 图标

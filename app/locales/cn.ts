@@ -576,9 +576,8 @@ const cn = {
         },
 
         UseResponseApi: {
-          Title: "对话使用 Response API",
-          SubTitle:
-            "启用后对话将使用 Response API，其他功能仍使用 Chat Completions API",
+          Title: "使用 Response API",
+          SubTitle: "启用后使用 Response API 进行模型调用",
         },
 
         ApiPath: {

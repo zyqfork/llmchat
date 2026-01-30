@@ -57,6 +57,7 @@ export function createSDKInstance(
   // 如果没有提供配置，尝试从客户端 store 获取（仅在客户端环境）
   let apiKey = config?.apiKey;
   let baseUrl = config?.baseUrl;
+  let apiType = "chat"; // 默认使用 chat API
 
   if (!apiKey && typeof window !== "undefined") {
     try {
@@ -65,9 +66,38 @@ export function createSDKInstance(
       const storeConfig = accessStore.getProviderConfig(providerId);
       apiKey = storeConfig.apiKey;
       baseUrl = storeConfig.baseUrl;
+
+      // 获取用户的 API 类型设置
+      if (provider.storeKeys.apiType) {
+        apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
+      }
+
+      logger.debug(`[SDK Manager] Provider ${providerId} config:`, {
+        hasApiKey: !!apiKey,
+        baseUrl,
+        apiType,
+      });
     } catch (error) {
       logger.warn(
         `[SDK Manager] Could not get config from store for ${providerId}:`,
+        error,
+      );
+    }
+  } else if (typeof window !== "undefined") {
+    // 即使提供了配置，也要获取API类型设置
+    try {
+      const { useAccessStore } = require("../store/access");
+      const accessStore = useAccessStore.getState();
+
+      // 获取用户的 API 类型设置
+      if (provider.storeKeys.apiType) {
+        apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
+      }
+
+      logger.debug(`[SDK Manager] Provider ${providerId} API type:`, apiType);
+    } catch (error) {
+      logger.warn(
+        `[SDK Manager] Could not get API type from store for ${providerId}:`,
         error,
       );
     }
@@ -75,6 +105,67 @@ export function createSDKInstance(
 
   if (!apiKey) {
     throw new Error(`API key not provided for ${providerId}`);
+  }
+
+  // 确保使用正确的端点
+  let finalBaseUrl = baseUrl || (provider as any).defaultBaseUrl;
+
+  // 如果用户配置了外部代理，需要根据 API 类型设置正确的端点
+  if (baseUrl && baseUrl !== (provider as any).defaultBaseUrl) {
+    logger.debug(
+      `[SDK Manager] External proxy detected for ${providerId}, API type: ${apiType}`,
+    );
+
+    // 根据用户的 API 类型设置选择正确的端点
+    if (apiType === "response") {
+      // 用户明确选择了 Response API，确保使用 responses 端点
+      if (!finalBaseUrl.includes("/responses")) {
+        if (finalBaseUrl.includes("/chat/completions")) {
+          finalBaseUrl = finalBaseUrl.replace(
+            "/chat/completions",
+            "/responses",
+          );
+        } else if (finalBaseUrl.includes("/v1/chat/completions")) {
+          finalBaseUrl = finalBaseUrl.replace(
+            "/v1/chat/completions",
+            "/v1/responses",
+          );
+        } else {
+          // 对于以 /v1 结尾的URL，直接使用，让AI SDK自己添加端点
+          // 不需要手动添加 /responses，避免重复
+          logger.debug(
+            `[SDK Manager] Using base URL as-is for Response API: ${finalBaseUrl}`,
+          );
+        }
+        if (finalBaseUrl !== baseUrl) {
+          logger.debug(
+            `[SDK Manager] Modified baseUrl for Response API: ${finalBaseUrl}`,
+          );
+        }
+      }
+      logger.debug(
+        `[SDK Manager] Using Response API with external proxy: ${finalBaseUrl}`,
+      );
+    } else {
+      // 用户选择了 Chat API（默认），确保使用 chat/completions 端点
+      if (finalBaseUrl.includes("/responses")) {
+        finalBaseUrl = finalBaseUrl.replace("/responses", "/chat/completions");
+        logger.debug(
+          `[SDK Manager] Modified baseUrl for Chat API: ${finalBaseUrl}`,
+        );
+      } else if (finalBaseUrl.includes("/v1/responses")) {
+        finalBaseUrl = finalBaseUrl.replace(
+          "/v1/responses",
+          "/v1/chat/completions",
+        );
+        logger.debug(
+          `[SDK Manager] Modified baseUrl for Chat API: ${finalBaseUrl}`,
+        );
+      }
+      logger.debug(
+        `[SDK Manager] Using Chat API with external proxy: ${finalBaseUrl}`,
+      );
+    }
   }
 
   let sdkInstance: any;
@@ -85,7 +176,7 @@ export function createSDKInstance(
       case "openai":
         sdkInstance = createOpenAI({
           apiKey,
-          baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          baseURL: finalBaseUrl,
           fetch: customFetch,
         });
         break;
@@ -93,7 +184,7 @@ export function createSDKInstance(
       case "openai-compatible":
         sdkInstance = createOpenAICompatible({
           apiKey,
-          baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          baseURL: finalBaseUrl,
           name: provider.id,
           fetch: customFetch,
         });
@@ -102,7 +193,7 @@ export function createSDKInstance(
       case "anthropic":
         sdkInstance = createAnthropic({
           apiKey,
-          baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          baseURL: finalBaseUrl,
           fetch: customFetch,
         });
         break;
@@ -110,7 +201,7 @@ export function createSDKInstance(
       case "google":
         sdkInstance = createGoogleGenerativeAI({
           apiKey,
-          baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          baseURL: finalBaseUrl,
           fetch: customFetch,
         });
         break;
@@ -118,7 +209,7 @@ export function createSDKInstance(
       case "xai":
         sdkInstance = createXai({
           apiKey,
-          baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          baseURL: finalBaseUrl,
           fetch: customFetch,
         });
         break;
@@ -140,6 +231,8 @@ export function createSDKInstance(
     sdkInstances.set(cacheKey, sdkInstance);
     logger.debug(`[SDK Manager] Created SDK instance for ${providerId}`, {
       sdkType: provider.sdkType,
+      baseURL: finalBaseUrl,
+      apiType,
     });
 
     return sdkInstance;

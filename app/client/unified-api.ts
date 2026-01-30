@@ -89,11 +89,53 @@ export function unifiedChat(
     systemPrompt,
   } = options;
 
-  const providerId = getProviderIdFromModel(model);
+  // 优先使用传入的 providerName，如果没有则根据模型名称推断
+  let providerId: string;
+
+  // 尝试从客户端 store 获取当前会话的 providerName
+  if (typeof window !== "undefined") {
+    try {
+      const { useChatStore } = require("../store");
+      const chatStore = useChatStore.getState();
+      const currentSession = chatStore.currentSession();
+      const sessionProviderName =
+        currentSession?.mask?.modelConfig?.providerName;
+
+      if (sessionProviderName) {
+        // 标准化 providerName
+        const { normalizeProviderName } = require("./api");
+        providerId = normalizeProviderName(sessionProviderName);
+        logger.debug(
+          `[Unified API] Using session provider: ${providerId} for model: ${model}`,
+        );
+      } else {
+        // 如果没有会话配置，则根据模型名称推断
+        providerId = getProviderIdFromModel(model);
+        logger.debug(
+          `[Unified API] Inferred provider: ${providerId} from model: ${model}`,
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        `[Unified API] Could not get session provider, falling back to model inference:`,
+        error,
+      );
+      providerId = getProviderIdFromModel(model);
+    }
+  } else {
+    // 服务器端环境，根据模型名称推断
+    providerId = getProviderIdFromModel(model);
+    logger.debug(
+      `[Unified API] Server-side provider inference: ${providerId} for model: ${model}`,
+    );
+  }
+
   const provider = getAllProviders().find((p) => p.id === providerId);
 
   if (!provider) {
-    throw new Error(`Provider not found for model: ${model}`);
+    throw new Error(
+      `Provider not found for model: ${model} (inferred provider: ${providerId})`,
+    );
   }
 
   // 准备请求参数

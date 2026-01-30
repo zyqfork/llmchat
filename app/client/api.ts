@@ -143,18 +143,54 @@ class UnifiedClientApi extends LLMApi {
         tools: options.tools,
       };
 
-      const result = await unifiedChat(requestOptions);
-
       if (options.config.stream) {
         // 处理流式响应
-        // 这里需要根据 AI SDK 的实际 API 来处理流式响应
-        // 暂时简化处理
-        options.onFinish("Stream response handled", new Response());
+        logger.debug("[Unified Client API] Starting stream chat");
+
+        const streamResult = await unifiedChat(requestOptions);
+
+        // AI SDK 的 streamText 返回一个包含 textStream 的对象
+        if (streamResult && streamResult.textStream) {
+          let fullContent = "";
+
+          try {
+            for await (const chunk of streamResult.textStream) {
+              fullContent += chunk;
+              options.onUpdate?.(fullContent, chunk);
+            }
+
+            // 流式完成后调用 onFinish
+            const mockResponse = new Response();
+            // 添加调试信息到响应对象
+            (mockResponse as any).__requestDebug = {
+              url: "AI SDK Stream",
+              method: "POST",
+              headers: {},
+            };
+
+            options.onFinish(fullContent, mockResponse);
+          } catch (streamError) {
+            logger.error(
+              "[Unified Client API] Stream processing error:",
+              streamError,
+            );
+            options.onError?.(streamError as Error);
+          }
+        } else {
+          // 如果没有流式响应，作为普通响应处理
+          const content = streamResult?.content || streamResult?.text || "";
+          options.onUpdate?.(content, content);
+          options.onFinish(content, new Response());
+        }
       } else {
         // 处理普通响应
-        const response = result as any;
-        options.onUpdate?.(response.content, response.content);
-        options.onFinish(response.content, new Response());
+        logger.debug("[Unified Client API] Starting non-stream chat");
+
+        const result = await unifiedChat(requestOptions);
+        const content = result?.content || result?.text || "";
+
+        options.onUpdate?.(content, content);
+        options.onFinish(content, new Response());
       }
     } catch (error) {
       logger.error("[Unified Client API] Chat failed:", error);

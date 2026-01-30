@@ -199,9 +199,9 @@ export const FETCH_COMMIT_URL = `https://api.github.com/repos/${OWNER}/${REPO}/c
 export const FETCH_TAG_URL = `https://api.github.com/repos/${OWNER}/${REPO}/tags?per_page=1`;
 export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 
-// ==================== 模型图标匹配规则 ====================
+// ==================== 统一图标配置 ====================
 
-// 支持的 Lobehub 图标类型
+// 支持的图标类型
 export type ModelIconType =
   | "openai"
   | "azure"
@@ -214,105 +214,272 @@ export type ModelIconType =
   | "wenxin"
   | "grok"
   | "siliconcloud"
-  | "ollama";
+  | "ollama"
+  | "chatglm"
+  | "doubao" // 字节跳动豆包/火山引擎
+  | "mistral" // Mistral AI
+  | "huggingface" // Hugging Face
+  | "perplexity" // Perplexity
+  | "stability" // Stability AI
+  | "midjourney" // Midjourney
+  | "replicate" // Replicate
+  | "together" // Together AI
+  | "modelscope" // 魔搭社区
+  | "cohere" // Cohere
+  | "anthropic" // Anthropic (独立图标)
+  | "yi" // 零一万物
+  | "minimax" // MiniMax
+  | "stepfun" // 阶跃星辰
+  | "baichuan" // 百川智能
+  | "sensetime" // 商汤科技
+  | "iflytek" // 科大讯飞
+  | "tencent" // 腾讯
+  | "netease" // 网易
+  | "360" // 360智脑
+  | "groq" // Groq (硬件加速)
+  | "fireworks" // Fireworks AI
+  | "anyscale" // Anyscale
+  | "runpod" // RunPod
+  | "novita" // Novita AI
+  | "lepton" // Lepton AI
+  | "cerebras"; // Cerebras
 
-// 模型名称到图标类型的匹配规则（按优先级排序）
-export const MODEL_ICON_RULES: Array<{
-  patterns: string[];
-  iconType: ModelIconType;
-  description: string;
-}> = [
-  // OpenAI 系列
+// 统一的图标配置 - 每个图标类型包含模型匹配规则和厂商映射
+export const ICON_CONFIG: Record<
+  ModelIconType,
   {
-    patterns: ["gpt-3"],
-    iconType: "openai",
-    description: "GPT-3 系列模型",
+    modelPatterns: string[];
+    providerNames: string[];
+    description: string;
+  }
+> = {
+  openai: {
+    modelPatterns: [
+      "gpt-3",
+      "gpt-4",
+      "gpt-5",
+      "o1",
+      "o3",
+      "o4",
+      "chatgpt",
+      "dall-e",
+      "dalle",
+      "text-embedding",
+      "ada",
+    ],
+    providerNames: ["openai"],
+    description: "OpenAI 系列",
   },
-  {
-    patterns: ["gpt-4", "chatgpt-4o", "gpt-5"],
-    iconType: "openai",
-    description: "GPT-4/5 系列模型",
+  azure: {
+    modelPatterns: [], // Azure 主要通过厂商名称识别
+    providerNames: ["azure", "azure openai"],
+    description: "Azure OpenAI 服务",
   },
-  {
-    patterns: ["o1", "o3", "o4"],
-    iconType: "openai",
-    description: "OpenAI O 系列推理模型",
-  },
-
-  // 其他厂商模型
-  {
-    patterns: ["claude"],
-    iconType: "claude",
+  claude: {
+    modelPatterns: ["claude"],
+    providerNames: ["anthropic"],
     description: "Anthropic Claude 系列",
   },
-  {
-    patterns: ["gemini", "learnlm"],
-    iconType: "gemini",
+  anthropic: {
+    modelPatterns: [], // 独立的 Anthropic 图标
+    providerNames: ["anthropic inc", "anthropic ai"],
+    description: "Anthropic 公司",
+  },
+  gemini: {
+    modelPatterns: ["gemini", "learnlm", "gemma"],
+    providerNames: ["google"],
     description: "Google Gemini 系列",
   },
-  {
-    patterns: ["llama"],
-    iconType: "meta",
+  meta: {
+    modelPatterns: ["llama", "code-llama", "codellama"],
+    providerNames: ["meta", "facebook"],
     description: "Meta LLaMA 系列",
   },
-  {
-    patterns: ["deepseek"],
-    iconType: "deepseek",
+  deepseek: {
+    modelPatterns: ["deepseek"],
+    providerNames: ["deepseek"],
     description: "DeepSeek 系列",
   },
-  {
-    patterns: ["kimi", "moonshot"],
-    iconType: "kimi",
+  kimi: {
+    modelPatterns: ["kimi", "moonshot"],
+    providerNames: ["moonshotai", "moonshot", "月之暗面"],
     description: "月之暗面 Kimi 系列",
   },
-  {
-    patterns: ["qwen", "qwq", "qvq"],
-    iconType: "qwen",
+  qwen: {
+    modelPatterns: ["qwen", "qwq", "qvq", "text-embedding-v2", "通义"],
+    providerNames: ["alibaba", "alibaba cloud", "阿里巴巴", "阿里云", "通义"],
     description: "阿里云通义千问系列",
   },
-  {
-    patterns: ["wenxin", "文心"],
-    iconType: "wenxin",
+  wenxin: {
+    modelPatterns: ["wenxin", "文心", "ernie"],
+    providerNames: ["百度", "baidu"],
     description: "百度文心系列",
   },
-  {
-    patterns: ["grok"],
-    iconType: "grok",
+  grok: {
+    modelPatterns: ["grok"],
+    providerNames: ["xai"],
     description: "xAI Grok 系列",
   },
-  {
-    patterns: ["ollama"],
-    iconType: "ollama",
+  siliconcloud: {
+    modelPatterns: [], // SiliconFlow 主要通过厂商名称识别
+    providerNames: ["siliconflow"],
+    description: "SiliconFlow 聚合服务",
+  },
+  ollama: {
+    modelPatterns: ["ollama"],
+    providerNames: ["ollama", "ollama cloud"],
     description: "Ollama 本地模型",
   },
-];
-
-// 厂商名称到图标类型的映射
-export const PROVIDER_ICON_MAP: Record<string, ModelIconType> = {
-  // 主要厂商 - 支持 ID 和 Name 两种形式
-  openai: "openai",
-  "azure openai": "azure",
-  azure: "azure",
-  anthropic: "claude",
-  google: "gemini",
-  "alibaba cloud": "qwen",
-  alibaba: "qwen",
-  moonshotai: "kimi",
-  moonshot: "kimi",
-  deepseek: "deepseek",
-  meta: "meta",
-  xai: "grok",
-  siliconflow: "siliconcloud",
-  ollama: "ollama",
-  "ollama cloud": "ollama",
-
-  // 中文厂商名称
-  阿里巴巴: "qwen",
-  阿里云: "qwen",
-  月之暗面: "kimi",
-  智谱: "claude",
-  百度: "wenxin",
-  腾讯: "meta",
+  chatglm: {
+    modelPatterns: ["chatglm", "glm", "zhipu", "智谱", "清言", "qingyan"],
+    providerNames: ["zai", "zhipu", "智谱", "智谱ai", "zhipuai"],
+    description: "智谱 ChatGLM 系列",
+  },
+  doubao: {
+    modelPatterns: ["doubao", "豆包", "bytedance", "字节", "抖音", "^ep-"], // 使用 ^ep- 表示以 ep- 开头
+    providerNames: [
+      "bytedance",
+      "字节跳动",
+      "字节",
+      "抖音",
+      "doubao",
+      "豆包",
+      "火山引擎",
+      "volcengine",
+    ],
+    description: "字节跳动豆包/火山引擎系列",
+  },
+  mistral: {
+    modelPatterns: ["mistral", "mixtral", "codestral", "pixtral"],
+    providerNames: ["mistral", "mistral ai"],
+    description: "Mistral AI 系列",
+  },
+  huggingface: {
+    modelPatterns: ["huggingface", "hf", "transformers"],
+    providerNames: ["huggingface", "hugging face", "hf"],
+    description: "Hugging Face 模型",
+  },
+  perplexity: {
+    modelPatterns: ["perplexity", "pplx"],
+    providerNames: ["perplexity"],
+    description: "Perplexity 搜索模型",
+  },
+  stability: {
+    modelPatterns: [
+      "stable",
+      "sdxl",
+      "sd3",
+      "stablediffusion",
+      "stable-diffusion",
+    ],
+    providerNames: ["stability", "stability ai", "stabilityai"],
+    description: "Stability AI 图像生成",
+  },
+  midjourney: {
+    modelPatterns: ["midjourney", "mj"],
+    providerNames: ["midjourney"],
+    description: "Midjourney 图像生成",
+  },
+  replicate: {
+    modelPatterns: ["replicate"],
+    providerNames: ["replicate"],
+    description: "Replicate 平台",
+  },
+  together: {
+    modelPatterns: ["together"],
+    providerNames: ["together", "together ai", "togetherai"],
+    description: "Together AI 平台",
+  },
+  modelscope: {
+    modelPatterns: ["modelscope", "魔搭", "达摩院"],
+    providerNames: ["modelscope", "魔搭", "阿里达摩院", "达摩院"],
+    description: "魔搭社区模型",
+  },
+  cohere: {
+    modelPatterns: ["cohere", "command", "embed"],
+    providerNames: ["cohere"],
+    description: "Cohere 系列",
+  },
+  yi: {
+    modelPatterns: ["^yi-", "01-ai"], // 使用 ^yi- 表示以 yi- 开头
+    providerNames: ["01-ai", "零一万物", "01.ai"],
+    description: "零一万物 Yi 系列",
+  },
+  minimax: {
+    modelPatterns: ["minimax", "abab"],
+    providerNames: ["minimax", "海螺ai"],
+    description: "MiniMax 海螺AI",
+  },
+  stepfun: {
+    modelPatterns: ["^step-", "stepfun"], // 使用 ^step- 表示以 step- 开头
+    providerNames: ["stepfun", "阶跃星辰"],
+    description: "阶跃星辰 Step 系列",
+  },
+  baichuan: {
+    modelPatterns: ["baichuan"],
+    providerNames: ["baichuan", "百川智能"],
+    description: "百川智能系列",
+  },
+  sensetime: {
+    modelPatterns: ["sensechat", "商汤"],
+    providerNames: ["sensetime", "商汤科技", "商汤"],
+    description: "商汤科技系列",
+  },
+  iflytek: {
+    modelPatterns: ["spark", "讯飞星火"],
+    providerNames: ["iflytek", "科大讯飞", "讯飞"],
+    description: "科大讯飞星火系列",
+  },
+  tencent: {
+    modelPatterns: ["hunyuan", "混元"],
+    providerNames: ["tencent", "腾讯", "腾讯云"],
+    description: "腾讯混元系列",
+  },
+  netease: {
+    modelPatterns: ["youdao", "有道"],
+    providerNames: ["netease", "网易", "有道"],
+    description: "网易有道系列",
+  },
+  "360": {
+    modelPatterns: ["360gpt", "智脑"],
+    providerNames: ["360", "奇虎360"],
+    description: "360智脑系列",
+  },
+  groq: {
+    modelPatterns: ["groq"], // 注意：这是硬件加速平台，不是 xAI 的 Grok
+    providerNames: ["groq"],
+    description: "Groq 硬件加速平台",
+  },
+  fireworks: {
+    modelPatterns: ["fireworks"],
+    providerNames: ["fireworks", "fireworks ai"],
+    description: "Fireworks AI 平台",
+  },
+  anyscale: {
+    modelPatterns: ["anyscale"],
+    providerNames: ["anyscale"],
+    description: "Anyscale 平台",
+  },
+  runpod: {
+    modelPatterns: ["runpod"],
+    providerNames: ["runpod"],
+    description: "RunPod 平台",
+  },
+  novita: {
+    modelPatterns: ["novita"],
+    providerNames: ["novita", "novita ai"],
+    description: "Novita AI 平台",
+  },
+  lepton: {
+    modelPatterns: ["lepton"],
+    providerNames: ["lepton", "lepton ai"],
+    description: "Lepton AI 平台",
+  },
+  cerebras: {
+    modelPatterns: ["cerebras"],
+    providerNames: ["cerebras"],
+    description: "Cerebras 系统",
+  },
 };
 
 /**
@@ -325,14 +492,28 @@ export function getModelIconType(modelName: string): ModelIconType | null {
 
   const lowerModelName = modelName.toLowerCase();
 
-  // 按优先级顺序匹配规则
-  for (const rule of MODEL_ICON_RULES) {
+  // 按照模式长度排序，优先匹配更具体的模式
+  const sortedConfigs = Object.entries(ICON_CONFIG).sort((a, b) => {
+    const maxLengthA = Math.max(...a[1].modelPatterns.map((p) => p.length));
+    const maxLengthB = Math.max(...b[1].modelPatterns.map((p) => p.length));
+    return maxLengthB - maxLengthA; // 降序排列，长的优先
+  });
+
+  // 遍历排序后的图标配置，按优先级匹配
+  for (const [iconType, config] of sortedConfigs) {
     if (
-      rule.patterns.some((pattern) =>
-        lowerModelName.includes(pattern.toLowerCase()),
-      )
+      config.modelPatterns.some((pattern) => {
+        const lowerPattern = pattern.toLowerCase();
+        // 处理以 ^ 开头的模式（表示字符串开头匹配）
+        if (lowerPattern.startsWith("^")) {
+          const actualPattern = lowerPattern.substring(1);
+          return lowerModelName.startsWith(actualPattern);
+        }
+        // 普通包含匹配
+        return lowerModelName.includes(lowerPattern);
+      })
     ) {
-      return rule.iconType;
+      return iconType as ModelIconType;
     }
   }
 
@@ -350,7 +531,19 @@ export function getProviderIconType(
   if (!providerName) return null;
 
   const lowerProviderName = providerName.toLowerCase();
-  return PROVIDER_ICON_MAP[lowerProviderName] || null;
+
+  // 遍历所有图标配置，匹配厂商名称
+  for (const [iconType, config] of Object.entries(ICON_CONFIG)) {
+    if (
+      config.providerNames.some(
+        (name) => lowerProviderName === name.toLowerCase(),
+      )
+    ) {
+      return iconType as ModelIconType;
+    }
+  }
+
+  return null;
 }
 
 // ==================== 原有配置 ====================

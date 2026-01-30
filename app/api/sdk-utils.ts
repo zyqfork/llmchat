@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/app/utils/logger";
 import { auth } from "./auth";
 import { prettyObject } from "@/app/utils/format";
-import { getProviderConfig } from "@/app/constant";
+import { getProviderConfig, getAllProviders } from "@/app/constant";
 
 // 定义消息类型
 export interface Message {
@@ -194,129 +194,24 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
 
 /**
  * 处理响应API请求 (OpenAI Responses API)
- * 注意：OpenAI Responses API使用不同的请求格式，需要直接HTTP请求
+ * 现在也使用 AI SDK 而不是直接 HTTP 请求
  */
 export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
   try {
-    if (config.provider === "openai") {
-      // OpenAI Responses API 使用特殊格式，需要直接HTTP请求
-      return await handleOpenAIResponsesAPI(config);
-    } else {
-      // 对于其他厂商，使用标准聊天API作为fallback
-      return await handleChatRequest(config);
-    }
+    // Response API 现在也通过 AI SDK 处理，与 Chat API 保持一致
+    logger.debug(
+      `[SDK Utils] Using AI SDK for Response API: ${config.provider}/${config.model}`,
+    );
+    logger.debug(
+      `[SDK Utils] Response API called - this should only happen when explicitly enabled by user`,
+    );
+
+    // 对于所有厂商，都使用标准的 Chat API 通过 AI SDK
+    // Response API 的特殊格式转换由 AI SDK 内部处理
+    return await handleChatRequest(config);
   } catch (error) {
-    logger.error("[SDK Utils] Responses API Error:", error);
+    logger.error("[SDK Utils] Response API Error:", error);
     throw error;
-  }
-}
-
-/**
- * 直接处理OpenAI Responses API的HTTP请求
- */
-async function handleOpenAIResponsesAPI(config: OpenAICompatibleConfig) {
-  const url = `${config.baseURL}/responses`;
-
-  // 将messages转换为Responses API格式
-  const systemMessage = config.messages.find((m) => m.role === "system");
-  const userMessages = config.messages.filter(
-    (m) => m.role === "user" || m.role === "assistant",
-  );
-
-  // 构建input数组 - Responses API格式
-  const input = userMessages.map((msg) => ({
-    type: "message",
-    role: msg.role,
-    content: [
-      {
-        type: msg.role === "user" ? "input_text" : "output_text",
-        text: msg.content,
-      },
-    ],
-  }));
-
-  const requestBody: any = {
-    model: config.model,
-    input,
-    stream: config.stream,
-  };
-
-  // 添加系统指令
-  if (systemMessage) {
-    requestBody.instructions = systemMessage.content;
-  }
-
-  // 添加可选参数
-  if (config.temperature !== undefined)
-    requestBody.temperature = config.temperature;
-  if (config.maxTokens !== undefined)
-    requestBody.max_output_tokens = config.maxTokens;
-  if (config.topP !== undefined) requestBody.top_p = config.topP;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${config.apiKey}`,
-  };
-
-  logger.debug("[OpenAI Responses API] Request:", { url, body: requestBody });
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    logger.error("[OpenAI Responses API] Error:", errorData);
-    throw new Error(
-      `HTTP ${response.status}: ${errorData.error?.message || "Unknown error"}`,
-    );
-  }
-
-  if (config.stream) {
-    // 返回流式响应
-    return new NextResponse(response.body, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
-    });
-  } else {
-    // 处理非流式响应
-    const data = await response.json();
-    logger.debug("[OpenAI Responses API] Response:", data);
-
-    // 转换为Chat Completions格式以保持兼容性
-    const assistantMessage = data.output?.find(
-      (item: any) => item.type === "message" && item.role === "assistant",
-    );
-    const textContent =
-      assistantMessage?.content?.find((c: any) => c.type === "output_text")
-        ?.text || "";
-
-    return NextResponse.json({
-      id: data.id,
-      object: "chat.completion",
-      created: data.created_at || Math.floor(Date.now() / 1000),
-      model: data.model,
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: textContent,
-          },
-          finish_reason: data.status === "completed" ? "stop" : "length",
-        },
-      ],
-      usage: {
-        prompt_tokens: data.usage?.input_tokens || 0,
-        completion_tokens: data.usage?.output_tokens || 0,
-        total_tokens: data.usage?.total_tokens || 0,
-      },
-    });
   }
 }
 
@@ -900,6 +795,46 @@ export async function handleProviderRequest(
             path === responsePath || path.endsWith(responsePath),
         )
       ) {
+        // 只有在用户明确启用 Response API 时才使用
+        const providerId =
+          config.providerName?.toLowerCase() || config.provider;
+        const provider = getAllProviders().find((p) => p.id === providerId);
+
+        if (provider?.storeKeys?.apiType) {
+          // 检查用户是否启用了 Response API
+          const { useAccessStore } = await import("@/app/store");
+          const accessStore = useAccessStore.getState();
+          const apiType = (accessStore as any)[provider.storeKeys.apiType];
+
+          if (apiType !== "response") {
+            logger.warn(
+              `[${config.providerName}] Response API endpoint called but apiType is not 'response', falling back to Chat API`,
+            );
+            // 强制使用 Chat API 而不是 Response API
+            const chatParams = await parseChatRequest(req);
+
+            return await handleChatRequest({
+              provider: config.provider,
+              providerName: config.providerDisplayName,
+              apiKey,
+              baseURL: normalizedBaseURL,
+              model: chatParams.model,
+              messages: convertMessages(chatParams.messages),
+              stream: chatParams.stream,
+              temperature: chatParams.temperature,
+              maxTokens: chatParams.max_tokens,
+              topP: chatParams.top_p,
+              frequencyPenalty: chatParams.frequency_penalty,
+              presencePenalty: chatParams.presence_penalty,
+              stop: chatParams.stop,
+              // Azure特有配置
+              resourceName: config.resourceName,
+              deploymentName: config.deploymentName,
+              apiVersion: config.apiVersion,
+            });
+          }
+        }
+
         logger.debug(`[${config.providerName}] Using SDK for responses API`);
 
         const chatParams = await parseChatRequest(req);
