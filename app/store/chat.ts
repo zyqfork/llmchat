@@ -5,9 +5,9 @@ import {
   isDalle3,
   safeLocalStorage,
   trimTopic,
-  isVisionModel,
   removeThinkingContent,
 } from "../utils";
+import { isVisionModel } from "../constant";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import {

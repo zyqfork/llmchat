@@ -11,7 +11,7 @@ import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ConfigIcon from "../icons/config.svg";
 import { ModelConfigModal } from "./model-config-modal";
-import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import { getModelCapabilities } from "../constant";
 import {
   getModelContextTokens,
   saveCustomContextTokens,
@@ -646,7 +646,7 @@ export function ModelSelectorModal<T>(props: {
         const [modelName] = modelKey.split("@");
 
         // 获取最新的模型能力配置
-        const capabilities = getModelCapabilitiesWithCustomConfig(modelName);
+        const capabilities = getModelCapabilities(modelName);
         const contextConfig = getModelContextTokens(modelName);
         const contextTokensDisplay = contextConfig
           ? formatTokenCount(contextConfig.contextTokens)

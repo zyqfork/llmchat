@@ -4,7 +4,7 @@ import styles from "./model-config-modal.module.scss";
 import CloseIcon from "../icons/close.svg";
 import DeleteIcon from "../icons/delete.svg";
 import { getModelContextTokens } from "../config/model-context-tokens";
-import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import { getModelCapabilities } from "../constant";
 import {
   getModelStreamConfig,
   saveModelStreamConfig,
@@ -19,7 +19,6 @@ interface ModelConfigModalProps {
   onSave: (config: {
     capabilities: {
       vision: boolean;
-      web: boolean;
       reasoning: boolean;
       tools: boolean;
     };
@@ -43,7 +42,6 @@ export function ModelConfigModal({
 }: ModelConfigModalProps) {
   const [capabilities, setCapabilities] = useState({
     vision: false,
-    web: false,
     reasoning: false,
     tools: false,
   });
@@ -55,10 +53,9 @@ export function ModelConfigModal({
 
   useEffect(() => {
     // 获取当前模型能力配置
-    const currentCapabilities = getModelCapabilitiesWithCustomConfig(modelName);
+    const currentCapabilities = getModelCapabilities(modelName);
     setCapabilities({
       vision: currentCapabilities.vision || false,
-      web: currentCapabilities.web || false,
       reasoning: currentCapabilities.reasoning || false,
       tools: currentCapabilities.tools || false,
     });
@@ -214,21 +211,6 @@ export function ModelConfigModal({
                 <span className={styles["capability-text"]}>
                   <span className={styles["capability-icon"]}>👁️</span>
                   视觉
-                </span>
-              </div>
-
-              <div
-                className={styles["capability-item"]}
-                onClick={() => handleCapabilityToggle("web")}
-              >
-                <div
-                  className={`${styles["capability-dot"]} ${
-                    capabilities.web ? styles["active"] : ""
-                  }`}
-                />
-                <span className={styles["capability-text"]}>
-                  <span className={styles["capability-icon"]}>🌐</span>
-                  联网
                 </span>
               </div>
 

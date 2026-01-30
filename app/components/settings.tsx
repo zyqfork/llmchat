@@ -35,7 +35,7 @@ import {
 import { ModelConfigList } from "./model-config";
 import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
+import { getModelCapabilities } from "../constant";
 import { normalizeProviderName } from "../client/api";
 import {
   getModelCompressThreshold,
@@ -2620,7 +2620,7 @@ export function Settings() {
                                       {modelName}
                                     </span>
                                     <ModelCapabilityIcons
-                                      capabilities={getModelCapabilitiesWithCustomConfig(
+                                      capabilities={getModelCapabilities(
                                         modelName,
                                       )}
                                       size={12}
@@ -2733,7 +2733,7 @@ export function Settings() {
 
   // 打开模型配置弹窗
   const openModelConfig = (provider: string, modelName: string) => {
-    const currentCapabilities = getModelCapabilitiesWithCustomConfig(modelName);
+    const currentCapabilities = getModelCapabilities(modelName);
 
     // 获取当前上下文Token数配置
     const currentContextConfig = getModelContextTokens(modelName);
@@ -2744,7 +2744,6 @@ export function Settings() {
       category: "", // 在设置页面中不显示分组
       capabilities: {
         vision: currentCapabilities.vision || false,
-        web: currentCapabilities.web || false,
         reasoning: currentCapabilities.reasoning || false,
         tools: currentCapabilities.tools || false,
       },

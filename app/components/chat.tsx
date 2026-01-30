@@ -85,7 +85,6 @@ import {
   getMessageTextContentWithoutThinking,
   removeThinkingContent,
   isDalle3,
-  isVisionModel,
   safeLocalStorage,
   getModelSizes,
   supportsCustomSize,
@@ -94,6 +93,7 @@ import {
   isThinkingModel,
   wrapThinkingPart,
 } from "../utils";
+import { isVisionModel, isWebSearchModel } from "../constant";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
 
@@ -147,10 +147,7 @@ import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, getAllTools } from "../mcp/actions.client";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import {
-  getModelCapabilitiesWithCustomConfig,
-  isWebSearchModel,
-} from "../config/model-capabilities";
+import { getModelCapabilities } from "../constant";
 import { ProviderIcon, ModelProviderIcon } from "./provider-icon";
 import { logger } from "../utils/logger";
 
@@ -462,11 +459,15 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
 
   // 获取当前模型的能力
   const currentModel = session.mask.modelConfig.model;
-  const modelCapabilities = getModelCapabilitiesWithCustomConfig(currentModel);
+  const modelCapabilities = getModelCapabilities(currentModel);
 
   // 根据模型类型定义不同的thinking选项
   const getThinkingOptions = () => {
-    if (modelCapabilities.thinkingType === "claude") {
+    // 根据 reasoningField 判断模型类型
+    const isClaudeType =
+      modelCapabilities.reasoningField === "reasoning_content";
+
+    if (isClaudeType) {
       // Claude模型的thinking选项
       return [
         {
@@ -580,7 +581,7 @@ function ThinkingPanel(props: { showPanel: boolean; onClose: () => void }) {
       </div>
       <div className={styles["shortcut-panel-content"]}>
         <div className={styles["thinking-notice"]}>
-          {modelCapabilities.thinkingType === "claude"
+          {modelCapabilities.reasoningField === "reasoning_content"
             ? Locale.Chat.Thinking.ClaudeNotice
             : Locale.Chat.Thinking.GeminiNotice}
         </div>
@@ -1826,12 +1827,12 @@ export function ChatActions(props: {
         ?.providerName as string;
 
       // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
-      const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+      const modelCapabilities = getModelCapabilities(
         session.mask.modelConfig.model,
       );
       if (
         modelCapabilities.reasoning &&
-        modelCapabilities.thinkingType &&
+        modelCapabilities.reasoningField &&
         session.mask.modelConfig.thinkingBudget === undefined
       ) {
         session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考
@@ -1974,11 +1975,10 @@ export function ChatActions(props: {
       )}
       {(() => {
         const currentModel = session.mask.modelConfig.model;
-        const modelCapabilities =
-          getModelCapabilitiesWithCustomConfig(currentModel);
+        const modelCapabilities = getModelCapabilities(currentModel);
         return (
           modelCapabilities.reasoning &&
-          modelCapabilities.thinkingType && (
+          modelCapabilities.reasoningField && (
             <ChatAction
               onClick={() =>
                 props.setShowThinkingPanel(!props.showThinkingPanel)
@@ -2122,12 +2122,12 @@ export function ChatActions(props: {
                 session.mask.syncGlobalConfig = false;
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
-                const modelCapabilities = getModelCapabilitiesWithCustomConfig(
+                const modelCapabilities = getModelCapabilities(
                   session.mask.modelConfig.model,
                 );
                 if (
                   modelCapabilities.reasoning &&
-                  modelCapabilities.thinkingType &&
+                  modelCapabilities.reasoningField &&
                   session.mask.modelConfig.thinkingBudget === undefined
                 ) {
                   session.mask.modelConfig.thinkingBudget = -1; // 默认为动态思考

@@ -1,7 +1,5 @@
-import { getModelContextTokens } from "./config/model-context-tokens";
-
 // 尝试导入生成的配置，如果不存在则使用默认配置
-let MODELS_DEV_CONFIG: any = {};
+let MODELS_DEV_CONFIG: Record<string, any> = {};
 
 try {
   const generatedConfig = require("./config/generated/models-config");
@@ -16,15 +14,23 @@ try {
 function getKnowledgeCutoffFromConfig(): Record<string, string> {
   const cutoffDates: Record<string, string> = {};
 
-  Object.values(MODELS_DEV_CONFIG).forEach((provider: any) => {
-    if (provider.models) {
-      Object.entries(provider.models).forEach(
-        ([modelId, modelData]: [string, any]) => {
-          if (modelData.knowledge) {
-            cutoffDates[modelId] = modelData.knowledge;
-          }
-        },
-      );
+  Object.values(MODELS_DEV_CONFIG).forEach((provider) => {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models
+    ) {
+      Object.entries(provider.models).forEach(([modelId, modelData]) => {
+        if (
+          modelData &&
+          typeof modelData === "object" &&
+          "knowledge" in modelData &&
+          modelData.knowledge
+        ) {
+          cutoffDates[modelId] = modelData.knowledge as string;
+        }
+      });
     }
   });
 
@@ -34,16 +40,152 @@ function getKnowledgeCutoffFromConfig(): Record<string, string> {
 // 辅助函数：从生成的配置中获取厂商模型列表
 function getProviderModelsFromConfig(providerId: string): string[] {
   const provider = MODELS_DEV_CONFIG[providerId];
-  return provider?.models ? Object.keys(provider.models) : [];
+  return provider &&
+    typeof provider === "object" &&
+    "models" in provider &&
+    provider.models
+    ? Object.keys(provider.models)
+    : [];
 }
 
-// 辅助函数：获取厂商模型列表（优先使用生成的配置，否则使用 fallback）
-function getProviderModels(
-  providerId: string,
-  fallbackModels: string[],
-): string[] {
-  const generatedModels = getProviderModelsFromConfig(providerId);
-  return generatedModels.length > 0 ? generatedModels : fallbackModels;
+// 辅助函数：从生成的配置中获取模型上下文长度
+function getModelContextFromConfig(modelId: string): number | undefined {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      const model = provider.models[modelId];
+      if (
+        model &&
+        typeof model === "object" &&
+        "limit" in model &&
+        model.limit &&
+        typeof model.limit === "object" &&
+        "context" in model.limit
+      ) {
+        return model.limit.context as number;
+      }
+    }
+  }
+  return undefined;
+}
+
+// 辅助函数：从生成的配置中判断模型是否支持视觉
+function getModelVisionSupportFromConfig(modelId: string): boolean {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      const model = provider.models[modelId];
+      if (
+        model &&
+        typeof model === "object" &&
+        "modalities" in model &&
+        model.modalities &&
+        typeof model.modalities === "object" &&
+        "input" in model.modalities
+      ) {
+        const input = model.modalities.input;
+        return Array.isArray(input) && input.includes("image");
+      }
+    }
+  }
+  return false;
+}
+
+// 辅助函数：从生成的配置中获取模型推理能力
+function getModelReasoningSupportFromConfig(modelId: string): boolean {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      const model = provider.models[modelId];
+      if (model && typeof model === "object" && "reasoning" in model) {
+        return Boolean(model.reasoning);
+      }
+    }
+  }
+  return false;
+}
+
+// 辅助函数：从生成的配置中获取模型工具调用能力
+function getModelToolCallSupportFromConfig(modelId: string): boolean {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      const model = provider.models[modelId];
+      if (model && typeof model === "object" && "tool_call" in model) {
+        return Boolean(model.tool_call);
+      }
+    }
+  }
+  return false;
+}
+
+// 辅助函数：从生成的配置中获取模型推理字段类型
+function getModelReasoningFieldFromConfig(modelId: string): string | undefined {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      const model = provider.models[modelId];
+      if (
+        model &&
+        typeof model === "object" &&
+        "interleaved" in model &&
+        model.interleaved &&
+        typeof model.interleaved === "object" &&
+        "field" in model.interleaved
+      ) {
+        return model.interleaved.field as string;
+      }
+    }
+  }
+  return undefined;
+}
+
+// 新的模型能力接口（基于 models-config.ts）
+export interface ModelCapabilities {
+  vision?: boolean; // 视觉能力 - 基于 modalities.input 包含 "image"
+  reasoning?: boolean; // 推理能力 - 基于 reasoning 字段
+  tools?: boolean; // 工具调用能力 - 基于 tool_call 字段
+  reasoningField?: string; // 推理字段名 - 基于 interleaved.field
+}
+
+// 获取模型能力（基于生成的配置）
+export function getModelCapabilities(modelName: string): ModelCapabilities {
+  return {
+    vision: getModelVisionSupportFromConfig(modelName),
+    reasoning: getModelReasoningSupportFromConfig(modelName),
+    tools: getModelToolCallSupportFromConfig(modelName),
+    reasoningField: getModelReasoningFieldFromConfig(modelName),
+  };
+}
+
+// 辅助函数：获取厂商模型列表（直接使用生成的配置）
+function getProviderModels(providerId: string): string[] {
+  return getProviderModelsFromConfig(providerId);
 }
 
 export const OWNER = "zyqfork";
@@ -673,96 +815,10 @@ export const DEEPSEEK_SUMMARIZE_MODEL = "deepseek-chat";
 export const MCP_TOOL_THRESHOLD = 10; // 当工具数量超过此值时使用强化提示词模式
 
 export const KnowledgeCutOffDate: Record<string, string> = {
-  // 优先使用生成的配置，如果没有则使用默认配置
+  // 完全使用生成的配置，如果没有则使用默认值
   ...getKnowledgeCutoffFromConfig(),
   // 默认配置作为 fallback
   default: "2021-09",
-  "gpt-4-turbo": "2023-12",
-  "gpt-4-turbo-2024-04-09": "2023-12",
-  "gpt-4-turbo-preview": "2023-12",
-  "gpt-4.1": "2024-06",
-  "gpt-4.1-2025-04-14": "2024-06",
-  "gpt-4.1-mini": "2024-06",
-  "gpt-4.1-mini-2025-04-14": "2024-06",
-  "gpt-4.1-nano": "2024-06",
-  "gpt-4.1-nano-2025-04-14": "2024-06",
-  "gpt-4.5-preview": "2023-10",
-  "gpt-4.5-preview-2025-02-27": "2023-10",
-  "gpt-4o": "2023-10",
-  "gpt-4o-2024-05-13": "2023-10",
-  "gpt-4o-2024-08-06": "2023-10",
-  "gpt-4o-2024-11-20": "2023-10",
-  "chatgpt-4o-latest": "2023-10",
-  "gpt-4o-mini": "2023-10",
-  "gpt-4o-mini-2024-07-18": "2023-10",
-  "gpt-5": "2024-08",
-  "gpt-5-mini": "2024-08",
-  "gpt-5-nano": "2024-08",
-  "gpt-5-chat": "2024-08",
-  "gpt-5.1": "2025-03",
-  "gpt-5.1-instant": "2025-03",
-  "gpt-5.1-thinking": "2025-03",
-  "gpt-5.1-pro": "2025-03",
-  "gpt-5.1-codex-max": "2025-03",
-  "gpt-5.2": "2025-06",
-  "gpt-5.2-instant": "2025-06",
-  "gpt-5.2-thinking": "2025-06",
-  "gpt-5.2-pro": "2025-06",
-  "gpt-4-vision-preview": "2023-04",
-  "o1-mini-2024-09-12": "2023-10",
-  "o1-mini": "2023-10",
-  "o1-preview-2024-09-12": "2023-10",
-  "o1-preview": "2023-10",
-  "o1-2024-12-17": "2023-10",
-  o1: "2023-10",
-  "o3-mini-2025-01-31": "2023-10",
-  "o3-mini": "2023-10",
-  "gpt-oss-120b": "2023-10",
-  "gpt-oss-20b": "2023-10",
-  // After improvements,
-  // it's now easier to add "KnowledgeCutOffDate" instead of stupid hardcoding it, as was done previously.
-  "gemini-pro": "2023-12",
-  "gemini-pro-vision": "2023-12",
-  "gemini-1.5-pro": "2024-05",
-  "gemini-1.5-flash": "2024-05",
-  "gemini-2.0-flash": "2024-08",
-  "gemini-2.5-pro": "2024-11",
-  "gemini-2.5-flash": "2024-11",
-  "gemini-3-pro": "2025-06",
-  "gemini-3-flash": "2025-06",
-  "gemini-3-nano": "2025-06",
-  "learnlm-1.5-pro-experimental": "2024-05",
-  "claude-3-opus-20240229": "2023-08",
-  "claude-3-haiku-20240307": "2023-08",
-  "claude-3-5-sonnet-20240620": "2024-04",
-  "claude-3-5-sonnet-20241022": "2024-04",
-  "claude-3-5-haiku-20241022": "2024-07",
-  "claude-3-7-sonnet-20250219": "2024-11",
-  "claude-sonnet-4-20250514": "2025-01",
-  "claude-opus-4-20250514": "2025-01",
-  "claude-opus-4-1-20250805": "2025-03",
-  "claude-opus-4-5": "2025-08",
-  "claude-opus-4-5-20251125": "2025-08",
-  "claude-sonnet-4-5": "2025-08",
-  "claude-sonnet-4-5-20251121": "2025-08",
-  "deepseek-chat": "2024-07",
-  "deepseek-coder": "2024-07",
-  "deepseek-reasoner": "2024-12",
-  "doubao-1-5-pro-32k-250115": "2024-10",
-  "doubao-1-5-thinking-pro-m": "2024-10",
-  "doubao-pro-32k-241215": "2024-10",
-  "kimi-k2": "2024-10",
-  "kimi-latest": "2024-10",
-  "kimi-thinking-preview": "2024-10",
-  "qwen-max": "2024-09",
-  "qwen-plus": "2024-09",
-  "qwen2.5-72b-instruct": "2024-06",
-  "qwen3-235b-a22b": "2024-12",
-  "qwq-32b-preview": "2024-06",
-  "qvq-32b": "2024-06",
-  "grok-2-1212": "2024-10",
-  "grok-3": "2024-12",
-  "grok-3-fast": "2024-12",
 };
 
 export const DEFAULT_TTS_ENGINE = "OpenAI-TTS";
@@ -779,375 +835,84 @@ export const DEFAULT_TTS_VOICES = [
   "shimmer",
 ];
 
-export const VISION_MODEL_REGEXES = [
-  /vision/,
-  /gpt-5/,
-  /gpt-4o/,
-  /gpt-4\.1/,
-  /gpt-4-turbo(?!.*preview)/,
-  /claude.*[34]/,
-  /claude-3-[57]/,
-  /claude-[45]/,
-  /gemini-1\.5/,
-  /gemini-2\.[05]/,
-  /gemini-3/,
-  /gemini-exp/,
-  /learnlm/,
-  /qwen.*vl/,
-  /qwen2\.5-vl/,
-  /doubao.*vision/,
-  /doubao-1-5-vision/,
-  /doubao-1-5-thinking-vision/,
-  /deepseek-vl/,
-  /grok.*vision/,
-  /grok-2-vision/,
-  /grok-3/,
-  /^dall-e/,
-  /glm-4v/,
-  /vl/i,
-  /o1-2024-12-17/,
-  /o3/,
-  /o4-mini/,
-  /qvq/,
-];
+// 动态生成视觉模型检测函数，基于 models-config.ts 中的配置
+export function isVisionModel(model: string): boolean {
+  // 首先检查环境变量中的自定义视觉模型列表
+  if (typeof window !== "undefined") {
+    try {
+      const { useAccessStore } = require("./store");
+      const visionModels = useAccessStore.getState().visionModels;
+      const envVisionModels = visionModels
+        ?.split(",")
+        .map((m: string) => m.trim());
+      if (envVisionModels?.includes(model)) {
+        return true;
+      }
+    } catch (error) {
+      // 静默处理错误，继续使用其他检测方法
+    }
+  }
 
-export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
+  // 直接使用生成的配置判断
+  return getModelVisionSupportFromConfig(model);
+}
 
-// 使用生成的模型配置，如果没有则使用 fallback 配置
-const fallbackOpenaiModels = [
-  // As of July 2024, gpt-4o-mini should be used in place of gpt-3.5-turbo,
-  // as it is cheaper, more capable, multimodal, and just as fast. gpt-3.5-turbo is still available for use in the API.
-  "gpt-3.5-turbo",
-  "gpt-3.5-turbo-1106",
-  "gpt-3.5-turbo-0125",
-  "gpt-3.5-turbo-instruct",
-  "gpt-4",
-  "gpt-4-0613",
-  "gpt-4-32k",
-  "gpt-4-32k-0613",
-  "gpt-4-turbo",
-  "gpt-4-turbo-preview",
-  "gpt-4-turbo-2024-04-09",
-  "gpt-4-1106-preview",
-  "gpt-4-0125-preview",
-  "gpt-4-vision-preview",
-  "gpt-4.1",
-  "gpt-4.1-2025-04-14",
-  "gpt-4.1-mini",
-  "gpt-4.1-mini-2025-04-14",
-  "gpt-4.1-nano",
-  "gpt-4.1-nano-2025-04-14",
-  "gpt-4.5-preview",
-  "gpt-4.5-preview-2025-02-27",
-  "gpt-4o",
-  "gpt-4o-2024-05-13",
-  "gpt-4o-2024-08-06",
-  "gpt-4o-2024-11-20",
-  "gpt-4o-mini",
-  "gpt-4o-mini-2024-07-18",
-  "gpt-4o-mini-search-preview",
-  "chatgpt-4o-latest",
-  // GPT-5 系列
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-5-chat",
-  "gpt-5.1",
-  "gpt-5.1-instant",
-  "gpt-5.1-thinking",
-  "gpt-5.1-pro",
-  "gpt-5.1-codex-max",
-  "gpt-5.2",
-  "gpt-5.2-instant",
-  "gpt-5.2-thinking",
-  "gpt-5.2-pro",
-  // 推理模型系列
-  "o1-2024-12-17",
-  "o1-preview",
-  "o1-mini",
-  "o3",
-  "o3-mini",
-  "o3-mini-high",
-  "o4-mini",
-  // OSS 模型系列
-  "gpt-oss-120b",
-  "gpt-oss-20b",
-  // 嵌入模型
-  "text-embedding-3-large",
-  "text-embedding-3-small",
-  "text-embedding-ada-002",
-  // 图像生成
-  "dall-e-3",
-  "dall-e-2",
-  "gpt-image-1",
-];
+// Gemini 搜索模型正则表达式（参考 Cherry Studio）
+// 支持 gemini-2.x 和 gemini-1.5 系列
+export const GEMINI_SEARCH_REGEX = new RegExp("gemini-(2\\.|1\\.5)", "i");
 
-const fallbackGoogleModels = [
-  // Gemini 3 系列
-  "gemini-3-pro",
-  "gemini-3-pro-001",
-  "gemini-3-flash",
-  "gemini-3-nano",
-  // Gemini 2.5 系列
-  "gemini-2.5-pro-exp-03-25",
-  "gemini-2.5-pro-preview-03-25",
-  "gemini-2.5-pro-preview-06-05",
-  "gemini-2.5-pro-preview-05-06",
-  "gemini-2.5-pro",
-  "gemini-2.5-flash-preview-05-20",
-  "gemini-2.5-flash-preview-05-20-nothink",
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-image-preview",
-  // Gemini 2.0 系列
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-001",
-  "gemini-2.0-flash-lite",
-  "gemini-2.0-flash-exp",
-  // LearnLM 系列
-  "learnlm-1.5-pro-experimental",
-  // Gemini 1.5 系列
-  "gemini-1.5-pro",
-  "gemini-1.5-pro-002",
-  "gemini-1.5-pro-001",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-002",
-  "gemini-1.5-flash-001",
-  "gemini-1.5-flash-8b",
-  // Gemini Pro 系列
-  "gemini-pro",
-  // Gemma 系列
-  "gemma-2-27b-it",
-  "gemma-2-9b-it",
-  "gemma-3-27b",
-];
+// 检测模型是否支持网络搜索
+export function isWebSearchModel(modelName: string): boolean {
+  // Gemini 2.x 系列模型支持内置搜索
+  if (GEMINI_SEARCH_REGEX.test(modelName)) {
+    return true;
+  }
 
-const fallbackAnthropicModels = [
-  // Claude 4.5 系列
-  "claude-opus-4-5",
-  "claude-opus-4-5-20251125",
-  "claude-sonnet-4-5",
-  "claude-sonnet-4-5-20251121",
-  // Claude 4.1 系列
-  "claude-opus-4-1-20250805",
-  // Claude 4 系列
-  "claude-sonnet-4-20250514",
-  "claude-opus-4-20250514",
-  // Claude 3.7 系列
-  "claude-3-7-sonnet-20250219",
-  "claude-3-7-sonnet-20250219-thinking",
-  // Claude 3.5 系列
-  "claude-3-5-sonnet-20241022",
-  "claude-3-5-haiku-20241022",
-  "claude-3-5-sonnet-20240620",
-  // Claude 3 系列
-  "claude-3-opus-20240229",
-  "claude-3-haiku-20240307",
-];
+  // 特定的 Gemini 搜索模型
+  const geminiSearchModels = [
+    "gemini-2.0-flash-search",
+    "gemini-2.0-flash-exp-search",
+    "gemini-2.0-pro-exp-02-05-search",
+  ];
 
-const alibabaModes = [
-  // Qwen 3 系列
-  "qwen3-235b-a22b",
-  "qwen3-235b-a22b-fp8",
-  "qwen3-32b-fp8",
-  "qwen3-30b-a3b-fp8",
-  "qwen3-8b",
-  // Qwen 2.5 系列
-  "qwen2.5-72b-instruct",
-  "qwen2.5-32b-instruct",
-  "qwen2.5-14b-instruct",
-  "qwen2.5-7b-instruct",
-  "qwen2.5-coder-32b-instruct",
-  // Qwen 2 系列
-  "qwen2-72b-instruct",
-  "qwen2-vl-72b-instruct",
-  "qwen2-vl-7b-instruct",
-  // 视觉模型
-  "qwen2.5-vl-72b-instruct",
-  "qwen-vl-plus",
-  // 推理模型
-  "qwq-32b-preview",
-  "qwq-32b",
-  "qvq-32b",
-  // 服务版本 (DashScope)
-  "qwen-max",
-  "qwen-plus",
-  "qwen-turbo",
-  "qwen-coder-plus",
-  "qwen3-coder-plus",
-  // 嵌入模型
-  "text-embedding-v2",
-  "qwen3-embedding-8b",
-  "qwen3-reranker-8b",
-];
+  if (geminiSearchModels.includes(modelName)) {
+    return true;
+  }
 
-const moonshotModes = [
-  // Kimi K2 系列
-  "kimi-k2",
-  "kimi-latest",
-  "kimi-thinking-preview",
-  // 经典版本
-  "moonshot-v1-auto",
-];
+  // 其他支持搜索的模型可以在这里添加
+  return false;
+}
 
-const deepseekModels = [
-  // 官方模型
-  "deepseek-chat",
-  "deepseek-reasoner",
-];
-
-const xAIModels = [
-  // Grok 3 系列
-  "grok-3",
-  "grok-3-fast",
-  "grok-3-mini",
-  "grok-3-mini-fast",
-  // Grok 2 系列
-  "grok-2-vision-1212",
-  "grok-2-1212",
-  "grok-vision-beta",
-];
-
-const siliconflowModels = [
-  // DeepSeek 系列
-  "deepseek-ai/DeepSeek-R1",
-  "deepseek-ai/DeepSeek-V3",
-  // Qwen 系列
-  "Qwen/Qwen2.5-7B-Instruct",
-  "Qwen/Qwen3-8B",
-  // 嵌入模型
-  "BAAI/bge-m3",
-  // 图像生成
-  "Kwai-Kolors/Kolors",
-];
-
+// 使用生成的模型配置创建 DEFAULT_MODELS
 let seq = 1000; // 内置的模型序号生成器从1000开始
 
-// 获取各厂商的模型列表（优先使用生成的配置）
-const openaiModelsList = getProviderModels("openai", fallbackOpenaiModels);
-const googleModelsList = getProviderModels("google", fallbackGoogleModels);
-const anthropicModelsList = getProviderModels(
-  "anthropic",
-  fallbackAnthropicModels,
-);
-const alibabaModelsList = getProviderModels("alibaba", alibabaModes);
-const moonshotModelsList = getProviderModels("moonshotai", moonshotModes);
-const xaiModelsList = getProviderModels("xai", xAIModels);
-const deepseekModelsList = getProviderModels("deepseek", deepseekModels);
-const siliconflowModelsList = getProviderModels(
-  "siliconflow",
-  siliconflowModels,
-);
+// 动态生成 DEFAULT_MODELS，基于 ServiceProvider 配置和生成的模型数据
+export const DEFAULT_MODELS = (() => {
+  const models: any[] = [];
+  let currentSeq = seq;
 
-export const DEFAULT_MODELS = [
-  ...openaiModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++, // Global sequence sort(index)
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.OpenAI.id,
-      providerName: ServiceProvider.OpenAI.name,
-      providerType: ServiceProvider.OpenAI.id,
-      sorted: 1, // 这里是固定的，确保顺序与之前内置的版本一致
-    },
-  })),
-  ...openaiModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.Azure.id,
-      providerName: ServiceProvider.Azure.name,
-      providerType: ServiceProvider.Azure.id,
-      sorted: 2,
-    },
-  })),
-  ...googleModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.Google.id,
-      providerName: ServiceProvider.Google.name,
-      providerType: ServiceProvider.Google.id,
-      sorted: 3,
-    },
-  })),
-  ...anthropicModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.Anthropic.id,
-      providerName: ServiceProvider.Anthropic.name,
-      providerType: ServiceProvider.Anthropic.id,
-      sorted: 4,
-    },
-  })),
-  ...alibabaModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.Alibaba.id,
-      providerName: ServiceProvider.Alibaba.name,
-      providerType: ServiceProvider.Alibaba.id,
-      sorted: 5,
-    },
-  })),
-  ...moonshotModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.MoonshotAI.id,
-      providerName: ServiceProvider.MoonshotAI.name,
-      providerType: ServiceProvider.MoonshotAI.id,
-      sorted: 6,
-    },
-  })),
-  ...xaiModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.XAI.id,
-      providerName: ServiceProvider.XAI.name,
-      providerType: ServiceProvider.XAI.id,
-      sorted: 7,
-    },
-  })),
-  ...deepseekModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.DeepSeek.id,
-      providerName: ServiceProvider.DeepSeek.name,
-      providerType: ServiceProvider.DeepSeek.id,
-      sorted: 8,
-    },
-  })),
-  ...siliconflowModelsList.map((name: string) => ({
-    name,
-    available: true,
-    sorted: seq++,
-    contextTokens: getModelContextTokens(name)?.contextTokens,
-    provider: {
-      id: ServiceProvider.SiliconFlow.id,
-      providerName: ServiceProvider.SiliconFlow.name,
-      providerType: ServiceProvider.SiliconFlow.id,
-      sorted: 9,
-    },
-  })),
-] as const;
+  // 遍历所有 ServiceProvider 配置
+  getAllProviders().forEach((provider, providerIndex) => {
+    const providerModels = getProviderModels(provider.id);
+
+    providerModels.forEach((modelName: string) => {
+      models.push({
+        name: modelName,
+        available: true,
+        sorted: currentSeq++,
+        contextTokens: getModelContextFromConfig(modelName),
+        provider: {
+          id: provider.id,
+          providerName: provider.name,
+          providerType: provider.id,
+          sorted: providerIndex + 1,
+        },
+      });
+    });
+  });
+
+  return models;
+})();
 
 export const CHAT_PAGE_SIZE = 15;
 export const MAX_RENDER_MSG_COUNT = 45;

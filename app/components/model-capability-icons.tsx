@@ -277,10 +277,8 @@ export function ModelCapabilityIcons({
 }: {
   capabilities: {
     vision?: boolean;
-    web?: boolean;
     reasoning?: boolean;
     tools?: boolean;
-    embedding?: boolean;
   };
   size?: number;
   colorful?: boolean;
@@ -288,14 +286,10 @@ export function ModelCapabilityIcons({
   return (
     <div className={styles["capability-icons"]}>
       {capabilities.vision && <VisionIcon size={size} colorful={colorful} />}
-      {capabilities.web && <WebIcon size={size} colorful={colorful} />}
       {capabilities.reasoning && (
         <ReasoningIcon size={size} colorful={colorful} />
       )}
       {capabilities.tools && <ToolIcon size={size} colorful={colorful} />}
-      {capabilities.embedding && (
-        <EmbeddingIcon size={size} colorful={colorful} />
-      )}
     </div>
   );
 }

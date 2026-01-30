@@ -15,10 +15,7 @@ import DeleteIcon from "../icons/delete.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import {
-  getEnhancedModelCapabilities,
-  getModelCapabilitiesWithCustomConfig,
-} from "../config/model-capabilities";
+import { getModelCapabilities } from "../constant";
 import { collectModels } from "../utils/model";
 import {
   getModelContextTokens,
@@ -43,7 +40,6 @@ interface ModelConfigForm {
   category: string;
   capabilities: {
     vision: boolean;
-    web: boolean;
     reasoning: boolean;
     tools: boolean;
   };
@@ -154,24 +150,16 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
 // 基于能力的模型过滤器
 const CAPABILITY_FILTERS: Record<string, (model: any) => boolean> = {
   推理: (model: any) => {
-    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
+    const capabilities = getModelCapabilities(model.name);
     return capabilities.reasoning === true;
   },
   视觉: (model: any) => {
-    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
+    const capabilities = getModelCapabilities(model.name);
     return capabilities.vision === true;
   },
-  联网: (model: any) => {
-    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
-    return capabilities.web === true;
-  },
   工具: (model: any) => {
-    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
+    const capabilities = getModelCapabilities(model.name);
     return capabilities.tools === true;
-  },
-  嵌入: (model: any) => {
-    const capabilities = getModelCapabilitiesWithCustomConfig(model.name);
-    return capabilities.embedding === true;
   },
 };
 
@@ -192,7 +180,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     category: "",
     capabilities: {
       vision: false,
-      web: false,
       reasoning: false,
       tools: false,
     },
@@ -648,7 +635,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   };
 
   // 获取模型能力（包含自定义配置）
-  const getLocalModelCapabilities = getModelCapabilitiesWithCustomConfig;
+  const getLocalModelCapabilities = getModelCapabilities;
 
   // 打开模型配置
   const openModelConfig = (model: any) => {
@@ -669,7 +656,6 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
       category: currentCategory || "",
       capabilities: {
         vision: currentCapabilities.vision || false,
-        web: currentCapabilities.web || false,
         reasoning: currentCapabilities.reasoning || false,
         tools: currentCapabilities.tools || false,
       },
@@ -1060,7 +1046,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                               <div className={styles["model-name"]}>
                                 {model.displayName || model.name}
                                 <ModelCapabilityIcons
-                                  capabilities={getModelCapabilitiesWithCustomConfig(
+                                  capabilities={getModelCapabilities(
                                     model.name,
                                   )}
                                   size={14}

@@ -1,4 +1,4 @@
-import { ServiceProvider } from "@/app/constant";
+import { ServiceProvider, getModelCapabilities } from "@/app/constant";
 import { ModalConfigValidator, ModelConfig } from "../store";
 import { normalizeProviderName } from "../client/api";
 
@@ -11,7 +11,6 @@ import styles from "./model-config.module.scss";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 
-import { getModelCapabilitiesWithCustomConfig } from "../config/model-capabilities";
 import {
   getModelContextTokens,
   formatTokenCount,
@@ -152,12 +151,10 @@ export function ModelConfigList(props: {
                 config.providerName = normalizeProviderName(providerName!);
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
-                const modelCapabilities = getModelCapabilitiesWithCustomConfig(
-                  config.model,
-                );
+                const modelCapabilities = getModelCapabilities(config.model);
                 if (
                   modelCapabilities.reasoning &&
-                  modelCapabilities.thinkingType &&
+                  modelCapabilities.reasoningField &&
                   config.thinkingBudget === undefined
                 ) {
                   config.thinkingBudget = -1; // 默认为动态思考

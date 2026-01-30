@@ -6,12 +6,12 @@ import {
   REQUEST_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS_FOR_THINKING,
   ServiceProvider,
+  isVisionModel,
+  getModelCapabilities,
 } from "./constant";
-import { getModelCapabilitiesWithCustomConfig } from "./config/model-capabilities";
 // import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
 import { fetch as tauriStreamFetch } from "./utils/fetch";
 import { logger } from "./utils/logger";
-import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
 import { ModelSize } from "./typing";
 
@@ -312,28 +312,6 @@ export function getMessageImages(message: RequestMessage): string[] {
   return urls;
 }
 
-export function isVisionModel(model: string) {
-  // 首先检查环境变量中的自定义视觉模型列表
-  const visionModels = useAccessStore.getState().visionModels;
-  const envVisionModels = visionModels?.split(",").map((m) => m.trim());
-  if (envVisionModels?.includes(model)) {
-    return true;
-  }
-
-  // 使用新的模型能力系统检查视觉能力
-  const capabilities = getModelCapabilitiesWithCustomConfig(model);
-  if (capabilities.vision === true) {
-    return true;
-  }
-
-  // 如果模型能力系统没有明确配置，回退到旧的正则表达式检查
-  // 这确保了向后兼容性
-  return (
-    !EXCLUDE_VISION_MODEL_REGEXES.some((regex) => regex.test(model)) &&
-    VISION_MODEL_REGEXES.some((regex) => regex.test(model))
-  );
-}
-
 export function isDalle3(model: string) {
   return "dall-e-3" === model;
 }
@@ -534,7 +512,7 @@ export function isThinkingModel(model: string | undefined) {
   }
 
   // 使用模型能力配置系统来判断是否具有推理能力
-  const capabilities = getModelCapabilitiesWithCustomConfig(model);
+  const capabilities = getModelCapabilities(model);
   return capabilities.reasoning === true;
 }
 
