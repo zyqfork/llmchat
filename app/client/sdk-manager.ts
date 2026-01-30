@@ -8,9 +8,29 @@ import { generateText, streamText } from "ai";
 
 import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
+import { fetch as tauriFetch, isTauriApp, FetchType } from "../utils/fetch";
 
 // SDK实例缓存
 const sdkInstances = new Map<string, any>();
+
+// 获取适合的 fetch 函数
+function getCustomFetch(): typeof fetch | undefined {
+  if (isTauriApp()) {
+    // 在 Tauri 环境中，使用自定义 fetch 函数，指定为 LLM 请求类型
+    const customFetch = (
+      url: string | URL | Request,
+      options?: RequestInit,
+    ) => {
+      const urlString = typeof url === "string" ? url : url.toString();
+      return tauriFetch(urlString, options, FetchType.LLM);
+    };
+    // 添加 preconnect 属性以匹配 fetch 类型
+    (customFetch as any).preconnect = () => {};
+    return customFetch as typeof fetch;
+  }
+  // 在其他环境中，使用默认的 fetch（不传递 fetch 参数）
+  return undefined;
+}
 
 // 根据provider配置创建SDK实例
 export function createSDKInstance(
@@ -58,6 +78,7 @@ export function createSDKInstance(
   }
 
   let sdkInstance: any;
+  const customFetch = getCustomFetch();
 
   try {
     switch (provider.sdkType) {
@@ -65,6 +86,7 @@ export function createSDKInstance(
         sdkInstance = createOpenAI({
           apiKey,
           baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          fetch: customFetch,
         });
         break;
 
@@ -73,6 +95,7 @@ export function createSDKInstance(
           apiKey,
           baseURL: baseUrl || (provider as any).defaultBaseUrl,
           name: provider.id,
+          fetch: customFetch,
         });
         break;
 
@@ -80,6 +103,7 @@ export function createSDKInstance(
         sdkInstance = createAnthropic({
           apiKey,
           baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          fetch: customFetch,
         });
         break;
 
@@ -87,6 +111,7 @@ export function createSDKInstance(
         sdkInstance = createGoogleGenerativeAI({
           apiKey,
           baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          fetch: customFetch,
         });
         break;
 
@@ -94,6 +119,7 @@ export function createSDKInstance(
         sdkInstance = createXai({
           apiKey,
           baseURL: baseUrl || (provider as any).defaultBaseUrl,
+          fetch: customFetch,
         });
         break;
 
@@ -102,6 +128,7 @@ export function createSDKInstance(
           apiKey,
           resourceName: config?.resourceName,
           apiVersion: config?.apiVersion || "2024-02-01",
+          fetch: customFetch,
         });
         break;
 

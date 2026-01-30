@@ -1373,7 +1373,6 @@ export function Settings() {
     category: "",
     capabilities: {
       vision: false,
-      web: false,
       reasoning: false,
       tools: false,
     },
