@@ -1,144 +1,114 @@
-# Response API 统一实现
+# Response API 统一实现修复
 
-## 修改概述
+## 问题描述
 
-根据用户需求，将厂商配置中的"对话使用 Response API"修改为"使用 Response API"，并确保当厂商启用 Response API 后，该厂商的所有模型调用都统一使用 Response API。
+用户反馈在取消勾选"使用 Response API"后，聊天界面发起的请求仍然使用 Response API 格式：
 
-## 主要修改
+**错误的请求：**
+- URL: `https://chs.fly.dev/v1/chat/completions/responses`
+- Body: `{"model":"deepseek-chat","input":[...]}`
 
-### 1. 界面文本更新
+**期望的请求：**
+- URL: `https://chs.fly.dev/v1/chat/completions`  
+- Body: `{"model":"deepseek-chat","messages":[...]}`
 
-**文件**: `app/locales/cn.ts`, `app/locales/en.ts`
+## 根本原因
 
-#### 中文本地化
-```typescript
-// 修改前
-UseResponseApi: {
-  Title: "对话使用 Response API",
-  SubTitle: "启用后对话将使用 Response API，其他功能仍使用 Chat Completions API",
-},
+AI SDK 5 默认使用 Response API。根据官方文档：
 
-// 修改后
-UseResponseApi: {
-  Title: "使用 Response API",
-  SubTitle: "启用后该厂商的所有模型调用（对话、标题生成、摘要等）都将使用 Response API，适用于 OpenAI 及其兼容厂商",
-},
-```
+> Since AI SDK 5, the OpenAI responses API is called by default (unless you specify e.g. 'openai.chat')
 
-#### 英文本地化
-```typescript
-// 修改前
-UseResponseApi: {
-  Title: "Use Response API for Chat",
-  SubTitle: "When enabled, chat will use Response API while other features still use Chat Completions API",
-},
+这意味着：
+- `openai('model')` → 使用 Response API
+- `openai.chat('model')` → 使用 Chat API
+- `openai.responses('model')` → 明确使用 Response API
 
-// 修改后
-UseResponseApi: {
-  Title: "Use Response API",
-  SubTitle: "When enabled, all model calls from this provider (chat, title generation, summarization, etc.) will use Response API. Suitable for OpenAI and compatible providers",
-},
-```
+## 解决方案
 
-### 2. SDK管理器增强
+### 1. 修复 SDK Manager
 
-**文件**: `app/client/sdk-manager.ts`
-
-增强了SDK管理器，确保即使在提供了配置参数的情况下，也能正确获取用户的API类型设置：
+在 `app/client/sdk-manager.ts` 的 `getModel()` 函数中：
 
 ```typescript
-} else if (typeof window !== "undefined") {
-  // 即使提供了配置，也要获取API类型设置
-  try {
-    const { useAccessStore } = require("../store/access");
-    const accessStore = useAccessStore.getState();
-    
-    // 获取用户的 API 类型设置
-    if (provider.storeKeys.apiType) {
-      apiType = (accessStore as any)[provider.storeKeys.apiType] || 'chat';
-    }
-    
-    logger.debug(`[SDK Manager] Provider ${providerId} API type:`, apiType);
-  } catch (error) {
-    logger.warn(
-      `[SDK Manager] Could not get API type from store for ${providerId}:`,
-      error,
-    );
+// 根据用户设置选择正确的 API 类型
+if (apiType === "response") {
+  // 用户启用了 Response API
+  if (sdkInstance.responses) {
+    return sdkInstance.responses(modelName);
+  } else {
+    // 使用默认方法（AI SDK 5 默认就是 Response API）
+    return sdkInstance(modelName);
+  }
+} else {
+  // 用户使用 Chat API，必须明确使用 .chat() 方法
+  if (sdkInstance.chat) {
+    return sdkInstance.chat(modelName);
+  } else {
+    // 如果没有 chat 方法，记录错误
+    logger.error(`No .chat method available for ${providerId}`);
+    return sdkInstance(modelName);
   }
 }
 ```
 
-## 技术实现验证
+### 2. 支持的厂商
 
-### 统一的模型调用路径
+以下厂商支持 API 类型选择（有 `apiType` storeKey）：
 
-所有模型调用都通过统一的路径：
+- **OpenAI** (`openaiApiType`)
+- **Alibaba** (`alibabaApiType`) 
+- **MoonshotAI** (`moonshotApiType`)
+- **XAI** (`xaiApiType`)
+- **DeepSeek** (`deepseekApiType`)
+- **SiliconFlow** (`siliconflowApiType`)
+- **ZAI** (`zaiApiType`)
 
-1. **对话**: `useChatStore.onUserInput()` → `api.llm.chat()`
-2. **标题生成**: `summarizeSession()` → `api.llm.chat()`
-3. **摘要生成**: `summarizeSession()` → `api.llm.chat()`
-4. **其他功能**: 都使用 `api.llm.chat()`
+其他厂商（Google、Anthropic、Azure、Ollama）默认使用各自的原生 API。
 
-### API路由流程
+### 3. 调试信息
 
+添加了详细的调试日志：
+
+```typescript
+logger.debug(`[SDK Manager] API type for model ${modelName}:`, {
+  providerId,
+  storeKey,
+  rawValue: (accessStore as any)[storeKey],
+  finalApiType: apiType,
+});
 ```
-用户配置 Response API
-↓
-SDK Manager 获取 apiType 设置
-↓
-根据 apiType 选择正确的端点
-↓
-AI SDK 使用对应的 API 端点
-↓
-所有模型调用统一使用相同的 API 类型
-```
 
-## 功能特性
+## 测试验证
 
-### ✅ 已实现的功能
+### 场景 1：用户禁用 Response API
+- 设置：`openaiApiType = "chat"`
+- 结果：使用 `sdkInstance.chat(modelName)`
+- 请求：`POST /chat/completions` with `{messages: [...]}`
 
-1. **统一配置**: 厂商级别的 Response API 开关
-2. **全局生效**: 影响该厂商的所有模型调用
-3. **智能端点**: 自动选择正确的 API 端点
-4. **SDK统一**: 所有调用都使用 AI SDK
-5. **兼容性**: 支持 OpenAI 及其兼容厂商
+### 场景 2：用户启用 Response API  
+- 设置：`openaiApiType = "response"`
+- 结果：使用 `sdkInstance.responses(modelName)` 或 `sdkInstance(modelName)`
+- 请求：`POST /chat/completions/responses` with `{input: [...]}`
 
-### 🎯 适用场景
+## 影响范围
 
-- **OpenAI**: 官方 Response API
-- **OpenAI兼容厂商**: 支持 Response API 格式的第三方服务
-- **代理服务**: 支持 Response API 的代理服务
-
-## 用户体验改进
-
-### 界面改进
-- 更清晰的配置选项名称
-- 更准确的功能说明
-- 明确的适用范围说明
-
-### 功能改进
-- 统一的API行为
-- 一致的配置体验
-- 简化的设置流程
+此修复影响所有通过 SDK Manager 的模型调用：
+- 聊天对话
+- 标题生成  
+- 摘要生成
+- 其他模型调用
 
 ## 向后兼容性
 
-- ✅ 保持现有配置结构
-- ✅ 不影响现有用户设置
-- ✅ 平滑的功能升级
+- ✅ 保持现有 API 接口不变
+- ✅ 默认值为 `"chat"`，确保向后兼容
+- ✅ 支持所有现有厂商配置
+- ✅ 错误处理和降级机制
 
-## 测试建议
+## 相关文件
 
-1. **配置测试**: 验证 Response API 开关正确影响所有功能
-2. **功能测试**: 测试对话、标题生成、摘要等功能
-3. **厂商测试**: 测试不同 OpenAI 兼容厂商
-4. **端点测试**: 验证正确的 API 端点被调用
-
-## 总结
-
-这次修改实现了用户要求的统一 Response API 配置，确保：
-
-1. **界面更清晰**: "使用 Response API" 而不是 "对话使用 Response API"
-2. **功能更统一**: 所有模型调用都遵循厂商的 API 类型设置
-3. **实现更一致**: 所有调用都使用 AI SDK
-4. **适用性更明确**: 明确支持 OpenAI 及其兼容厂商
+- `app/client/sdk-manager.ts` - 主要修复
+- `app/constant.ts` - 厂商配置定义
+- `app/store/access.ts` - 用户设置存储
+- `app/client/unified-api.ts` - 统一 API 调用
+- `app/locales/cn.ts` & `app/locales/en.ts` - UI 文本更新

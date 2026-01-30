@@ -69,7 +69,16 @@ export function createSDKInstance(
 
       // 获取用户的 API 类型设置
       if (provider.storeKeys.apiType) {
-        apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
+        const storeKey = provider.storeKeys.apiType;
+        apiType = (accessStore as any)[storeKey] || "chat";
+        logger.debug(
+          `[SDK Manager] API type for ${providerId} (with config):`,
+          {
+            storeKey,
+            rawValue: (accessStore as any)[storeKey],
+            finalApiType: apiType,
+          },
+        );
       }
 
       logger.debug(`[SDK Manager] Provider ${providerId} config:`, {
@@ -91,7 +100,13 @@ export function createSDKInstance(
 
       // 获取用户的 API 类型设置
       if (provider.storeKeys.apiType) {
-        apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
+        const storeKey = provider.storeKeys.apiType;
+        apiType = (accessStore as any)[storeKey] || "chat";
+        logger.debug(`[SDK Manager] API type for ${providerId} (no config):`, {
+          storeKey,
+          rawValue: (accessStore as any)[storeKey],
+          finalApiType: apiType,
+        });
       }
 
       logger.debug(`[SDK Manager] Provider ${providerId} API type:`, apiType);
@@ -110,63 +125,13 @@ export function createSDKInstance(
   // 确保使用正确的端点
   let finalBaseUrl = baseUrl || (provider as any).defaultBaseUrl;
 
-  // 如果用户配置了外部代理，需要根据 API 类型设置正确的端点
-  if (baseUrl && baseUrl !== (provider as any).defaultBaseUrl) {
-    logger.debug(
-      `[SDK Manager] External proxy detected for ${providerId}, API type: ${apiType}`,
-    );
-
-    // 根据用户的 API 类型设置选择正确的端点
-    if (apiType === "response") {
-      // 用户明确选择了 Response API，确保使用 responses 端点
-      if (!finalBaseUrl.includes("/responses")) {
-        if (finalBaseUrl.includes("/chat/completions")) {
-          finalBaseUrl = finalBaseUrl.replace(
-            "/chat/completions",
-            "/responses",
-          );
-        } else if (finalBaseUrl.includes("/v1/chat/completions")) {
-          finalBaseUrl = finalBaseUrl.replace(
-            "/v1/chat/completions",
-            "/v1/responses",
-          );
-        } else {
-          // 对于以 /v1 结尾的URL，直接使用，让AI SDK自己添加端点
-          // 不需要手动添加 /responses，避免重复
-          logger.debug(
-            `[SDK Manager] Using base URL as-is for Response API: ${finalBaseUrl}`,
-          );
-        }
-        if (finalBaseUrl !== baseUrl) {
-          logger.debug(
-            `[SDK Manager] Modified baseUrl for Response API: ${finalBaseUrl}`,
-          );
-        }
-      }
-      logger.debug(
-        `[SDK Manager] Using Response API with external proxy: ${finalBaseUrl}`,
-      );
-    } else {
-      // 用户选择了 Chat API（默认），确保使用 chat/completions 端点
-      if (finalBaseUrl.includes("/responses")) {
-        finalBaseUrl = finalBaseUrl.replace("/responses", "/chat/completions");
-        logger.debug(
-          `[SDK Manager] Modified baseUrl for Chat API: ${finalBaseUrl}`,
-        );
-      } else if (finalBaseUrl.includes("/v1/responses")) {
-        finalBaseUrl = finalBaseUrl.replace(
-          "/v1/responses",
-          "/v1/chat/completions",
-        );
-        logger.debug(
-          `[SDK Manager] Modified baseUrl for Chat API: ${finalBaseUrl}`,
-        );
-      }
-      logger.debug(
-        `[SDK Manager] Using Chat API with external proxy: ${finalBaseUrl}`,
-      );
-    }
-  }
+  // AI SDK 会自动处理端点路径，我们只需要提供基础 URL
+  // 不需要在这里修改 URL，让 AI SDK 根据 API 类型自动选择正确的端点
+  logger.debug(`[SDK Manager] Using baseURL for ${providerId}:`, {
+    baseURL: finalBaseUrl,
+    apiType,
+    note: "AI SDK will handle endpoint selection based on .chat() vs default method",
+  });
 
   let sdkInstance: any;
   const customFetch = getCustomFetch();
@@ -229,10 +194,18 @@ export function createSDKInstance(
 
     // 缓存实例
     sdkInstances.set(cacheKey, sdkInstance);
+
+    // 调试：检查 SDK 实例的可用方法
     logger.debug(`[SDK Manager] Created SDK instance for ${providerId}`, {
       sdkType: provider.sdkType,
       baseURL: finalBaseUrl,
       apiType,
+      availableMethods: {
+        hasChat: typeof sdkInstance.chat === "function",
+        hasResponses: typeof sdkInstance.responses === "function",
+        hasCompletion: typeof sdkInstance.completion === "function",
+        isCallable: typeof sdkInstance === "function",
+      },
     });
 
     return sdkInstance;
@@ -266,7 +239,71 @@ export function getModel(
   },
 ) {
   const sdkInstance = createSDKInstance(providerId, config);
-  return sdkInstance(modelName);
+
+  // 获取用户的 API 类型设置
+  let apiType = "chat"; // 默认使用 chat API
+  if (typeof window !== "undefined") {
+    try {
+      const { useAccessStore } = require("../store/access");
+      const accessStore = useAccessStore.getState();
+      const provider = getAllProviders().find((p) => p.id === providerId);
+
+      if (provider?.storeKeys?.apiType) {
+        const storeKey = provider.storeKeys.apiType;
+        apiType = (accessStore as any)[storeKey] || "chat";
+        logger.debug(`[SDK Manager] API type for model ${modelName}:`, {
+          providerId,
+          storeKey,
+          rawValue: (accessStore as any)[storeKey],
+          finalApiType: apiType,
+        });
+      } else {
+        logger.debug(
+          `[SDK Manager] No apiType storeKey for provider ${providerId}, using default chat API`,
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        `[SDK Manager] Could not get API type for model creation:`,
+        error,
+      );
+    }
+  }
+
+  // 根据 API 类型选择正确的方法
+  // 参考 OpenAI SDK 文档：
+  // - AI SDK 5 默认使用 Response API: openai('model')
+  // - Chat API 需要明确调用: openai.chat('model')
+  // - Response API 可以使用: openai('model') 或 openai.responses('model')
+  if (apiType === "response") {
+    // 用户启用了 Response API
+    logger.debug(`[SDK Manager] Using Response API for model ${modelName}`);
+    if (sdkInstance.responses) {
+      // 明确使用 .responses() 方法
+      return sdkInstance.responses(modelName);
+    } else {
+      // 使用默认方法（AI SDK 5 默认就是 Response API）
+      logger.debug(
+        `[SDK Manager] No .responses method, using default (Response API) for ${modelName}`,
+      );
+      return sdkInstance(modelName);
+    }
+  } else {
+    // 用户使用 Chat API，必须明确使用 .chat() 方法
+    logger.debug(`[SDK Manager] Using Chat API (.chat) for model ${modelName}`);
+    if (sdkInstance.chat) {
+      return sdkInstance.chat(modelName);
+    } else {
+      // 如果没有 chat 方法，记录错误并使用默认方法
+      logger.error(
+        `[SDK Manager] No .chat method available for ${providerId}, falling back to default (Response API)!`,
+      );
+      logger.error(
+        `[SDK Manager] This means the request will use Response API even though user disabled it!`,
+      );
+      return sdkInstance(modelName);
+    }
+  }
 }
 
 // 通用的文本生成方法
