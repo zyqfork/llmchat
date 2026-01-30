@@ -243,6 +243,35 @@ function countMessages(msgs: ChatMessage[]) {
   );
 }
 
+function buildConversationTranscript(
+  messages: ChatMessage[],
+  includeSystem: boolean,
+) {
+  return messages
+    .filter((msg) => includeSystem || msg.role !== "system")
+    .map((msg) => {
+      const content = getMessageTextContentWithoutThinking(msg).trim();
+      if (!content) {
+        return "";
+      }
+      return `${msg.role}: ${content}`;
+    })
+    .filter((line) => line.length > 0)
+    .join("\n");
+}
+
+function buildPromptWithContext(
+  instruction: string,
+  messages: ChatMessage[],
+  includeSystem: boolean,
+) {
+  const transcript = buildConversationTranscript(messages, includeSystem);
+  if (!transcript) {
+    return instruction;
+  }
+  return `${instruction}\n\nConversation:\n${transcript}`;
+}
+
 function fillTemplateWith(input: string, modelConfig: ModelConfig) {
   const cutoff =
     KnowledgeCutOffDate[modelConfig.model] ?? KnowledgeCutOffDate.default;
@@ -1122,6 +1151,48 @@ export const useChatStore = createPersistStore(
 
                 // 关键修复：确保消息状态正确更新
                 botMessage.streaming = false;
+                let responseApiConversationId: string | undefined;
+                try {
+                  if (responseRes?.status === 200) {
+                    const responseBody = (responseRes as any)?.__responseBody;
+                    logger.debug(
+                      "[Response API] Response body for conversation ID extraction:",
+                      responseBody,
+                    );
+                    if (responseBody && typeof responseBody === "object") {
+                      responseApiConversationId =
+                        responseBody.conversation_id ||
+                        responseBody.id ||
+                        responseBody.response?.id ||
+                        responseBody.response?.conversation_id;
+                      logger.debug(
+                        "[Response API] Extracted conversation ID:",
+                        responseApiConversationId,
+                      );
+                    }
+                  }
+                } catch (e) {
+                  logger.warn(
+                    "[Response API] Failed to extract conversation ID:",
+                    e,
+                  );
+                }
+
+                if (responseApiConversationId) {
+                  const responseId = responseApiConversationId;
+                  get().updateTargetSession(session, (session) => {
+                    const multiModelMode = session.multiModelMode;
+                    if (!multiModelMode) {
+                      return;
+                    }
+                    if (!multiModelMode.modelResponseApiConversationIds) {
+                      multiModelMode.modelResponseApiConversationIds = {};
+                    }
+                    multiModelMode.modelResponseApiConversationIds[modelKey] =
+                      responseId;
+                  });
+                }
+
                 if (message) {
                   botMessage.content = message;
                   botMessage.date = new Date().toLocaleString();
@@ -1525,34 +1596,34 @@ export const useChatStore = createPersistStore(
             0,
             messages.length - modelConfig.historyMessageCount,
           );
-          const topicMessages = messages
+          const topicSourceMessages = messages
             .slice(
               startIndex < messages.length ? startIndex : messages.length - 1,
               messages.length,
             )
-            .map((msg) => ({
-              ...msg,
-              content:
-                typeof msg.content === "string"
-                  ? getMessageTextContentWithoutThinking(msg)
-                  : msg.content,
-            }))
-            .concat(
+            .filter((msg) => !msg.isError);
+          const topicPrompt =
+            modelConfig.topicPrompt ||
+            globalConfig.topicPrompt ||
+            Locale.Store.Prompt.Topic;
+          const topicInput = buildPromptWithContext(
+            topicPrompt,
+            topicSourceMessages,
+            false,
+          );
+          api.llm.chat({
+            messages: [
               createMessage({
                 role: "user",
-                content:
-                  modelConfig.topicPrompt ||
-                  globalConfig.topicPrompt ||
-                  Locale.Store.Prompt.Topic,
+                content: topicInput,
               }),
-            );
-          api.llm.chat({
-            messages: topicMessages,
+            ],
             config: {
               model,
               stream: false,
               providerName,
             },
+            useResponseApiContext: false,
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
                 // 使用通用的移除思考内容函数，与优化提示词保持一致
@@ -1625,28 +1696,25 @@ export const useChatStore = createPersistStore(
           }
 
           const { max_tokens, ...modelcfg } = modelConfig;
+          const summarizeInput = buildPromptWithContext(
+            summarizePrompt,
+            toBeSummarizedMsgs,
+            true,
+          );
           api.llm.chat({
-            messages: toBeSummarizedMsgs
-              .map((msg) => ({
-                ...msg,
-                content:
-                  typeof msg.content === "string"
-                    ? getMessageTextContentWithoutThinking(msg)
-                    : msg.content,
-              }))
-              .concat(
-                createMessage({
-                  role: "system",
-                  content: summarizePrompt,
-                  date: "",
-                }),
-              ),
+            messages: [
+              createMessage({
+                role: "user",
+                content: summarizeInput,
+              }),
+            ],
             config: {
               ...modelcfg,
               stream: true,
               model,
               providerName,
             },
+            useResponseApiContext: false,
             onUpdate(message) {
               // 使用通用的移除思考内容函数，与优化提示词保持一致
               const filteredMessage = removeThinkingContent(message);

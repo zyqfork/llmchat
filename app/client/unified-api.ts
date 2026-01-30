@@ -17,6 +17,8 @@ export interface UnifiedChatOptions {
   stream?: boolean;
   tools?: any[];
   systemPrompt?: string;
+  providerOptions?: Record<string, any>;
+  useResponseApiContext?: boolean;
   // 添加配置参数，避免在服务器端使用客户端 store
   apiKey?: string;
   baseUrl?: string;
@@ -31,6 +33,7 @@ export interface UnifiedChatResponse {
     totalTokens: number;
   };
   finishReason?: string;
+  providerMetadata?: any;
 }
 
 // 根据模型名称获取provider ID
@@ -75,6 +78,53 @@ function convertMessages(messages: SimpleMessage[]): any[] {
   }));
 }
 
+function extractSystemInstructions(messages: SimpleMessage[]) {
+  const systemContents: string[] = [];
+  const filtered: SimpleMessage[] = [];
+
+  messages.forEach((msg) => {
+    if (msg.role === "system") {
+      if (typeof msg.content === "string" && msg.content.trim().length > 0) {
+        systemContents.push(msg.content.trim());
+      }
+      return;
+    }
+    filtered.push(msg);
+  });
+
+  const instructions =
+    systemContents.length > 0 ? systemContents.join("\n") : undefined;
+
+  return { instructions, messages: filtered };
+}
+
+function getResponseApiContext(providerId: string, model: string) {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const { useChatStore } = require("../store");
+    const chatStore = useChatStore.getState();
+    const session = chatStore.currentSession();
+
+    let previousResponseId = session.responseApiConversationId;
+
+    if (session.multiModelMode?.enabled) {
+      const modelKey = `${model}@${providerId}`;
+      const modelIds = session.multiModelMode.modelResponseApiConversationIds;
+      if (modelIds?.[modelKey]) {
+        previousResponseId = modelIds[modelKey];
+      }
+    }
+
+    return previousResponseId ? { previousResponseId } : {};
+  } catch (error) {
+    logger.warn("[Unified API] Failed to read Response API context:", error);
+    return {};
+  }
+}
+
 // 统一的聊天API
 export function unifiedChat(
   options: UnifiedChatOptions,
@@ -87,6 +137,7 @@ export function unifiedChat(
     stream = false,
     tools,
     systemPrompt,
+    useResponseApiContext = true,
   } = options;
 
   // 优先使用传入的 providerName，如果没有则根据模型名称推断
@@ -138,11 +189,24 @@ export function unifiedChat(
     );
   }
 
+  let useResponseApi = false;
+  if (typeof window !== "undefined" && provider.storeKeys?.apiType) {
+    try {
+      const { useAccessStore } = require("../store");
+      const accessStore = useAccessStore.getState();
+      useResponseApi =
+        (accessStore as any)[provider.storeKeys.apiType] === "response";
+    } catch (error) {
+      logger.warn("[Unified API] Failed to read apiType:", error);
+    }
+  }
+
   // 准备请求参数
   const requestOptions: any = {
     messages: convertMessages(messages),
     temperature,
     maxTokens,
+    providerOptions: options.providerOptions,
   };
 
   // 添加系统提示词
@@ -156,6 +220,32 @@ export function unifiedChat(
   // 添加工具调用
   if (tools && tools.length > 0) {
     requestOptions.tools = tools;
+  }
+
+  if (useResponseApi) {
+    const { instructions, messages: filteredMessages } =
+      extractSystemInstructions(requestOptions.messages);
+    requestOptions.messages = filteredMessages;
+
+    const context = useResponseApiContext
+      ? (getResponseApiContext(providerId, model) as {
+          previousResponseId?: string;
+        })
+      : {};
+    const previousResponseId = context.previousResponseId;
+
+    if (instructions || previousResponseId) {
+      requestOptions.providerOptions = {
+        ...(requestOptions.providerOptions ?? {}),
+        openai: {
+          ...(requestOptions.providerOptions?.openai ?? {}),
+          ...(instructions
+            ? { instructions, systemMessageMode: "remove" }
+            : {}),
+          ...(previousResponseId ? { previousResponseId } : {}),
+        },
+      };
+    }
   }
 
   try {
@@ -179,6 +269,7 @@ export function unifiedChat(
                 }
               : undefined,
             finishReason: result.finishReason,
+            providerMetadata: result.providerMetadata,
           };
         },
       );

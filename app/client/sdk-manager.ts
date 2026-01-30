@@ -270,6 +270,53 @@ export function getModel(
     }
   }
 
+  const provider = getAllProviders().find((p) => p.id === providerId);
+
+  // Response API 在 openai-compatible 下需要使用 OpenAI Responses 模型
+  if (apiType === "response" && provider?.sdkType === "openai-compatible") {
+    let apiKey = config?.apiKey;
+    let baseUrl = config?.baseUrl;
+
+    if (!apiKey && typeof window !== "undefined") {
+      try {
+        const { useAccessStore } = require("../store/access");
+        const accessStore = useAccessStore.getState();
+        const storeConfig = accessStore.getProviderConfig(providerId);
+        apiKey = storeConfig.apiKey;
+        baseUrl = storeConfig.baseUrl;
+      } catch (error) {
+        logger.warn(
+          `[SDK Manager] Could not get config for response API ${providerId}:`,
+          error,
+        );
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error(`API key not provided for ${providerId}`);
+    }
+
+    const finalBaseUrl = baseUrl || (provider as any)?.defaultBaseUrl;
+    const responseCacheKey = `${providerId}-${apiKey}-responses`;
+    let responseInstance = sdkInstances.get(responseCacheKey);
+    if (!responseInstance) {
+      responseInstance = createOpenAI({
+        apiKey,
+        baseURL: finalBaseUrl,
+        fetch: getCustomFetch(),
+      });
+      sdkInstances.set(responseCacheKey, responseInstance);
+    }
+
+    logger.debug(
+      `[SDK Manager] Using OpenAI Responses model for openai-compatible provider ${providerId}`,
+    );
+    if (responseInstance.responses) {
+      return responseInstance.responses(modelName);
+    }
+    return responseInstance(modelName);
+  }
+
   // 根据 API 类型选择正确的方法
   // 参考 OpenAI SDK 文档：
   // - AI SDK 5 默认使用 Response API: openai('model')

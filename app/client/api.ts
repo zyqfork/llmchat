@@ -81,6 +81,7 @@ export interface ChatOptions {
   messages: RequestMessage[];
   config: LLMConfig;
   tools?: any[]; // MCP tools in OpenAI function call format
+  useResponseApiContext?: boolean;
 
   onUpdate?: (message: string, chunk: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
@@ -112,6 +113,34 @@ export interface LLMModelProvider {
   sorted: number;
 }
 
+function getResponseApiConversationId(
+  providerMetadata?: any,
+): string | undefined {
+  if (!providerMetadata || typeof providerMetadata !== "object") {
+    return undefined;
+  }
+
+  return (
+    providerMetadata.openai?.responseId ??
+    providerMetadata.azure?.responseId ??
+    providerMetadata?.responseId
+  );
+}
+
+function buildResponseWithMetadata(
+  responseId?: string,
+  requestDebug?: any,
+): Response {
+  const response = new Response();
+  if (requestDebug) {
+    (response as any).__requestDebug = requestDebug;
+  }
+  if (responseId) {
+    (response as any).__responseBody = { id: responseId };
+  }
+  return response;
+}
+
 export abstract class LLMApi {
   abstract chat(options: ChatOptions): Promise<void>;
   abstract speech(options: SpeechOptions): Promise<ArrayBuffer>;
@@ -141,6 +170,7 @@ class UnifiedClientApi extends LLMApi {
         maxTokens: undefined, // 可以从 config 中获取
         stream: options.config.stream,
         tools: options.tools,
+        useResponseApiContext: options.useResponseApiContext,
       };
 
       if (options.config.stream) {
@@ -149,24 +179,57 @@ class UnifiedClientApi extends LLMApi {
 
         const streamResult = await unifiedChat(requestOptions);
 
-        // AI SDK 的 streamText 返回一个包含 textStream 的对象
-        if (streamResult && streamResult.textStream) {
+        if (
+          streamResult &&
+          (streamResult.fullStream || streamResult.textStream)
+        ) {
           let fullContent = "";
 
+          const pushDelta = (delta: string) => {
+            if (!delta) {
+              return;
+            }
+            fullContent += delta;
+            options.onUpdate?.(fullContent, delta);
+          };
+
           try {
-            for await (const chunk of streamResult.textStream) {
-              fullContent += chunk;
-              options.onUpdate?.(fullContent, chunk);
+            if (streamResult.fullStream) {
+              for await (const part of streamResult.fullStream) {
+                switch (part.type) {
+                  case "text-delta": {
+                    pushDelta(part.delta ?? "");
+                    break;
+                  }
+                  default: {
+                    break;
+                  }
+                }
+              }
+            } else {
+              for await (const chunk of streamResult.textStream) {
+                pushDelta(chunk);
+              }
             }
 
-            // 流式完成后调用 onFinish
-            const mockResponse = new Response();
-            // 添加调试信息到响应对象
-            (mockResponse as any).__requestDebug = {
+            let responseId: string | undefined;
+            try {
+              const providerMetadata = await streamResult.providerMetadata;
+              responseId = getResponseApiConversationId(
+                providerMetadata as any,
+              );
+            } catch (metadataError) {
+              logger.warn(
+                "[Unified Client API] Failed to read provider metadata:",
+                metadataError,
+              );
+            }
+
+            const mockResponse = buildResponseWithMetadata(responseId, {
               url: "AI SDK Stream",
               method: "POST",
               headers: {},
-            };
+            });
 
             options.onFinish(fullContent, mockResponse);
           } catch (streamError) {
@@ -177,7 +240,6 @@ class UnifiedClientApi extends LLMApi {
             options.onError?.(streamError as Error);
           }
         } else {
-          // 如果没有流式响应，作为普通响应处理
           const content = streamResult?.content || streamResult?.text || "";
           options.onUpdate?.(content, content);
           options.onFinish(content, new Response());
@@ -188,9 +250,12 @@ class UnifiedClientApi extends LLMApi {
 
         const result = await unifiedChat(requestOptions);
         const content = result?.content || result?.text || "";
+        const responseId = getResponseApiConversationId(
+          result?.providerMetadata,
+        );
 
         options.onUpdate?.(content, content);
-        options.onFinish(content, new Response());
+        options.onFinish(content, buildResponseWithMetadata(responseId));
       }
     } catch (error) {
       logger.error("[Unified Client API] Chat failed:", error);

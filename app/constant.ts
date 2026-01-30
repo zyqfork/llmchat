@@ -175,12 +175,31 @@ export interface ModelCapabilities {
 
 // 获取模型能力（基于生成的配置）
 export function getModelCapabilities(modelName: string): ModelCapabilities {
-  return {
+  const baseCapabilities = {
     vision: getModelVisionSupportFromConfig(modelName),
     reasoning: getModelReasoningSupportFromConfig(modelName),
     tools: getModelToolCallSupportFromConfig(modelName),
     reasoningField: getModelReasoningFieldFromConfig(modelName),
   };
+
+  if (typeof window === "undefined" || !window.localStorage) {
+    return baseCapabilities;
+  }
+
+  const customKey = `model_capabilities_${modelName}`;
+  try {
+    const stored = window.localStorage.getItem(customKey);
+    if (!stored) {
+      return baseCapabilities;
+    }
+    const parsed = JSON.parse(stored) as Partial<ModelCapabilities>;
+    return {
+      ...baseCapabilities,
+      ...parsed,
+    };
+  } catch {
+    return baseCapabilities;
+  }
 }
 
 // 辅助函数：获取厂商模型列表（直接使用生成的配置）
