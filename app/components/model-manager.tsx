@@ -1038,7 +1038,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                             <div className={styles["model-icon"]}>
                               <ModelProviderIcon
                                 provider={provider}
-                                size={20}
+                                size={28}
                                 modelName={model.name}
                               />
                             </div>

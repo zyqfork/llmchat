@@ -1495,8 +1495,7 @@ export function Settings() {
             title={Locale.Settings.Access.OpenAI.Endpoint.Title}
             subTitle={
               <span className={styles["long-text-wrap"]}>
-                {Locale.Settings.Access.OpenAI.Endpoint.SubTitle +
-                  (provider as any).defaultBaseUrl}
+                {Locale.Settings.Access.OpenAI.Endpoint.SubTitle}
               </span>
             }
           >
@@ -2494,7 +2493,7 @@ export function Settings() {
                     icon={
                       <ProviderIcon
                         provider={config.provider}
-                        size={20}
+                        size={28}
                         customProviderType={
                           config.isCustom
                             ? accessStore.customProviders.find(

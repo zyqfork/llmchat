@@ -2097,7 +2097,7 @@ export function ChatActions(props: {
               <div className={styles["model-icon"]}>
                 <ModelProviderIcon
                   provider={currentProviderName}
-                  size={16}
+                  size={20}
                   modelName={currentModel}
                 />
               </div>
