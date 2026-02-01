@@ -32,6 +32,165 @@ function getCustomFetch(): typeof fetch | undefined {
   return undefined;
 }
 
+type FetchWithPreconnect = typeof fetch & { preconnect: () => void };
+
+function ensureFetchWithPreconnect(
+  baseFetch: typeof fetch | undefined,
+): FetchWithPreconnect | undefined {
+  if (!baseFetch) {
+    return undefined;
+  }
+
+  const fetchWithPreconnect = baseFetch as FetchWithPreconnect;
+  if (typeof fetchWithPreconnect.preconnect !== "function") {
+    fetchWithPreconnect.preconnect = () => {};
+  }
+
+  return fetchWithPreconnect;
+}
+
+function normalizeResponsesPayload(payload: any) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const output = (payload as any).output;
+  if (!Array.isArray(output)) {
+    return payload;
+  }
+
+  for (const item of output) {
+    if (!item || item.type !== "message" || !Array.isArray(item.content)) {
+      continue;
+    }
+
+    for (const content of item.content) {
+      if (!content || content.type !== "output_text") {
+        continue;
+      }
+
+      if (!Array.isArray(content.annotations)) {
+        content.annotations = [];
+      }
+    }
+  }
+
+  return payload;
+}
+
+function wrapFetchWithResponsesNormalizer(
+  baseFetch: FetchWithPreconnect,
+): FetchWithPreconnect {
+  if ((baseFetch as any).__responsesNormalizer) {
+    return baseFetch;
+  }
+
+  const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = await baseFetch(input, init);
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : input.url;
+
+    if (!url.includes("/responses")) {
+      return response;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      if (!response.body) {
+        return response;
+      }
+
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+      let buffer = "";
+      const stream = new ReadableStream({
+        async start(controller) {
+          const reader = response.body!.getReader();
+          try {
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) {
+                break;
+              }
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() ?? "";
+
+              for (const rawLine of lines) {
+                const hasCR = rawLine.endsWith("\r");
+                const line = hasCR ? rawLine.slice(0, -1) : rawLine;
+                const newline = hasCR ? "\r\n" : "\n";
+
+                if (line.startsWith("data:")) {
+                  const data = line.slice(5).trim();
+                  if (data && data !== "[DONE]") {
+                    try {
+                      const parsed = JSON.parse(data);
+                      normalizeResponsesPayload(parsed);
+                      const nextLine = `data: ${JSON.stringify(parsed)}`;
+                      controller.enqueue(encoder.encode(nextLine + newline));
+                      continue;
+                    } catch {
+                      // fall through to emit original line
+                    }
+                  }
+                }
+
+                controller.enqueue(encoder.encode(line + newline));
+              }
+            }
+
+            if (buffer.length > 0) {
+              controller.enqueue(encoder.encode(buffer));
+            }
+          } catch (error) {
+            controller.error(error);
+            return;
+          } finally {
+            reader.releaseLock();
+          }
+
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+
+    const bodyText = await response.text();
+    try {
+      const parsed = JSON.parse(bodyText);
+      normalizeResponsesPayload(parsed);
+      const nextHeaders = new Headers(response.headers);
+      nextHeaders.delete("content-length");
+      return new Response(JSON.stringify(parsed), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: nextHeaders,
+      });
+    } catch {
+      return new Response(bodyText, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+  }) as FetchWithPreconnect;
+
+  (wrapped as any).__responsesNormalizer = true;
+  wrapped.preconnect = baseFetch.preconnect;
+
+  return wrapped;
+}
+
 // 根据provider配置创建SDK实例
 export function createSDKInstance(
   providerId: string,
@@ -266,6 +425,12 @@ export function createSDKInstance(
 
   let sdkInstance: any;
   const customFetch = getCustomFetch();
+  const baseFetch = ensureFetchWithPreconnect(
+    customFetch ?? (typeof fetch !== "undefined" ? fetch : undefined),
+  );
+  const responsesFetch = baseFetch
+    ? wrapFetchWithResponsesNormalizer(baseFetch)
+    : undefined;
 
   try {
     switch (provider.sdkType) {
@@ -273,7 +438,7 @@ export function createSDKInstance(
         sdkInstance = createOpenAI({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: customFetch,
+          fetch: responsesFetch,
         });
         break;
 
@@ -282,7 +447,7 @@ export function createSDKInstance(
           apiKey,
           baseURL: finalBaseUrl,
           name: provider.id,
-          fetch: customFetch,
+          fetch: responsesFetch,
         });
         break;
 
@@ -290,7 +455,7 @@ export function createSDKInstance(
         sdkInstance = createAnthropic({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: customFetch,
+          fetch: baseFetch,
         });
         break;
 
@@ -298,7 +463,7 @@ export function createSDKInstance(
         sdkInstance = createGoogleGenerativeAI({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: customFetch,
+          fetch: baseFetch,
         });
         break;
 
@@ -306,7 +471,7 @@ export function createSDKInstance(
         sdkInstance = createXai({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: customFetch,
+          fetch: baseFetch,
         });
         break;
 
@@ -315,7 +480,7 @@ export function createSDKInstance(
           apiKey,
           resourceName: config?.resourceName,
           apiVersion: config?.apiVersion || "2024-02-01",
-          fetch: customFetch,
+          fetch: baseFetch,
         });
         break;
 
@@ -388,17 +553,31 @@ export function getModel(
 
         if (customProvider && customProvider.type === "openai") {
           // 自定义 OpenAI 类型服务商支持 API 类型选择
-          const storeKey = `${providerId}ApiType`;
-          apiType = (accessStore as any)[storeKey] || "chat";
-          logger.debug(
-            `[SDK Manager] Custom OpenAI provider API type for model ${modelName}:`,
-            {
-              providerId,
-              storeKey,
-              rawValue: (accessStore as any)[storeKey],
-              finalApiType: apiType,
-            },
-          );
+          if (customProvider.config?.useResponseApi !== undefined) {
+            apiType = customProvider.config.useResponseApi
+              ? "response"
+              : "chat";
+            logger.debug(
+              `[SDK Manager] Custom OpenAI provider API type for model ${modelName} (config):`,
+              {
+                providerId,
+                useResponseApi: customProvider.config.useResponseApi,
+                finalApiType: apiType,
+              },
+            );
+          } else {
+            const storeKey = `${providerId}ApiType`;
+            apiType = (accessStore as any)[storeKey] || "chat";
+            logger.debug(
+              `[SDK Manager] Custom OpenAI provider API type for model ${modelName} (store):`,
+              {
+                providerId,
+                storeKey,
+                rawValue: (accessStore as any)[storeKey],
+                finalApiType: apiType,
+              },
+            );
+          }
         }
       } else {
         // 内置服务商
@@ -505,10 +684,16 @@ export function getModel(
     const responseCacheKey = `${providerId}-${apiKey}-responses`;
     let responseInstance = sdkInstances.get(responseCacheKey);
     if (!responseInstance) {
+      const baseFetch = ensureFetchWithPreconnect(
+        getCustomFetch() ?? (typeof fetch !== "undefined" ? fetch : undefined),
+      );
+      const responsesFetch = baseFetch
+        ? wrapFetchWithResponsesNormalizer(baseFetch)
+        : undefined;
       responseInstance = createOpenAI({
         apiKey,
         baseURL: finalBaseUrl,
-        fetch: getCustomFetch(),
+        fetch: responsesFetch,
       });
       sdkInstances.set(responseCacheKey, responseInstance);
     }

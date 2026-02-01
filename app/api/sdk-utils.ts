@@ -198,7 +198,7 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
  */
 export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
   try {
-    // Response API 现在也通过 AI SDK 处理，与 Chat API 保持一致
+    // Response API 通过 AI SDK 处理，确保走 /responses 端点
     logger.debug(
       `[SDK Utils] Using AI SDK for Response API: ${config.provider}/${config.model}`,
     );
@@ -206,9 +206,83 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
       `[SDK Utils] Response API called - this should only happen when explicitly enabled by user`,
     );
 
-    // 对于所有厂商，都使用标准的 Chat API 通过 AI SDK
-    // Response API 的特殊格式转换由 AI SDK 内部处理
-    return await handleChatRequest(config);
+    let model;
+
+    if (config.provider === "openai") {
+      const customOpenAI = createOpenAI({
+        apiKey: config.apiKey,
+        ...(config.baseURL && config.baseURL !== "https://api.openai.com/v1"
+          ? { baseURL: config.baseURL }
+          : {}),
+      });
+      model = customOpenAI.responses
+        ? customOpenAI.responses(config.model)
+        : customOpenAI(config.model);
+    } else if (config.provider === "openai-compatible") {
+      // OpenAI 兼容厂商使用 OpenAI SDK 以启用 Responses API
+      const customOpenAI = createOpenAI({
+        apiKey: config.apiKey,
+        baseURL: config.baseURL,
+      });
+      model = customOpenAI.responses
+        ? customOpenAI.responses(config.model)
+        : customOpenAI(config.model);
+    } else if (config.provider === "azure") {
+      const azureProvider = createAzure({
+        apiKey: config.apiKey,
+        resourceName: config.resourceName || "",
+        apiVersion: config.apiVersion || "2024-02-01",
+      });
+      const deployment = config.deploymentName || config.model;
+      model = azureProvider.responses
+        ? azureProvider.responses(deployment)
+        : azureProvider(deployment);
+    } else {
+      logger.warn(
+        `[SDK Utils] Responses API not supported for provider ${config.provider}, falling back to chat API`,
+      );
+      return await handleChatRequest(config);
+    }
+
+    const requestParams: any = {
+      model,
+      messages: config.messages,
+    };
+
+    if (config.temperature !== undefined)
+      requestParams.temperature = config.temperature;
+    if (config.maxTokens !== undefined)
+      requestParams.maxTokens = config.maxTokens;
+    if (config.topP !== undefined) requestParams.topP = config.topP;
+    if (config.frequencyPenalty !== undefined)
+      requestParams.frequencyPenalty = config.frequencyPenalty;
+    if (config.presencePenalty !== undefined)
+      requestParams.presencePenalty = config.presencePenalty;
+
+    if (config.stream) {
+      const result = await streamText(requestParams);
+      return result.toTextStreamResponse();
+    }
+
+    const result = await generateText(requestParams);
+
+    return NextResponse.json({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: result.text,
+          },
+          finish_reason: result.finishReason,
+          index: 0,
+        },
+      ],
+      usage: {
+        prompt_tokens: result.usage?.inputTokens || 0,
+        completion_tokens: result.usage?.outputTokens || 0,
+        total_tokens: result.usage?.totalTokens || 0,
+      },
+    });
   } catch (error) {
     logger.error("[SDK Utils] Response API Error:", error);
     throw error;

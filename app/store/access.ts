@@ -474,11 +474,47 @@ export const useAccessStore = createPersistStore(
     },
 
     updateCustomProvider(id: string, updates: Partial<CustomProvider>) {
-      set((state) => ({
-        customProviders: state.customProviders.map((provider) =>
-          provider.id === id ? { ...provider, ...updates } : provider,
-        ),
-      }));
+      set((state) => {
+        const customProviders = state.customProviders.map((provider) => {
+          if (provider.id !== id) {
+            return provider;
+          }
+
+          const hasConfigUpdate = Object.prototype.hasOwnProperty.call(
+            updates,
+            "config",
+          );
+          let nextConfig = provider.config;
+          if (hasConfigUpdate) {
+            nextConfig = updates.config
+              ? { ...provider.config, ...updates.config }
+              : updates.config;
+          }
+
+          return {
+            ...provider,
+            ...updates,
+            config: nextConfig,
+          };
+        });
+
+        const updatedProvider = customProviders.find(
+          (provider) => provider.id === id,
+        );
+
+        const nextState: Record<string, any> = { customProviders };
+
+        if (updatedProvider?.type === "openai") {
+          const apiTypeKey = `${id}ApiType`;
+          if (updatedProvider.config?.useResponseApi !== undefined) {
+            nextState[apiTypeKey] = updatedProvider.config.useResponseApi
+              ? "response"
+              : "chat";
+          }
+        }
+
+        return nextState;
+      });
     },
 
     removeCustomProvider(id: string) {
