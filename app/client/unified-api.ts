@@ -311,6 +311,17 @@ export function unifiedChat(
       : {};
     const previousResponseId = context.previousResponseId;
 
+    if (previousResponseId) {
+      // When using previous_response_id, only send the latest user input.
+      for (let i = requestOptions.messages.length - 1; i >= 0; i -= 1) {
+        const message = requestOptions.messages[i];
+        if (message?.role === "user") {
+          requestOptions.messages = [message];
+          break;
+        }
+      }
+    }
+
     if (instructions || previousResponseId) {
       requestOptions.providerOptions = {
         ...(requestOptions.providerOptions ?? {}),
