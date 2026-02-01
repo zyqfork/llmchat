@@ -134,6 +134,8 @@ export interface ChatStat {
 export interface ChatSession {
   id: string;
   topic: string;
+  isAutoTopic?: boolean;
+  lastAutoTopicIndex?: number;
 
   memoryPrompt: string;
   messages: ChatMessage[];
@@ -181,6 +183,8 @@ function createEmptySession(): ChatSession {
   return {
     id: nanoid(),
     topic: DEFAULT_TOPIC,
+    isAutoTopic: true,
+    lastAutoTopicIndex: 0,
     memoryPrompt: "",
     messages: [],
     stat: {
@@ -436,6 +440,9 @@ export const useChatStore = createPersistStore(
         const newSession = createEmptySession();
 
         newSession.topic = currentSession.topic;
+        newSession.isAutoTopic =
+          currentSession.isAutoTopic ?? currentSession.topic === DEFAULT_TOPIC;
+        newSession.lastAutoTopicIndex = currentSession.lastAutoTopicIndex ?? 0;
         // 深拷贝消息
         newSession.messages = currentSession.messages.map((msg) => ({
           ...msg,
@@ -1546,6 +1553,19 @@ export const useChatStore = createPersistStore(
         get().updateTargetSession(session, (session) => {
           session.messages = [];
           session.memoryPrompt = "";
+          session.clearContextIndex = undefined;
+          session.lastSummarizeIndex = 0;
+          session.responseApiConversationId = undefined;
+          session.isAutoTopic = true;
+          session.lastAutoTopicIndex = 0;
+          session.topic = DEFAULT_TOPIC;
+          if (session.multiModelMode) {
+            session.multiModelMode.modelMessages = {};
+            session.multiModelMode.modelStats = {};
+            session.multiModelMode.modelMemoryPrompts = {};
+            session.multiModelMode.modelSummarizeIndexes = {};
+            session.multiModelMode.modelResponseApiConversationIds = {};
+          }
         });
       },
 
@@ -1586,15 +1606,23 @@ export const useChatStore = createPersistStore(
 
         // should summarize topic after chating more than 50 words
         const SUMMARIZE_MIN_LEN = 50;
-        if (
-          (config.enableAutoGenerateTitle &&
-            session.topic === DEFAULT_TOPIC &&
-            countMessages(messages) >= SUMMARIZE_MIN_LEN) ||
-          refreshTitle
-        ) {
+        const TITLE_REFRESH_INTERVAL = 6;
+        const lastAutoTopicIndex = session.lastAutoTopicIndex ?? 0;
+        const clearContextIndex = session.clearContextIndex ?? 0;
+        const effectiveMessages = messages.slice(clearContextIndex);
+        const shouldAutoGenerateTitle =
+          config.enableAutoGenerateTitle &&
+          (session.isAutoTopic ?? session.topic === DEFAULT_TOPIC);
+        const shouldUpdateTitle =
+          refreshTitle ||
+          (shouldAutoGenerateTitle &&
+            countMessages(effectiveMessages) >= SUMMARIZE_MIN_LEN &&
+            messages.length - lastAutoTopicIndex >= TITLE_REFRESH_INTERVAL);
+
+        if (shouldUpdateTitle) {
           const globalConfig = useAppConfig.getState().modelConfig;
           const startIndex = Math.max(
-            0,
+            clearContextIndex,
             messages.length - modelConfig.historyMessageCount,
           );
           const topicSourceMessages = messages
@@ -1629,14 +1657,14 @@ export const useChatStore = createPersistStore(
               if (responseRes?.status === 200) {
                 // 使用通用的移除思考内容函数，与优化提示词保持一致
                 const filteredMessage = removeThinkingContent(message);
-                get().updateTargetSession(
-                  session,
-                  (session) =>
-                    (session.topic =
-                      filteredMessage.length > 0
-                        ? trimTopic(filteredMessage)
-                        : DEFAULT_TOPIC),
-                );
+                get().updateTargetSession(session, (session) => {
+                  session.topic =
+                    filteredMessage.length > 0
+                      ? trimTopic(filteredMessage)
+                      : DEFAULT_TOPIC;
+                  session.isAutoTopic = true;
+                  session.lastAutoTopicIndex = messages.length;
+                });
               }
             },
           });
@@ -2039,6 +2067,9 @@ export const useChatStore = createPersistStore(
         for (const oldSession of oldSessions) {
           const newSession = createEmptySession();
           newSession.topic = oldSession.topic;
+          newSession.isAutoTopic =
+            oldSession.isAutoTopic ?? oldSession.topic === DEFAULT_TOPIC;
+          newSession.lastAutoTopicIndex = oldSession.lastAutoTopicIndex ?? 0;
           newSession.messages = [...oldSession.messages];
           newSession.mask.modelConfig.sendMemory = true;
           newSession.mask.modelConfig.historyMessageCount = 4;

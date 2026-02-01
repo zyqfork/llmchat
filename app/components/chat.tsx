@@ -2091,6 +2091,11 @@ export function ChatActions(props: {
             } else {
               session.clearContextIndex = session.messages.length;
               session.memoryPrompt = ""; // will clear memory
+              session.responseApiConversationId = undefined;
+              session.lastAutoTopicIndex = session.messages.length;
+              if (session.multiModelMode) {
+                session.multiModelMode.modelResponseApiConversationIds = {};
+              }
             }
           });
         }}
@@ -2346,10 +2351,10 @@ export function EditMessageModal(props: { onClose: () => void }) {
               type="text"
               value={session.topic}
               onInput={(e) =>
-                chatStore.updateTargetSession(
-                  session,
-                  (session) => (session.topic = e.currentTarget.value),
-                )
+                chatStore.updateTargetSession(session, (session) => {
+                  session.topic = e.currentTarget.value;
+                  session.isAutoTopic = false;
+                })
               }
             ></input>
           </ListItem>
@@ -2686,10 +2691,15 @@ function _Chat() {
     prev: () => chatStore.nextSession(-1),
     next: () => chatStore.nextSession(1),
     clear: () =>
-      chatStore.updateTargetSession(
-        session,
-        (session) => (session.clearContextIndex = session.messages.length),
-      ),
+      chatStore.updateTargetSession(session, (session) => {
+        session.clearContextIndex = session.messages.length;
+        session.memoryPrompt = "";
+        session.responseApiConversationId = undefined;
+        session.lastAutoTopicIndex = session.messages.length;
+        if (session.multiModelMode) {
+          session.multiModelMode.modelResponseApiConversationIds = {};
+        }
+      }),
     fork: () => chatStore.forkSession(),
     del: () => chatStore.deleteSession(chatStore.currentSessionIndex),
   });
@@ -3583,6 +3593,11 @@ function _Chat() {
           } else {
             session.clearContextIndex = session.messages.length;
             session.memoryPrompt = ""; // will clear memory
+            session.responseApiConversationId = undefined;
+            session.lastAutoTopicIndex = session.messages.length;
+            if (session.multiModelMode) {
+              session.multiModelMode.modelResponseApiConversationIds = {};
+            }
           }
         });
       }
