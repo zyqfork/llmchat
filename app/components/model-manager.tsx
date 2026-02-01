@@ -425,8 +425,14 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const shouldFetchFromAPI = store.fetchModelsFromAPI?.[provider] ?? true;
 
     if (shouldFetchFromAPI) {
-      // 每次打开都重新获取最新模型，不依赖缓存
-      fetchModelsFromAPI();
+      // 只在没有缓存时获取模型，避免每次打开都刷新
+      const cachedModels = store.apiModelsCache?.[provider];
+      if (!cachedModels || cachedModels.length === 0) {
+        fetchModelsFromAPI();
+      } else {
+        // 使用缓存的模型
+        setApiModels(cachedModels);
+      }
     } else {
       // 如果关闭了API获取，清空API模型
       setApiModels([]);

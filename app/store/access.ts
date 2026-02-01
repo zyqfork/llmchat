@@ -117,6 +117,10 @@ export interface CustomProvider {
   // 根据类型的特定配置
   config?: {
     // OpenAI类型的特定配置
+    useResponseApi?: boolean;
+    apiPath?: string;
+    useProxy?: boolean;
+    proxyUrl?: string;
     azureApiVersion?: string;
     // Google类型的特定配置
     googleSafetySettings?: GoogleSafetySettingsThreshold;
@@ -438,9 +442,33 @@ export const useAccessStore = createPersistStore(
         created: Date.now(),
       };
 
-      set((state) => ({
-        customProviders: [...state.customProviders, newProvider],
-      }));
+      set((state) => {
+        const newState = {
+          customProviders: [...state.customProviders, newProvider],
+        };
+
+        // 如果是 OpenAI 类型的自定义服务商，初始化相关设置
+        if (newProvider.type === "openai") {
+          const apiTypeKey = `${newProvider.id}ApiType`;
+          // 根据配置决定默认 API 类型
+          const defaultApiType = newProvider.config?.useResponseApi
+            ? "response"
+            : "chat";
+          (newState as any)[apiTypeKey] = defaultApiType;
+
+          logger.debug(
+            `[Access Store] Initialized API type for custom OpenAI provider:`,
+            {
+              providerId: newProvider.id,
+              apiTypeKey,
+              defaultValue: defaultApiType,
+              useResponseApi: newProvider.config?.useResponseApi,
+            },
+          );
+        }
+
+        return newState;
+      });
 
       return newProvider.id;
     },
@@ -454,11 +482,29 @@ export const useAccessStore = createPersistStore(
     },
 
     removeCustomProvider(id: string) {
-      set((state) => ({
-        customProviders: state.customProviders.filter(
-          (provider) => provider.id !== id,
-        ),
-      }));
+      set((state) => {
+        const provider = state.customProviders.find((p) => p.id === id);
+        const newState = {
+          customProviders: state.customProviders.filter(
+            (provider) => provider.id !== id,
+          ),
+        };
+
+        // 如果是 OpenAI 类型的自定义服务商，清理 API 类型设置
+        if (provider && provider.type === "openai") {
+          const apiTypeKey = `${id}ApiType`;
+          delete (newState as any)[apiTypeKey];
+          logger.debug(
+            `[Access Store] Cleaned up API type for custom OpenAI provider:`,
+            {
+              providerId: id,
+              apiTypeKey,
+            },
+          );
+        }
+
+        return newState;
+      });
     },
 
     getCustomProvider(id: string) {

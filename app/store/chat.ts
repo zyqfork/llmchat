@@ -773,6 +773,7 @@ export const useChatStore = createPersistStore(
           role: "assistant",
           streaming: true, // 初始状态设为 true，表示正在等待响应（无论流式还是非流式）
           model: modelConfig.model,
+          modelKey: `${modelConfig.model}@${modelConfig.providerName}`, // 添加 modelKey 以便显示提供商信息
         });
 
         // get recent messages

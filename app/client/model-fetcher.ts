@@ -26,7 +26,23 @@ export class ModelFetcher {
     try {
       const accessStore = useAccessStore.getState();
 
-      // 标准化 provider 参数：支持通过 ID 或名称查找
+      // 首先检查是否是自定义服务商
+      if (typeof provider === "string" && provider.startsWith("custom_")) {
+        const customProvider = accessStore.customProviders.find(
+          (p) => p.id === provider,
+        );
+        if (customProvider) {
+          return await this.fetchCustomProviderModels(customProvider);
+        } else {
+          return {
+            models: [],
+            success: false,
+            error: `自定义服务商 ${provider} 未找到`,
+          };
+        }
+      }
+
+      // 标准化 provider 参数：支持通过 ID 或名称查找内置服务商
       let providerId: string;
       let providerConfig = getProviderConfig(provider);
 
@@ -49,16 +65,6 @@ export class ModelFetcher {
       // 检查是否启用了代理
       const useProxyKey = providerConfig.storeKeys.useProxy;
       const useProxy = useProxyKey ? (accessStore as any)[useProxyKey] : false;
-
-      // 处理自定义服务商
-      if (typeof provider === "string" && provider.startsWith("custom_")) {
-        const customProvider = accessStore.customProviders.find(
-          (p) => p.id === provider,
-        );
-        if (customProvider) {
-          return await this.fetchCustomProviderModels(customProvider);
-        }
-      }
 
       if (useProxy) {
         // 使用代理时，通过本地 /api/models 接口
@@ -329,26 +335,176 @@ export class ModelFetcher {
   private static async fetchCustomProviderModels(
     customProvider: any,
   ): Promise<ModelFetchResponse> {
-    // 根据自定义服务商的类型调用相应的方法
-    const typeToFetcherMap: Record<
-      CustomProviderType,
-      () => Promise<ModelFetchResponse>
-    > = {
-      openai: () => this.fetchModelsDirectly("openai", ServiceProvider.OpenAI),
-      anthropic: () =>
-        this.fetchModelsDirectly("anthropic", ServiceProvider.Anthropic),
-      google: () => this.fetchModelsDirectly("google", ServiceProvider.Google),
-    };
+    try {
+      // 直接使用自定义服务商的配置请求 /models 接口
+      const apiKey = customProvider.apiKey;
+      const baseUrl = customProvider.endpoint;
 
-    const fetcher = typeToFetcherMap[customProvider.type as CustomProviderType];
-    if (fetcher) {
-      return await fetcher();
+      if (!apiKey) {
+        throw new Error(`自定义服务商缺少 API Key`);
+      }
+
+      if (!baseUrl) {
+        throw new Error(`自定义服务商缺少端点 URL`);
+      }
+
+      // 构建请求 URL - 使用标准的 /models 端点
+      const requestUrl = `${baseUrl}/models`;
+
+      // 构建请求头
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // 根据自定义服务商类型设置认证头
+      switch (customProvider.type) {
+        case "openai":
+          headers["Authorization"] = `Bearer ${apiKey}`;
+          break;
+        case "anthropic":
+          headers["x-api-key"] = apiKey;
+          headers["anthropic-version"] = "2023-06-01";
+          break;
+        case "google":
+          headers["x-goog-api-key"] = apiKey;
+          break;
+        default:
+          // 默认使用 Bearer token
+          headers["Authorization"] = `Bearer ${apiKey}`;
+          break;
+      }
+
+      logger.debug(`[Model Fetcher] Fetching models from custom provider:`, {
+        providerId: customProvider.id,
+        type: customProvider.type,
+        url: requestUrl,
+      });
+
+      // 发起请求
+      const response = await fetch(requestUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // 解析响应数据
+      const models = this.parseModelsResponse(
+        data,
+        customProvider.id,
+        customProvider.name,
+      );
+
+      logger.debug(`[Model Fetcher] Custom provider models fetched:`, {
+        providerId: customProvider.id,
+        count: models.length,
+      });
+
+      return {
+        models,
+        success: true,
+      };
+    } catch (error) {
+      logger.error(
+        `[Model Fetcher] Failed to fetch custom provider models:`,
+        error,
+      );
+      return {
+        models: [],
+        success: false,
+        error: `获取自定义服务商模型失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  }
+
+  /**
+   * 解析不同类型服务商的模型响应
+   */
+  private static parseModelsResponse(
+    data: any,
+    providerId: string,
+    providerName: string,
+  ): LLMModel[] {
+    const models: LLMModel[] = [];
+
+    try {
+      // OpenAI 格式的响应
+      if (data.data && Array.isArray(data.data)) {
+        data.data.forEach((model: any) => {
+          if (model.id) {
+            models.push({
+              name: model.id,
+              displayName: model.id,
+              available: true,
+              provider: {
+                id: providerId, // 使用自定义服务商的ID
+                providerName: providerName, // 使用自定义服务商的名称
+                providerType: "custom",
+                sorted: 999,
+              },
+              sorted: 999,
+            });
+          }
+        });
+      }
+      // 直接数组格式的响应
+      else if (Array.isArray(data)) {
+        data.forEach((model: any) => {
+          const modelName =
+            typeof model === "string" ? model : model.id || model.name;
+          if (modelName) {
+            models.push({
+              name: modelName,
+              displayName: modelName,
+              available: true,
+              provider: {
+                id: providerId, // 使用自定义服务商的ID
+                providerName: providerName, // 使用自定义服务商的名称
+                providerType: "custom",
+                sorted: 999,
+              },
+              sorted: 999,
+            });
+          }
+        });
+      }
+      // 其他格式的响应
+      else if (data.models && Array.isArray(data.models)) {
+        data.models.forEach((model: any) => {
+          const modelName = model.id || model.name;
+          if (modelName) {
+            models.push({
+              name: modelName,
+              displayName: modelName,
+              available: true,
+              provider: {
+                id: providerId, // 使用自定义服务商的ID
+                providerName: providerName, // 使用自定义服务商的名称
+                providerType: "custom",
+                sorted: 999,
+              },
+              sorted: 999,
+            });
+          }
+        });
+      }
+    } catch (error) {
+      logger.warn(`[Model Fetcher] Failed to parse models response:`, error);
     }
 
-    return {
-      models: [],
-      success: false,
-      error: `不支持的自定义服务商类型: ${customProvider.type}`,
-    };
+    logger.debug(`[Model Fetcher] Parsed models:`, {
+      providerId,
+      providerName,
+      count: models.length,
+      sampleModel: models[0],
+    });
+
+    return models;
   }
 }

@@ -453,7 +453,7 @@ export function normalizeProviderName(provider: string): string {
     return ServiceProvider.OpenAI.id;
   }
 
-  // 如果是自定义服务商，需要根据其类型返回对应的ServiceProvider
+  // 如果是自定义服务商，直接返回自定义服务商的ID，不要映射到内置服务商
   if (provider.startsWith("custom_")) {
     const { useAccessStore } = require("../store");
     const accessStore = useAccessStore.getState();
@@ -462,17 +462,9 @@ export function normalizeProviderName(provider: string): string {
     );
 
     if (customProvider) {
-      // 根据自定义服务商类型返回对应的ServiceProvider
-      const typeToProviderMap: Record<CustomProviderType, string> = {
-        openai: ServiceProvider.OpenAI.id,
-        google: ServiceProvider.Google.id,
-        anthropic: ServiceProvider.Anthropic.id,
-      };
-
-      return (
-        typeToProviderMap[customProvider.type as CustomProviderType] ||
-        ServiceProvider.OpenAI.id
-      );
+      // 直接返回自定义服务商的ID，让 SDK Manager 处理
+      logger.debug(`[API] Normalized custom provider: ${provider}`);
+      return provider; // 返回原始的自定义服务商ID
     }
   }
 

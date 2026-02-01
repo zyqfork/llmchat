@@ -49,7 +49,97 @@ export function createSDKInstance(
     return sdkInstances.get(cacheKey);
   }
 
-  const provider = getAllProviders().find((p) => p.id === providerId);
+  // 首先检查是否是自定义服务商
+  let provider: any = null;
+  let isCustomProvider = false;
+  let customProvider: any = null;
+
+  if (providerId.startsWith("custom_")) {
+    isCustomProvider = true;
+    // 获取自定义服务商配置
+    if (typeof window !== "undefined") {
+      try {
+        const { useAccessStore } = require("../store/access");
+        const accessStore = useAccessStore.getState();
+
+        logger.debug(
+          `[SDK Manager] Looking for custom provider: ${providerId}`,
+        );
+        logger.debug(
+          `[SDK Manager] Available custom providers:`,
+          accessStore.customProviders.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            enabled: p.enabled,
+          })),
+        );
+
+        customProvider = accessStore.customProviders.find(
+          (p: any) => p.id === providerId,
+        );
+        if (customProvider) {
+          // 为自定义服务商创建虚拟 provider 配置
+          provider = {
+            id: providerId,
+            name: customProvider.name,
+            // 自定义 OpenAI 类型使用 openai-compatible SDK
+            sdkType:
+              customProvider.type === "openai"
+                ? "openai-compatible"
+                : customProvider.type,
+            defaultBaseUrl: customProvider.endpoint || "",
+            storeKeys: {
+              // 自定义服务商支持 API 类型选择（如果是 OpenAI 类型）
+              apiType:
+                customProvider.type === "openai"
+                  ? `${providerId}ApiType`
+                  : undefined,
+            },
+          };
+          logger.debug(`[SDK Manager] Using custom provider:`, {
+            providerId,
+            name: customProvider.name,
+            type: customProvider.type,
+            sdkType: provider.sdkType,
+            hasApiType: !!provider.storeKeys.apiType,
+          });
+        } else {
+          logger.error(
+            `[SDK Manager] Custom provider not found: ${providerId}`,
+          );
+        }
+      } catch (error) {
+        logger.error(
+          `[SDK Manager] Failed to get custom provider ${providerId}:`,
+          error,
+        );
+      }
+    }
+
+    if (!customProvider) {
+      throw new Error(
+        `Custom provider ${providerId} not found. Available providers: ${
+          typeof window !== "undefined"
+            ? (() => {
+                try {
+                  const { useAccessStore } = require("../store/access");
+                  const accessStore = useAccessStore.getState();
+                  return accessStore.customProviders
+                    .map((p: any) => p.id)
+                    .join(", ");
+                } catch {
+                  return "Unable to fetch";
+                }
+              })()
+            : "Server-side"
+        }`,
+      );
+    }
+  } else {
+    // 内置服务商
+    provider = getAllProviders().find((p) => p.id === providerId);
+  }
+
   if (!provider) {
     throw new Error(`Provider ${providerId} not found`);
   }
@@ -63,28 +153,68 @@ export function createSDKInstance(
     try {
       const { useAccessStore } = require("../store/access");
       const accessStore = useAccessStore.getState();
-      const storeConfig = accessStore.getProviderConfig(providerId);
-      apiKey = storeConfig.apiKey;
-      baseUrl = storeConfig.baseUrl;
 
-      // 获取用户的 API 类型设置
-      if (provider.storeKeys.apiType) {
-        const storeKey = provider.storeKeys.apiType;
-        apiType = (accessStore as any)[storeKey] || "chat";
-        logger.debug(
-          `[SDK Manager] API type for ${providerId} (with config):`,
-          {
-            storeKey,
-            rawValue: (accessStore as any)[storeKey],
-            finalApiType: apiType,
-          },
-        );
+      if (isCustomProvider && customProvider) {
+        // 自定义服务商直接从配置获取
+        apiKey = customProvider.apiKey;
+        baseUrl = customProvider.endpoint;
+
+        // 自定义 OpenAI 类型服务商支持 API 类型选择
+        if (customProvider.type === "openai" && provider.storeKeys.apiType) {
+          const storeKey = provider.storeKeys.apiType;
+          // 优先使用配置中的 useResponseApi 设置
+          if (customProvider.config?.useResponseApi !== undefined) {
+            apiType = customProvider.config.useResponseApi
+              ? "response"
+              : "chat";
+            logger.debug(
+              `[SDK Manager] Custom OpenAI provider API type from config:`,
+              {
+                providerId,
+                useResponseApi: customProvider.config.useResponseApi,
+                finalApiType: apiType,
+              },
+            );
+          } else {
+            // 回退到 store 中的设置
+            apiType = (accessStore as any)[storeKey] || "chat";
+            logger.debug(
+              `[SDK Manager] Custom OpenAI provider API type from store:`,
+              {
+                providerId,
+                storeKey,
+                rawValue: (accessStore as any)[storeKey],
+                finalApiType: apiType,
+              },
+            );
+          }
+        }
+      } else {
+        // 内置服务商从 store 获取配置
+        const storeConfig = accessStore.getProviderConfig(providerId);
+        apiKey = storeConfig.apiKey;
+        baseUrl = storeConfig.baseUrl;
+
+        // 获取用户的 API 类型设置
+        if (provider.storeKeys.apiType) {
+          const storeKey = provider.storeKeys.apiType;
+          apiType = (accessStore as any)[storeKey] || "chat";
+          logger.debug(
+            `[SDK Manager] API type for ${providerId} (with config):`,
+            {
+              storeKey,
+              rawValue: (accessStore as any)[storeKey],
+              finalApiType: apiType,
+            },
+          );
+        }
       }
 
       logger.debug(`[SDK Manager] Provider ${providerId} config:`, {
         hasApiKey: !!apiKey,
         baseUrl,
         apiType,
+        isCustomProvider,
       });
     } catch (error) {
       logger.warn(
@@ -123,13 +253,14 @@ export function createSDKInstance(
   }
 
   // 确保使用正确的端点
-  let finalBaseUrl = baseUrl || (provider as any).defaultBaseUrl;
+  let finalBaseUrl = baseUrl || provider.defaultBaseUrl;
 
   // AI SDK 会自动处理端点路径，我们只需要提供基础 URL
   // 不需要在这里修改 URL，让 AI SDK 根据 API 类型自动选择正确的端点
   logger.debug(`[SDK Manager] Using baseURL for ${providerId}:`, {
     baseURL: finalBaseUrl,
     apiType,
+    isCustomProvider,
     note: "AI SDK will handle endpoint selection based on .chat() vs default method",
   });
 
@@ -200,6 +331,7 @@ export function createSDKInstance(
       sdkType: provider.sdkType,
       baseURL: finalBaseUrl,
       apiType,
+      isCustomProvider,
       availableMethods: {
         hasChat: typeof sdkInstance.chat === "function",
         hasResponses: typeof sdkInstance.responses === "function",
@@ -246,21 +378,45 @@ export function getModel(
     try {
       const { useAccessStore } = require("../store/access");
       const accessStore = useAccessStore.getState();
-      const provider = getAllProviders().find((p) => p.id === providerId);
 
-      if (provider?.storeKeys?.apiType) {
-        const storeKey = provider.storeKeys.apiType;
-        apiType = (accessStore as any)[storeKey] || "chat";
-        logger.debug(`[SDK Manager] API type for model ${modelName}:`, {
-          providerId,
-          storeKey,
-          rawValue: (accessStore as any)[storeKey],
-          finalApiType: apiType,
-        });
-      } else {
-        logger.debug(
-          `[SDK Manager] No apiType storeKey for provider ${providerId}, using default chat API`,
+      // 检查是否是自定义服务商
+      if (providerId.startsWith("custom_")) {
+        const customProvider = accessStore.customProviders.find(
+          (p: any) => p.id === providerId,
         );
+
+        if (customProvider && customProvider.type === "openai") {
+          // 自定义 OpenAI 类型服务商支持 API 类型选择
+          const storeKey = `${providerId}ApiType`;
+          apiType = (accessStore as any)[storeKey] || "chat";
+          logger.debug(
+            `[SDK Manager] Custom OpenAI provider API type for model ${modelName}:`,
+            {
+              providerId,
+              storeKey,
+              rawValue: (accessStore as any)[storeKey],
+              finalApiType: apiType,
+            },
+          );
+        }
+      } else {
+        // 内置服务商
+        const provider = getAllProviders().find((p) => p.id === providerId);
+
+        if (provider?.storeKeys?.apiType) {
+          const storeKey = provider.storeKeys.apiType;
+          apiType = (accessStore as any)[storeKey] || "chat";
+          logger.debug(`[SDK Manager] API type for model ${modelName}:`, {
+            providerId,
+            storeKey,
+            rawValue: (accessStore as any)[storeKey],
+            finalApiType: apiType,
+          });
+        } else {
+          logger.debug(
+            `[SDK Manager] No apiType storeKey for provider ${providerId}, using default chat API`,
+          );
+        }
       }
     } catch (error) {
       logger.warn(
@@ -270,9 +426,44 @@ export function getModel(
     }
   }
 
-  const provider = getAllProviders().find((p) => p.id === providerId);
+  // 获取 provider 信息（内置或自定义）
+  let provider: any = null;
+  let isCustomProvider = false;
 
-  // Response API 在 openai-compatible 下需要使用 OpenAI Responses 模型
+  if (providerId.startsWith("custom_")) {
+    isCustomProvider = true;
+    if (typeof window !== "undefined") {
+      try {
+        const { useAccessStore } = require("../store/access");
+        const accessStore = useAccessStore.getState();
+        const customProvider = accessStore.customProviders.find(
+          (p: any) => p.id === providerId,
+        );
+        if (customProvider) {
+          // 为自定义服务商创建虚拟 provider 配置
+          provider = {
+            id: providerId,
+            name: customProvider.name,
+            // 自定义 OpenAI 类型使用 openai-compatible SDK
+            sdkType:
+              customProvider.type === "openai"
+                ? "openai-compatible"
+                : customProvider.type,
+            defaultBaseUrl: customProvider.endpoint || "",
+          };
+        }
+      } catch (error) {
+        logger.error(
+          `[SDK Manager] Failed to get custom provider ${providerId}:`,
+          error,
+        );
+      }
+    }
+  } else {
+    provider = getAllProviders().find((p) => p.id === providerId);
+  }
+
+  // Response API 处理：对于 openai-compatible 类型（包括自定义 OpenAI 类型）
   if (apiType === "response" && provider?.sdkType === "openai-compatible") {
     let apiKey = config?.apiKey;
     let baseUrl = config?.baseUrl;
@@ -281,9 +472,22 @@ export function getModel(
       try {
         const { useAccessStore } = require("../store/access");
         const accessStore = useAccessStore.getState();
-        const storeConfig = accessStore.getProviderConfig(providerId);
-        apiKey = storeConfig.apiKey;
-        baseUrl = storeConfig.baseUrl;
+
+        if (isCustomProvider) {
+          // 自定义服务商直接从配置获取
+          const customProvider = accessStore.customProviders.find(
+            (p: any) => p.id === providerId,
+          );
+          if (customProvider) {
+            apiKey = customProvider.apiKey;
+            baseUrl = customProvider.endpoint;
+          }
+        } else {
+          // 内置服务商从 store 获取配置
+          const storeConfig = accessStore.getProviderConfig(providerId);
+          apiKey = storeConfig.apiKey;
+          baseUrl = storeConfig.baseUrl;
+        }
       } catch (error) {
         logger.warn(
           `[SDK Manager] Could not get config for response API ${providerId}:`,
@@ -296,7 +500,7 @@ export function getModel(
       throw new Error(`API key not provided for ${providerId}`);
     }
 
-    const finalBaseUrl = baseUrl || (provider as any)?.defaultBaseUrl;
+    const finalBaseUrl = baseUrl || provider?.defaultBaseUrl;
     const responseCacheKey = `${providerId}-${apiKey}-responses`;
     let responseInstance = sdkInstances.get(responseCacheKey);
     if (!responseInstance) {

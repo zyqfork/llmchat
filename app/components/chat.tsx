@@ -155,6 +155,47 @@ const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
 
+// 通用的厂商查找函数
+function getProviderDisplayName(providerId: string, accessStore: any): string {
+  if (!providerId) {
+    logger.warn(`[Chat] Provider ID is empty`);
+    return "Unknown";
+  }
+
+  logger.debug(`[Chat] Looking up provider display name for: ${providerId}`);
+
+  // 如果是自定义厂商
+  if (providerId.startsWith("custom_")) {
+    logger.debug(`[Chat] Searching for custom provider: ${providerId}`);
+    logger.debug(
+      `[Chat] Available custom providers:`,
+      accessStore.customProviders?.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        enabled: p.enabled,
+      })),
+    );
+
+    const customProvider = accessStore.customProviders?.find(
+      (p: any) => p.id === providerId,
+    );
+    if (customProvider) {
+      logger.debug(
+        `[Chat] Found custom provider: ${customProvider.name} for ID: ${providerId}`,
+      );
+      return customProvider.name;
+    } else {
+      logger.warn(`[Chat] Custom provider not found for ID: ${providerId}`);
+      logger.warn(`[Chat] Available providers:`, accessStore.customProviders);
+      return providerId; // 如果找不到，返回原始ID
+    }
+  }
+
+  // 如果是内置厂商，直接返回ID
+  logger.debug(`[Chat] Using built-in provider: ${providerId}`);
+  return providerId;
+}
+
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
@@ -1823,8 +1864,8 @@ export function ChatActions(props: {
   const updateSessionModel = useDebouncedCallback((nextModel: any) => {
     chatStore.updateTargetSession(sessionRef.current, (session) => {
       session.mask.modelConfig.model = nextModel.name;
-      session.mask.modelConfig.providerName = nextModel?.provider
-        ?.providerName as string;
+      // 使用 provider.id 而不是 provider.providerName，确保自定义服务商正确路由
+      session.mask.modelConfig.providerName = nextModel?.provider?.id as string;
 
       // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
       const modelCapabilities = getModelCapabilities(
@@ -2116,9 +2157,8 @@ export function ChatActions(props: {
               const [model, providerId] = getModelProvider(selectedValue);
               chatStore.updateTargetSession(session, (session) => {
                 session.mask.modelConfig.model = model as ModelType;
-                session.mask.modelConfig.providerName = normalizeProviderName(
-                  providerId!,
-                );
+                // 直接使用 providerId，不要标准化，保留自定义厂商的 ID
+                session.mask.modelConfig.providerName = providerId!;
                 session.mask.syncGlobalConfig = false;
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
@@ -3708,6 +3748,22 @@ function _Chat() {
                         const [modelName, providerId] = (
                           message.modelKey || ""
                         ).split("@");
+
+                        // 获取用户友好的 provider 显示名称
+                        const getProviderDisplayName = (providerId: string) => {
+                          if (providerId?.startsWith("custom_")) {
+                            const customProvider =
+                              accessStore.customProviders.find(
+                                (p) => p.id === providerId,
+                              );
+                            return customProvider?.name || providerId;
+                          }
+                          return providerId;
+                        };
+
+                        const providerDisplayName =
+                          getProviderDisplayName(providerId);
+
                         const showActions = !(
                           message.preview || message.content.length === 0
                         );
@@ -3733,7 +3789,7 @@ function _Chat() {
                                     <span
                                       className={styles["chat-model-provider"]}
                                     >
-                                      @{providerId}
+                                      @{providerDisplayName}
                                     </span>
                                   </ProviderTooltip>
                                 </div>
@@ -3976,7 +4032,11 @@ function _Chat() {
                                     <span
                                       className={styles["chat-model-provider"]}
                                     >
-                                      @{message.modelKey.split("@")[1]}
+                                      @
+                                      {getProviderDisplayName(
+                                        message.modelKey.split("@")[1],
+                                        accessStore,
+                                      )}
                                     </span>
                                   </ProviderTooltip>
                                 </>

@@ -116,6 +116,15 @@ interface AddCustomProviderModalProps {
     apiKey: string;
     endpoint?: string;
     enabled: boolean;
+    config?: {
+      useResponseApi?: boolean;
+      apiPath?: string;
+      useProxy?: boolean;
+      proxyUrl?: string;
+      azureApiVersion?: string;
+      googleSafetySettings?: GoogleSafetySettingsThreshold;
+      anthropicVersion?: string;
+    };
   }) => void;
 }
 
@@ -128,6 +137,11 @@ function AddCustomProviderModal({
     type: "openai" as CustomProviderType,
     apiKey: "",
     endpoint: "",
+    // OpenAI 兼容服务商的额外配置
+    useResponseApi: false,
+    apiPath: "",
+    useProxy: false,
+    proxyUrl: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const accessStore = useAccessStore();
@@ -165,6 +179,11 @@ function AddCustomProviderModal({
         Locale.Settings.Access.CustomProvider.Modal.ApiKey.Required;
     }
 
+    // 如果启用了代理但没有填写代理地址
+    if (formData.useProxy && !formData.proxyUrl.trim()) {
+      newErrors.proxyUrl = "启用代理时必须填写代理地址";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -177,8 +196,39 @@ function AddCustomProviderModal({
         apiKey: formData.apiKey.trim(),
         endpoint: formData.endpoint.trim() || undefined,
         enabled: true,
+        // 添加额外的配置信息
+        config: {
+          useResponseApi: formData.useResponseApi,
+          apiPath: formData.apiPath.trim() || undefined,
+          useProxy: formData.useProxy,
+          proxyUrl: formData.proxyUrl.trim() || undefined,
+        },
       });
     }
+  };
+
+  // 检查是否是 OpenAI 兼容类型
+  const isOpenAICompatible = formData.type === "openai";
+
+  // 根据 Response API 选择自动设置默认 API 路径
+  const getDefaultApiPath = () => {
+    if (!isOpenAICompatible) return "";
+    return formData.useResponseApi ? "/responses" : "/chat/completions";
+  };
+
+  // 当 Response API 选项改变时，自动更新 API 路径（如果用户没有手动修改过）
+  const handleResponseApiChange = (useResponseApi: boolean) => {
+    const newFormData = { ...formData, useResponseApi };
+
+    // 如果 API 路径为空或者是默认值，则自动更新
+    const currentDefaultPath = formData.useResponseApi
+      ? "/responses"
+      : "/chat/completions";
+    if (!formData.apiPath || formData.apiPath === currentDefaultPath) {
+      newFormData.apiPath = useResponseApi ? "/responses" : "/chat/completions";
+    }
+
+    setFormData(newFormData);
   };
 
   return (
@@ -194,92 +244,175 @@ function AddCustomProviderModal({
         </div>
 
         <div className={styles["modal-content"]}>
-          <div className={styles["form-group"]}>
-            <label>
-              {Locale.Settings.Access.CustomProvider.Modal.Name.Title} *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              placeholder={
-                Locale.Settings.Access.CustomProvider.Modal.Name.Placeholder
-              }
-              className={errors.name ? styles["error"] : ""}
-            />
-            {errors.name && (
+          <div className={styles["custom-provider-form"]}>
+            <div className={styles["form-field"]}>
+              <label className={styles["form-label"]}>
+                {Locale.Settings.Access.CustomProvider.Modal.Name.Title} *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder={
+                  Locale.Settings.Access.CustomProvider.Modal.Name.Placeholder
+                }
+                className={`${styles["form-input"]} ${
+                  errors.name ? styles["error"] : ""
+                }`}
+              />
+            </div>
+            {errors.name ? (
               <div className={styles["error-message"]}>{errors.name}</div>
+            ) : null}
+
+            <div className={styles["form-field"]}>
+              <label className={styles["form-label"]}>
+                {Locale.Settings.Access.CustomProvider.Modal.Type.Title} *
+              </label>
+              <select
+                value={formData.type}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    type: (e.target as HTMLSelectElement)
+                      .value as CustomProviderType,
+                  })
+                }
+                className={styles["form-select"]}
+              >
+                {providerTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} - {option.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles["form-field"]}>
+              <label className={styles["form-label"]}>
+                基础路径 (Base Path)
+              </label>
+              <input
+                type="text"
+                value={formData.endpoint}
+                onChange={(e) =>
+                  setFormData({ ...formData, endpoint: e.target.value })
+                }
+                placeholder="https://api.openai.com/v1"
+                className={styles["form-input"]}
+              />
+            </div>
+
+            {/* OpenAI 兼容服务商的额外配置 */}
+            {isOpenAICompatible && (
+              <>
+                <div
+                  className={`${styles["form-field"]} ${styles["checkbox-field"]}`}
+                >
+                  <label className={styles["form-checkbox-label"]}>
+                    <input
+                      type="checkbox"
+                      checked={formData.useResponseApi}
+                      onChange={(e) =>
+                        handleResponseApiChange(e.target.checked)
+                      }
+                      className={styles["form-checkbox"]}
+                    />
+                    使用 Response API
+                  </label>
+                  <div className={styles["form-description"]}>
+                    启用后该服务商的所有模型调用都将使用 Response API
+                  </div>
+                </div>
+
+                <div className={styles["form-field"]}>
+                  <label className={styles["form-label"]}>API 路径</label>
+                  <input
+                    type="text"
+                    value={formData.apiPath}
+                    onChange={(e) =>
+                      setFormData({ ...formData, apiPath: e.target.value })
+                    }
+                    placeholder={getDefaultApiPath()}
+                    className={styles["form-input"]}
+                  />
+                </div>
+
+                <div
+                  className={`${styles["form-field"]} ${styles["checkbox-field"]}`}
+                >
+                  <label className={styles["form-checkbox-label"]}>
+                    <input
+                      type="checkbox"
+                      checked={formData.useProxy}
+                      onChange={(e) =>
+                        setFormData({ ...formData, useProxy: e.target.checked })
+                      }
+                      className={styles["form-checkbox"]}
+                    />
+                    启用代理
+                  </label>
+                </div>
+
+                {formData.useProxy && (
+                  <>
+                    <div className={styles["form-field"]}>
+                      <label className={styles["form-label"]}>代理地址 *</label>
+                      <input
+                        type="text"
+                        value={formData.proxyUrl}
+                        onChange={(e) =>
+                          setFormData({ ...formData, proxyUrl: e.target.value })
+                        }
+                        placeholder="http://localhost:port"
+                        className={`${styles["form-input"]} ${
+                          errors.proxyUrl ? styles["error"] : ""
+                        }`}
+                      />
+                    </div>
+                    {errors.proxyUrl ? (
+                      <div className={styles["error-message"]}>
+                        {errors.proxyUrl}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </>
             )}
-          </div>
 
-          <div className={styles["form-group"]}>
-            <label>
-              {Locale.Settings.Access.CustomProvider.Modal.Type.Title} *
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  type: e.target.value as CustomProviderType,
-                })
-              }
-            >
-              {providerTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label} - {option.description}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles["form-group"]}>
-            <label>
-              {Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title} *
-            </label>
-            <input
-              type="password"
-              value={formData.apiKey}
-              onChange={(e) =>
-                setFormData({ ...formData, apiKey: e.target.value })
-              }
-              placeholder={
-                Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
-              }
-              className={errors.apiKey ? styles["error"] : ""}
-            />
-            {errors.apiKey && (
+            <div className={styles["form-field"]}>
+              <label className={styles["form-label"]}>
+                {Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title} *
+              </label>
+              <input
+                type="password"
+                value={formData.apiKey}
+                onChange={(e) =>
+                  setFormData({ ...formData, apiKey: e.target.value })
+                }
+                placeholder={
+                  Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
+                }
+                className={`${styles["form-input"]} ${
+                  errors.apiKey ? styles["error"] : ""
+                }`}
+              />
+            </div>
+            {errors.apiKey ? (
               <div className={styles["error-message"]}>{errors.apiKey}</div>
-            )}
-          </div>
-
-          <div className={styles["form-group"]}>
-            <label>
-              {Locale.Settings.Access.CustomProvider.Modal.Endpoint.Title}{" "}
-              {Locale.Settings.Access.CustomProvider.Modal.Endpoint.Optional}
-            </label>
-            <input
-              type="text"
-              value={formData.endpoint}
-              onChange={(e) =>
-                setFormData({ ...formData, endpoint: e.target.value })
-              }
-              placeholder={
-                Locale.Settings.Access.CustomProvider.Modal.Endpoint.Placeholder
-              }
-            />
+            ) : null}
           </div>
         </div>
 
         <div className={styles["modal-footer"]}>
-          <button className={styles["cancel-button"]} onClick={onClose}>
-            {Locale.Settings.Access.CustomProvider.Modal.Cancel}
-          </button>
-          <button className={styles["confirm-button"]} onClick={handleSubmit}>
-            {Locale.Settings.Access.CustomProvider.Modal.Confirm}
-          </button>
+          <IconButton
+            text={Locale.Settings.Access.CustomProvider.Modal.Confirm}
+            onClick={handleSubmit}
+            type="primary"
+            bordered
+          />
         </div>
       </div>
     </div>
@@ -2357,77 +2490,129 @@ export function Settings() {
 
     return (
       <>
+        {/* 基础路径配置 */}
         <ListItem
-          title={Locale.Settings.Access.CustomProvider.Config.Type}
-          subTitle={`${Locale.Settings.Access.CustomProvider.Config.BasedOn} ${
-            typeLabels[customProvider.type as keyof typeof typeLabels]
-          } API`}
-        >
-          <span>
-            {typeLabels[customProvider.type as keyof typeof typeLabels]}
-          </span>
-        </ListItem>
-
-        <ListItem
-          title={Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title}
+          title="基础路径 (Base Path)"
           subTitle={
-            Locale.Settings.Access.CustomProvider.Config.ApiKeyDescription
+            <span className={styles["long-text-wrap"]}>
+              自定义端点，留空使用默认端点
+            </span>
           }
         >
-          <PasswordInput
-            value={customProvider.apiKey}
+          <input
             type="text"
-            placeholder={
-              Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
-            }
+            value={customProvider.endpoint || ""}
+            placeholder="https://api.openai.com/v1"
             onChange={(e) => {
               accessStore.updateCustomProvider(customProvider.id, {
-                apiKey: e.currentTarget.value,
+                endpoint: e.currentTarget.value,
               });
             }}
           />
         </ListItem>
 
-        {customProvider.endpoint && (
-          <ListItem
-            title={Locale.Settings.Access.CustomProvider.Modal.Endpoint.Title}
-            subTitle={
-              Locale.Settings.Access.CustomProvider.Config.EndpointDescription
-            }
-          >
-            <input
-              type="text"
-              value={customProvider.endpoint}
-              placeholder={
-                Locale.Settings.Access.CustomProvider.Config.EndpointPlaceholder
-              }
-              onChange={(e) => {
-                accessStore.updateCustomProvider(customProvider.id, {
-                  endpoint: e.currentTarget.value,
-                });
-              }}
-            />
-          </ListItem>
+        {/* OpenAI 兼容服务商的额外配置 */}
+        {customProvider.type === "openai" && (
+          <>
+            <ListItem
+              title="使用 Response API"
+              subTitle="启用后该服务商的所有模型调用都将使用 Response API"
+            >
+              <input
+                type="checkbox"
+                checked={customProvider.config?.useResponseApi || false}
+                onChange={(e) => {
+                  const newConfig = { ...customProvider.config };
+                  newConfig.useResponseApi = e.target.checked;
+                  // 自动更新 API 路径
+                  if (
+                    !newConfig.apiPath ||
+                    newConfig.apiPath === "/responses" ||
+                    newConfig.apiPath === "/chat/completions"
+                  ) {
+                    newConfig.apiPath = e.target.checked
+                      ? "/responses"
+                      : "/chat/completions";
+                  }
+                  accessStore.updateCustomProvider(customProvider.id, {
+                    config: newConfig,
+                  });
+                }}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                }}
+              />
+            </ListItem>
+
+            <ListItem title="API 路径" subTitle="API 路径配置，留空使用默认">
+              <input
+                type="text"
+                value={customProvider.config?.apiPath || ""}
+                placeholder={
+                  customProvider.config?.useResponseApi
+                    ? "/responses"
+                    : "/chat/completions"
+                }
+                onChange={(e) => {
+                  const newConfig = { ...customProvider.config };
+                  newConfig.apiPath = e.currentTarget.value;
+                  accessStore.updateCustomProvider(customProvider.id, {
+                    config: newConfig,
+                  });
+                }}
+              />
+            </ListItem>
+
+            <ListItem title="启用代理" subTitle="通过代理服务器访问 API">
+              <input
+                type="checkbox"
+                checked={customProvider.config?.useProxy || false}
+                onChange={(e) => {
+                  const newConfig = { ...customProvider.config };
+                  newConfig.useProxy = e.target.checked;
+                  accessStore.updateCustomProvider(customProvider.id, {
+                    config: newConfig,
+                  });
+                }}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                }}
+              />
+            </ListItem>
+
+            {customProvider.config?.useProxy && (
+              <ListItem title="代理地址" subTitle="代理服务器的完整地址">
+                <input
+                  type="text"
+                  value={customProvider.config?.proxyUrl || ""}
+                  placeholder="http://localhost:port"
+                  onChange={(e) => {
+                    const newConfig = { ...customProvider.config };
+                    newConfig.proxyUrl = e.currentTarget.value;
+                    accessStore.updateCustomProvider(customProvider.id, {
+                      config: newConfig,
+                    });
+                  }}
+                />
+              </ListItem>
+            )}
+          </>
         )}
 
-        <ListItem
-          title={Locale.Settings.Access.CustomProvider.Config.Delete.Title}
-          subTitle={
-            Locale.Settings.Access.CustomProvider.Config.Delete.SubTitle
-          }
-        >
-          <IconButton
-            icon={<ClearIcon />}
-            text={Locale.Settings.Access.CustomProvider.Config.Delete.Button}
-            type="danger"
-            onClick={() => {
-              if (
-                confirm(
-                  `${Locale.Settings.Access.CustomProvider.Config.Delete.Confirm} "${customProvider.name}" ${Locale.Settings.Access.CustomProvider.Config.Delete.ConfirmSuffix}`,
-                )
-              ) {
-                accessStore.removeCustomProvider(customProvider.id);
-              }
+        {/* API Key 配置 */}
+        <ListItem title="API Key" subTitle="用于访问 API 的密钥">
+          <PasswordInput
+            value={customProvider.apiKey}
+            type="text"
+            placeholder="请输入 API Key"
+            onChange={(e) => {
+              accessStore.updateCustomProvider(customProvider.id, {
+                apiKey: e.currentTarget.value,
+              });
             }}
           />
         </ListItem>
@@ -2532,6 +2717,25 @@ export function Settings() {
                           }
                         }}
                       />
+
+                      {/* 自定义服务商的删除按钮 */}
+                      {config.isCustom && (
+                        <IconButton
+                          icon={<ClearIcon />}
+                          className={styles["delete-provider-button"]}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `确定要删除自定义服务商 "${config.name}" 吗？`,
+                              )
+                            ) {
+                              accessStore.removeCustomProvider(config.provider);
+                            }
+                          }}
+                          type="danger"
+                        />
+                      )}
+
                       {isEnabled && (
                         <IconButton
                           icon={<DownIcon />}

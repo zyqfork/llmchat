@@ -36,12 +36,32 @@ export interface UnifiedChatResponse {
   providerMetadata?: any;
 }
 
-// 根据模型名称获取provider ID
+// 根据模型名称获取provider ID - 改进版本
 function getProviderIdFromModel(model: string): string {
-  // 这里需要根据模型名称推断provider
-  // 可以通过模型名称的前缀或者维护一个模型到provider的映射表
+  // 首先尝试从启用的服务商中查找拥有该模型的服务商
+  if (typeof window !== "undefined") {
+    try {
+      const { useAccessStore } = require("../store/access");
+      const accessStore = useAccessStore.getState();
 
-  // 简单的推断逻辑，后续可以完善
+      // 检查自定义服务商
+      const enabledCustomProviders = accessStore.customProviders.filter(
+        (p: any) => p.enabled,
+      );
+
+      // 这里我们无法直接查询模型列表，但可以优先考虑自定义服务商
+      // 如果有启用的自定义服务商，记录一下（但不能直接返回，因为不知道哪个有这个模型）
+
+      logger.debug(`[Unified API] Model inference for: ${model}`, {
+        enabledCustomProviders: enabledCustomProviders.length,
+        note: "Consider improving model-to-provider mapping",
+      });
+    } catch (error) {
+      logger.warn(`[Unified API] Could not check custom providers:`, error);
+    }
+  }
+
+  // 基于模型名称前缀的推断逻辑
   if (
     model.startsWith("gpt-") ||
     model.startsWith("o1-") ||
@@ -66,7 +86,12 @@ function getProviderIdFromModel(model: string): string {
     return "ollama";
   }
 
-  // 默认返回openai
+  // 对于无法识别的模型名称，记录警告
+  logger.warn(
+    `[Unified API] Unknown model pattern: ${model}, defaulting to openai. This may cause routing issues for custom providers.`,
+  );
+
+  // 默认返回openai（这可能导致问题，但保持向后兼容）
   return "openai";
 }
 
