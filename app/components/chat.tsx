@@ -4053,8 +4053,11 @@ function _Chat() {
                                       className={styles["chat-model-provider"]}
                                     >
                                       @
-                                      {session.mask.modelConfig.providerName ||
-                                        "OpenAI"}
+                                      {getProviderDisplayName(
+                                        session.mask.modelConfig.providerName ||
+                                          "OpenAI",
+                                        accessStore,
+                                      )}
                                     </span>
                                   </ProviderTooltip>
                                 </>

@@ -2,6 +2,11 @@ import { streamTextWithSDK, generateTextWithSDK } from "./sdk-manager";
 import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
 
+type ProviderLike = Pick<
+  ReturnType<typeof getAllProviders>[number],
+  "id" | "name" | "sdkType" | "storeKeys"
+>;
+
 // 简化的消息接口，用于统一API
 export interface SimpleMessage {
   role: "system" | "user" | "assistant";
@@ -206,7 +211,47 @@ export function unifiedChat(
     );
   }
 
-  const provider = getAllProviders().find((p) => p.id === providerId);
+  let provider: ProviderLike | undefined = getAllProviders().find(
+    (p) => p.id === providerId,
+  );
+  let customProvider: any = null;
+
+  if (
+    !provider &&
+    providerId.startsWith("custom_") &&
+    typeof window !== "undefined"
+  ) {
+    try {
+      const { useAccessStore } = require("../store/access");
+      const accessStore = useAccessStore.getState();
+      customProvider = accessStore.customProviders.find(
+        (p: any) => p.id === providerId,
+      );
+      if (customProvider) {
+        provider = {
+          id: providerId,
+          name: customProvider.name,
+          sdkType:
+            customProvider.type === "openai"
+              ? "openai-compatible"
+              : customProvider.type,
+          storeKeys: {
+            apiKey: `${providerId}ApiKey`,
+            baseUrl: `${providerId}BaseUrl`,
+            apiType:
+              customProvider.type === "openai"
+                ? `${providerId}ApiType`
+                : undefined,
+          },
+        };
+      }
+    } catch (error) {
+      logger.warn(
+        `[Unified API] Failed to load custom provider: ${providerId}`,
+        error,
+      );
+    }
+  }
 
   if (!provider) {
     throw new Error(
@@ -215,14 +260,21 @@ export function unifiedChat(
   }
 
   let useResponseApi = false;
-  if (typeof window !== "undefined" && provider.storeKeys?.apiType) {
-    try {
-      const { useAccessStore } = require("../store");
-      const accessStore = useAccessStore.getState();
-      useResponseApi =
-        (accessStore as any)[provider.storeKeys.apiType] === "response";
-    } catch (error) {
-      logger.warn("[Unified API] Failed to read apiType:", error);
+  if (typeof window !== "undefined") {
+    if (
+      customProvider?.type === "openai" &&
+      customProvider.config?.useResponseApi !== undefined
+    ) {
+      useResponseApi = customProvider.config.useResponseApi;
+    } else if (provider.storeKeys?.apiType) {
+      try {
+        const { useAccessStore } = require("../store");
+        const accessStore = useAccessStore.getState();
+        useResponseApi =
+          (accessStore as any)[provider.storeKeys.apiType] === "response";
+      } catch (error) {
+        logger.warn("[Unified API] Failed to read apiType:", error);
+      }
     }
   }
 
