@@ -198,7 +198,10 @@ class UnifiedClientApi extends LLMApi {
               for await (const part of streamResult.fullStream) {
                 switch (part.type) {
                   case "text-delta": {
-                    pushDelta(part.delta ?? "");
+                    // AI SDK 6 内部格式使用 text，provider 原始格式使用 delta
+                    const delta =
+                      (part as any).text ?? (part as any).delta ?? "";
+                    pushDelta(delta);
                     break;
                   }
                   default: {

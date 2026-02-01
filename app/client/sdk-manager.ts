@@ -334,6 +334,7 @@ export function createSDKInstance(
       isCustomProvider,
       availableMethods: {
         hasChat: typeof sdkInstance.chat === "function",
+        hasChatModel: typeof sdkInstance.chatModel === "function",
         hasResponses: typeof sdkInstance.responses === "function",
         hasCompletion: typeof sdkInstance.completion === "function",
         isCallable: typeof sdkInstance === "function",
@@ -540,20 +541,27 @@ export function getModel(
       return sdkInstance(modelName);
     }
   } else {
-    // 用户使用 Chat API，必须明确使用 .chat() 方法
-    logger.debug(`[SDK Manager] Using Chat API (.chat) for model ${modelName}`);
+    // 用户使用 Chat API
+    // @ai-sdk/openai 提供 .chat()，@ai-sdk/openai-compatible 提供 .chatModel()
+    logger.debug(`[SDK Manager] Using Chat API for model ${modelName}`);
     if (sdkInstance.chat) {
       return sdkInstance.chat(modelName);
-    } else {
-      // 如果没有 chat 方法，记录错误并使用默认方法
-      logger.error(
-        `[SDK Manager] No .chat method available for ${providerId}, falling back to default (Response API)!`,
-      );
-      logger.error(
-        `[SDK Manager] This means the request will use Response API even though user disabled it!`,
+    }
+    if (sdkInstance.chatModel) {
+      // openai-compatible 使用 .chatModel() 对应 /chat/completions API
+      return sdkInstance.chatModel(modelName);
+    }
+    // 兜底：直接调用 provider(modelId)，openai-compatible 默认就是 chat 模型
+    if (provider?.sdkType === "openai-compatible") {
+      logger.debug(
+        `[SDK Manager] Using default call for openai-compatible (chat API)`,
       );
       return sdkInstance(modelName);
     }
+    logger.error(
+      `[SDK Manager] No .chat or .chatModel method available for ${providerId}, falling back to default!`,
+    );
+    return sdkInstance(modelName);
   }
 }
 
