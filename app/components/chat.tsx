@@ -2719,6 +2719,7 @@ function _Chat() {
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
+      setDebouncedPreviewInput(""); // 立即清除防抖预览
       setPromptHints([]);
       matchCommand.invoke();
       return;
@@ -2738,6 +2739,7 @@ function _Chat() {
     setAttachImages([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
+    setDebouncedPreviewInput(""); // 立即清除防抖预览，避免预览气泡延迟消失
     setPromptHints([]);
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
@@ -3749,6 +3751,16 @@ function _Chat() {
                           message.modelKey || ""
                         ).split("@");
 
+                        // 如果没有 modelKey，使用 message.model 或 session 配置作为后备
+                        const displayModelName =
+                          modelName ||
+                          message.model ||
+                          session.mask.modelConfig.model;
+                        const displayProviderId =
+                          providerId ||
+                          session.mask.modelConfig.providerName ||
+                          "OpenAI";
+
                         // 获取用户友好的 provider 显示名称
                         const getProviderDisplayName = (providerId: string) => {
                           if (providerId?.startsWith("custom_")) {
@@ -3762,7 +3774,7 @@ function _Chat() {
                         };
 
                         const providerDisplayName =
-                          getProviderDisplayName(providerId);
+                          getProviderDisplayName(displayProviderId);
 
                         const showActions = !(
                           message.preview || message.content.length === 0
@@ -3779,13 +3791,15 @@ function _Chat() {
                                 <div className={styles["chat-message-avatar"]}>
                                   <MaskAvatar
                                     avatar={session.mask.avatar}
-                                    model={message.model || modelName}
+                                    model={message.model || displayModelName}
                                   />
                                 </div>
 
                                 <div className={styles["chat-model-name"]}>
-                                  {modelName}
-                                  <ProviderTooltip providerName={providerId}>
+                                  {displayModelName}
+                                  <ProviderTooltip
+                                    providerName={displayProviderId}
+                                  >
                                     <span
                                       className={styles["chat-model-provider"]}
                                     >
@@ -4023,7 +4037,8 @@ function _Chat() {
                                 </span>
                               ) : message.isMultiModel && message.modelKey ? (
                                 <>
-                                  {message.model}
+                                  {message.model ||
+                                    session.mask.modelConfig.model}
                                   <ProviderTooltip
                                     providerName={
                                       message.modelKey.split("@")[1]
@@ -4042,7 +4057,8 @@ function _Chat() {
                                 </>
                               ) : (
                                 <>
-                                  {message.model}
+                                  {message.model ||
+                                    session.mask.modelConfig.model}
                                   <ProviderTooltip
                                     providerName={
                                       session.mask.modelConfig.providerName ||
