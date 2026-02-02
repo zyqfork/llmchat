@@ -78,6 +78,38 @@ function normalizeResponsesPayload(payload: any) {
   return payload;
 }
 
+function normalizeResponsesRequestBody(body: string) {
+  try {
+    const parsed = JSON.parse(body);
+    const input = parsed?.input;
+    if (!Array.isArray(input)) {
+      return body;
+    }
+
+    parsed.input = input.map((item: any) => {
+      if (!item || typeof item !== "object") {
+        return item;
+      }
+
+      const nextItem = { ...item };
+      if (!nextItem.type && nextItem.role) {
+        nextItem.type = "message";
+      }
+      if (nextItem.type === "message" || nextItem.role) {
+        if (!("status" in nextItem)) {
+          nextItem.status = "completed";
+        }
+      }
+
+      return nextItem;
+    });
+
+    return JSON.stringify(parsed);
+  } catch {
+    return body;
+  }
+}
+
 function wrapFetchWithResponsesNormalizer(
   baseFetch: FetchWithPreconnect,
 ): FetchWithPreconnect {
@@ -86,13 +118,29 @@ function wrapFetchWithResponsesNormalizer(
   }
 
   const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const response = await baseFetch(input, init);
     const url =
       typeof input === "string"
         ? input
         : input instanceof URL
         ? input.toString()
         : input.url;
+    let nextInit = init;
+
+    if (
+      url.includes("/responses") &&
+      init?.body &&
+      typeof init.body === "string"
+    ) {
+      const normalizedBody = normalizeResponsesRequestBody(init.body);
+      if (normalizedBody !== init.body) {
+        nextInit = {
+          ...init,
+          body: normalizedBody,
+        };
+      }
+    }
+
+    const response = await baseFetch(input, nextInit);
 
     if (!url.includes("/responses")) {
       return response;

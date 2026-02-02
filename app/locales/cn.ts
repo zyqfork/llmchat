@@ -500,9 +500,25 @@ const cn = {
       Title: "附带历史消息数",
       SubTitle: "每次请求携带的历史消息数",
     },
+    AutoTitleMinUserTokens: {
+      Title: "标题生成最小用户 Tokens",
+      SubTitle: "触发自动标题生成的用户发言最小 Token 数",
+    },
+    AutoTitleMinUserMessages: {
+      Title: "标题生成最小用户消息数",
+      SubTitle: "触发自动标题生成的最少用户消息数",
+    },
+    AutoTitleRefreshInterval: {
+      Title: "标题更新间隔（用户消息）",
+      SubTitle: "每新增多少条用户消息后更新标题",
+    },
     CompressThreshold: {
       Title: "历史消息长度压缩阈值",
       SubTitle: "当未压缩的历史消息超过该值时，将进行压缩",
+    },
+    SummaryMinUserMessages: {
+      Title: "压缩最小用户消息数",
+      SubTitle: "满足该数量后才会触发语义状态压缩",
     },
 
     Access: {
@@ -1070,11 +1086,11 @@ const cn = {
     BotHello: "有什么可以帮你的吗",
     Error: "出错了，稍后重试吧",
     Prompt: {
-      History: (content: string) => "这是历史聊天总结作为前情提要：" + content,
+      History: (content: string) => "当前对话语义状态如下：\n" + content,
       Topic:
-        "使用四到五个字直接返回这句话的简要主题，不要解释、不要标点、不要语气词、不要多余文本，不要加粗，如果没有主题，请直接返回“闲聊”",
+        "你是一个对话标题生成器。\n请根据以下对话内容生成简洁标题。\n要求：\n- 4到8个中文字符\n- 只输出标题本身\n- 不要标点\n- 不要解释\n- 不要语气词\n- 不要加引号\n用户对话内容：\n{{user_messages}}\n用户最近确认的助手回复（可为空）：\n{{assistant_message}}",
       Summarize:
-        "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
+        "你是一个对话上下文压缩器。\n你的任务是从【用户的历史发言】中提取可用于后续对话的语义状态。\n规则：\n- 只基于用户发言\n- 不要引入模型自己的推断或建议\n- 不要包含模型未被用户确认的回复内容\n- 仅记录用户已明确表达或已确认的结论\n- 使用 JSON 格式返回\n- 如果某项不存在，使用空数组或空字符串\n已有语义状态（可为空）：\n{{previous_summary}}\n需要压缩的用户发言如下：\n{{user_messages}}\n用户已确认的助手结论（可为空）：\n{{assistant_messages}}",
     },
   },
   Copy: {

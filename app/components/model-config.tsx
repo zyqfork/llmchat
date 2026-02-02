@@ -353,6 +353,74 @@ export function ModelConfigList(props: {
       </ListItem>
 
       <ListItem
+        title={Locale.Settings.AutoTitleMinUserTokens.Title}
+        subTitle={Locale.Settings.AutoTitleMinUserTokens.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.AutoTitleMinUserTokens.Title}
+          type="number"
+          min={1}
+          max={10000}
+          value={props.modelConfig.autoTitleMinUserTokens ?? 20}
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.autoTitleMinUserTokens =
+                  ModalConfigValidator.autoTitleMinUserTokens(
+                    e.currentTarget.valueAsNumber,
+                  )),
+            )
+          }
+        ></input>
+      </ListItem>
+
+      <ListItem
+        title={Locale.Settings.AutoTitleMinUserMessages.Title}
+        subTitle={Locale.Settings.AutoTitleMinUserMessages.SubTitle}
+      >
+        <InputRange
+          aria={Locale.Settings.AutoTitleMinUserMessages.Title}
+          title={(props.modelConfig.autoTitleMinUserMessages ?? 1).toString()}
+          value={props.modelConfig.autoTitleMinUserMessages ?? 1}
+          min="1"
+          max="20"
+          step="1"
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.autoTitleMinUserMessages =
+                  ModalConfigValidator.autoTitleMinUserMessages(
+                    e.target.valueAsNumber,
+                  )),
+            )
+          }
+        ></InputRange>
+      </ListItem>
+
+      <ListItem
+        title={Locale.Settings.AutoTitleRefreshInterval.Title}
+        subTitle={Locale.Settings.AutoTitleRefreshInterval.SubTitle}
+      >
+        <InputRange
+          aria={Locale.Settings.AutoTitleRefreshInterval.Title}
+          title={(props.modelConfig.autoTitleRefreshInterval ?? 4).toString()}
+          value={props.modelConfig.autoTitleRefreshInterval ?? 4}
+          min="1"
+          max="20"
+          step="1"
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.autoTitleRefreshInterval =
+                  ModalConfigValidator.autoTitleRefreshInterval(
+                    e.target.valueAsNumber,
+                  )),
+            )
+          }
+        ></InputRange>
+      </ListItem>
+
+      <ListItem
         title={Locale.Settings.CompressThreshold.Title}
         subTitle={(() => {
           const autoThreshold = getModelCompressThreshold(
@@ -385,6 +453,29 @@ export function ModelConfigList(props: {
             )
           }
         ></input>
+      </ListItem>
+
+      <ListItem
+        title={Locale.Settings.SummaryMinUserMessages.Title}
+        subTitle={Locale.Settings.SummaryMinUserMessages.SubTitle}
+      >
+        <InputRange
+          aria={Locale.Settings.SummaryMinUserMessages.Title}
+          title={(props.modelConfig.summaryMinUserMessages ?? 1).toString()}
+          value={props.modelConfig.summaryMinUserMessages ?? 1}
+          min="1"
+          max="20"
+          step="1"
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.summaryMinUserMessages =
+                  ModalConfigValidator.summaryMinUserMessages(
+                    e.target.valueAsNumber,
+                  )),
+            )
+          }
+        ></InputRange>
       </ListItem>
       <ListItem title={Locale.Memory.Title} subTitle={Locale.Memory.Send}>
         <input

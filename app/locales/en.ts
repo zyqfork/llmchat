@@ -514,10 +514,26 @@ const en: LocaleType = {
       Title: "Attached Messages Count",
       SubTitle: "Number of sent messages attached per request",
     },
+    AutoTitleMinUserTokens: {
+      Title: "Auto Title Min User Tokens",
+      SubTitle: "Minimum user tokens required to generate a title",
+    },
+    AutoTitleMinUserMessages: {
+      Title: "Auto Title Min User Messages",
+      SubTitle: "Minimum number of user messages required to generate a title",
+    },
+    AutoTitleRefreshInterval: {
+      Title: "Auto Title Refresh Interval (User Messages)",
+      SubTitle: "Update title after this many new user messages",
+    },
     CompressThreshold: {
       Title: "History Compression Threshold",
       SubTitle:
         "Will compress if uncompressed messages length exceeds the value",
+    },
+    SummaryMinUserMessages: {
+      Title: "Summary Min User Messages",
+      SubTitle: "Minimum user messages required to trigger summarization",
     },
 
     Access: {
@@ -1091,12 +1107,11 @@ const en: LocaleType = {
     BotHello: "Hello! How can I assist you today?",
     Error: "Something went wrong, please try again later.",
     Prompt: {
-      History: (content: string) =>
-        "This is a summary of the chat history as a recap: " + content,
+      History: (content: string) => "Current semantic state:\n" + content,
       Topic:
-        "Please generate a four to five word title summarizing our conversation without any lead-in, punctuation, quotation marks, periods, symbols, bold text, or additional text. Remove enclosing quotation marks.",
+        "You are a conversation title generator.\nPlease generate a concise title based on the conversation below.\nRequirements:\n- 4 to 8 words\n- Output only the title\n- No punctuation\n- No explanations\n- No filler words\n- No quotes\nUser messages:\n{{user_messages}}\nUser-confirmed assistant reply (optional):\n{{assistant_message}}",
       Summarize:
-        "Summarize the discussion briefly in 200 words or less to use as a prompt for future context.",
+        "You are a conversation summarizer.\nYour task is to extract semantic state from the user's messages.\nRules:\n- Only use user messages\n- Do not introduce model assumptions or suggestions\n- Do not include assistant replies unless confirmed by the user\n- Record only explicit or confirmed information\n- Return JSON\n- Use empty arrays/strings if a field is missing\nExisting semantic state (optional):\n{{previous_summary}}\nUser messages to summarize:\n{{user_messages}}\nUser-confirmed assistant conclusions (optional):\n{{assistant_messages}}",
     },
   },
   Copy: {

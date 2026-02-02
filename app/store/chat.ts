@@ -58,6 +58,11 @@ import { logger } from "../utils/logger";
 
 const localStorage = safeLocalStorage();
 
+const DEFAULT_AUTO_TITLE_MIN_USER_TOKENS = 20;
+const DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES = 1;
+const DEFAULT_AUTO_TITLE_REFRESH_INTERVAL = 4;
+const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 1;
+
 export type ChatMessageTool = {
   id: string;
   index?: number;
@@ -247,6 +252,34 @@ function countMessages(msgs: ChatMessage[]) {
   );
 }
 
+function countUserMessages(messages: ChatMessage[]) {
+  let count = 0;
+  for (const msg of messages) {
+    if (msg.isError || msg.role !== "user") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (content) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function countUserTokens(messages: ChatMessage[]) {
+  let total = 0;
+  for (const msg of messages) {
+    if (msg.isError || msg.role !== "user") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (content) {
+      total += estimateTokenLength(content);
+    }
+  }
+  return total;
+}
+
 function buildConversationTranscript(
   messages: ChatMessage[],
   includeSystem: boolean,
@@ -274,6 +307,239 @@ function buildPromptWithContext(
     return instruction;
   }
   return `${instruction}\n\nConversation:\n${transcript}`;
+}
+
+function buildUserMessagesText(messages: ChatMessage[]) {
+  const lines: string[] = [];
+
+  for (const msg of messages) {
+    if (msg.isError || msg.role !== "user") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (!content) {
+      continue;
+    }
+    lines.push(content);
+  }
+
+  return lines.join("\n");
+}
+
+function isLowValueAssistantMessage(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  if (trimmed.length <= 6) {
+    return true;
+  }
+
+  const genericReply =
+    /^(好的|好|可以|没问题|谢谢|不客气|抱歉|了解|明白|收到|欢迎|你好|嗨|嗯|ok|okay)[\s.!?。！？]*$/i;
+
+  return genericReply.test(trimmed);
+}
+
+function isUserConfirmationMessage(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.length > 24) {
+    return false;
+  }
+
+  if (/[?？]/.test(trimmed)) {
+    return false;
+  }
+
+  const confirmation =
+    /(好|好的|可以|行|没问题|确认|对|是的|没错|就这样|按这个|按此|照这个|照此|听你的|继续|ok|okay)/i;
+
+  return confirmation.test(trimmed);
+}
+
+function buildPromptWithUserMessages(
+  instruction: string,
+  userMessages: string,
+  previousSummary?: string,
+) {
+  let output = instruction;
+
+  if (output.includes("{{previous_summary}}")) {
+    output = output.replace("{{previous_summary}}", previousSummary ?? "");
+  } else if (previousSummary && previousSummary.trim().length > 0) {
+    output = `${output}\n\n已有语义状态：\n${previousSummary}`;
+  }
+
+  if (output.includes("{{user_messages}}")) {
+    return output.replace("{{user_messages}}", userMessages);
+  }
+
+  if (!userMessages) {
+    return output;
+  }
+
+  return `${output}\n\n用户发言：\n${userMessages}`;
+}
+
+function buildSummaryPrompt(
+  instruction: string,
+  userMessages: string,
+  confirmedAssistantMessages: string,
+  previousSummary?: string,
+) {
+  let output = buildPromptWithUserMessages(
+    instruction,
+    userMessages,
+    previousSummary,
+  );
+
+  if (output.includes("{{assistant_messages}}")) {
+    return output.replace("{{assistant_messages}}", confirmedAssistantMessages);
+  }
+
+  if (!confirmedAssistantMessages) {
+    return output;
+  }
+
+  return `${output}\n\n用户确认的助手结论：\n${confirmedAssistantMessages}`;
+}
+
+function buildTopicPrompt(
+  instruction: string,
+  userMessages: string,
+  assistantMessage: string,
+) {
+  let output = instruction;
+
+  if (output.includes("{{user_messages}}")) {
+    output = output.replace("{{user_messages}}", userMessages);
+  } else if (userMessages) {
+    output = `${output}\n\n用户发言：\n${userMessages}`;
+  }
+
+  if (output.includes("{{assistant_message}}")) {
+    output = output.replace("{{assistant_message}}", assistantMessage);
+  } else if (assistantMessage) {
+    output = `${output}\n\n助手回复：\n${assistantMessage}`;
+  }
+
+  return output;
+}
+
+function collectSummaryInputs(messages: ChatMessage[], startIndex: number) {
+  const userLines: string[] = [];
+  const confirmedAssistantLines: string[] = [];
+  let userMessageCount = 0;
+  let userTokens = 0;
+  let confirmedAssistantTokens = 0;
+  let pendingAssistant: string | null = null;
+  const rangeStart = Math.max(0, startIndex - 1);
+
+  for (let i = rangeStart; i < messages.length; i++) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role === "system") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (!content) {
+      continue;
+    }
+
+    if (msg.role === "assistant") {
+      pendingAssistant = content;
+      continue;
+    }
+
+    if (msg.role === "user") {
+      if (i >= startIndex) {
+        userLines.push(content);
+        userMessageCount += 1;
+        userTokens += estimateTokenLength(content);
+      }
+
+      if (
+        pendingAssistant &&
+        i >= startIndex &&
+        isUserConfirmationMessage(content) &&
+        !isLowValueAssistantMessage(pendingAssistant)
+      ) {
+        confirmedAssistantLines.push(pendingAssistant);
+        confirmedAssistantTokens += estimateTokenLength(pendingAssistant);
+      }
+
+      pendingAssistant = null;
+    }
+  }
+
+  return {
+    userMessages: userLines.join("\n"),
+    confirmedAssistantMessages: confirmedAssistantLines.join("\n"),
+    userMessageCount,
+    userTokens,
+    confirmedAssistantTokens,
+  };
+}
+
+function getConfirmedAssistantForTitle(messages: ChatMessage[]) {
+  let lastUserContent = "";
+  let lastUserIndex = -1;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role !== "user") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (!content) {
+      continue;
+    }
+    lastUserContent = content;
+    lastUserIndex = i;
+    break;
+  }
+
+  if (!lastUserContent || !isUserConfirmationMessage(lastUserContent)) {
+    return "";
+  }
+
+  for (let i = lastUserIndex - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role !== "assistant") {
+      continue;
+    }
+    const content = getMessageTextContentWithoutThinking(msg).trim();
+    if (!content || isLowValueAssistantMessage(content)) {
+      return "";
+    }
+    return content;
+  }
+
+  return "";
+}
+
+function buildTopicRequestMessages(
+  topicPrompt: string,
+  messages: ChatMessage[],
+) {
+  const userMessages = buildUserMessagesText(messages);
+  const assistantMessage = getConfirmedAssistantForTitle(messages);
+
+  const topicInput = buildTopicPrompt(
+    topicPrompt,
+    userMessages,
+    assistantMessage,
+  );
+  return [
+    createMessage({
+      role: "user",
+      content: topicInput,
+    }),
+  ];
 }
 
 function fillTemplateWith(input: string, modelConfig: ModelConfig) {
@@ -1605,19 +1871,38 @@ export const useChatStore = createPersistStore(
         const messages = session.messages;
 
         // should summarize topic after chating more than 50 words
-        const SUMMARIZE_MIN_LEN = 50;
-        const TITLE_REFRESH_INTERVAL = 6;
+        const titleMinUserTokens =
+          modelConfig.autoTitleMinUserTokens ??
+          DEFAULT_AUTO_TITLE_MIN_USER_TOKENS;
+        const titleMinUserMessages =
+          modelConfig.autoTitleMinUserMessages ??
+          DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES;
+        const titleRefreshInterval =
+          modelConfig.autoTitleRefreshInterval ??
+          DEFAULT_AUTO_TITLE_REFRESH_INTERVAL;
         const lastAutoTopicIndex = session.lastAutoTopicIndex ?? 0;
         const clearContextIndex = session.clearContextIndex ?? 0;
         const effectiveMessages = messages.slice(clearContextIndex);
+        const effectiveUserTokens = countUserTokens(effectiveMessages);
+        const effectiveUserMessages = countUserMessages(effectiveMessages);
+        const messagesSinceLastTitle = messages.slice(
+          Math.min(lastAutoTopicIndex, messages.length),
+        );
+        const userMessagesSinceLastTitle = countUserMessages(
+          messagesSinceLastTitle,
+        );
+        const isInitialTitle =
+          session.topic === DEFAULT_TOPIC || lastAutoTopicIndex === 0;
         const shouldAutoGenerateTitle =
           config.enableAutoGenerateTitle &&
           (session.isAutoTopic ?? session.topic === DEFAULT_TOPIC);
         const shouldUpdateTitle =
           refreshTitle ||
           (shouldAutoGenerateTitle &&
-            countMessages(effectiveMessages) >= SUMMARIZE_MIN_LEN &&
-            messages.length - lastAutoTopicIndex >= TITLE_REFRESH_INTERVAL);
+            effectiveUserTokens >= titleMinUserTokens &&
+            effectiveUserMessages >= titleMinUserMessages &&
+            (isInitialTitle ||
+              userMessagesSinceLastTitle >= titleRefreshInterval));
 
         if (shouldUpdateTitle) {
           const globalConfig = useAppConfig.getState().modelConfig;
@@ -1635,18 +1920,11 @@ export const useChatStore = createPersistStore(
             modelConfig.topicPrompt ||
             globalConfig.topicPrompt ||
             Locale.Store.Prompt.Topic;
-          const topicInput = buildPromptWithContext(
-            topicPrompt,
-            topicSourceMessages,
-            false,
-          );
           api.llm.chat({
-            messages: [
-              createMessage({
-                role: "user",
-                content: topicInput,
-              }),
-            ],
+            messages: buildTopicRequestMessages(
+              topicPrompt,
+              topicSourceMessages,
+            ),
             config: {
               model,
               stream: false,
@@ -1695,23 +1973,29 @@ export const useChatStore = createPersistStore(
             Math.max(0, n - modelConfig.historyMessageCount),
           );
         }
-        const memoryPrompt = get().getMemoryPrompt();
-        if (memoryPrompt) {
-          // add memory prompt
-          toBeSummarizedMsgs.unshift(memoryPrompt);
-        }
-
+        const summaryStartIndex = Math.max(
+          0,
+          messages.length - toBeSummarizedMsgs.length,
+        );
         const lastSummarizeIndex = session.messages.length;
 
+        const {
+          userMessages,
+          confirmedAssistantMessages,
+          userMessageCount,
+          userTokens,
+          confirmedAssistantTokens,
+        } = collectSummaryInputs(messages, summaryStartIndex);
+        const summaryTokens = userTokens + confirmedAssistantTokens;
+        const summaryMinUserMessages =
+          modelConfig.summaryMinUserMessages ??
+          DEFAULT_SUMMARY_MIN_USER_MESSAGES;
+
         if (
-          historyMsgLength > modelConfig.compressMessageLengthThreshold &&
+          summaryTokens >= modelConfig.compressMessageLengthThreshold &&
+          userMessageCount >= summaryMinUserMessages &&
           modelConfig.sendMemory
         ) {
-          // 设置摘要锁，防止并发
-          get().updateTargetSession(session, (s) => {
-            s.isSummarizing = true;
-          });
-
           /** Destruct max_tokens while summarizing
            * this param is just shit
            **/
@@ -1725,10 +2009,19 @@ export const useChatStore = createPersistStore(
           }
 
           const { max_tokens, ...modelcfg } = modelConfig;
-          const summarizeInput = buildPromptWithContext(
+          if (!userMessages && !confirmedAssistantMessages) {
+            return;
+          }
+
+          // 设置摘要锁，防止并发
+          get().updateTargetSession(session, (s) => {
+            s.isSummarizing = true;
+          });
+          const summarizeInput = buildSummaryPrompt(
             summarizePrompt,
-            toBeSummarizedMsgs,
-            true,
+            userMessages,
+            confirmedAssistantMessages,
+            session.memoryPrompt,
           );
           api.llm.chat({
             messages: [

@@ -82,6 +82,10 @@ export const DEFAULT_CONFIG = {
     sendMemory: true,
     historyMessageCount: 4,
     compressMessageLengthThreshold: getModelCompressThreshold("gpt-4o-mini"),
+    autoTitleMinUserTokens: 20,
+    autoTitleMinUserMessages: 1,
+    autoTitleRefreshInterval: 4,
+    summaryMinUserMessages: 1,
     compressModel: "",
     compressProviderName: "",
     optimizeModel: "",
@@ -178,6 +182,38 @@ export const ModalConfigValidator = {
   top_p(x: number) {
     return limitNumber(x, 0, 1, 1);
   },
+  autoTitleMinUserTokens(x: number) {
+    return limitNumber(
+      x,
+      1,
+      10000,
+      DEFAULT_CONFIG.modelConfig.autoTitleMinUserTokens,
+    );
+  },
+  autoTitleMinUserMessages(x: number) {
+    return limitNumber(
+      x,
+      1,
+      50,
+      DEFAULT_CONFIG.modelConfig.autoTitleMinUserMessages,
+    );
+  },
+  autoTitleRefreshInterval(x: number) {
+    return limitNumber(
+      x,
+      1,
+      100,
+      DEFAULT_CONFIG.modelConfig.autoTitleRefreshInterval,
+    );
+  },
+  summaryMinUserMessages(x: number) {
+    return limitNumber(
+      x,
+      1,
+      50,
+      DEFAULT_CONFIG.modelConfig.summaryMinUserMessages,
+    );
+  },
 };
 
 export const useAppConfig = createPersistStore(
@@ -214,7 +250,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.3,
+    version: 4.4,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -287,6 +323,17 @@ export const useAppConfig = createPersistStore(
         // 根据当前模型更新压缩阈值
         state.modelConfig.compressMessageLengthThreshold =
           getModelCompressThreshold(state.modelConfig.model);
+      }
+
+      if (version < 4.4) {
+        state.modelConfig.autoTitleMinUserTokens =
+          DEFAULT_CONFIG.modelConfig.autoTitleMinUserTokens;
+        state.modelConfig.autoTitleMinUserMessages =
+          DEFAULT_CONFIG.modelConfig.autoTitleMinUserMessages;
+        state.modelConfig.autoTitleRefreshInterval =
+          DEFAULT_CONFIG.modelConfig.autoTitleRefreshInterval;
+        state.modelConfig.summaryMinUserMessages =
+          DEFAULT_CONFIG.modelConfig.summaryMinUserMessages;
       }
 
       return state as any;
