@@ -1,7 +1,13 @@
 /**
  * 高级虚拟滚动Hook - 提供更好的性能优化和用户体验
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChatMessage } from "../../../store";
 import { getMessageTextContent } from "../../../utils";
@@ -12,6 +18,7 @@ interface UseVirtualScrollOptions {
   overscan?: number;
   autoScrollToBottom?: boolean;
   onScroll?: (scrollTop: number, isAtBottom: boolean) => void;
+  scrollRef?: RefObject<HTMLDivElement>;
 }
 
 interface VirtualScrollResult {
@@ -31,9 +38,11 @@ export function useVirtualScroll(
     overscan = 5,
     autoScrollToBottom = true,
     onScroll,
+    scrollRef,
   } = options;
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  const containerRef = scrollRef ?? fallbackRef;
   const [isAtBottom, setIsAtBottom] = useState(true);
   const lastMessageCountRef = useRef(messages.length);
 
@@ -135,7 +144,7 @@ export function useVirtualScroll(
     const { scrollTop, scrollHeight, clientHeight } = container;
     const threshold = 50; // 50px的容差
     return scrollTop + clientHeight >= scrollHeight - threshold;
-  }, []);
+  }, [containerRef]);
 
   // 自动滚动到底部（新消息时）
   useEffect(() => {
@@ -167,7 +176,7 @@ export function useVirtualScroll(
     return () => {
       resizeObserver.disconnect();
     };
-  }, [virtualizer]);
+  }, [containerRef, virtualizer]);
 
   // 监听滚动事件来更新isAtBottom状态
   useEffect(() => {
@@ -188,7 +197,7 @@ export function useVirtualScroll(
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
-  }, [checkIsAtBottom, onScroll]);
+  }, [checkIsAtBottom, containerRef, onScroll]);
 
   return {
     containerRef,

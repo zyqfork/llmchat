@@ -134,12 +134,12 @@ import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
 import { useDragSideBar } from "./sidebar";
 import { prettyObject } from "../utils/format";
-import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
 import { useEnabledModels } from "../utils/hooks";
 import { ClientApi, MultimodalContent, RequestMessage } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
+import { useVirtualScroll } from "./chat/hooks/useVirtualScroll";
 
 import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
@@ -199,6 +199,12 @@ function getProviderDisplayName(providerId: string, accessStore: any): string {
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
+const ExportMessageModal = dynamic(
+  async () => (await import("./exporter")).ExportMessageModal,
+  {
+    loading: () => null,
+  },
+);
 
 const MCPAction = ({ onTogglePanel }: { onTogglePanel: () => void }) => {
   const [count, setCount] = useState<number>(0);
@@ -2568,6 +2574,9 @@ function _Chat() {
     show: boolean;
     src: string;
   }>({ show: false, src: "" });
+  const showImageModal = (src: string) => {
+    setImagePreview({ show: true, src });
+  };
   const [debugMessage, setDebugMessage] = useState<ChatMessage | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -3204,12 +3213,19 @@ function _Chat() {
     return renderMessages.slice(msgRenderIndex, endRenderIndex);
   }, [msgRenderIndex, renderMessages]);
 
+  const isMultiModel =
+    session.multiModelMode?.enabled &&
+    session.multiModelMode.selectedModels.length > 1;
+
+  const { virtualizer } = useVirtualScroll({
+    messages,
+    overscan: 6,
+    autoScrollToBottom: false,
+    scrollRef,
+  });
+
   // 多模型消息分组逻辑
   const groupedMessages = useMemo(() => {
-    const multiModelMode = session.multiModelMode;
-    const isMultiModel =
-      multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
-
     if (!isMultiModel) {
       // 单模型模式：返回原始消息列表
       return messages.map((msg, idx) => ({
@@ -3282,7 +3298,7 @@ function _Chat() {
     }
 
     return groups;
-  }, [messages, session.multiModelMode]);
+  }, [isMultiModel, messages]);
 
   const onChatBodyScroll = (e: HTMLElement) => {
     const bottomHeight = e.scrollTop + e.clientHeight;
@@ -3612,6 +3628,502 @@ function _Chat() {
 
   const [showChatSidePanel, setShowChatSidePanel] = useState(false);
 
+  type ChatMessageWithPreview = ChatMessage & { preview?: boolean };
+
+  const renderSingleMessage = (message: ChatMessageWithPreview, i: number) => {
+    const isUser = message.role === "user";
+    const isContext = i < context.length;
+    const showActions =
+      i > 0 && !(message.preview || message.content.length === 0) && !isContext;
+    const showTyping = message.preview || message.streaming;
+
+    const shouldShowClearContextDivider = i === clearContextIndex - 1;
+
+    return (
+      <Fragment key={message.id}>
+        <div
+          className={
+            isUser ? styles["chat-message-user"] : styles["chat-message"]
+          }
+        >
+          <div className={styles["chat-message-container"]}>
+            <div className={styles["chat-message-header"]}>
+              <div className={styles["chat-message-avatar"]}>
+                <div className={styles["chat-message-edit"]}>
+                  <IconButton
+                    icon={<EditIcon />}
+                    aria={Locale.Chat.Actions.Edit}
+                    onClick={async () => {
+                      const newMessage = await showPrompt(
+                        Locale.Chat.Actions.Edit,
+                        getMessageTextContent(message),
+                        10,
+                      );
+                      let newContent: string | MultimodalContent[] = newMessage;
+                      const images = getMessageImages(message);
+                      if (images.length > 0) {
+                        newContent = [{ type: "text", text: newMessage }];
+                        for (let i = 0; i < images.length; i++) {
+                          newContent.push({
+                            type: "image_url",
+                            image_url: {
+                              url: images[i],
+                            },
+                          });
+                        }
+                      }
+                      chatStore.updateTargetSession(session, (session) => {
+                        const m = session.mask.context
+                          .concat(session.messages)
+                          .find((m) => m.id === message.id);
+                        if (m) {
+                          m.content = newContent;
+                        }
+                      });
+                    }}
+                  ></IconButton>
+                </div>
+                {isContext ? (
+                  // 预设消息：使用配置中的角色头像
+                  <Avatar
+                    avatar={
+                      message.role === "system"
+                        ? config.systemAvatar
+                        : message.role === "assistant"
+                        ? config.assistantAvatar
+                        : config.avatar
+                    }
+                  />
+                ) : isUser ? (
+                  <Avatar avatar={config.avatar} />
+                ) : (
+                  <>
+                    {["system"].includes(message.role) ? (
+                      <Avatar avatar={config.systemAvatar} />
+                    ) : (
+                      <MaskAvatar
+                        avatar={session.mask.avatar}
+                        model={message.model || session.mask.modelConfig.model}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+              {(!isUser || (isContext && message.role !== "user")) && (
+                <div className={styles["chat-model-name"]}>
+                  {isContext ? (
+                    // 预设消息：只显示角色名（user 角色不显示）
+                    <span className={styles["chat-context-role-name"]}>
+                      {message.role}
+                    </span>
+                  ) : message.isMultiModel && message.modelKey ? (
+                    <>
+                      {message.model || session.mask.modelConfig.model}
+                      <ProviderTooltip
+                        providerName={message.modelKey.split("@")[1]}
+                      >
+                        <span className={styles["chat-model-provider"]}>
+                          @
+                          {getProviderDisplayName(
+                            message.modelKey.split("@")[1],
+                            accessStore,
+                          )}
+                        </span>
+                      </ProviderTooltip>
+                    </>
+                  ) : (
+                    <>
+                      {message.model || session.mask.modelConfig.model}
+                      <ProviderTooltip
+                        providerName={
+                          session.mask.modelConfig.providerName || "OpenAI"
+                        }
+                      >
+                        <span className={styles["chat-model-provider"]}>
+                          @
+                          {getProviderDisplayName(
+                            session.mask.modelConfig.providerName || "OpenAI",
+                            accessStore,
+                          )}
+                        </span>
+                      </ProviderTooltip>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {showActions && (
+                <div className={styles["chat-message-actions"]}>
+                  <div className={styles["chat-input-actions"]}>
+                    {(() => {
+                      // 修复：更准确地判断消息是否应该显示停止按钮
+                      const shouldShowStop =
+                        message.streaming &&
+                        (message.role === "assistant" ||
+                          message.role === "user") &&
+                        ChatControllerPool.hasPendingInSession(session.id);
+
+                      if (shouldShowStop) {
+                        return (
+                          <ChatAction
+                            text={Locale.Chat.Actions.Stop}
+                            icon={<StopIcon />}
+                            onClick={() => onUserStop(message.id ?? i)}
+                          />
+                        );
+                      } else {
+                        return (
+                          <>
+                            <ChatAction
+                              text={Locale.Chat.Actions.Retry}
+                              icon={<ResetIcon />}
+                              onClick={() => onResend(message)}
+                            />
+
+                            {/* 版本切换按钮 - 只对 assistant 消息显示 */}
+                            {(() => {
+                              const shouldShowVersionControls =
+                                message.role === "assistant" &&
+                                message.versions &&
+                                message.versions.length >= 1;
+
+                              return (
+                                shouldShowVersionControls && (
+                                  <>
+                                    {(message.currentVersionIndex ?? 0) > 0 && (
+                                      <ChatAction
+                                        text={
+                                          Locale.Chat.Actions.PreviousVersion
+                                        }
+                                        icon={<LeftIcon />}
+                                        onClick={() =>
+                                          onPreviousVersion(message)
+                                        }
+                                      />
+                                    )}
+
+                                    {(message.currentVersionIndex ?? 0) <
+                                      (message.versions?.length ?? 0) && (
+                                      <ChatAction
+                                        text={Locale.Chat.Actions.NextVersion}
+                                        icon={<RightIcon />}
+                                        onClick={() => onNextVersion(message)}
+                                      />
+                                    )}
+                                  </>
+                                )
+                              );
+                            })()}
+
+                            <ChatAction
+                              text={Locale.Chat.Actions.Delete}
+                              icon={<DeleteIcon />}
+                              onClick={() => onDelete(message.id ?? i)}
+                            />
+
+                            <ChatAction
+                              text={Locale.Chat.Actions.Pin}
+                              icon={<PinIcon />}
+                              onClick={() => onPinMessage(message)}
+                            />
+                            <ChatAction
+                              text={Locale.Chat.Actions.Copy}
+                              icon={<CopyIcon />}
+                              onClick={() =>
+                                copyToClipboard(
+                                  getMessageTextContentWithoutThinking(message),
+                                )
+                              }
+                            />
+                            {message.role === "assistant" && (
+                              <ChatAction
+                                text={Locale.Chat.Actions.Debug}
+                                icon={<DebugIcon />}
+                                onClick={() => {
+                                  setDebugMessage(message as any);
+                                  setDebugModalOpen(true);
+                                }}
+                              />
+                            )}
+                            {config.ttsConfig.enable && (
+                              <ChatAction
+                                text={
+                                  speechStatus
+                                    ? Locale.Chat.Actions.StopSpeech
+                                    : Locale.Chat.Actions.Speech
+                                }
+                                icon={
+                                  speechStatus ? (
+                                    <SpeakStopIcon />
+                                  ) : (
+                                    <SpeakIcon />
+                                  )
+                                }
+                                onClick={() =>
+                                  openaiSpeech(getMessageTextContent(message))
+                                }
+                              />
+                            )}
+                          </>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+            {!message?.tools?.length &&
+              !(message as any)?.mcpCalls?.length &&
+              showTyping && (
+                <div className={styles["chat-message-status"]}>
+                  {Locale.Chat.Typing}
+                </div>
+              )}
+            {/* 工具徽标（支持 function_call 与 MCP 提示词模式） */}
+            {(() => {
+              const mcpCalls: any[] = (message as any).mcpCalls || [];
+              const functionTools: any[] = message?.tools || [];
+              const unified = [
+                ...functionTools.map((tool, idx) => {
+                  const fullName = tool?.function?.name || "";
+                  let toolName = fullName;
+                  let clientName = "";
+                  if (fullName.includes("__")) {
+                    const parts = fullName.split("__");
+                    if (parts.length >= 2) {
+                      clientName = parts[0];
+                      toolName = parts.slice(1).join("__");
+                    }
+                  } else if (fullName.includes("_")) {
+                    const firstUnderscoreIndex = fullName.indexOf("_");
+                    clientName = fullName.substring(0, firstUnderscoreIndex);
+                    toolName = fullName.substring(firstUnderscoreIndex + 1);
+                  } else if (fullName.includes("-")) {
+                    const firstDashIndex = fullName.indexOf("-");
+                    clientName = fullName.substring(0, firstDashIndex);
+                    toolName = fullName.substring(firstDashIndex + 1);
+                  }
+                  return {
+                    id: tool.id || `func:${idx}`,
+                    source: "function",
+                    toolName,
+                    clientName,
+                    raw: tool,
+                  };
+                }),
+                ...mcpCalls.map((call, idx) => ({
+                  id: `mcp:${idx}`,
+                  source: "mcp",
+                  toolName: call.toolName,
+                  clientName: call.clientId,
+                  raw: call,
+                })),
+              ];
+              if (unified.length === 0) return null;
+
+              return (
+                <>
+                  {/* 工具详情：取消顶部徽章与点击，直接展示工具调用内容 */}
+                  {(() => {
+                    if (unified.length === 0) return null;
+                    return (
+                      <div className={styles["mcp-tool-calls"]}>
+                        {unified.map((item) => {
+                          if (item.source === "function") {
+                            const t = item.raw;
+                            let parsedArgs: any = t?.function?.arguments;
+                            try {
+                              parsedArgs = parsedArgs
+                                ? JSON.parse(parsedArgs)
+                                : {};
+                            } catch {}
+                            return (
+                              <details
+                                key={item.id}
+                                className={styles["mcp-tool-call"]}
+                              >
+                                <summary>
+                                  <span
+                                    className={styles["mcp-tool-call-title"]}
+                                  >
+                                    {item.clientName}
+                                    {item.toolName ? ` / ${item.toolName}` : ""}
+                                  </span>
+                                  <span
+                                    className={styles["mcp-tool-call-desc"]}
+                                  >
+                                    {item.source === "function"
+                                      ? "Function"
+                                      : "MCP"}
+                                  </span>
+                                </summary>
+                                <div className={styles["mcp-tool-call-body"]}>
+                                  <div className={styles["mcp-tool-call-line"]}>
+                                    <span
+                                      className={styles["mcp-tool-call-key"]}
+                                    >
+                                      args
+                                    </span>
+                                    <pre
+                                      className={styles["mcp-tool-call-value"]}
+                                    >
+                                      {JSON.stringify(parsedArgs, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </details>
+                            );
+                          }
+
+                          const c = item.raw;
+                          return (
+                            <details
+                              key={item.id}
+                              className={styles["mcp-tool-call"]}
+                            >
+                              <summary>
+                                <span className={styles["mcp-tool-call-title"]}>
+                                  {item.clientName}
+                                  {item.toolName ? ` / ${item.toolName}` : ""}
+                                </span>
+                                <span className={styles["mcp-tool-call-desc"]}>
+                                  MCP
+                                </span>
+                              </summary>
+                              <div className={styles["mcp-tool-call-body"]}>
+                                <div className={styles["mcp-tool-call-line"]}>
+                                  <span className={styles["mcp-tool-call-key"]}>
+                                    args
+                                  </span>
+                                  <pre
+                                    className={styles["mcp-tool-call-value"]}
+                                  >
+                                    {JSON.stringify(c.args, null, 2)}
+                                  </pre>
+                                </div>
+                              </div>
+                            </details>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
+            <div className={styles["chat-message-item"]}>
+              <Markdown
+                key={message.streaming ? "loading" : "done"}
+                content={(() => {
+                  const messageContent =
+                    typeof message.content === "string"
+                      ? message.content
+                      : getMessageTextContent(message);
+                  const isThinking = isThinkingModel(message.model);
+                  const shouldWrap = !message.streaming && isThinking;
+                  if (shouldWrap) {
+                    return wrapThinkingPart(messageContent);
+                  }
+                  return messageContent;
+                })()}
+                loading={
+                  (message.preview || message.streaming) &&
+                  (!message.content ||
+                    (typeof message.content === "string" &&
+                      message.content.length === 0))
+                }
+                fontSize={fontSize}
+                fontFamily={fontFamily}
+                parentRef={scrollRef}
+                defaultShow={i >= messages.length - 6}
+              />
+              {message.role === "assistant" &&
+                getMessageImages(message).length === 1 && (
+                  <div
+                    className={styles["chat-message-item-image-container"]}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => showImageModal(getMessageImages(message)[0])}
+                  >
+                    <Image
+                      className={styles["chat-message-item-image"]}
+                      src={getMessageImages(message)[0]}
+                      alt=""
+                      fill={false}
+                      width={256}
+                      height={256}
+                    />
+                  </div>
+                )}
+              {message.role === "assistant" &&
+                getMessageImages(message).length > 1 && (
+                  <div
+                    className={styles["chat-message-item-images"]}
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.min(
+                        getMessageImages(message).length,
+                        3,
+                      )}, 1fr)`,
+                    }}
+                  >
+                    {getMessageImages(message).map((image, i) => (
+                      <div
+                        key={i}
+                        className={
+                          styles["chat-message-item-image-multi-container"]
+                        }
+                        style={{ cursor: "pointer" }}
+                        onClick={() => showImageModal(image)}
+                      >
+                        <Image
+                          className={styles["chat-message-item-image-multi"]}
+                          src={image}
+                          alt=""
+                          fill={false}
+                          width={128}
+                          height={128}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+            {message?.audio_url && (
+              <div className={styles["chat-message-audio"]}>
+                <audio src={message.audio_url} controls />
+              </div>
+            )}
+
+            <div className={styles["chat-message-action-date"]}>
+              {/* 版本指示器 - 只对有版本的 assistant 消息显示 */}
+              {message.role === "assistant" &&
+                message.versions &&
+                message.versions.length >= 1 && (
+                  <span className={styles["chat-message-version"]}>
+                    {(message.currentVersionIndex ?? 0) + 1}/
+                    {(message.versions?.length ?? 0) + 1}
+                  </span>
+                )}
+              {message.role === "assistant" &&
+                message.statistic?.completionTokens &&
+                message.statistic?.totalReplyLatency && (
+                  <span className={styles["chat-message-tps"]}>
+                    {(
+                      (message.statistic.completionTokens /
+                        message.statistic.totalReplyLatency) *
+                      1000
+                    ).toFixed(1)}{" "}
+                    t/s
+                  </span>
+                )}
+              {message.date.toLocaleString()}
+            </div>
+          </div>
+        </div>
+        {shouldShowClearContextDivider && <ClearContextDivider />}
+      </Fragment>
+    );
+  };
+
   return (
     <>
       <div className={styles.chat} key={session.id}>
@@ -3753,799 +4265,249 @@ function _Chat() {
                 setAutoScroll(false);
               }}
             >
-              {groupedMessages.map((group, groupIndex) => {
-                if (group.type === "multi-assistant") {
-                  // 横向排列多个assistant消息
-                  return (
-                    <div
-                      key={`group-${groupIndex}`}
-                      className={styles["multi-model-messages"]}
-                    >
-                      {group.messages.map((message) => {
-                        const [modelName, providerId] = (
-                          message.modelKey || ""
-                        ).split("@");
+              {isMultiModel ? (
+                groupedMessages.map((group, groupIndex) => {
+                  if (group.type === "multi-assistant") {
+                    // 横向排列多个assistant消息
+                    return (
+                      <div
+                        key={`group-${groupIndex}`}
+                        className={styles["multi-model-messages"]}
+                      >
+                        {group.messages.map((message) => {
+                          const [modelName, providerId] = (
+                            message.modelKey || ""
+                          ).split("@");
 
-                        // 如果没有 modelKey，使用 message.model 或 session 配置作为后备
-                        const displayModelName =
-                          modelName ||
-                          message.model ||
-                          session.mask.modelConfig.model;
-                        const displayProviderId =
-                          providerId ||
-                          session.mask.modelConfig.providerName ||
-                          "OpenAI";
+                          // 如果没有 modelKey，使用 message.model 或 session 配置作为后备
+                          const displayModelName =
+                            modelName ||
+                            message.model ||
+                            session.mask.modelConfig.model;
+                          const displayProviderId =
+                            providerId ||
+                            session.mask.modelConfig.providerName ||
+                            "OpenAI";
 
-                        // 获取用户友好的 provider 显示名称
-                        const getProviderDisplayName = (providerId: string) => {
-                          if (providerId?.startsWith("custom_")) {
-                            const customProvider =
-                              accessStore.customProviders.find(
-                                (p) => p.id === providerId,
-                              );
-                            return customProvider?.name || providerId;
-                          }
-                          return providerId;
-                        };
-
-                        const providerDisplayName =
-                          getProviderDisplayName(displayProviderId);
-
-                        const showActions = !(
-                          message.preview || message.content.length === 0
-                        );
-                        const showTyping = message.preview || message.streaming;
-
-                        return (
-                          <div
-                            key={message.id}
-                            className={styles["multi-model-message-column"]}
-                          >
-                            <div className={styles["chat-message-container"]}>
-                              <div className={styles["chat-message-header"]}>
-                                <div className={styles["chat-message-avatar"]}>
-                                  <MaskAvatar
-                                    avatar={session.mask.avatar}
-                                    model={message.model || displayModelName}
-                                  />
-                                </div>
-
-                                <div className={styles["chat-model-name"]}>
-                                  {displayModelName}
-                                  <ProviderTooltip
-                                    providerName={displayProviderId}
-                                  >
-                                    <span
-                                      className={styles["chat-model-provider"]}
-                                    >
-                                      @{providerDisplayName}
-                                    </span>
-                                  </ProviderTooltip>
-                                </div>
-
-                                {showActions && (
-                                  <div
-                                    className={styles["chat-message-actions"]}
-                                  >
-                                    <div
-                                      className={styles["chat-input-actions"]}
-                                    >
-                                      {(() => {
-                                        const shouldShowStop =
-                                          message.streaming &&
-                                          ChatControllerPool.hasPendingInSession(
-                                            session.id,
-                                          );
-
-                                        if (shouldShowStop) {
-                                          return (
-                                            <ChatAction
-                                              text={Locale.Chat.Actions.Stop}
-                                              icon={<StopIcon />}
-                                              onClick={() =>
-                                                onUserStop(message.id)
-                                              }
-                                            />
-                                          );
-                                        } else {
-                                          return (
-                                            <>
-                                              <ChatAction
-                                                text={Locale.Chat.Actions.Retry}
-                                                icon={<ResetIcon />}
-                                                onClick={() =>
-                                                  onResend(message)
-                                                }
-                                              />
-                                              <ChatAction
-                                                text={Locale.Chat.Actions.Copy}
-                                                icon={<CopyIcon />}
-                                                onClick={() =>
-                                                  copyToClipboard(
-                                                    getMessageTextContentWithoutThinking(
-                                                      message,
-                                                    ),
-                                                  )
-                                                }
-                                              />
-                                            </>
-                                          );
-                                        }
-                                      })()}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {!message?.tools?.length &&
-                                !(message as any)?.mcpCalls?.length &&
-                                showTyping && (
-                                  <div
-                                    className={styles["chat-message-status"]}
-                                  >
-                                    {Locale.Chat.Typing}
-                                  </div>
-                                )}
-
-                              <div className={styles["chat-message-item"]}>
-                                <Markdown
-                                  key={message.streaming ? "loading" : "done"}
-                                  content={(() => {
-                                    const messageContent =
-                                      typeof message.content === "string"
-                                        ? message.content
-                                        : getMessageTextContent(message);
-                                    const isThinking = isThinkingModel(
-                                      message.model,
-                                    );
-                                    const shouldWrap =
-                                      !message.streaming && isThinking;
-                                    if (shouldWrap) {
-                                      return wrapThinkingPart(messageContent);
-                                    }
-                                    return messageContent;
-                                  })()}
-                                  loading={
-                                    (message.preview || message.streaming) &&
-                                    (!message.content ||
-                                      (typeof message.content === "string" &&
-                                        message.content.length === 0))
-                                  }
-                                  fontSize={fontSize}
-                                  fontFamily={fontFamily}
-                                  parentRef={scrollRef}
-                                  defaultShow={true}
-                                />
-                              </div>
-
-                              <div
-                                className={styles["chat-message-action-date"]}
-                              >
-                                {message.role === "assistant" &&
-                                  message.statistic?.completionTokens &&
-                                  message.statistic?.totalReplyLatency && (
-                                    <span
-                                      className={styles["chat-message-tps"]}
-                                    >
-                                      {(
-                                        (message.statistic.completionTokens /
-                                          message.statistic.totalReplyLatency) *
-                                        1000
-                                      ).toFixed(1)}{" "}
-                                      t/s
-                                    </span>
-                                  )}
-                                {message.date.toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-
-                // 单个消息正常渲染
-                const message = group.messages[0];
-                const i = group.index;
-                const isUser = message.role === "user";
-                const isContext = i < context.length;
-                const showActions =
-                  i > 0 &&
-                  !(message.preview || message.content.length === 0) &&
-                  !isContext;
-                const showTyping = message.preview || message.streaming;
-
-                const shouldShowClearContextDivider =
-                  i === clearContextIndex - 1;
-
-                return (
-                  <Fragment key={message.id}>
-                    <div
-                      className={
-                        isUser
-                          ? styles["chat-message-user"]
-                          : styles["chat-message"]
-                      }
-                    >
-                      <div className={styles["chat-message-container"]}>
-                        <div className={styles["chat-message-header"]}>
-                          <div className={styles["chat-message-avatar"]}>
-                            <div className={styles["chat-message-edit"]}>
-                              <IconButton
-                                icon={<EditIcon />}
-                                aria={Locale.Chat.Actions.Edit}
-                                onClick={async () => {
-                                  const newMessage = await showPrompt(
-                                    Locale.Chat.Actions.Edit,
-                                    getMessageTextContent(message),
-                                    10,
-                                  );
-                                  let newContent: string | MultimodalContent[] =
-                                    newMessage;
-                                  const images = getMessageImages(message);
-                                  if (images.length > 0) {
-                                    newContent = [
-                                      { type: "text", text: newMessage },
-                                    ];
-                                    for (let i = 0; i < images.length; i++) {
-                                      newContent.push({
-                                        type: "image_url",
-                                        image_url: {
-                                          url: images[i],
-                                        },
-                                      });
-                                    }
-                                  }
-                                  chatStore.updateTargetSession(
-                                    session,
-                                    (session) => {
-                                      const m = session.mask.context
-                                        .concat(session.messages)
-                                        .find((m) => m.id === message.id);
-                                      if (m) {
-                                        m.content = newContent;
-                                      }
-                                    },
-                                  );
-                                }}
-                              ></IconButton>
-                            </div>
-                            {isContext ? (
-                              // 预设消息：使用配置中的角色头像
-                              <Avatar
-                                avatar={
-                                  message.role === "system"
-                                    ? config.systemAvatar
-                                    : message.role === "assistant"
-                                    ? config.assistantAvatar
-                                    : config.avatar
-                                }
-                              />
-                            ) : isUser ? (
-                              <Avatar avatar={config.avatar} />
-                            ) : (
-                              <>
-                                {["system"].includes(message.role) ? (
-                                  <Avatar avatar={config.systemAvatar} />
-                                ) : (
-                                  <MaskAvatar
-                                    avatar={session.mask.avatar}
-                                    model={
-                                      message.model ||
-                                      session.mask.modelConfig.model
-                                    }
-                                  />
-                                )}
-                              </>
-                            )}
-                          </div>
-                          {(!isUser ||
-                            (isContext && message.role !== "user")) && (
-                            <div className={styles["chat-model-name"]}>
-                              {isContext ? (
-                                // 预设消息：只显示角色名（user 角色不显示）
-                                <span
-                                  className={styles["chat-context-role-name"]}
-                                >
-                                  {message.role}
-                                </span>
-                              ) : message.isMultiModel && message.modelKey ? (
-                                <>
-                                  {message.model ||
-                                    session.mask.modelConfig.model}
-                                  <ProviderTooltip
-                                    providerName={
-                                      message.modelKey.split("@")[1]
-                                    }
-                                  >
-                                    <span
-                                      className={styles["chat-model-provider"]}
-                                    >
-                                      @
-                                      {getProviderDisplayName(
-                                        message.modelKey.split("@")[1],
-                                        accessStore,
-                                      )}
-                                    </span>
-                                  </ProviderTooltip>
-                                </>
-                              ) : (
-                                <>
-                                  {message.model ||
-                                    session.mask.modelConfig.model}
-                                  <ProviderTooltip
-                                    providerName={
-                                      session.mask.modelConfig.providerName ||
-                                      "OpenAI"
-                                    }
-                                  >
-                                    <span
-                                      className={styles["chat-model-provider"]}
-                                    >
-                                      @
-                                      {getProviderDisplayName(
-                                        session.mask.modelConfig.providerName ||
-                                          "OpenAI",
-                                        accessStore,
-                                      )}
-                                    </span>
-                                  </ProviderTooltip>
-                                </>
-                              )}
-                            </div>
-                          )}
-
-                          {showActions && (
-                            <div className={styles["chat-message-actions"]}>
-                              <div className={styles["chat-input-actions"]}>
-                                {(() => {
-                                  // 修复：更准确地判断消息是否应该显示停止按钮
-                                  const shouldShowStop =
-                                    message.streaming &&
-                                    (message.role === "assistant" ||
-                                      message.role === "user") &&
-                                    ChatControllerPool.hasPendingInSession(
-                                      session.id,
-                                    );
-
-                                  if (shouldShowStop) {
-                                    return (
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Stop}
-                                        icon={<StopIcon />}
-                                        onClick={() =>
-                                          onUserStop(message.id ?? i)
-                                        }
-                                      />
-                                    );
-                                  } else {
-                                    return (
-                                      <>
-                                        <ChatAction
-                                          text={Locale.Chat.Actions.Retry}
-                                          icon={<ResetIcon />}
-                                          onClick={() => onResend(message)}
-                                        />
-
-                                        {/* 版本切换按钮 - 只对 assistant 消息显示 */}
-                                        {(() => {
-                                          const shouldShowVersionControls =
-                                            message.role === "assistant" &&
-                                            message.versions &&
-                                            message.versions.length >= 1;
-
-                                          return (
-                                            shouldShowVersionControls && (
-                                              <>
-                                                {(message.currentVersionIndex ??
-                                                  0) > 0 && (
-                                                  <ChatAction
-                                                    text={
-                                                      Locale.Chat.Actions
-                                                        .PreviousVersion
-                                                    }
-                                                    icon={<LeftIcon />}
-                                                    onClick={() =>
-                                                      onPreviousVersion(message)
-                                                    }
-                                                  />
-                                                )}
-
-                                                {(message.currentVersionIndex ??
-                                                  0) <
-                                                  (message.versions?.length ??
-                                                    0) && (
-                                                  <ChatAction
-                                                    text={
-                                                      Locale.Chat.Actions
-                                                        .NextVersion
-                                                    }
-                                                    icon={<RightIcon />}
-                                                    onClick={() =>
-                                                      onNextVersion(message)
-                                                    }
-                                                  />
-                                                )}
-                                              </>
-                                            )
-                                          );
-                                        })()}
-
-                                        <ChatAction
-                                          text={Locale.Chat.Actions.Delete}
-                                          icon={<DeleteIcon />}
-                                          onClick={() =>
-                                            onDelete(message.id ?? i)
-                                          }
-                                        />
-
-                                        <ChatAction
-                                          text={Locale.Chat.Actions.Pin}
-                                          icon={<PinIcon />}
-                                          onClick={() => onPinMessage(message)}
-                                        />
-                                        <ChatAction
-                                          text={Locale.Chat.Actions.Copy}
-                                          icon={<CopyIcon />}
-                                          onClick={() =>
-                                            copyToClipboard(
-                                              getMessageTextContentWithoutThinking(
-                                                message,
-                                              ),
-                                            )
-                                          }
-                                        />
-                                        {message.role === "assistant" && (
-                                          <ChatAction
-                                            text={Locale.Chat.Actions.Debug}
-                                            icon={<DebugIcon />}
-                                            onClick={() => {
-                                              setDebugMessage(message as any);
-                                              setDebugModalOpen(true);
-                                            }}
-                                          />
-                                        )}
-                                        {config.ttsConfig.enable && (
-                                          <ChatAction
-                                            text={
-                                              speechStatus
-                                                ? Locale.Chat.Actions.StopSpeech
-                                                : Locale.Chat.Actions.Speech
-                                            }
-                                            icon={
-                                              speechStatus ? (
-                                                <SpeakStopIcon />
-                                              ) : (
-                                                <SpeakIcon />
-                                              )
-                                            }
-                                            onClick={() =>
-                                              openaiSpeech(
-                                                getMessageTextContent(message),
-                                              )
-                                            }
-                                          />
-                                        )}
-                                      </>
-                                    );
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {!message?.tools?.length &&
-                          !(message as any)?.mcpCalls?.length &&
-                          showTyping && (
-                            <div className={styles["chat-message-status"]}>
-                              {Locale.Chat.Typing}
-                            </div>
-                          )}
-                        {/* 工具徽标（支持 function_call 与 MCP 提示词模式） */}
-                        {(() => {
-                          const mcpCalls: any[] =
-                            (message as any).mcpCalls || [];
-                          const functionTools: any[] = message?.tools || [];
-                          const unified = [
-                            ...functionTools.map((tool, idx) => {
-                              const fullName = tool?.function?.name || "";
-                              let toolName = fullName;
-                              let clientName = "";
-                              if (fullName.includes("__")) {
-                                const parts = fullName.split("__");
-                                if (parts.length >= 2) {
-                                  clientName = parts[0];
-                                  toolName = parts.slice(1).join("__");
-                                }
-                              } else if (fullName.includes("_")) {
-                                const firstUnderscoreIndex =
-                                  fullName.indexOf("_");
-                                clientName = fullName.substring(
-                                  0,
-                                  firstUnderscoreIndex,
+                          // 获取用户友好的 provider 显示名称
+                          const getProviderDisplayName = (
+                            providerId: string,
+                          ) => {
+                            if (providerId?.startsWith("custom_")) {
+                              const customProvider =
+                                accessStore.customProviders.find(
+                                  (p) => p.id === providerId,
                                 );
-                                toolName = fullName.substring(
-                                  firstUnderscoreIndex + 1,
-                                );
-                              } else if (fullName.includes("-")) {
-                                const firstDashIndex = fullName.indexOf("-");
-                                clientName = fullName.substring(
-                                  0,
-                                  firstDashIndex,
-                                );
-                                toolName = fullName.substring(
-                                  firstDashIndex + 1,
-                                );
-                              }
-                              return {
-                                id: tool.id || `func:${idx}`,
-                                source: "function",
-                                toolName,
-                                clientName,
-                                raw: tool,
-                              };
-                            }),
-                            ...mcpCalls.map((call, idx) => ({
-                              id: `mcp:${idx}`,
-                              source: "mcp",
-                              toolName: call.toolName,
-                              clientName: call.clientId,
-                              raw: call,
-                            })),
-                          ];
-                          if (unified.length === 0) return null;
+                              return customProvider?.name || providerId;
+                            }
+                            return providerId;
+                          };
+
+                          const providerDisplayName =
+                            getProviderDisplayName(displayProviderId);
+
+                          const showActions = !(
+                            message.preview || message.content.length === 0
+                          );
+                          const showTyping =
+                            message.preview || message.streaming;
 
                           return (
-                            <>
-                              {/* 工具详情：取消顶部徽章与点击，直接展示工具调用内容 */}
-                              {(() => {
-                                if (unified.length === 0) return null;
-                                return (
-                                  <div className={styles["mcp-tool-calls"]}>
-                                    {unified.map((item) => {
-                                      if (item.source === "function") {
-                                        const t = item.raw;
-                                        let parsedArgs: any =
-                                          t?.function?.arguments;
-                                        try {
-                                          parsedArgs = parsedArgs
-                                            ? JSON.parse(parsedArgs)
-                                            : {};
-                                        } catch {}
-                                        return (
-                                          <details
-                                            key={item.id}
-                                            className={styles["mcp-tool-call"]}
-                                          >
-                                            <summary
-                                              className={
-                                                styles["mcp-tool-summary"]
-                                              }
-                                            >
-                                              🛠️{" "}
-                                              {item.clientName
-                                                ? `${item.clientName} · `
-                                                : ""}
-                                              {item.toolName || "工具调用"}
-                                              {typeof t?.isError === "boolean"
-                                                ? t.isError
-                                                  ? " · 失败"
-                                                  : " · 完成"
-                                                : " · 进行中"}
-                                            </summary>
-                                            <pre
-                                              className={
-                                                styles["mcp-tool-details"]
-                                              }
-                                            >
-                                              <code>{`{
-  "id": "${t.id}",
-  "function": ${JSON.stringify(
-    { name: t?.function?.name, arguments: parsedArgs },
-    null,
-    2,
-  )},
-  "result": ${JSON.stringify(t?.content ?? null, null, 2)},
-  "error": ${JSON.stringify(t?.isError ? t?.errorMsg || true : null, null, 2)}
-}`}</code>
-                                            </pre>
-                                          </details>
-                                        );
-                                      } else {
-                                        const c = item.raw;
-                                        return (
-                                          <details
-                                            key={item.id}
-                                            className={styles["mcp-tool-call"]}
-                                          >
-                                            <summary
-                                              className={
-                                                styles["mcp-tool-summary"]
-                                              }
-                                            >
-                                              🛠️{" "}
-                                              {c.clientId
-                                                ? `${c.clientId} · `
-                                                : ""}
-                                              {item.toolName || "工具调用"} ·
-                                              完成
-                                            </summary>
-                                            <pre
-                                              className={
-                                                styles["mcp-tool-details"]
-                                              }
-                                            >
-                                              <code>{c.rawJson}</code>
-                                            </pre>
-                                          </details>
-                                        );
-                                      }
-                                    })}
-                                  </div>
-                                );
-                              })()}
-                            </>
-                          );
-                        })()}
-                        <div className={styles["chat-message-item"]}>
-                          <Markdown
-                            key={message.streaming ? "loading" : "done"}
-                            content={(() => {
-                              // 修复：确保多模型消息内容正确获取和显示
-                              let messageContent;
-
-                              if (message.isMultiModel) {
-                                // 多模型消息：直接使用原始内容，避免版本管理干扰
-                                messageContent =
-                                  typeof message.content === "string"
-                                    ? message.content
-                                    : getMessageTextContent(message);
-                              } else {
-                                // 普通消息：使用版本管理
-                                messageContent =
-                                  getCurrentMessageContent(message);
-                              }
-
-                              const isThinking = isThinkingModel(message.model);
-                              const shouldWrap =
-                                !message.streaming && isThinking;
-
-                              if (shouldWrap) {
-                                const wrappedContent =
-                                  wrapThinkingPart(messageContent);
-                                return wrappedContent;
-                              }
-
-                              return messageContent;
-                            })()}
-                            loading={
-                              (message.preview || message.streaming) &&
-                              (!message.content ||
-                                (typeof message.content === "string" &&
-                                  message.content.length === 0)) &&
-                              !isUser
-                            }
-                            //   onContextMenu={(e) => onRightClick(e, message)} // hard to use
-                            onDoubleClickCapture={() => {
-                              if (!isMobileScreen) return;
-                              setUserInput(getMessageTextContent(message));
-                            }}
-                            fontSize={fontSize}
-                            fontFamily={fontFamily}
-                            parentRef={scrollRef}
-                            defaultShow={i >= messages.length - 6}
-                            thinkingTime={message.statistic?.reasoningLatency}
-                            status={message.streaming}
-                            isUserMessage={message.role === "user"}
-                          />
-                          {getMessageImages(message).length == 1 && (
                             <div
-                              className={
-                                styles["chat-message-item-image-container"]
-                              }
-                              style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                setImagePreview({
-                                  show: true,
-                                  src: getMessageImages(message)[0],
-                                })
-                              }
+                              key={message.id}
+                              className={styles["multi-model-message-column"]}
                             >
-                              <Image
-                                className={styles["chat-message-item-image"]}
-                                src={getMessageImages(message)[0]}
-                                alt=""
-                                width={0}
-                                height={0}
-                                sizes="100vw"
-                                unoptimized
-                              />
-                            </div>
-                          )}
-                          {getMessageImages(message).length > 1 && (
-                            <div
-                              className={styles["chat-message-item-images"]}
-                              style={
-                                {
-                                  "--image-count":
-                                    getMessageImages(message).length,
-                                } as React.CSSProperties
-                              }
-                            >
-                              {getMessageImages(message).map((image, index) => {
-                                return (
+                              <div className={styles["chat-message-container"]}>
+                                <div className={styles["chat-message-header"]}>
                                   <div
-                                    className={
-                                      styles[
-                                        "chat-message-item-image-multi-container"
-                                      ]
-                                    }
-                                    key={index}
-                                    style={{ cursor: "pointer" }}
-                                    onClick={() =>
-                                      setImagePreview({
-                                        show: true,
-                                        src: image,
-                                      })
-                                    }
+                                    className={styles["chat-message-avatar"]}
                                   >
-                                    <Image
-                                      className={
-                                        styles["chat-message-item-image-multi"]
-                                      }
-                                      src={image}
-                                      alt=""
-                                      width={0}
-                                      height={0}
-                                      sizes="100vw"
-                                      unoptimized
+                                    <MaskAvatar
+                                      avatar={session.mask.avatar}
+                                      model={message.model || displayModelName}
                                     />
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                        {message?.audio_url && (
-                          <div className={styles["chat-message-audio"]}>
-                            <audio src={message.audio_url} controls />
-                          </div>
-                        )}
 
-                        <div className={styles["chat-message-action-date"]}>
-                          {/* 版本指示器 - 只对有版本的 assistant 消息显示 */}
-                          {message.role === "assistant" &&
-                            message.versions &&
-                            message.versions.length >= 1 && (
-                              <span className={styles["chat-message-version"]}>
-                                {(message.currentVersionIndex ?? 0) + 1}/
-                                {(message.versions?.length ?? 0) + 1}
-                              </span>
-                            )}
-                          {/* TPS 显示 - 只对 assistant 消息显示 */}
-                          {message.role === "assistant" &&
-                            message.statistic?.completionTokens &&
-                            message.statistic?.totalReplyLatency && (
-                              <span className={styles["chat-message-tps"]}>
-                                {(
-                                  (message.statistic.completionTokens /
-                                    message.statistic.totalReplyLatency) *
-                                  1000
-                                ).toFixed(1)}{" "}
-                                t/s
-                              </span>
-                            )}
-                          {isContext
-                            ? Locale.Chat.IsContext
-                            : message.date.toLocaleString()}
-                        </div>
+                                  <div className={styles["chat-model-name"]}>
+                                    {displayModelName}
+                                    <ProviderTooltip
+                                      providerName={displayProviderId}
+                                    >
+                                      <span
+                                        className={
+                                          styles["chat-model-provider"]
+                                        }
+                                      >
+                                        @{providerDisplayName}
+                                      </span>
+                                    </ProviderTooltip>
+                                  </div>
+
+                                  {showActions && (
+                                    <div
+                                      className={styles["chat-message-actions"]}
+                                    >
+                                      <div
+                                        className={styles["chat-input-actions"]}
+                                      >
+                                        {(() => {
+                                          const shouldShowStop =
+                                            message.streaming &&
+                                            ChatControllerPool.hasPendingInSession(
+                                              session.id,
+                                            );
+
+                                          if (shouldShowStop) {
+                                            return (
+                                              <ChatAction
+                                                text={Locale.Chat.Actions.Stop}
+                                                icon={<StopIcon />}
+                                                onClick={() =>
+                                                  onUserStop(message.id)
+                                                }
+                                              />
+                                            );
+                                          } else {
+                                            return (
+                                              <>
+                                                <ChatAction
+                                                  text={
+                                                    Locale.Chat.Actions.Retry
+                                                  }
+                                                  icon={<ResetIcon />}
+                                                  onClick={() =>
+                                                    onResend(message)
+                                                  }
+                                                />
+                                                <ChatAction
+                                                  text={
+                                                    Locale.Chat.Actions.Copy
+                                                  }
+                                                  icon={<CopyIcon />}
+                                                  onClick={() =>
+                                                    copyToClipboard(
+                                                      getMessageTextContentWithoutThinking(
+                                                        message,
+                                                      ),
+                                                    )
+                                                  }
+                                                />
+                                              </>
+                                            );
+                                          }
+                                        })()}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {!message?.tools?.length &&
+                                  !(message as any)?.mcpCalls?.length &&
+                                  showTyping && (
+                                    <div
+                                      className={styles["chat-message-status"]}
+                                    >
+                                      {Locale.Chat.Typing}
+                                    </div>
+                                  )}
+
+                                <div className={styles["chat-message-item"]}>
+                                  <Markdown
+                                    key={message.streaming ? "loading" : "done"}
+                                    content={(() => {
+                                      const messageContent =
+                                        typeof message.content === "string"
+                                          ? message.content
+                                          : getMessageTextContent(message);
+                                      const isThinking = isThinkingModel(
+                                        message.model,
+                                      );
+                                      const shouldWrap =
+                                        !message.streaming && isThinking;
+                                      if (shouldWrap) {
+                                        return wrapThinkingPart(messageContent);
+                                      }
+                                      return messageContent;
+                                    })()}
+                                    loading={
+                                      (message.preview || message.streaming) &&
+                                      (!message.content ||
+                                        (typeof message.content === "string" &&
+                                          message.content.length === 0))
+                                    }
+                                    fontSize={fontSize}
+                                    fontFamily={fontFamily}
+                                    parentRef={scrollRef}
+                                    defaultShow={true}
+                                  />
+                                </div>
+
+                                <div
+                                  className={styles["chat-message-action-date"]}
+                                >
+                                  {message.role === "assistant" &&
+                                    message.statistic?.completionTokens &&
+                                    message.statistic?.totalReplyLatency && (
+                                      <span
+                                        className={styles["chat-message-tps"]}
+                                      >
+                                        {(
+                                          (message.statistic.completionTokens /
+                                            message.statistic
+                                              .totalReplyLatency) *
+                                          1000
+                                        ).toFixed(1)}{" "}
+                                        t/s
+                                      </span>
+                                    )}
+                                  {message.date.toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                    {shouldShowClearContextDivider && <ClearContextDivider />}
-                  </Fragment>
-                );
-              })}
+                    );
+                  }
+
+                  // 单个消息正常渲染
+                  const message = group.messages[0];
+                  const i = group.index;
+                  return renderSingleMessage(message, i);
+                })
+              ) : (
+                <div
+                  style={{
+                    height: virtualizer.getTotalSize(),
+                    width: "100%",
+                    position: "relative",
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualItem: any) => {
+                    const message = messages[virtualItem.index];
+                    if (!message) return null;
+
+                    return (
+                      <div
+                        key={message.id}
+                        data-index={virtualItem.index}
+                        ref={virtualizer.measureElement}
+                        className={styles["virtual-message-item"]}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualItem.start}px)`,
+                          willChange: "transform",
+                        }}
+                      >
+                        {renderSingleMessage(message, virtualItem.index)}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className={styles["chat-input-panel"]}>
               <PromptHints

@@ -9,7 +9,6 @@ import RehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { useRef, useState, RefObject, useEffect, useMemo } from "react";
 import { copyToClipboard, useWindowSize } from "../utils";
-import mermaid from "mermaid";
 import Locale from "../locales";
 import LoadingIcon from "../icons/three-dots.svg";
 import ReloadButtonIcon from "../icons/reload.svg";
@@ -186,20 +185,36 @@ const ThinkCollapse = ({
 export function Mermaid(props: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hasError, setHasError] = useState(false);
+  const [mermaidApi, setMermaidApi] = useState<any>(null);
 
   useEffect(() => {
-    if (props.code && ref.current) {
-      mermaid
+    let cancelled = false;
+    if (!props.code) return;
+    import("mermaid")
+      .then((mod) => {
+        if (cancelled) return;
+        setMermaidApi(mod.default ?? mod);
+      })
+      .catch(() => {
+        setHasError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.code]);
+
+  useEffect(() => {
+    if (props.code && ref.current && mermaidApi) {
+      mermaidApi
         .run({
           nodes: [ref.current],
           suppressErrors: true,
         })
-        .catch((e) => {
+        .catch(() => {
           setHasError(true);
         });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.code]);
+  }, [props.code, mermaidApi]);
 
   function viewSvgInNewWindow() {
     const svg = ref.current?.querySelector("svg");
