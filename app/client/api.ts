@@ -15,6 +15,7 @@ import {
   CustomProviderType,
 } from "../store";
 import { unifiedChat, UnifiedChatOptions } from "./unified-api";
+import { getCapturedDebugInfo } from "./sdk-manager";
 import { logger } from "../utils/logger";
 import { ModelSize } from "../typing";
 
@@ -130,8 +131,14 @@ function getResponseApiConversationId(
 function buildResponseWithMetadata(
   responseId?: string,
   requestDebug?: any,
+  responseDebug?: { status?: number; headers?: Record<string, string> },
 ): Response {
-  const response = new Response();
+  const status = responseDebug?.status ?? 200;
+  const headers = responseDebug?.headers ?? {};
+  const response = new Response(null, {
+    status,
+    headers: new Headers(headers),
+  });
   if (requestDebug) {
     (response as any).__requestDebug = requestDebug;
   }
@@ -154,6 +161,14 @@ export abstract class LLMApi {
 class UnifiedClientApi extends LLMApi {
   async chat(options: ChatOptions): Promise<void> {
     try {
+      // 清除之前的调试信息
+      try {
+        const { clearCapturedDebugInfo } = await import("./sdk-manager");
+        clearCapturedDebugInfo();
+      } catch (e) {
+        logger.warn("[Unified Client API] Failed to clear debug info:", e);
+      }
+
       // 转换消息格式 - options.messages 已经是 RequestMessage[] 类型
       const messages = options.messages.map((msg) => ({
         role: msg.role,
@@ -228,11 +243,20 @@ class UnifiedClientApi extends LLMApi {
               );
             }
 
-            const mockResponse = buildResponseWithMetadata(responseId, {
+            // 优先使用 SDK 路径捕获的请求/响应调试信息
+            const capturedDebug = getCapturedDebugInfo();
+            const requestDebug = capturedDebug?.request ?? {
               url: "AI SDK Stream",
               method: "POST",
               headers: {},
-            });
+            };
+            const responseDebug = capturedDebug?.response;
+
+            const mockResponse = buildResponseWithMetadata(
+              responseId,
+              requestDebug,
+              responseDebug,
+            );
 
             options.onFinish(fullContent, mockResponse);
           } catch (streamError) {
@@ -257,8 +281,20 @@ class UnifiedClientApi extends LLMApi {
           result?.providerMetadata,
         );
 
+        // 优先使用 SDK 路径捕获的请求/响应调试信息
+        const capturedDebug = getCapturedDebugInfo();
+        const requestDebug = capturedDebug?.request ?? {
+          url: "AI SDK Stream",
+          method: "POST",
+          headers: {},
+        };
+        const responseDebug = capturedDebug?.response;
+
         options.onUpdate?.(content, content);
-        options.onFinish(content, buildResponseWithMetadata(responseId));
+        options.onFinish(
+          content,
+          buildResponseWithMetadata(responseId, requestDebug, responseDebug),
+        );
       }
     } catch (error) {
       logger.error("[Unified Client API] Chat failed:", error);

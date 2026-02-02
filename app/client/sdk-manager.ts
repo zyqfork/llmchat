@@ -110,6 +110,106 @@ function normalizeResponsesRequestBody(body: string) {
   }
 }
 
+// 调试信息捕获 - 用于在客户端 SDK 路径中获取请求/响应详情
+let capturedDebugInfo: {
+  request?: { url?: string; method?: string; headers?: any; body?: any };
+  response?: { status?: number; headers?: Record<string, string> };
+} | null = null;
+
+export function getCapturedDebugInfo() {
+  return capturedDebugInfo;
+}
+
+export function clearCapturedDebugInfo() {
+  capturedDebugInfo = null;
+}
+
+function wrapFetchWithDebugCapture(
+  baseFetch: FetchWithPreconnect,
+): FetchWithPreconnect {
+  const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    // 清除之前的捕获（每次新请求覆盖）
+    capturedDebugInfo = null;
+
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+    const method =
+      init?.method ||
+      (input instanceof Request ? (input as Request).method : "GET");
+    let headers: Record<string, string> = {};
+    try {
+      const rawHeaders =
+        init?.headers ||
+        (input instanceof Request ? (input as Request).headers : undefined);
+      if (rawHeaders instanceof Headers) {
+        rawHeaders.forEach((v, k) => {
+          headers[k] = v;
+        });
+      } else if (rawHeaders && typeof rawHeaders === "object") {
+        Object.entries(rawHeaders).forEach(([k, v]) => {
+          headers[k] = typeof v === "string" ? v : String(v);
+        });
+      }
+    } catch {}
+
+    let body: any;
+    if (init?.body) {
+      if (typeof init.body === "string") {
+        try {
+          body = JSON.parse(init.body);
+        } catch {
+          body = init.body;
+        }
+      } else {
+        body = init.body;
+      }
+    } else if (input instanceof Request) {
+      try {
+        const cloned = (input as Request).clone();
+        const text = await cloned.text();
+        if (text) {
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = text;
+          }
+        }
+      } catch {}
+    }
+
+    capturedDebugInfo = {
+      request: { url, method, headers, body },
+    };
+
+    const response = await baseFetch(input, init);
+
+    // 捕获响应信息
+    if (capturedDebugInfo) {
+      const respHeaders: Record<string, string> = {};
+      try {
+        response.headers?.forEach?.((v: string, k: string) => {
+          respHeaders[k] = v;
+        });
+      } catch {}
+      capturedDebugInfo = {
+        ...capturedDebugInfo,
+        response: {
+          status: response.status,
+          headers: respHeaders,
+        },
+      };
+    }
+
+    return response;
+  }) as FetchWithPreconnect;
+  (wrapped as any).preconnect = baseFetch.preconnect ?? (() => {});
+  return wrapped;
+}
+
 function wrapFetchWithResponsesNormalizer(
   baseFetch: FetchWithPreconnect,
 ): FetchWithPreconnect {
@@ -476,8 +576,12 @@ export function createSDKInstance(
   const baseFetch = ensureFetchWithPreconnect(
     customFetch ?? (typeof fetch !== "undefined" ? fetch : undefined),
   );
-  const responsesFetch = baseFetch
-    ? wrapFetchWithResponsesNormalizer(baseFetch)
+  // 包装 fetch 以捕获请求/响应调试信息（用于调试按钮）
+  const debugFetch = baseFetch
+    ? wrapFetchWithDebugCapture(baseFetch)
+    : undefined;
+  const responsesFetch = debugFetch
+    ? wrapFetchWithResponsesNormalizer(debugFetch)
     : undefined;
 
   try {
@@ -503,7 +607,7 @@ export function createSDKInstance(
         sdkInstance = createAnthropic({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: baseFetch,
+          fetch: debugFetch ?? baseFetch,
         });
         break;
 
@@ -511,7 +615,7 @@ export function createSDKInstance(
         sdkInstance = createGoogleGenerativeAI({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: baseFetch,
+          fetch: debugFetch ?? baseFetch,
         });
         break;
 
@@ -519,7 +623,7 @@ export function createSDKInstance(
         sdkInstance = createXai({
           apiKey,
           baseURL: finalBaseUrl,
-          fetch: baseFetch,
+          fetch: debugFetch ?? baseFetch,
         });
         break;
 
@@ -528,7 +632,7 @@ export function createSDKInstance(
           apiKey,
           resourceName: config?.resourceName,
           apiVersion: config?.apiVersion || "2024-02-01",
-          fetch: baseFetch,
+          fetch: debugFetch ?? baseFetch,
         });
         break;
 
@@ -735,8 +839,11 @@ export function getModel(
       const baseFetch = ensureFetchWithPreconnect(
         getCustomFetch() ?? (typeof fetch !== "undefined" ? fetch : undefined),
       );
-      const responsesFetch = baseFetch
-        ? wrapFetchWithResponsesNormalizer(baseFetch)
+      const debugFetch = baseFetch
+        ? wrapFetchWithDebugCapture(baseFetch)
+        : undefined;
+      const responsesFetch = debugFetch
+        ? wrapFetchWithResponsesNormalizer(debugFetch)
         : undefined;
       responseInstance = createOpenAI({
         apiKey,

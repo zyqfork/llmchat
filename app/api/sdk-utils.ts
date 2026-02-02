@@ -58,6 +58,12 @@ export interface OpenAICompatibleConfig extends SDKConfig {
  */
 export async function handleChatRequest(config: OpenAICompatibleConfig) {
   try {
+    // 清除之前的捕获信息
+    clearCapturedRequestInfo();
+
+    // 创建自定义 fetch 函数
+    const debugFetch = createDebugFetch();
+
     let model;
 
     if (config.provider === "openai") {
@@ -67,12 +73,14 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         const customOpenAI = createOpenAI({
           apiKey: config.apiKey,
           baseURL: config.baseURL,
+          fetch: debugFetch as any,
         });
         model = customOpenAI.chat(config.model); // 明确使用chat API
       } else {
         // 默认 OpenAI - 使用环境变量或传入的 API key
         const customOpenAI = createOpenAI({
           apiKey: config.apiKey,
+          fetch: debugFetch as any,
         });
         model = customOpenAI.chat(config.model); // 明确使用chat API
       }
@@ -83,12 +91,14 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         const customAnthropic = createAnthropic({
           apiKey: config.apiKey,
           baseURL: config.baseURL,
+          fetch: debugFetch as any,
         });
         model = customAnthropic(config.model);
       } else {
         // 默认 Anthropic
         const customAnthropic = createAnthropic({
           apiKey: config.apiKey,
+          fetch: debugFetch as any,
         });
         model = customAnthropic(config.model);
       }
@@ -102,12 +112,14 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         const customGoogle = createGoogleGenerativeAI({
           apiKey: config.apiKey,
           baseURL: config.baseURL,
+          fetch: debugFetch as any,
         });
         model = customGoogle(config.model);
       } else {
         // 默认 Google
         const customGoogle = createGoogleGenerativeAI({
           apiKey: config.apiKey,
+          fetch: debugFetch as any,
         });
         model = customGoogle(config.model);
       }
@@ -118,12 +130,14 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         const customXai = createXai({
           apiKey: config.apiKey,
           baseURL: config.baseURL,
+          fetch: debugFetch as any,
         });
         model = customXai(config.model);
       } else {
         // 默认 XAI
         const customXai = createXai({
           apiKey: config.apiKey,
+          fetch: debugFetch as any,
         });
         model = customXai(config.model);
       }
@@ -133,6 +147,7 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         apiKey: config.apiKey,
         resourceName: config.resourceName || "",
         apiVersion: config.apiVersion || "2024-02-01",
+        fetch: debugFetch as any,
       });
       model = azureProvider(config.deploymentName || config.model);
     } else {
@@ -142,6 +157,7 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
         apiKey: config.apiKey,
         baseURL: config.baseURL,
         includeUsage: true, // 在流式响应中包含使用信息
+        fetch: debugFetch as any,
       });
       model = provider(config.model);
     }
@@ -162,13 +178,15 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
     if (config.presencePenalty !== undefined)
       requestParams.presencePenalty = config.presencePenalty;
 
+    let response;
+    let responseData;
+
     if (config.stream) {
       const result = await streamText(requestParams);
-      return result.toTextStreamResponse();
+      response = result.toTextStreamResponse();
     } else {
       const result = await generateText(requestParams);
-
-      return NextResponse.json({
+      responseData = {
         choices: [
           {
             message: {
@@ -184,18 +202,112 @@ export async function handleChatRequest(config: OpenAICompatibleConfig) {
           completion_tokens: result.usage?.outputTokens || 0,
           total_tokens: result.usage?.totalTokens || 0,
         },
-      });
+      };
+      response = NextResponse.json(responseData);
     }
+
+    // 获取捕获的请求信息
+    const capturedRequest = getCapturedRequestInfo();
+    if (capturedRequest) {
+      (response as any).__requestDebug = capturedRequest;
+      logger.debug(
+        "[SDK Utils] Attached captured request info from debug fetch",
+      );
+    }
+
+    if (responseData) {
+      (response as any).__responseBody = responseData;
+    }
+
+    return response;
   } catch (error) {
     logger.error("[SDK Utils] Error:", error);
     throw error;
   }
 }
 
-/**
- * 处理响应API请求 (OpenAI Responses API)
- * 现在也使用 AI SDK 而不是直接 HTTP 请求
- */
+// 辅助函数：为 Chat API 构建调试请求信息
+// 捕获的请求信息
+let capturedRequestInfo: any = null;
+
+// 创建一个包装的 fetch 函数来捕获请求
+function createDebugFetch(originalFetch: typeof fetch = global.fetch) {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    try {
+      // 捕获请求信息
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.toString()
+          : (input as Request).url;
+      const method =
+        init?.method || (input instanceof Request ? input.method : "GET");
+      const headers =
+        init?.headers ||
+        (input instanceof Request
+          ? Object.fromEntries(input.headers.entries())
+          : {});
+
+      // 读取请求体
+      let body;
+      if (init?.body) {
+        if (typeof init.body === "string") {
+          try {
+            body = JSON.parse(init.body);
+          } catch {
+            body = init.body;
+          }
+        } else {
+          body = init.body;
+        }
+      } else if (input instanceof Request) {
+        try {
+          const clonedRequest = input.clone();
+          const bodyText = await clonedRequest.text();
+          if (bodyText) {
+            try {
+              body = JSON.parse(bodyText);
+            } catch {
+              body = bodyText;
+            }
+          }
+        } catch (e) {
+          logger.debug("[Debug Fetch] Could not read request body:", e);
+        }
+      }
+
+      capturedRequestInfo = {
+        url,
+        method,
+        headers:
+          headers instanceof Headers
+            ? Object.fromEntries(headers.entries())
+            : headers,
+        body,
+      };
+
+      logger.debug("[Debug Fetch] Captured request:", capturedRequestInfo);
+    } catch (error) {
+      logger.error("[Debug Fetch] Error capturing request:", error);
+    }
+
+    // 调用原始 fetch
+    return originalFetch(input, init);
+  };
+}
+
+function getCapturedRequestInfo() {
+  return capturedRequestInfo;
+}
+
+function clearCapturedRequestInfo() {
+  capturedRequestInfo = null;
+}
+
 export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
   try {
     // Response API 通过 AI SDK 处理，确保走 /responses 端点
@@ -206,6 +318,12 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
       `[SDK Utils] Response API called - this should only happen when explicitly enabled by user`,
     );
 
+    // 清除之前的捕获信息
+    clearCapturedRequestInfo();
+
+    // 创建自定义 fetch 函数
+    const debugFetch = createDebugFetch();
+
     let model;
 
     if (config.provider === "openai") {
@@ -214,6 +332,7 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
         ...(config.baseURL && config.baseURL !== "https://api.openai.com/v1"
           ? { baseURL: config.baseURL }
           : {}),
+        fetch: debugFetch as any,
       });
       model = customOpenAI.responses
         ? customOpenAI.responses(config.model)
@@ -223,6 +342,7 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
       const customOpenAI = createOpenAI({
         apiKey: config.apiKey,
         baseURL: config.baseURL,
+        fetch: debugFetch as any,
       });
       model = customOpenAI.responses
         ? customOpenAI.responses(config.model)
@@ -232,6 +352,7 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
         apiKey: config.apiKey,
         resourceName: config.resourceName || "",
         apiVersion: config.apiVersion || "2024-02-01",
+        fetch: debugFetch as any,
       });
       const deployment = config.deploymentName || config.model;
       model = azureProvider.responses
@@ -259,30 +380,65 @@ export async function handleResponsesRequest(config: OpenAICompatibleConfig) {
     if (config.presencePenalty !== undefined)
       requestParams.presencePenalty = config.presencePenalty;
 
+    logger.debug(
+      "[SDK Utils] About to call streamText/generateText with params:",
+      {
+        model: config.model,
+        provider: config.provider,
+        messagesCount: config.messages.length,
+      },
+    );
+
+    let response;
+    let responseData;
+
     if (config.stream) {
       const result = await streamText(requestParams);
-      return result.toTextStreamResponse();
+      response = result.toTextStreamResponse();
+
+      logger.debug(
+        "[SDK Utils] streamText completed, checking captured request",
+      );
+    } else {
+      const result = await generateText(requestParams);
+      responseData = {
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: result.text,
+            },
+            finish_reason: result.finishReason,
+            index: 0,
+          },
+        ],
+        usage: {
+          prompt_tokens: result.usage?.inputTokens || 0,
+          completion_tokens: result.usage?.outputTokens || 0,
+          total_tokens: result.usage?.totalTokens || 0,
+        },
+      };
+      response = NextResponse.json(responseData);
+
+      logger.debug(
+        "[SDK Utils] generateText completed, checking captured request",
+      );
     }
 
-    const result = await generateText(requestParams);
+    // 获取捕获的请求信息
+    const capturedRequest = getCapturedRequestInfo();
+    if (capturedRequest) {
+      (response as any).__requestDebug = capturedRequest;
+      logger.debug(
+        "[SDK Utils] Attached captured request info from debug fetch",
+      );
+    }
 
-    return NextResponse.json({
-      choices: [
-        {
-          message: {
-            role: "assistant",
-            content: result.text,
-          },
-          finish_reason: result.finishReason,
-          index: 0,
-        },
-      ],
-      usage: {
-        prompt_tokens: result.usage?.inputTokens || 0,
-        completion_tokens: result.usage?.outputTokens || 0,
-        total_tokens: result.usage?.totalTokens || 0,
-      },
-    });
+    if (responseData) {
+      (response as any).__responseBody = responseData;
+    }
+
+    return response;
   } catch (error) {
     logger.error("[SDK Utils] Response API Error:", error);
     throw error;
