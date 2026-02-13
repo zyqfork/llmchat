@@ -15,12 +15,13 @@ import DeleteIcon from "../icons/delete.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import { ModelProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
-import { getModelCapabilities } from "../constant";
+import { getModelCapabilities, ModelCapabilities } from "../constant";
 import { collectModels } from "../utils/model";
 import {
   getModelContextTokens,
   formatTokenCount,
   saveCustomContextTokens,
+  saveCustomModelCapabilities,
 } from "../config/model-config";
 import { saveModelStreamConfig } from "../config/model-stream";
 import { logger } from "../utils/logger";
@@ -674,12 +675,27 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     const modelName = modelConfigForm.modelId;
     const newCategory = (modelConfigForm.category || "").trim();
 
-    // 保存能力配置到本地存储
-    const capabilitiesKey = `model_capabilities_${modelName}`;
-    localStorage.setItem(
-      capabilitiesKey,
-      JSON.stringify(modelConfigForm.capabilities),
-    );
+    // 获取当前从配置文件读取的能力（包括 reasoningField）
+    const configCapabilities = getLocalModelCapabilities(modelName);
+
+    // 合并用户修改的能力和配置文件中的 reasoningField
+    const capabilitiesToSave: ModelCapabilities = {
+      vision: modelConfigForm.capabilities.vision,
+      reasoning: modelConfigForm.capabilities.reasoning,
+      tools: modelConfigForm.capabilities.tools,
+      // 保留 reasoningField（如果存在）
+      ...(configCapabilities.reasoningField && {
+        reasoningField: configCapabilities.reasoningField,
+      }),
+    };
+
+    // 使用统一的保存函数
+    saveCustomModelCapabilities(modelName, capabilitiesToSave);
+
+    logger.debug("[ModelManager] 保存模型配置:", {
+      modelName,
+      capabilities: capabilitiesToSave,
+    });
 
     // 保存上下文Token数配置
     if (modelConfigForm.contextTokens !== undefined) {

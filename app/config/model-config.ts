@@ -401,3 +401,29 @@ export function extractReasoningContent(
 
   return null;
 }
+
+/**
+ * 保存自定义模型能力配置
+ * @param modelName 模型名称
+ * @param capabilities 模型能力配置
+ */
+export function saveCustomModelCapabilities(
+  modelName: string,
+  capabilities: Partial<ModelCapabilities>,
+): void {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const customKey = `model_capabilities_${modelName}`;
+    localStorage.setItem(customKey, JSON.stringify(capabilities));
+  }
+}
+
+/**
+ * 删除自定义模型能力配置
+ * @param modelName 模型名称
+ */
+export function removeCustomModelCapabilities(modelName: string): void {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const customKey = `model_capabilities_${modelName}`;
+    localStorage.removeItem(customKey);
+  }
+}
