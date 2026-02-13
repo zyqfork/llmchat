@@ -3,7 +3,7 @@ import { showToast } from "./ui-lib";
 import styles from "./model-config-modal.module.scss";
 import CloseIcon from "../icons/close.svg";
 import DeleteIcon from "../icons/delete.svg";
-import { getModelContextTokens } from "../config/model-context-tokens";
+import { getModelContextTokens } from "../config/model-config";
 import { getModelCapabilities } from "../constant";
 import {
   getModelStreamConfig,

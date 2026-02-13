@@ -40,7 +40,7 @@ import { normalizeProviderName } from "../client/api";
 import {
   getModelCompressThreshold,
   getModelContextTokens,
-} from "../config/model-context-tokens";
+} from "../config/model-config";
 import { ModelConfigModal } from "./model-config-modal";
 
 import { IconButton } from "./button";
@@ -3160,7 +3160,7 @@ export function Settings() {
             if (config.contextTokens !== undefined) {
               const {
                 saveCustomContextTokens,
-              } = require("../config/model-context-tokens");
+              } = require("../config/model-config");
               saveCustomContextTokens(modelName, config.contextTokens);
             }
 

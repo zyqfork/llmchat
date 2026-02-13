@@ -18,7 +18,7 @@ import {
 import { createPersistStore } from "../utils/store";
 import type { Voice } from "rt-client";
 import type { QwenVoice } from "../lib/qwen-realtime-client";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelCompressThreshold } from "../config/model-config";
 
 export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
 export type TTSModelType = (typeof DEFAULT_TTS_MODELS)[number];
@@ -81,7 +81,7 @@ export const DEFAULT_CONFIG = {
     frequency_penalty: 0,
     sendMemory: true,
     historyMessageCount: 4,
-    compressMessageLengthThreshold: getModelCompressThreshold("gpt-4o-mini"),
+    compressMessageLengthThreshold: 8000, // 默认8K tokens
     autoTitleMinUserTokens: 20,
     autoTitleMinUserMessages: 1,
     autoTitleRefreshInterval: 4,

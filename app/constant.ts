@@ -1,3 +1,9 @@
+// 导入统一的模型配置
+import {
+  getModelCapabilities as getModelCapabilitiesFromConfig,
+  type ModelCapabilities,
+} from "./config/model-config";
+
 // 尝试导入生成的配置，如果不存在则使用默认配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
 
@@ -165,41 +171,12 @@ function getModelReasoningFieldFromConfig(modelId: string): string | undefined {
   return undefined;
 }
 
-// 新的模型能力接口（基于 models-config.ts）
-export interface ModelCapabilities {
-  vision?: boolean; // 视觉能力 - 基于 modalities.input 包含 "image"
-  reasoning?: boolean; // 推理能力 - 基于 reasoning 字段
-  tools?: boolean; // 工具调用能力 - 基于 tool_call 字段
-  reasoningField?: string; // 推理字段名 - 基于 interleaved.field
-}
+// 导出模型能力接口
+export type { ModelCapabilities };
 
 // 获取模型能力（基于生成的配置）
 export function getModelCapabilities(modelName: string): ModelCapabilities {
-  const baseCapabilities = {
-    vision: getModelVisionSupportFromConfig(modelName),
-    reasoning: getModelReasoningSupportFromConfig(modelName),
-    tools: getModelToolCallSupportFromConfig(modelName),
-    reasoningField: getModelReasoningFieldFromConfig(modelName),
-  };
-
-  if (typeof window === "undefined" || !window.localStorage) {
-    return baseCapabilities;
-  }
-
-  const customKey = `model_capabilities_${modelName}`;
-  try {
-    const stored = window.localStorage.getItem(customKey);
-    if (!stored) {
-      return baseCapabilities;
-    }
-    const parsed = JSON.parse(stored) as Partial<ModelCapabilities>;
-    return {
-      ...baseCapabilities,
-      ...parsed,
-    };
-  } catch {
-    return baseCapabilities;
-  }
+  return getModelCapabilitiesFromConfig(modelName);
 }
 
 // 辅助函数：获取厂商模型列表（直接使用生成的配置）

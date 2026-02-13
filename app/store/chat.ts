@@ -47,7 +47,7 @@ import {
   getMaskCompressModel,
   getSessionCompressModelConfig,
 } from "../utils/model-resolver";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelCompressThreshold } from "../config/model-config";
 import { getModelStreamConfig } from "../config/model-stream";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -348,16 +348,29 @@ function isUserConfirmationMessage(content: string) {
     return false;
   }
 
-  if (trimmed.length > 24) {
+  // 排除否定表达
+  if (/(不|别|不要|不是|错|不对|不行|别这样)/i.test(trimmed)) {
     return false;
   }
 
+  // 排除疑问句
   if (/[?？]/.test(trimmed)) {
     return false;
   }
 
+  // 排除转折语气
+  if (/(但是|不过|然而|可是|只是)/i.test(trimmed)) {
+    return false;
+  }
+
+  // 必须是简短的确认（避免误判长句）
+  if (trimmed.length > 20) {
+    return false;
+  }
+
+  // 更严格的确认匹配：必须是完整的确认词
   const confirmation =
-    /(好|好的|可以|行|没问题|确认|对|是的|没错|就这样|按这个|按此|照这个|照此|听你的|继续|ok|okay)/i;
+    /^(好的?|可以|行|没问题|确认|对|是的|没错|就这样|按这个|按此|照这个|照此|听你的|继续|ok|okay)[\s.!。！]*$/i;
 
   return confirmation.test(trimmed);
 }
@@ -1991,6 +2004,25 @@ export const useChatStore = createPersistStore(
           modelConfig.summaryMinUserMessages ??
           DEFAULT_SUMMARY_MIN_USER_MESSAGES;
 
+        // 当对话 tokens 接近阈值的 80% 时，提示用户可以压缩
+        const threshold = modelConfig.compressMessageLengthThreshold;
+        if (
+          !refreshTitle &&
+          summaryTokens >= threshold * 0.8 &&
+          summaryTokens < threshold &&
+          userMessageCount >= summaryMinUserMessages &&
+          modelConfig.sendMemory &&
+          !session.isSummarizing
+        ) {
+          logger.debug(
+            "[Summarize] Approaching threshold:",
+            summaryTokens,
+            "/",
+            threshold,
+          );
+          // 可以在这里添加 UI 提示，但为了不干扰用户，暂时只记录日志
+        }
+
         if (
           summaryTokens >= modelConfig.compressMessageLengthThreshold &&
           userMessageCount >= summaryMinUserMessages &&
@@ -2050,6 +2082,36 @@ export const useChatStore = createPersistStore(
               const filteredMessage = removeThinkingContent(message);
 
               if (responseRes?.status === 200) {
+                const summaryLength = estimateTokenLength(filteredMessage);
+
+                // 验证摘要质量：摘要不应该比原始内容更长
+                if (summaryLength > summaryTokens * 0.8) {
+                  logger.warn(
+                    "[Summarize] Summary too long, skipping. Summary:",
+                    summaryLength,
+                    "Original:",
+                    summaryTokens,
+                  );
+                  get().updateTargetSession(session, (s) => {
+                    s.isSummarizing = false;
+                  });
+                  return;
+                }
+
+                // 验证摘要质量：摘要不应该太短（可能失败了）
+                if (summaryLength < 50 && summaryTokens > 1000) {
+                  logger.warn(
+                    "[Summarize] Summary too short, might be failed. Summary:",
+                    summaryLength,
+                    "Original:",
+                    summaryTokens,
+                  );
+                  get().updateTargetSession(session, (s) => {
+                    s.isSummarizing = false;
+                  });
+                  return;
+                }
+
                 get().updateTargetSession(session, (s) => {
                   s.lastSummarizeIndex = lastSummarizeIndex;
                   s.memoryPrompt = filteredMessage;
@@ -2060,6 +2122,10 @@ export const useChatStore = createPersistStore(
                   session.id,
                   "summary length:",
                   filteredMessage.length,
+                  "tokens:",
+                  summaryLength,
+                  "compression ratio:",
+                  ((1 - summaryLength / summaryTokens) * 100).toFixed(1) + "%",
                 );
               } else {
                 // 请求失败时也要释放锁

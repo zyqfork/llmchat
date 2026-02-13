@@ -66,7 +66,7 @@ import { useAllModels } from "../utils/hooks";
 import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 import { groupBy } from "lodash-es";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelCompressThreshold } from "../config/model-config";
 import { useEnabledModels } from "../utils/hooks";
 
 // drag and drop helper function

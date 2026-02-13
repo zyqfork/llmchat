@@ -5,7 +5,7 @@ import { BuiltinMask } from "./typing";
 import { nanoid } from "nanoid";
 import { getLang } from "../locales";
 import { useAppConfig } from "../store/config";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelCompressThreshold } from "../config/model-config";
 
 export { type BuiltinMask } from "./typing";
 

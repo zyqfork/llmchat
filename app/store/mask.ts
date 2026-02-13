@@ -4,7 +4,7 @@ import { ModelConfig, useAppConfig } from "./config";
 import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
-import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { getModelCompressThreshold } from "../config/model-config";
 import { getBuiltinMasks } from "../masks";
 
 export type Mask = {

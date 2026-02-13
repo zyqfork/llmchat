@@ -16,7 +16,7 @@ import {
   getModelContextTokens,
   saveCustomContextTokens,
   formatTokenCount,
-} from "../config/model-context-tokens";
+} from "../config/model-config";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { useAccessStore } from "../store";
 

@@ -74,7 +74,7 @@ import {
   getModelContextTokens,
   formatTokenCount,
   getModelCompressThreshold,
-} from "../config/model-context-tokens";
+} from "../config/model-config";
 import { estimateTokenLength } from "../utils/token";
 
 import {

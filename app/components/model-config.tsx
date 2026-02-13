@@ -15,7 +15,7 @@ import {
   getModelContextTokens,
   formatTokenCount,
   getModelCompressThreshold,
-} from "../config/model-context-tokens";
+} from "../config/model-config";
 
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;

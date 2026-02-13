@@ -1,4 +1,4 @@
-import { getModelContextTokens } from "./config/model-context-tokens";
+import { getModelContextTokens } from "./config/model-config";
 
 export const OWNER = "zyqfork";
 export const REPO = "llmchat";

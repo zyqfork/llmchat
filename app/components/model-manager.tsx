@@ -21,7 +21,7 @@ import {
   getModelContextTokens,
   formatTokenCount,
   saveCustomContextTokens,
-} from "../config/model-context-tokens";
+} from "../config/model-config";
 import { saveModelStreamConfig } from "../config/model-stream";
 import { logger } from "../utils/logger";
 

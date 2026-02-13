@@ -1,4 +1,4 @@
-import { isWebSearchModel } from "./model-capabilities";
+import { isWebSearchModel } from "./model-config";
 
 /**
  * 获取 Gemini 模型的搜索工具配置
