@@ -148,13 +148,13 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
 
 // 基于能力的模型过滤器
 const CAPABILITY_FILTERS: Record<string, (model: any) => boolean> = {
-  推理: (model: any) => {
-    const capabilities = getModelCapabilities(model.name);
-    return capabilities.reasoning === true;
-  },
   视觉: (model: any) => {
     const capabilities = getModelCapabilities(model.name);
     return capabilities.vision === true;
+  },
+  推理: (model: any) => {
+    const capabilities = getModelCapabilities(model.name);
+    return capabilities.reasoning === true;
   },
   工具: (model: any) => {
     const capabilities = getModelCapabilities(model.name);
@@ -871,7 +871,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
   };
 
   // 能力分类标签（移除免费和重排）
-  const categories = ["全部", "推理", "视觉", "联网", "嵌入", "工具"];
+  const categories = ["全部", "推理", "视觉", "工具"];
 
   return (
     <CustomModal

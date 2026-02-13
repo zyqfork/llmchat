@@ -22,11 +22,9 @@ try {
  */
 export interface ModelCapabilities {
   vision?: boolean; // 视觉能力
-  web?: boolean; // 联网能力
   reasoning?: boolean; // 推理能力
   tools?: boolean; // 工具调用能力
-  thinkingType?: "gemini" | "claude"; // thinking实现类型
-  reasoningField?: string; // 推理字段名
+  reasoningField?: string; // 推理内容字段名（从 interleaved.field 获取）
 }
 
 /**
@@ -127,29 +125,14 @@ export function getEnhancedModelCapabilities(
   }
 
   // 推理能力检测
-  const isClaude37Or4 = /claude-3-7|claude-4|claude-opus-4/i.test(modelName);
-
   if (
-    /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5/i.test(
+    /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5|claude-3-7|claude-4|claude-opus-4/i.test(
       modelName,
-    ) ||
-    isClaude37Or4
+    )
   ) {
     if (!/image/i.test(modelName)) {
       capabilities.reasoning = true;
-
-      // 设置thinking实现类型
-      if (/gemini/i.test(modelName)) {
-        capabilities.thinkingType = "gemini";
-      } else if (/claude/i.test(modelName)) {
-        capabilities.thinkingType = "claude";
-      }
     }
-  }
-
-  // 联网能力检测
-  if (/search|web|grok|gemini|claude-4|claude-3-7/i.test(modelName)) {
-    capabilities.web = true;
   }
 
   // 工具调用能力检测（大部分现代模型都支持）
@@ -195,11 +178,14 @@ export function getModelCapabilities(
   if (model.reasoning === true) {
     capabilities.reasoning = true;
 
-    // 设置 thinking 类型
-    if (/gemini/i.test(modelName)) {
-      capabilities.thinkingType = "gemini";
-    } else if (/claude/i.test(modelName)) {
-      capabilities.thinkingType = "claude";
+    // 从 interleaved.field 获取推理内容字段名
+    if (
+      model.interleaved &&
+      typeof model.interleaved === "object" &&
+      "field" in model.interleaved &&
+      typeof model.interleaved.field === "string"
+    ) {
+      capabilities.reasoningField = model.interleaved.field;
     }
   }
 
@@ -237,16 +223,11 @@ export function hasCapability(
 }
 
 /**
- * Gemini 搜索模型正则表达式
- */
-export const GEMINI_SEARCH_REGEX = new RegExp("gemini-(2\\.|1\\.5)", "i");
-
-/**
  * 检测模型是否支持网络搜索
  */
 export function isWebSearchModel(modelName: string): boolean {
   // Gemini 2.x 系列模型支持内置搜索
-  if (GEMINI_SEARCH_REGEX.test(modelName)) {
+  if (/gemini-(2\\.|1\\.5)/i.test(modelName)) {
     return true;
   }
 
@@ -368,4 +349,55 @@ export function getModelCompressThreshold(modelName: string): number {
 
   // 设置合理的上下限：最小8K，最大32K
   return Math.max(8000, Math.min(threshold, 32000));
+}
+
+/**
+ * 从流式响应中提取推理内容
+ * @param part AI SDK 的流式响应部分
+ * @param reasoningField 推理内容字段名（从 models-config.ts 的 interleaved.field 获取）
+ * @returns 推理内容的增量文本，如果没有则返回 null
+ */
+export function extractReasoningContent(
+  part: any,
+  reasoningField: string,
+): string | null {
+  if (!part || !reasoningField) {
+    return null;
+  }
+
+  try {
+    // 方法1: 从 experimental_providerMetadata.rawResponse 中提取
+    // OpenAI 兼容格式：choices[0].delta[reasoningField]
+    const rawResponse = part.experimental_providerMetadata?.rawResponse;
+    if (rawResponse?.choices?.[0]?.delta) {
+      const delta = rawResponse.choices[0].delta;
+      if (
+        reasoningField in delta &&
+        typeof delta[reasoningField] === "string"
+      ) {
+        return delta[reasoningField];
+      }
+    }
+
+    // 方法2: 直接从 part 中提取（某些 SDK 可能直接暴露）
+    if (part[reasoningField] && typeof part[reasoningField] === "string") {
+      return part[reasoningField];
+    }
+
+    // 方法3: 从 rawPart 中提取（备用方案）
+    if (part.rawPart?.delta) {
+      const delta = part.rawPart.delta;
+      if (
+        reasoningField in delta &&
+        typeof delta[reasoningField] === "string"
+      ) {
+        return delta[reasoningField];
+      }
+    }
+  } catch (error) {
+    // 静默处理错误，避免影响主流程
+    console.warn("[Model Config] Failed to extract reasoning content:", error);
+  }
+
+  return null;
 }

@@ -199,6 +199,7 @@ class UnifiedClientApi extends LLMApi {
           (streamResult.fullStream || streamResult.textStream)
         ) {
           let fullContent = "";
+          let reasoningContent = ""; // 存储推理内容
 
           const pushDelta = (delta: string) => {
             if (!delta) {
@@ -208,6 +209,15 @@ class UnifiedClientApi extends LLMApi {
             options.onUpdate?.(fullContent, delta);
           };
 
+          // 获取模型能力，检查是否支持推理
+          const { getModelCapabilities, extractReasoningContent } =
+            await import("../config/model-config");
+          const capabilities = getModelCapabilities(
+            options.config.model,
+            options.config.providerName,
+          );
+          const reasoningField = capabilities.reasoningField;
+
           try {
             if (streamResult.fullStream) {
               for await (const part of streamResult.fullStream) {
@@ -216,6 +226,27 @@ class UnifiedClientApi extends LLMApi {
                     // AI SDK 6 内部格式使用 text，provider 原始格式使用 delta
                     const delta =
                       (part as any).text ?? (part as any).delta ?? "";
+
+                    // 如果模型支持推理且配置了 reasoningField，提取推理内容
+                    if (reasoningField && capabilities.reasoning) {
+                      const reasoningDelta = extractReasoningContent(
+                        part,
+                        reasoningField,
+                      );
+
+                      if (reasoningDelta) {
+                        reasoningContent += reasoningDelta;
+                        logger.debug(
+                          `[Unified Client API] Reasoning delta: ${reasoningDelta.substring(
+                            0,
+                            50,
+                          )}...`,
+                        );
+                        // TODO: 将推理内容传递给 UI 显示
+                        // 可以通过扩展 onUpdate 回调或添加新的回调来实现
+                      }
+                    }
+
                     pushDelta(delta);
                     break;
                   }
@@ -223,6 +254,15 @@ class UnifiedClientApi extends LLMApi {
                     break;
                   }
                 }
+              }
+
+              // 如果收集到推理内容，记录日志
+              if (reasoningContent) {
+                logger.log(
+                  `[Unified Client API] Total reasoning content length: ${reasoningContent.length}`,
+                );
+                // TODO: 将完整的推理内容保存到消息中
+                // 可以通过扩展 onFinish 回调参数来实现
               }
             } else {
               for await (const chunk of streamResult.textStream) {
