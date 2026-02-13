@@ -3704,6 +3704,9 @@ function _Chat() {
                       <MaskAvatar
                         avatar={session.mask.avatar}
                         model={message.model || session.mask.modelConfig.model}
+                        provider={
+                          session.mask.modelConfig.providerName || "OpenAI"
+                        }
                       />
                     )}
                   </>
@@ -4325,6 +4328,8 @@ function _Chat() {
                                     <MaskAvatar
                                       avatar={session.mask.avatar}
                                       model={message.model || displayModelName}
+                                      provider={displayProviderId}
+                                      modelKey={message.modelKey}
                                     />
                                   </div>
 

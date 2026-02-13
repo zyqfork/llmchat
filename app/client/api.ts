@@ -231,10 +231,13 @@ class UnifiedClientApi extends LLMApi {
                 switch (part.type) {
                   case "reasoning":
                   case "reasoning-delta": {
-                    // AI SDK 6 对 reasoning_content 的支持，使用 part.delta 或 part.text
+                    // AI SDK 6 对 reasoning 的支持；OpenAI 原生用 delta，完整块用 text/textDelta
                     if (capabilities.reasoning) {
                       const text =
-                        (part as any).delta ?? (part as any).text ?? "";
+                        (part as any).delta ??
+                        (part as any).text ??
+                        (part as any).textDelta ??
+                        "";
                       if (text) {
                         reasoningContent += text;
                         pushUpdate(buildDisplayContent());

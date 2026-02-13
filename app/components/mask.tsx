@@ -38,6 +38,7 @@ import {
   showConfirm,
 } from "./ui-lib";
 import { Avatar, AvatarPicker } from "./emoji";
+import { ModelProviderIcon } from "./provider-icon";
 import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
 import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useNavigate } from "react-router-dom";
@@ -77,19 +78,50 @@ function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   return result;
 }
 
-export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
+export function MaskAvatar(props: {
+  avatar: string;
+  model?: ModelType;
+  /** 模型完整标识，格式 model@provider，与右下角模型配置保持一致 */
+  modelKey?: string;
+  /** 厂商名称或 ID，与 model 一起使用时优先采用 ModelProviderIcon */
+  provider?: string;
+}) {
   const config = useAppConfig();
 
-  // 如果启用了使用模型图标作为头像，优先使用模型图标
-  if (config.useModelIconAsAvatar && props.model) {
-    return <Avatar model={props.model} />;
+  // 解析 modelKey（model@provider）获取 model 和 provider
+  const [modelName, providerName] = (() => {
+    if (props.modelKey?.includes("@")) {
+      const [m, p] = props.modelKey.split("@");
+      return [m || props.model, p];
+    }
+    return [props.model, props.provider];
+  })();
+
+  // 有 model 和 provider 时，使用与右下角模型配置相同的 ModelProviderIcon
+  const useModelIcon =
+    (config.useModelIconAsAvatar && modelName) ||
+    props.avatar === DEFAULT_MASK_AVATAR;
+  if (useModelIcon && modelName && providerName) {
+    return (
+      <div className="no-dark user-avatar">
+        <ModelProviderIcon
+          provider={providerName}
+          modelName={modelName}
+          size={24}
+        />
+      </div>
+    );
   }
 
-  // 否则按原逻辑：如果有自定义头像就用自定义头像，否则用模型图标
+  // 仅有 model 时沿用 Avatar（兼容旧逻辑）
+  if (config.useModelIconAsAvatar && modelName) {
+    return <Avatar model={modelName} />;
+  }
+
   return props.avatar !== DEFAULT_MASK_AVATAR ? (
     <Avatar avatar={props.avatar} />
   ) : (
-    <Avatar model={props.model} />
+    <Avatar model={modelName} />
   );
 }
 

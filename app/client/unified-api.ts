@@ -286,6 +286,28 @@ export function unifiedChat(
     providerOptions: options.providerOptions,
   };
 
+  // 原生 OpenAI 推理模型需要 reasoningSummary 才能返回思考内容
+  if (provider?.sdkType === "openai" && !providerId.startsWith("custom_")) {
+    try {
+      const { getModelCapabilities } = require("../config/model-config");
+      const capabilities = getModelCapabilities(model, undefined);
+      if (capabilities.reasoning) {
+        requestOptions.providerOptions = {
+          ...requestOptions.providerOptions,
+          openai: {
+            ...(requestOptions.providerOptions?.openai ?? {}),
+            reasoningSummary: "auto",
+          },
+        };
+        logger.debug(
+          `[Unified API] Added reasoningSummary for OpenAI reasoning model: ${model}`,
+        );
+      }
+    } catch (e) {
+      logger.warn("[Unified API] Failed to check model capabilities:", e);
+    }
+  }
+
   // 添加系统提示词
   if (systemPrompt) {
     requestOptions.messages.unshift({

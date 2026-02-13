@@ -89,7 +89,11 @@ export const MessageItem = React.memo(
         return <Avatar avatar={config.avatar} />;
       } else {
         return (
-          <MaskAvatar avatar={session.mask.avatar} model={message.modelKey} />
+          <MaskAvatar
+            avatar={session.mask.avatar}
+            modelKey={message.modelKey}
+            model={message.model}
+          />
         );
       }
     };

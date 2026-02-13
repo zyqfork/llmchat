@@ -852,7 +852,30 @@ export function getModel(
   // - AI SDK 5 默认使用 Response API: openai('model')
   // - Chat API 需要明确调用: openai.chat('model')
   // - Response API 可以使用: openai('model') 或 openai.responses('model')
-  if (apiType === "response") {
+  // 原生 OpenAI 推理模型必须使用 Responses API 才能获取思考内容（reasoningSummary）
+  let useResponsesForReasoning = false;
+  if (
+    provider?.sdkType === "openai" &&
+    !providerId.startsWith("custom_") &&
+    apiType === "chat"
+  ) {
+    try {
+      const { getModelCapabilities } = require("../config/model-config");
+      const capabilities = getModelCapabilities(modelName, undefined);
+      if (capabilities.reasoning) {
+        useResponsesForReasoning = true;
+        logger.debug(
+          `[SDK Manager] Reasoning model ${modelName} requires Responses API for thinking content`,
+        );
+      }
+    } catch (e) {
+      logger.warn(
+        `[SDK Manager] Failed to check reasoning capability for ${modelName}:`,
+        e,
+      );
+    }
+  }
+  if (apiType === "response" || useResponsesForReasoning) {
     // 用户启用了 Response API
     logger.debug(`[SDK Manager] Using Response API for model ${modelName}`);
     if (sdkInstance.responses) {
