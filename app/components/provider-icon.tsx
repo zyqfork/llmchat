@@ -202,26 +202,6 @@ function getModelIconType(
     lowerModelName.includes("o4")
   )
     return "o1";
-  // 嵌入模型的特殊处理 - 根据具体模型名称识别提供商
-  if (lowerModelName.includes("embedding")) {
-    // 阿里云Qwen嵌入模型
-    if (
-      lowerModelName.includes("qwen") ||
-      lowerModelName.includes("text-embedding-v2")
-    )
-      return "qwen";
-    // SiliconFlow平台的嵌入模型
-    if (lowerModelName.includes("baai") || lowerModelName.includes("bge"))
-      return "default";
-    // OpenAI嵌入模型（默认）
-    if (
-      lowerModelName.includes("text-embedding") ||
-      lowerModelName.includes("ada")
-    )
-      return "gpt4";
-    // 其他嵌入模型使用默认图标
-    return "default";
-  }
   if (lowerModelName.includes("kimi") || lowerModelName.includes("moonshot"))
     return "kimi";
   if (lowerModelName.includes("wenxin") || lowerModelName.includes("文心"))
@@ -245,11 +225,6 @@ function getModelIconType(
     )
       return "gpt4";
     if (lowerModelName.includes("gpt-3")) return "gpt3";
-    if (
-      lowerModelName.includes("text-embedding") ||
-      lowerModelName.includes("embedding")
-    )
-      return "gpt4"; // 嵌入模型使用GPT-4图标
   }
 
   if (providerName === ServiceProvider.Anthropic.name) {
@@ -540,36 +515,8 @@ const ModelAvatar = React.memo(function ModelAvatar({
   if (modelName) {
     const lowerModelName = modelName.toLowerCase();
 
-    // 嵌入模型的特殊处理
-    if (lowerModelName.includes("embedding")) {
-      // 阿里云Qwen嵌入模型
-      if (
-        lowerModelName.includes("qwen") ||
-        lowerModelName.includes("text-embedding-v2")
-      ) {
-        LlmIcon = BotIconQwen;
-      }
-      // SiliconFlow平台的嵌入模型
-      else if (
-        lowerModelName.includes("baai") ||
-        lowerModelName.includes("bge")
-      ) {
-        LlmIcon = BotIconDefault; // 使用默认图标
-      }
-      // OpenAI嵌入模型
-      else if (
-        lowerModelName.includes("text-embedding") ||
-        lowerModelName.includes("ada")
-      ) {
-        LlmIcon = BotIconOpenAI;
-      }
-      // 其他嵌入模型使用默认图标
-      else {
-        LlmIcon = BotIconDefault;
-      }
-    }
     // 其他模型的识别逻辑
-    else if (
+    if (
       lowerModelName.startsWith("gpt") ||
       lowerModelName.startsWith("chatgpt") ||
       lowerModelName.startsWith("dall-e") ||

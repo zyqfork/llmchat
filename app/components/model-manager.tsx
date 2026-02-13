@@ -142,7 +142,6 @@ const MODEL_NAME_CATEGORIES: Record<string, string[]> = {
   "Grok 3": ["grok-3"],
   "Grok 2": ["grok-2", "grok-vision"],
   Grok: ["grok-beta"],
-  嵌入模型: ["embedding", "embed"],
   自定义模型: [], // 新增：专门用于自定义模型的分组
   其他: [],
 };

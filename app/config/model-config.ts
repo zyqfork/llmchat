@@ -25,7 +25,6 @@ export interface ModelCapabilities {
   web?: boolean; // 联网能力
   reasoning?: boolean; // 推理能力
   tools?: boolean; // 工具调用能力
-  embedding?: boolean; // 嵌入能力
   thinkingType?: "gemini" | "claude"; // thinking实现类型
   reasoningField?: string; // 推理字段名
 }
@@ -154,13 +153,8 @@ export function getEnhancedModelCapabilities(
   }
 
   // 工具调用能力检测（大部分现代模型都支持）
-  if (!/embedding|dall-e|o1|o3-mini(?!-high)|instruct/i.test(modelName)) {
+  if (!/dall-e|o1|o3-mini(?!-high)|instruct/i.test(modelName)) {
     capabilities.tools = true;
-  }
-
-  // 嵌入能力检测
-  if (/embedding|embed/i.test(modelName)) {
-    capabilities.embedding = true;
   }
 
   return capabilities;
@@ -186,7 +180,6 @@ export function getModelCapabilities(
     vision: false,
     reasoning: false,
     tools: false,
-    embedding: false,
   };
 
   // 视觉能力：检查 modalities.input 是否包含 "image"
@@ -213,16 +206,6 @@ export function getModelCapabilities(
   // 工具调用能力：检查 tool_call 字段
   if (model.tool_call === true) {
     capabilities.tools = true;
-  }
-
-  // 嵌入能力：检查 family 是否包含 "embedding"
-  if (model.family && /embedding/i.test(model.family)) {
-    capabilities.embedding = true;
-  }
-
-  // 推理字段名：检查 interleaved.field
-  if (model.interleaved?.field) {
-    capabilities.reasoningField = model.interleaved.field;
   }
 
   // 检查是否有自定义配置

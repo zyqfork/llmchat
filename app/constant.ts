@@ -264,7 +264,6 @@ export const ICON_CONFIG: Record<
       "chatgpt",
       "dall-e",
       "dalle",
-      "text-embedding",
       "ada",
     ],
     providerNames: ["openai"],
@@ -306,7 +305,7 @@ export const ICON_CONFIG: Record<
     description: "月之暗面 Kimi 系列",
   },
   qwen: {
-    modelPatterns: ["qwen", "qwq", "qvq", "text-embedding-v2", "通义"],
+    modelPatterns: ["qwen", "qwq", "qvq", "通义"],
     providerNames: ["alibaba", "alibaba cloud", "阿里巴巴", "阿里云", "通义"],
     description: "阿里云通义千问系列",
   },
