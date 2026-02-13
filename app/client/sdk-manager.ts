@@ -111,12 +111,15 @@ function normalizeResponsesRequestBody(body: string) {
 }
 
 // 调试信息捕获 - 用于在客户端 SDK 路径中获取请求/响应详情
-let capturedDebugInfo: {
+// 注意：多模型并发时使用单键存储，后完成的请求会覆盖先前的，可能导致部分消息的调试信息不准确
+type CapturedDebugInfo = {
   request?: { url?: string; method?: string; headers?: any; body?: any };
   response?: { status?: number; headers?: Record<string, string> };
-} | null = null;
+};
 
-export function getCapturedDebugInfo() {
+let capturedDebugInfo: CapturedDebugInfo | null = null;
+
+export function getCapturedDebugInfo(): CapturedDebugInfo | null {
   return capturedDebugInfo;
 }
 
@@ -128,7 +131,6 @@ function wrapFetchWithDebugCapture(
   baseFetch: FetchWithPreconnect,
 ): FetchWithPreconnect {
   const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    // 清除之前的捕获（每次新请求覆盖）
     capturedDebugInfo = null;
 
     const url =
@@ -156,28 +158,15 @@ function wrapFetchWithDebugCapture(
       }
     } catch {}
 
+    // 懒加载：body 保存原始字符串，解析推迟到调试弹窗打开时
     let body: any;
     if (init?.body) {
-      if (typeof init.body === "string") {
-        try {
-          body = JSON.parse(init.body);
-        } catch {
-          body = init.body;
-        }
-      } else {
-        body = init.body;
-      }
+      body = init.body;
     } else if (input instanceof Request) {
       try {
         const cloned = (input as Request).clone();
         const text = await cloned.text();
-        if (text) {
-          try {
-            body = JSON.parse(text);
-          } catch {
-            body = text;
-          }
-        }
+        if (text) body = text;
       } catch {}
     }
 
@@ -187,7 +176,6 @@ function wrapFetchWithDebugCapture(
 
     const response = await baseFetch(input, init);
 
-    // 捕获响应信息
     if (capturedDebugInfo) {
       const respHeaders: Record<string, string> = {};
       try {
@@ -197,10 +185,7 @@ function wrapFetchWithDebugCapture(
       } catch {}
       capturedDebugInfo = {
         ...capturedDebugInfo,
-        response: {
-          status: response.status,
-          headers: respHeaders,
-        },
+        response: { status: response.status, headers: respHeaders },
       };
     }
 

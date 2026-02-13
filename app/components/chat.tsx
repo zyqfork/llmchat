@@ -4763,7 +4763,21 @@ function _Chat() {
                 >
                   {(() => {
                     const req = (debugMessage as any)?.debug?.request;
-                    return req ? JSON.stringify(req, null, 2) : "<empty>";
+                    if (!req) return "<empty>";
+                    // 懒加载：body 为字符串时在此解析，用于格式化显示
+                    let displayReq = req;
+                    if (
+                      typeof req.body === "string" &&
+                      (req.body.trimStart().startsWith("{") ||
+                        req.body.trimStart().startsWith("["))
+                    ) {
+                      try {
+                        displayReq = { ...req, body: JSON.parse(req.body) };
+                      } catch {
+                        /* 解析失败则原样显示 */
+                      }
+                    }
+                    return JSON.stringify(displayReq, null, 2);
                   })()}
                 </pre>
               </div>
