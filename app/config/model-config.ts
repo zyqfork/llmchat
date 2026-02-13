@@ -154,47 +154,49 @@ export function getModelCapabilities(
 ): ModelCapabilities {
   const model = findModelInConfig(modelName, providerName);
 
+  let capabilities: ModelCapabilities;
+
   if (!model) {
-    // 如果配置中没有，使用启发式检测
-    return getEnhancedModelCapabilities(modelName);
-  }
+    // 如果配置中没有，使用启发式检测作为基础
+    capabilities = getEnhancedModelCapabilities(modelName);
+  } else {
+    capabilities = {
+      vision: false,
+      reasoning: false,
+      tools: false,
+    };
 
-  const capabilities: ModelCapabilities = {
-    vision: false,
-    reasoning: false,
-    tools: false,
-  };
-
-  // 视觉能力：检查 modalities.input 是否包含 "image"
-  if (
-    model.modalities?.input &&
-    Array.isArray(model.modalities.input) &&
-    model.modalities.input.includes("image")
-  ) {
-    capabilities.vision = true;
-  }
-
-  // 推理能力：检查 reasoning 字段
-  if (model.reasoning === true) {
-    capabilities.reasoning = true;
-
-    // 从 interleaved.field 获取推理内容字段名
+    // 视觉能力：检查 modalities.input 是否包含 "image"
     if (
-      model.interleaved &&
-      typeof model.interleaved === "object" &&
-      "field" in model.interleaved &&
-      typeof model.interleaved.field === "string"
+      model.modalities?.input &&
+      Array.isArray(model.modalities.input) &&
+      model.modalities.input.includes("image")
     ) {
-      capabilities.reasoningField = model.interleaved.field;
+      capabilities.vision = true;
+    }
+
+    // 推理能力：检查 reasoning 字段
+    if (model.reasoning === true) {
+      capabilities.reasoning = true;
+
+      // 从 interleaved.field 获取推理内容字段名
+      if (
+        model.interleaved &&
+        typeof model.interleaved === "object" &&
+        "field" in model.interleaved &&
+        typeof model.interleaved.field === "string"
+      ) {
+        capabilities.reasoningField = model.interleaved.field;
+      }
+    }
+
+    // 工具调用能力：检查 tool_call 字段
+    if (model.tool_call === true) {
+      capabilities.tools = true;
     }
   }
 
-  // 工具调用能力：检查 tool_call 字段
-  if (model.tool_call === true) {
-    capabilities.tools = true;
-  }
-
-  // 检查是否有自定义配置
+  // 始终检查 localStorage 中的自定义配置，用户手动勾选的能力优先级最高
   if (typeof window !== "undefined" && window.localStorage) {
     const customKey = `model_capabilities_${modelName}`;
     try {
@@ -352,51 +354,90 @@ export function getModelCompressThreshold(modelName: string): number {
 }
 
 /**
+ * OpenAI 兼容 API 中常用的推理内容字段名
+ * 当模型未在配置中指定 reasoningField 时，按顺序尝试这些字段以解析推理内容
+ * - reasoning_content: DeepSeek R1、Kimi、部分国产推理模型
+ * - reasoning: 通用简化字段名
+ * - thinking: 部分厂商使用
+ * - thinking_content: GLM、智谱等
+ * - thought_content: 部分开源模型
+ * - thought: 简化字段名
+ */
+export const REASONING_FIELD_CANDIDATES = [
+  "reasoning_content",
+  "reasoning",
+  "thinking",
+  "thinking_content",
+  "thought_content",
+  "thought",
+] as const;
+
+/**
  * 从流式响应中提取推理内容
  * @param part AI SDK 的流式响应部分
- * @param reasoningField 推理内容字段名（从 models-config.ts 的 interleaved.field 获取）
+ * @param reasoningField 推理内容字段名（可选）。若未指定，则依次尝试 REASONING_FIELD_CANDIDATES 中的常用字段
  * @returns 推理内容的增量文本，如果没有则返回 null
  */
 export function extractReasoningContent(
   part: any,
-  reasoningField: string,
+  reasoningField?: string,
 ): string | null {
-  if (!part || !reasoningField) {
+  if (!part) {
     return null;
   }
 
+  const fieldsToTry: string[] = reasoningField
+    ? [reasoningField]
+    : [...REASONING_FIELD_CANDIDATES];
+
   try {
-    // 方法1: 从 experimental_providerMetadata.rawResponse 中提取
-    // OpenAI 兼容格式：choices[0].delta[reasoningField]
-    const rawResponse = part.experimental_providerMetadata?.rawResponse;
-    if (rawResponse?.choices?.[0]?.delta) {
-      const delta = rawResponse.choices[0].delta;
-      if (
-        reasoningField in delta &&
-        typeof delta[reasoningField] === "string"
-      ) {
-        return delta[reasoningField];
-      }
-    }
-
-    // 方法2: 直接从 part 中提取（某些 SDK 可能直接暴露）
-    if (part[reasoningField] && typeof part[reasoningField] === "string") {
-      return part[reasoningField];
-    }
-
-    // 方法3: 从 rawPart 中提取（备用方案）
-    if (part.rawPart?.delta) {
-      const delta = part.rawPart.delta;
-      if (
-        reasoningField in delta &&
-        typeof delta[reasoningField] === "string"
-      ) {
-        return delta[reasoningField];
+    for (const field of fieldsToTry) {
+      const result = extractFromField(part, field);
+      if (result !== null) {
+        return result;
       }
     }
   } catch (error) {
     // 静默处理错误，避免影响主流程
     console.warn("[Model Config] Failed to extract reasoning content:", error);
+  }
+
+  return null;
+}
+
+/**
+ * 从指定字段提取推理内容
+ */
+function extractFromField(part: any, reasoningField: string): string | null {
+  // 方法1: 从 experimental_providerMetadata.rawResponse 中提取
+  // OpenAI 兼容格式：choices[0].delta[reasoningField]
+  const rawResponse = part.experimental_providerMetadata?.rawResponse;
+  if (rawResponse?.choices?.[0]?.delta) {
+    const delta = rawResponse.choices[0].delta;
+    if (reasoningField in delta && typeof delta[reasoningField] === "string") {
+      return delta[reasoningField];
+    }
+  }
+
+  // 方法2: 从 part.delta 直接提取（text-delta 时 delta 可能包含 reasoning_content）
+  if (part.delta && reasoningField in part.delta) {
+    const value = part.delta[reasoningField];
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  // 方法3: 直接从 part 中提取（某些 SDK 可能直接暴露）
+  if (part[reasoningField] && typeof part[reasoningField] === "string") {
+    return part[reasoningField];
+  }
+
+  // 方法4: 从 rawPart 中提取（备用方案）
+  if (part.rawPart?.delta) {
+    const delta = part.rawPart.delta;
+    if (reasoningField in delta && typeof delta[reasoningField] === "string") {
+      return delta[reasoningField];
+    }
   }
 
   return null;

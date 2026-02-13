@@ -198,15 +198,22 @@ class UnifiedClientApi extends LLMApi {
           streamResult &&
           (streamResult.fullStream || streamResult.textStream)
         ) {
-          let fullContent = "";
-          let reasoningContent = ""; // 存储推理内容
+          let mainContent = ""; // 主回答内容
+          let reasoningContent = ""; // 推理/思考内容
 
-          const pushDelta = (delta: string) => {
-            if (!delta) {
-              return;
+          // 构建用于 UI 显示的完整内容（推理内容用 <think> 标签包裹，与 markdown 渲染约定一致）
+          // 输出过程中仅收到推理内容时使用未闭合标签，保持“正在思考中”并默认展开
+          const buildDisplayContent = () =>
+            reasoningContent
+              ? mainContent
+                ? `<think>\n${reasoningContent}\n</think>\n\n${mainContent}`
+                : `<think>\n${reasoningContent}`
+              : mainContent;
+
+          const pushUpdate = (displayContent: string) => {
+            if (displayContent !== undefined && displayContent !== null) {
+              options.onUpdate?.(displayContent, displayContent);
             }
-            fullContent += delta;
-            options.onUpdate?.(fullContent, delta);
           };
 
           // 获取模型能力，检查是否支持推理
@@ -222,13 +229,26 @@ class UnifiedClientApi extends LLMApi {
             if (streamResult.fullStream) {
               for await (const part of streamResult.fullStream) {
                 switch (part.type) {
+                  case "reasoning":
+                  case "reasoning-delta": {
+                    // AI SDK 6 对 reasoning_content 的支持，使用 part.delta 或 part.text
+                    if (capabilities.reasoning) {
+                      const text =
+                        (part as any).delta ?? (part as any).text ?? "";
+                      if (text) {
+                        reasoningContent += text;
+                        pushUpdate(buildDisplayContent());
+                      }
+                    }
+                    break;
+                  }
                   case "text-delta": {
                     // AI SDK 6 内部格式使用 text，provider 原始格式使用 delta
                     const delta =
                       (part as any).text ?? (part as any).delta ?? "";
 
-                    // 如果模型支持推理且配置了 reasoningField，提取推理内容
-                    if (reasoningField && capabilities.reasoning) {
+                    // 若 AI SDK 未原生解析 reasoning，从 rawResponse 中提取（如 OpenAI 兼容 API）
+                    if (capabilities.reasoning) {
                       const reasoningDelta = extractReasoningContent(
                         part,
                         reasoningField,
@@ -242,12 +262,15 @@ class UnifiedClientApi extends LLMApi {
                             50,
                           )}...`,
                         );
-                        // TODO: 将推理内容传递给 UI 显示
-                        // 可以通过扩展 onUpdate 回调或添加新的回调来实现
                       }
                     }
 
-                    pushDelta(delta);
+                    // delta 可能是主回答内容，也可能是空（当只有 reasoning_content 时）
+                    if (delta) {
+                      mainContent += delta;
+                    }
+
+                    pushUpdate(buildDisplayContent());
                     break;
                   }
                   default: {
@@ -256,19 +279,19 @@ class UnifiedClientApi extends LLMApi {
                 }
               }
 
-              // 如果收集到推理内容，记录日志
               if (reasoningContent) {
-                logger.log(
+                logger.debug(
                   `[Unified Client API] Total reasoning content length: ${reasoningContent.length}`,
                 );
-                // TODO: 将完整的推理内容保存到消息中
-                // 可以通过扩展 onFinish 回调参数来实现
               }
             } else {
               for await (const chunk of streamResult.textStream) {
-                pushDelta(chunk);
+                mainContent += chunk;
+                pushUpdate(buildDisplayContent());
               }
             }
+
+            const fullContent = buildDisplayContent();
 
             let responseId: string | undefined;
             try {
