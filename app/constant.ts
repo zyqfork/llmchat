@@ -175,8 +175,12 @@ function getModelReasoningFieldFromConfig(modelId: string): string | undefined {
 export type { ModelCapabilities };
 
 // 获取模型能力（基于生成的配置）
-export function getModelCapabilities(modelName: string): ModelCapabilities {
-  return getModelCapabilitiesFromConfig(modelName);
+// 支持可选的厂商名称参数，用于精确查找模型配置
+export function getModelCapabilities(
+  modelName: string,
+  providerName?: string,
+): ModelCapabilities {
+  return getModelCapabilitiesFromConfig(modelName, providerName);
 }
 
 // 辅助函数：获取厂商模型列表（直接使用生成的配置）

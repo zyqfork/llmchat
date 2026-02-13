@@ -45,8 +45,55 @@ export interface ModelContextConfig {
 
 /**
  * 从配置中查找模型数据
+ *
+ * 配置结构：
+ * MODELS_DEV_CONFIG = {
+ *   [providerId]: {           // 厂商ID，如 "openai", "zai"
+ *     id: string,
+ *     name: string,
+ *     models: {
+ *       [modelId]: {          // 模型ID，如 "gpt-4", "glm-4.7"
+ *         id: string,
+ *         name: string,
+ *         reasoning: boolean,  // 是否支持推理
+ *         tool_call: boolean,  // 是否支持工具调用
+ *         modalities: {
+ *           input: string[],   // 输入模态，如 ["text", "image", "video"]
+ *           output: string[]
+ *         },
+ *         interleaved: {
+ *           field: string      // 思考内容字段名，如 "reasoning_content"
+ *         },
+ *         limit: {
+ *           context: number,   // 上下文窗口大小
+ *           output: number     // 最大输出Token数
+ *         },
+ *         ...
+ *       }
+ *     }
+ *   }
+ * }
+ *
+ * @param modelId 模型ID
+ * @param providerId 可选的厂商ID，如果提供则优先在该厂商下查找
+ * @returns 模型配置对象或 null
  */
-function findModelInConfig(modelId: string): any | null {
+function findModelInConfig(modelId: string, providerId?: string): any | null {
+  // 如果提供了厂商ID，优先在该厂商下查找
+  if (providerId) {
+    const provider = MODELS_DEV_CONFIG[providerId.toLowerCase()];
+    if (
+      provider &&
+      typeof provider === "object" &&
+      "models" in provider &&
+      provider.models &&
+      provider.models[modelId]
+    ) {
+      return provider.models[modelId];
+    }
+  }
+
+  // 如果没有提供厂商ID，或在指定厂商下没找到，则遍历所有厂商查找
   for (const provider of Object.values(MODELS_DEV_CONFIG)) {
     if (
       provider &&
@@ -58,6 +105,7 @@ function findModelInConfig(modelId: string): any | null {
       return provider.models[modelId];
     }
   }
+
   return null;
 }
 
@@ -120,9 +168,14 @@ export function getEnhancedModelCapabilities(
 
 /**
  * 获取模型能力（基于生成的配置）
+ * @param modelName 模型名称
+ * @param providerName 可选的厂商名称，如果提供则优先在该厂商下查找
  */
-export function getModelCapabilities(modelName: string): ModelCapabilities {
-  const model = findModelInConfig(modelName);
+export function getModelCapabilities(
+  modelName: string,
+  providerName?: string,
+): ModelCapabilities {
+  const model = findModelInConfig(modelName, providerName);
 
   if (!model) {
     // 如果配置中没有，使用启发式检测
@@ -234,9 +287,12 @@ export function isWebSearchModel(modelName: string): boolean {
 
 /**
  * 获取模型上下文Token数配置
+ * @param modelName 模型名称
+ * @param providerName 可选的厂商名称，如果提供则优先在该厂商下查找
  */
 export function getModelContextTokens(
   modelName: string,
+  providerName?: string,
 ): ModelContextConfig | null {
   // 检查是否有自定义配置
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -257,7 +313,7 @@ export function getModelContextTokens(
   }
 
   // 从配置中获取
-  const model = findModelInConfig(modelName);
+  const model = findModelInConfig(modelName, providerName);
   if (!model || !model.limit) {
     return null;
   }
