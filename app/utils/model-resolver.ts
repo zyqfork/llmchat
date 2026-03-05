@@ -5,7 +5,7 @@
 
 import { useAppConfig } from "../store/config";
 import { useAccessStore } from "../store/access";
-import { Mask } from "../store/mask";
+import { Mask, DEFAULT_MASK_ID } from "../store/mask";
 import { collectModelsWithDefaultModel } from "./model";
 
 export interface ModelDecision {
@@ -54,6 +54,16 @@ export function getMaskDisplayModel(mask: Mask): ModelDecision {
         providerId ||
         globalConfig.providerName,
       source: "mask-default",
+    };
+  }
+
+  // 默认助手且未设置 defaultModel 时，始终使用设置-模型配置中的全局默认模型，
+  // 这样用户在设置里切换默认模型后，点击「新聊天」会生效
+  if (mask.id === DEFAULT_MASK_ID) {
+    return {
+      model: globalConfig.model,
+      providerName: globalConfig.providerName,
+      source: "global-default",
     };
   }
 

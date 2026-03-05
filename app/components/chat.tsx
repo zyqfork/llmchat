@@ -1629,24 +1629,37 @@ function useScrollToBottom(
     }
   }, [scrollRef]);
 
-  // auto scroll
+  // 仅在用户处于底部时自动滚动（用户上滑后不强制拉回；只有用户滑回底部才继续跟随）
   useEffect(() => {
-    if (autoScroll && (!detach || forceFollow)) {
+    if (autoScroll && !detach) {
       scrollDomToBottom();
     }
-  }, [autoScroll, detach, forceFollow, scrollTrigger, scrollDomToBottom]);
+  }, [autoScroll, detach, scrollTrigger, scrollDomToBottom]);
 
-  // auto scroll when messages length changes
+  // 流式输出且用户当前在底部时，持续跟随到底部（内容逐字增加或 Markdown 延迟布局会导致高度变化）
+  useEffect(() => {
+    if (!forceFollow || !autoScroll || detach) return;
+    scrollDomToBottom();
+    const duration = 800; // 流式过程中持续跟随一段时间，覆盖批处理与延迟布局
+    const start = Date.now();
+    let rafId: number;
+    const tick = () => {
+      if (Date.now() - start > duration) return;
+      scrollDomToBottom();
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [forceFollow, scrollTrigger, scrollDomToBottom, autoScroll, detach]);
+
+  // 仅当用户未脱离底部时，新消息才触发滚到底
   const lastMessagesLength = useRef(messages.length);
   useEffect(() => {
-    if (
-      messages.length > lastMessagesLength.current &&
-      (!detach || forceFollow)
-    ) {
+    if (messages.length > lastMessagesLength.current && !detach) {
       scrollDomToBottom();
     }
     lastMessagesLength.current = messages.length;
-  }, [messages.length, detach, forceFollow, scrollDomToBottom, scrollTrigger]);
+  }, [messages.length, detach, scrollDomToBottom, scrollTrigger]);
 
   return {
     scrollRef,
@@ -2667,18 +2680,23 @@ function _Chat() {
   const lastSessionMessageText = lastSessionMessage
     ? getMessageTextContent(lastSessionMessage)
     : "";
+  const isStreamingFollow =
+    !!lastSessionMessage?.streaming &&
+    lastSessionMessage.role === "assistant" &&
+    !isTyping;
   const scrollTrigger = `${session.messages.length}-${
     lastSessionMessage?.id ?? ""
   }-${lastSessionMessageText.length}-${lastSessionMessage?.streaming ? 1 : 0}`;
 
   // if user is typing, should auto scroll to bottom
   // if user is not typing, should auto scroll to bottom only if already at bottom
-  const { setAutoScroll, scrollDomToBottom } = useScrollToBottom(
+  const { autoScroll, setAutoScroll, scrollDomToBottom } = useScrollToBottom(
     scrollRef,
     !(isScrolledToBottom || isAttachWithTop) && !isTyping,
     session.messages,
     savedScrollState?.hitBottom ?? true,
     scrollTrigger,
+    isStreamingFollow,
   );
   const [hitBottom, setHitBottom] = useState(
     savedScrollState?.hitBottom ?? true,
@@ -3389,6 +3407,14 @@ function _Chat() {
     const isTouchBottomEdge = bottomHeight >= e.scrollHeight - edgeThreshold;
     const isHitBottom =
       bottomHeight >= e.scrollHeight - (isMobileScreen ? 4 : 10);
+    // 恢复跟随仅当“真正滚到最底部”：以当前最后一条消息的底部（大模型正在输入的位置）为参照，与视口底部对齐（1px 容差）
+    const lastMessageEl = e.lastElementChild as HTMLElement | null;
+    const isReallyAtBottom = lastMessageEl
+      ? Math.abs(
+          lastMessageEl.getBoundingClientRect().bottom -
+            e.getBoundingClientRect().bottom,
+        ) <= 1
+      : bottomHeight >= e.scrollHeight - 1;
 
     const prevPageMsgIndex = msgRenderIndex - CHAT_PAGE_SIZE;
     const nextPageMsgIndex = msgRenderIndex + CHAT_PAGE_SIZE;
@@ -3418,7 +3444,7 @@ function _Chat() {
     }
 
     setHitBottom(isHitBottom);
-    setAutoScroll(isHitBottom);
+    setAutoScroll(isReallyAtBottom);
     const bottomOffset = Math.max(
       0,
       e.scrollHeight - e.clientHeight - e.scrollTop,
@@ -3443,6 +3469,20 @@ function _Chat() {
       scrollToBottom();
     }
   };
+
+  useEffect(() => {
+    if (!isStreamingFollow || !autoScroll) {
+      return;
+    }
+    setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
+    scrollDomToBottom();
+  }, [
+    isStreamingFollow,
+    autoScroll,
+    scrollTrigger,
+    renderMessages.length,
+    scrollDomToBottom,
+  ]);
 
   // clear context index = context length + index in messages
   const clearContextIndex =
