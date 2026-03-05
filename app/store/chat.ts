@@ -1995,10 +1995,20 @@ export const useChatStore = createPersistStore(
           return false;
         }
 
-        const summarizeIndex = Math.max(
-          session.lastSummarizeIndex,
-          session.clearContextIndex ?? 0,
+        // 第二次及以后压缩：从「最后一条」压缩结果开始，只压缩「该摘要 + 后续消息」（保留历史压缩消息后可能有多条）
+        const lastCompressedIdx = messages.reduce(
+          (last, m, i) => (m?.isCompressedContextPrompt ? i : last),
+          -1,
         );
+        const summarizeIndex =
+          lastCompressedIdx >= 0
+            ? lastCompressedIdx
+            : (session.compressedContextIndex ?? -1) >= 0
+            ? session.compressedContextIndex!
+            : Math.max(
+                session.lastSummarizeIndex,
+                session.clearContextIndex ?? 0,
+              );
         let toBeSummarizedMsgs = messages
           .filter((msg) => !msg.isError)
           .slice(summarizeIndex);
@@ -2080,28 +2090,46 @@ export const useChatStore = createPersistStore(
             return false;
           }
 
-          // 设置摘要锁，防止并发
+          // 第二次及以后压缩：用「最后一条压缩结果的 assistant 消息」作为上下文
+          const previousSummary =
+            lastCompressedIdx >= 0
+              ? (() => {
+                  const prevMsg = messages[lastCompressedIdx];
+                  return prevMsg?.role === "assistant" &&
+                    prevMsg?.isCompressedContextPrompt
+                    ? getMessageTextContent(prevMsg)
+                    : session.memoryPrompt;
+                })()
+              : (session.compressedContextIndex ?? -1) >= 0
+              ? (() => {
+                  const prevMsg = messages[session.compressedContextIndex!];
+                  return prevMsg?.role === "assistant" &&
+                    prevMsg?.isCompressedContextPrompt
+                    ? getMessageTextContent(prevMsg)
+                    : session.memoryPrompt;
+                })()
+              : session.memoryPrompt;
+
+          // 设置摘要锁，防止并发。保留之前的压缩结果消息，只追加新占位条，便于用户看到每次压缩的横幅
           const compressedMessageId = nanoid();
           get().updateTargetSession(session, (s) => {
             s.isSummarizing = true;
-            s.compressingContextIndex = messages.length;
-            s.messages = s.messages
-              .filter((m) => !m.isCompressedContextPrompt)
-              .concat(
-                createMessage({
-                  id: compressedMessageId,
-                  role: "assistant",
-                  content: "",
-                  streaming: true,
-                  isCompressedContextPrompt: true,
-                }),
-              );
+            s.messages = s.messages.concat(
+              createMessage({
+                id: compressedMessageId,
+                role: "assistant",
+                content: "",
+                streaming: true,
+                isCompressedContextPrompt: true,
+              }),
+            );
+            s.compressingContextIndex = s.messages.length - 1;
           });
           const summarizeInput = buildSummaryPrompt(
             summarizePrompt,
             forceUserMessages,
             confirmedAssistantMessages,
-            session.memoryPrompt,
+            previousSummary,
           );
           return await new Promise<boolean>((resolve) => {
             let resolved = false;
@@ -2193,10 +2221,6 @@ export const useChatStore = createPersistStore(
                     s.mask.modelConfig.sendMemory = true;
                     s.lastSummarizeIndex = lastSummarizeIndex;
                     s.memoryPrompt = filteredMessage;
-                    s.compressedContextIndex = Math.max(
-                      s.compressedContextIndex ?? 0,
-                      lastSummarizeIndex,
-                    );
                     const target = s.messages.find(
                       (m) => m.id === compressedMessageId,
                     );
@@ -2204,6 +2228,22 @@ export const useChatStore = createPersistStore(
                       target.content = filteredMessage;
                       target.streaming = false;
                       target.isCompressedContextPrompt = true;
+                      // 使用摘要消息在列表中的实际下标，避免 filter 掉旧压缩消息后下标错位导致横幅跑到压缩结果下面
+                      const summaryIndex = s.messages.findIndex(
+                        (m) => m.id === compressedMessageId,
+                      );
+                      s.compressedContextIndex =
+                        summaryIndex >= 0
+                          ? summaryIndex
+                          : Math.max(
+                              s.compressedContextIndex ?? 0,
+                              lastSummarizeIndex,
+                            );
+                    } else {
+                      s.compressedContextIndex = Math.max(
+                        s.compressedContextIndex ?? 0,
+                        lastSummarizeIndex,
+                      );
                     }
                     s.isSummarizing = false; // 释放摘要锁
                     s.compressingContextIndex = undefined;

@@ -1285,6 +1285,10 @@ function _Chat() {
     (session.compressedContextIndex ?? -1) >= 0
       ? session.compressedContextIndex! + context.length - msgRenderIndex
       : -1;
+  const compressingContextIndex =
+    (session.compressingContextIndex ?? -1) >= 0
+      ? session.compressingContextIndex! + context.length - msgRenderIndex
+      : -1;
 
   const [showPromptModal, setShowPromptModal] = useState(false);
 
@@ -1587,7 +1591,14 @@ function _Chat() {
 
   type ChatMessageWithPreview = ChatMessage & { preview?: boolean };
 
-  const renderSingleMessage = (message: ChatMessageWithPreview, i: number) => {
+  const renderSingleMessage = (
+    message: ChatMessageWithPreview,
+    i: number,
+    dividerFlags?: {
+      showCompressedDividerAfter: boolean;
+      showCompressingDividerAfter: boolean;
+    },
+  ) => {
     const isUser = message.role === "user";
     const isContext = i < context.length;
     const showActions =
@@ -1595,7 +1606,13 @@ function _Chat() {
     const showTyping = message.preview || message.streaming;
 
     const shouldShowClearContextDivider = i === clearContextIndex - 1;
-    const shouldShowCompressedContextDivider = i === compressedContextIndex - 1;
+    // 每条压缩结果前都显示横幅：下一条是压缩结果则在本条后显示，保留历次压缩的横幅
+    const shouldShowCompressedContextDivider = dividerFlags
+      ? dividerFlags.showCompressedDividerAfter
+      : i === compressedContextIndex - 1;
+    const shouldShowCompressingContextDivider = dividerFlags
+      ? dividerFlags.showCompressingDividerAfter
+      : i === compressingContextIndex - 1 && session.isSummarizing;
 
     return (
       <Fragment key={message.id}>
@@ -2080,7 +2097,12 @@ function _Chat() {
           </div>
         </div>
         {shouldShowClearContextDivider && <ClearContextDivider />}
-        {shouldShowCompressedContextDivider && <CompressedContextDivider />}
+        {(shouldShowCompressedContextDivider ||
+          shouldShowCompressingContextDivider) && (
+          <CompressedContextDivider
+            loading={shouldShowCompressingContextDivider}
+          />
+        )}
       </Fragment>
     );
   };
@@ -2335,22 +2357,37 @@ function _Chat() {
                   // 单个消息正常渲染
                   const message = group.messages[0];
                   const i = group.index;
-                  return renderSingleMessage(message, i);
+                  const nextMsg = renderMessages[i + 1];
+                  const showCompressedDividerAfter =
+                    !!nextMsg?.isCompressedContextPrompt && !nextMsg?.streaming;
+                  const showCompressingDividerAfter =
+                    !!nextMsg?.isCompressedContextPrompt &&
+                    !!nextMsg?.streaming &&
+                    !!session.isSummarizing;
+                  return renderSingleMessage(message, i, {
+                    showCompressedDividerAfter,
+                    showCompressingDividerAfter,
+                  });
                 })
               ) : (
                 <>
-                  {messages.map((msg, idx) =>
-                    renderSingleMessage(
-                      msg as RenderMessage,
-                      msgRenderIndex + idx,
-                    ),
-                  )}
+                  {messages.map((msg, idx) => {
+                    const i = msgRenderIndex + idx;
+                    const nextMsg = renderMessages[i + 1];
+                    const showCompressedDividerAfter =
+                      !!nextMsg?.isCompressedContextPrompt &&
+                      !nextMsg?.streaming;
+                    const showCompressingDividerAfter =
+                      !!nextMsg?.isCompressedContextPrompt &&
+                      !!nextMsg?.streaming &&
+                      !!session.isSummarizing;
+                    return renderSingleMessage(msg as RenderMessage, i, {
+                      showCompressedDividerAfter,
+                      showCompressingDividerAfter,
+                    });
+                  })}
                 </>
               )}
-              {session.isSummarizing &&
-                session.compressingContextIndex !== undefined && (
-                  <CompressedContextDivider loading />
-                )}
             </div>
             <div className={styles["chat-input-panel"]}>
               <PromptHints

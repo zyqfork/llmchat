@@ -630,12 +630,19 @@
   font-size: 12px;
   animation: slide-in ease 0.3s;
   cursor: default;
+  pointer-events: none;
 
   $linear: linear-gradient(to right,
       rgba(0, 0, 0, 0),
       rgba(0, 0, 0, 1),
       rgba(0, 0, 0, 0));
   mask-image: $linear;
+
+  &:hover,
+  &:active {
+    border-color: var(--border-in-light);
+    box-shadow: var(--card-shadow) inset;
+  }
 }
 
 .compressed-context-tips {
