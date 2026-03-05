@@ -46,6 +46,7 @@ import {
   getSessionModelConfig,
   getMaskCompressModel,
   getSessionCompressModelConfig,
+  getSessionTopicModelConfig,
 } from "../utils/model-resolver";
 import { getModelCompressThreshold } from "../config/model-config";
 import { getModelStreamConfig } from "../config/model-stream";
@@ -1919,6 +1920,10 @@ export const useChatStore = createPersistStore(
 
         if (shouldUpdateTitle) {
           const globalConfig = useAppConfig.getState().modelConfig;
+          const topicModelConfig = getSessionTopicModelConfig(session.mask);
+          const topicApi: ClientApi = getClientApi(
+            topicModelConfig.providerName as string,
+          );
           const startIndex = Math.max(
             clearContextIndex,
             messages.length - modelConfig.historyMessageCount,
@@ -1933,15 +1938,15 @@ export const useChatStore = createPersistStore(
             modelConfig.topicPrompt ||
             globalConfig.topicPrompt ||
             Locale.Store.Prompt.Topic;
-          api.llm.chat({
+          topicApi.llm.chat({
             messages: buildTopicRequestMessages(
               topicPrompt,
               topicSourceMessages,
             ),
             config: {
-              model,
+              model: topicModelConfig.model,
               stream: false,
-              providerName,
+              providerName: topicModelConfig.providerName,
             },
             useResponseApiContext: false,
             onFinish(message, responseRes) {

@@ -390,7 +390,15 @@ function _Chat() {
     lastSessionMessage?.id ?? ""
   }-${lastSessionMessageText.length}-${lastSessionMessage?.streaming ? 1 : 0}`;
 
-  const { autoScroll, setAutoScroll, scrollDomToBottom } = useScrollToBottom(
+  const {
+    autoScroll,
+    setAutoScroll,
+    lockAutoScroll,
+    unlockAutoScroll,
+    isAutoScrollLocked,
+    cancelPendingAutoScroll,
+    scrollDomToBottom,
+  } = useScrollToBottom(
     scrollRef,
     !(isScrolledToBottom || isAttachWithTop) && !isTyping,
     session.messages,
@@ -1135,7 +1143,20 @@ function _Chat() {
     }
 
     setHitBottom(isHitBottom);
-    setAutoScroll(isAtLatestLine);
+    if (!hasScrollableSpace) {
+      unlockAutoScroll();
+      setAutoScroll(true);
+    } else if (isAutoScrollLocked()) {
+      // Keep lock until user actively scrolls downward back to latest line.
+      if (scrollDelta > 0 && isAtLatestLine) {
+        unlockAutoScroll();
+        setAutoScroll(true);
+      } else {
+        setAutoScroll(false);
+      }
+    } else {
+      setAutoScroll(isAtLatestLine);
+    }
     const maxStart = Math.max(0, renderMessages.length - CHAT_PAGE_SIZE);
     const isTrulyBottom = isHitBottom && msgRenderIndexRef.current >= maxStart;
     sessionScrollStateMap.set(session.id, {
@@ -1144,6 +1165,22 @@ function _Chat() {
       msgRenderIndex: msgRenderIndexRef.current,
       hitBottom: isTrulyBottom,
     });
+  };
+
+  const onChatBodyWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const dom = e.currentTarget;
+    const hasScrollableSpace = dom.scrollHeight > dom.clientHeight + 1;
+    // Only lock when content is actually scrollable and user scrolls upward.
+    if (hasScrollableSpace && e.deltaY < 0) {
+      lockAutoScroll();
+      cancelPendingAutoScroll();
+      setAutoScroll(false);
+      setHitBottom(false);
+      // Apply immediate upward movement in the same frame to avoid being snapped back.
+      const step = Math.max(24, Math.min(240, Math.abs(e.deltaY)));
+      dom.scrollTop = Math.max(0, dom.scrollTop - step);
+      e.preventDefault();
+    }
   };
 
   function scrollToBottom() {
@@ -1158,7 +1195,7 @@ function _Chat() {
   };
 
   useEffect(() => {
-    if (!isStreamingFollow || !autoScroll) return;
+    if (!isStreamingFollow || !autoScroll || isAutoScrollLocked()) return;
     if (isMultiModel) {
       setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     }
@@ -1166,6 +1203,7 @@ function _Chat() {
   }, [
     isStreamingFollow,
     autoScroll,
+    isAutoScrollLocked,
     scrollTrigger,
     renderMessages.length,
     scrollDomToBottom,
@@ -2001,10 +2039,15 @@ function _Chat() {
               className={styles["chat-body"]}
               ref={scrollRef}
               onScroll={(e) => onChatBodyScroll(e.currentTarget)}
+              onWheelCapture={onChatBodyWheel}
               onMouseDown={() => inputRef.current?.blur()}
               onTouchStart={() => {
                 inputRef.current?.blur();
-                setAutoScroll(false);
+                const dom = scrollRef.current;
+                if (dom && dom.scrollHeight > dom.clientHeight + 1) {
+                  lockAutoScroll();
+                  setAutoScroll(false);
+                }
               }}
             >
               {isMultiModel ? (

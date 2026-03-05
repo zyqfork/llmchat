@@ -151,6 +151,47 @@ export function getMaskCompressModel(mask: Mask): ModelDecision {
 }
 
 /**
+ * 获取助手应该使用的标题生成模型
+ * 优先级：助手标题模型配置 > 全局标题模型配置 > 聊天模型
+ */
+export function getMaskTopicModel(mask: Mask): ModelDecision {
+  const globalConfig = useAppConfig.getState().modelConfig;
+
+  if (mask.modelConfig.topicModel) {
+    return {
+      model: mask.modelConfig.topicModel,
+      providerName:
+        mask.modelConfig.topicProviderName || globalConfig.providerName,
+      source: "mask-config",
+    };
+  }
+
+  if (globalConfig.topicModel) {
+    return {
+      model: globalConfig.topicModel,
+      providerName: globalConfig.topicProviderName || globalConfig.providerName,
+      source: "global-default",
+    };
+  }
+
+  // 回退到聊天模型
+  const sessionModelConfig = getSessionModelConfig(mask);
+  return {
+    model: sessionModelConfig.model,
+    providerName: sessionModelConfig.providerName,
+    source: "global-default",
+  };
+}
+
+export function getSessionTopicModelConfig(mask: Mask) {
+  const topicDecision = getMaskTopicModel(mask);
+  return {
+    model: topicDecision.model,
+    providerName: topicDecision.providerName,
+  };
+}
+
+/**
  * 获取助手的摘要模型配置（类似getSessionModelConfig）
  * 确保即使没有设置摘要模型，也要使用全局配置
  */

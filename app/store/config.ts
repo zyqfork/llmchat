@@ -88,6 +88,8 @@ export const DEFAULT_CONFIG = {
     summaryMinUserMessages: 1,
     compressModel: "",
     compressProviderName: "",
+    topicModel: "",
+    topicProviderName: "",
     optimizeModel: "",
     optimizeProviderName: "",
     optimizeModelPrompt: "", // 内容优化模型的系统提示词，空字符串表示使用默认提示词
@@ -250,7 +252,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.5,
+    version: 4.6,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -347,6 +349,11 @@ export const useAppConfig = createPersistStore(
       if (version < 4.5) {
         // 历史版本会把 models 全量持久化，清理以减小 app-config 体积
         delete (state as any).models;
+      }
+
+      if (version < 4.6) {
+        state.modelConfig.topicModel = "";
+        state.modelConfig.topicProviderName = "";
       }
 
       return state as any;

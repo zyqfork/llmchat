@@ -155,6 +155,33 @@ export function ModelConfigList(props: {
     return `${currentModel}@${currentProviderName}`;
   })();
 
+  // 构建标题生成模型的value
+  const topicModelValue = (() => {
+    const currentModel =
+      props.modelConfig.topicModel || props.modelConfig.model;
+    const currentProviderName =
+      props.modelConfig.topicProviderName || props.modelConfig.providerName;
+
+    for (const providerGroup of Object.values(groupModels)) {
+      for (const model of providerGroup) {
+        if (model.name === currentModel) {
+          const modelProviderId =
+            model.provider?.id || model.provider?.providerName;
+          if (
+            isSameProvider(
+              (currentProviderName || "") as string,
+              (modelProviderId || "") as string,
+            )
+          ) {
+            return `${model.name}@${modelProviderId}`;
+          }
+        }
+      }
+    }
+
+    return `${currentModel}@${currentProviderName}`;
+  })();
+
   return (
     <>
       {props.showModelSelector && (
@@ -596,6 +623,58 @@ export function ModelConfigList(props: {
         >
           {props.showGlobalOption && (
             <option value="">使用全局提示词优化模型配置</option>
+          )}
+          {Object.keys(groupModels).map((providerName, index) => (
+            <optgroup label={providerName} key={index}>
+              {groupModels[providerName].map((v, i) => {
+                const contextConfig = getModelContextTokens(v.name);
+                const contextTokensDisplay = contextConfig
+                  ? formatTokenCount(contextConfig.contextTokens)
+                  : null;
+
+                return (
+                  <option
+                    value={`${v.name}@${
+                      v.provider?.id || v.provider?.providerName
+                    }`}
+                    key={i}
+                  >
+                    {v.displayName}
+                    {contextTokensDisplay ? ` (${contextTokensDisplay})` : ""}
+                  </option>
+                );
+              })}
+            </optgroup>
+          ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={"标题生成模型"}
+        subTitle={"用于生成会话标题；不配置时使用聊天模型"}
+      >
+        <Select
+          className={styles["select-topic-model"]}
+          aria-label={"标题生成模型"}
+          value={topicModelValue}
+          align="left"
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            if (value === "") {
+              props.updateConfig((config) => {
+                config.topicModel = "";
+                config.topicProviderName = "";
+              });
+            } else {
+              const [model, providerName] = getModelProvider(value);
+              props.updateConfig((config) => {
+                config.topicModel = ModalConfigValidator.model(model);
+                config.topicProviderName = providerName!;
+              });
+            }
+          }}
+        >
+          {props.showGlobalOption && (
+            <option value="">使用全局标题模型配置</option>
           )}
           {Object.keys(groupModels).map((providerName, index) => (
             <optgroup label={providerName} key={index}>
