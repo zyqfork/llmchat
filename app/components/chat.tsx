@@ -95,7 +95,7 @@ import {
 } from "../utils";
 import { isVisionModel, isWebSearchModel } from "../constant";
 
-import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
+import { uploadImageAsBase64 } from "@/app/utils/chat";
 
 import dynamic from "next/dynamic";
 
@@ -3428,7 +3428,7 @@ function _Chat() {
               ...(await new Promise<string[]>((res, rej) => {
                 setUploading(true);
                 const imagesData: string[] = [];
-                uploadImageRemote(file)
+                uploadImageAsBase64(file)
                   .then((dataUrl) => {
                     imagesData.push(dataUrl);
                     setUploading(false);
@@ -3470,7 +3470,7 @@ function _Chat() {
           const imagesData: string[] = [];
           for (let i = 0; i < files.length; i++) {
             const file = event.target.files[i];
-            uploadImageRemote(file)
+            uploadImageAsBase64(file)
               .then((dataUrl) => {
                 imagesData.push(dataUrl);
                 if (
@@ -4040,55 +4040,53 @@ function _Chat() {
                 parentRef={scrollRef}
                 defaultShow={i >= messages.length - 6}
               />
-              {message.role === "assistant" &&
-                getMessageImages(message).length === 1 && (
-                  <div
-                    className={styles["chat-message-item-image-container"]}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => showImageModal(getMessageImages(message)[0])}
-                  >
-                    <Image
-                      className={styles["chat-message-item-image"]}
-                      src={getMessageImages(message)[0]}
-                      alt=""
-                      fill={false}
-                      width={256}
-                      height={256}
-                    />
-                  </div>
-                )}
-              {message.role === "assistant" &&
-                getMessageImages(message).length > 1 && (
-                  <div
-                    className={styles["chat-message-item-images"]}
-                    style={{
-                      gridTemplateColumns: `repeat(${Math.min(
-                        getMessageImages(message).length,
-                        3,
-                      )}, 1fr)`,
-                    }}
-                  >
-                    {getMessageImages(message).map((image, i) => (
-                      <div
-                        key={i}
-                        className={
-                          styles["chat-message-item-image-multi-container"]
-                        }
-                        style={{ cursor: "pointer" }}
-                        onClick={() => showImageModal(image)}
-                      >
-                        <Image
-                          className={styles["chat-message-item-image-multi"]}
-                          src={image}
-                          alt=""
-                          fill={false}
-                          width={128}
-                          height={128}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {getMessageImages(message).length === 1 && (
+                <div
+                  className={styles["chat-message-item-image-container"]}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => showImageModal(getMessageImages(message)[0])}
+                >
+                  <Image
+                    className={styles["chat-message-item-image"]}
+                    src={getMessageImages(message)[0]}
+                    alt=""
+                    fill={false}
+                    width={256}
+                    height={256}
+                  />
+                </div>
+              )}
+              {getMessageImages(message).length > 1 && (
+                <div
+                  className={styles["chat-message-item-images"]}
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(
+                      getMessageImages(message).length,
+                      3,
+                    )}, 1fr)`,
+                  }}
+                >
+                  {getMessageImages(message).map((image, i) => (
+                    <div
+                      key={i}
+                      className={
+                        styles["chat-message-item-image-multi-container"]
+                      }
+                      style={{ cursor: "pointer" }}
+                      onClick={() => showImageModal(image)}
+                    >
+                      <Image
+                        className={styles["chat-message-item-image-multi"]}
+                        src={image}
+                        alt=""
+                        fill={false}
+                        width={128}
+                        height={128}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {message?.audio_url && (
               <div className={styles["chat-message-audio"]}>

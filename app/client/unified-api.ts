@@ -10,7 +10,7 @@ type ProviderLike = Pick<
 // 简化的消息接口，用于统一API
 export interface SimpleMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: any;
 }
 
 // 统一的聊天API接口
@@ -100,11 +100,47 @@ function getProviderIdFromModel(model: string): string {
   return "openai";
 }
 
-// 转换消息格式
+// 将 content 规范为 AI SDK 的 CoreMessage 格式（image_url -> image）
+function normalizeContent(content: any): any {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return content;
+
+  const parts = content
+    .map((part: any) => {
+      if (!part || typeof part !== "object") return undefined;
+
+      if (part.type === "text" && typeof part.text === "string") {
+        return { type: "text", text: part.text };
+      }
+
+      // OpenAI 多模态格式 image_url -> AI SDK ImagePart (type: "image")
+      if (part.type === "image_url") {
+        const imageUrl = part.image_url?.url;
+        if (typeof imageUrl === "string" && imageUrl.length > 0) {
+          return { type: "image", image: imageUrl };
+        }
+      }
+
+      if (part.type === "image" && part.image) {
+        return part;
+      }
+
+      if (part.type === "file" && part.data) {
+        return part;
+      }
+
+      return undefined;
+    })
+    .filter(Boolean);
+
+  return parts.length > 0 ? parts : content;
+}
+
+// 转换消息格式为 AI SDK ModelMessage 格式
 function convertMessages(messages: SimpleMessage[]): any[] {
   return messages.map((msg) => ({
     role: msg.role,
-    content: msg.content,
+    content: normalizeContent(msg.content),
   }));
 }
 

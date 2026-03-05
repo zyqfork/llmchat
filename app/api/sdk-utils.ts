@@ -19,7 +19,7 @@ import { getProviderConfig, getAllProviders } from "@/app/constant";
 // 定义消息类型
 export interface Message {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: any;
 }
 
 export interface SDKConfig {
@@ -845,9 +845,44 @@ export async function parseChatRequest(req: NextRequest) {
  * 转换消息格式为 AI SDK 格式
  */
 export function convertMessages(messages: any[]): Message[] {
+  function normalizeContent(content: any): any {
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return content;
+
+    const parts = content
+      .map((part) => {
+        if (!part || typeof part !== "object") return undefined;
+
+        if (part.type === "text" && typeof part.text === "string") {
+          return { type: "text", text: part.text };
+        }
+
+        // OpenAI chat/completions multimodal format -> AI SDK ModelMessage format
+        if (part.type === "image_url") {
+          const imageUrl = part.image_url?.url;
+          if (typeof imageUrl === "string" && imageUrl.length > 0) {
+            return { type: "image", image: imageUrl };
+          }
+        }
+
+        if (part.type === "image" && part.image) {
+          return part;
+        }
+
+        if (part.type === "file" && part.data) {
+          return part;
+        }
+
+        return undefined;
+      })
+      .filter(Boolean);
+
+    return parts.length > 0 ? parts : "";
+  }
+
   return messages.map((msg) => ({
     role: msg.role as "system" | "user" | "assistant",
-    content: msg.content,
+    content: normalizeContent(msg.content),
   }));
 }
 

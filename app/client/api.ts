@@ -172,10 +172,7 @@ class UnifiedClientApi extends LLMApi {
       // 转换消息格式 - options.messages 已经是 RequestMessage[] 类型
       const messages = options.messages.map((msg) => ({
         role: msg.role,
-        content:
-          typeof msg.content === "string"
-            ? msg.content
-            : JSON.stringify(msg.content),
+        content: msg.content,
       }));
 
       const requestOptions: UnifiedChatOptions = {

@@ -165,6 +165,10 @@ export function uploadImage(file: Blob): Promise<string> {
     });
 }
 
+export function uploadImageAsBase64(file: Blob): Promise<string> {
+  return compressImage(file, 256 * 1024);
+}
+
 export function removeImage(imageUrl: string) {
   return fetch(imageUrl, {
     method: "DELETE",
