@@ -154,6 +154,13 @@ import { logger } from "../utils/logger";
 const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
+type SessionScrollState = {
+  scrollTop: number;
+  bottomOffset: number;
+  msgRenderIndex: number;
+  hitBottom: boolean;
+};
+const sessionScrollStateMap = new Map<string, SessionScrollState>();
 
 // 通用的厂商查找函数
 function getProviderDisplayName(providerId: string, accessStore: any): string {
@@ -1603,9 +1610,10 @@ function useScrollToBottom(
   scrollRef: RefObject<HTMLDivElement>,
   detach: boolean = false,
   messages: ChatMessage[],
+  initialAutoScroll: boolean = true,
 ) {
   // for auto-scroll
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(initialAutoScroll);
   const scrollDomToBottom = useCallback(() => {
     const dom = scrollRef.current;
     if (dom) {
@@ -2600,6 +2608,7 @@ function _Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [couldStop, setCouldStop] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
+  const restoringScrollRef = useRef(false);
 
   // 智能轮询：只在有活动请求时检查，优化性能
   useEffect(() => {
@@ -2648,15 +2657,19 @@ function _Chat() {
   }, []);
 
   const isTyping = userInput !== "";
+  const savedScrollState = sessionScrollStateMap.get(session.id);
 
   // if user is typing, should auto scroll to bottom
   // if user is not typing, should auto scroll to bottom only if already at bottom
   const { setAutoScroll, scrollDomToBottom } = useScrollToBottom(
     scrollRef,
-    (isScrolledToBottom || isAttachWithTop) && !isTyping,
+    !(isScrolledToBottom || isAttachWithTop) && !isTyping,
     session.messages,
+    savedScrollState?.hitBottom ?? true,
   );
-  const [hitBottom, setHitBottom] = useState(true);
+  const [hitBottom, setHitBottom] = useState(
+    savedScrollState?.hitBottom ?? true,
+  );
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const { isCollapsed, toggleSideBarCollapse } = useDragSideBar();
@@ -2720,6 +2733,10 @@ function _Chat() {
   const SEARCH_TEXT_LIMIT = 30;
   const onInput = (text: string) => {
     setUserInput(text);
+    if (text.length > 0 && !hitBottom) {
+      setAutoScroll(true);
+      scrollToBottom();
+    }
     const n = text.trim().length;
 
     // clear search results
@@ -2738,6 +2755,8 @@ function _Chat() {
 
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
+    setAutoScroll(true);
+    scrollToBottom();
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -3199,12 +3218,14 @@ function _Chat() {
   ]);
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
-    Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
+    sessionScrollStateMap.get(session.id)?.msgRenderIndex ??
+      Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
   );
 
   function setMsgRenderIndex(newIndex: number) {
     newIndex = Math.min(renderMessages.length - CHAT_PAGE_SIZE, newIndex);
     newIndex = Math.max(0, newIndex);
+    msgRenderIndexRef.current = newIndex;
     _setMsgRenderIndex(newIndex);
   }
 
@@ -3304,8 +3325,46 @@ function _Chat() {
   }, [isMultiModel, messages]);
 
   const scrollPagingStateRef = useRef({ lastTop: 0, lastSwitchAt: 0 });
+  const msgRenderIndexRef = useRef(msgRenderIndex);
+
+  useEffect(() => {
+    msgRenderIndexRef.current = msgRenderIndex;
+  }, [msgRenderIndex]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const saved = sessionScrollStateMap.get(session.id);
+    if (!saved) {
+      return;
+    }
+
+    restoringScrollRef.current = true;
+    setAutoScroll(saved.hitBottom);
+    setHitBottom(saved.hitBottom);
+    const maxStart = Math.max(0, renderMessages.length - CHAT_PAGE_SIZE);
+    _setMsgRenderIndex(Math.max(0, Math.min(saved.msgRenderIndex, maxStart)));
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dom = scrollRef.current;
+        if (dom) {
+          const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+          const targetTop = saved.hitBottom
+            ? maxTop
+            : Math.max(0, maxTop - (saved.bottomOffset ?? 0));
+          dom.scrollTo(0, Math.min(targetTop, maxTop));
+          scrollPagingStateRef.current.lastTop = dom.scrollTop;
+        }
+        restoringScrollRef.current = false;
+      });
+    });
+  }, [session.id, setAutoScroll, renderMessages.length]);
 
   const onChatBodyScroll = (e: HTMLElement) => {
+    if (restoringScrollRef.current) {
+      return;
+    }
+
     const bottomHeight = e.scrollTop + e.clientHeight;
     const edgeThreshold = isMobileScreen ? 24 : 36;
     const hasScrollableSpace = e.scrollHeight > e.clientHeight + 1;
@@ -3347,12 +3406,30 @@ function _Chat() {
 
     setHitBottom(isHitBottom);
     setAutoScroll(isHitBottom);
+    const bottomOffset = Math.max(
+      0,
+      e.scrollHeight - e.clientHeight - e.scrollTop,
+    );
+    const maxStart = Math.max(0, renderMessages.length - CHAT_PAGE_SIZE);
+    const isTrulyBottom = isHitBottom && msgRenderIndexRef.current >= maxStart;
+    sessionScrollStateMap.set(session.id, {
+      scrollTop: e.scrollTop,
+      bottomOffset,
+      msgRenderIndex: msgRenderIndexRef.current,
+      hitBottom: isTrulyBottom,
+    });
   };
 
   function scrollToBottom() {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     scrollDomToBottom();
   }
+
+  const handleInputFocusOrClick = () => {
+    if (hitBottom) {
+      scrollToBottom();
+    }
+  };
 
   // clear context index = context length + index in messages
   const clearContextIndex =
@@ -4621,8 +4698,8 @@ function _Chat() {
                   onInput={(e) => onInput(e.currentTarget.value)}
                   value={userInput}
                   onKeyDown={onInputKeyDown}
-                  onFocus={scrollToBottom}
-                  onClick={scrollToBottom}
+                  onFocus={handleInputFocusOrClick}
+                  onClick={handleInputFocusOrClick}
                   onPaste={handlePaste}
                   rows={inputRows}
                   autoFocus={autoFocus}
