@@ -91,3 +91,13 @@
    - 在已拆小的 chat 页里，只改“消息列表”一块，接入 Virtuoso，并逐步下线旧滚动/分页逻辑。  
 
 这样既回答了“为什么这么多行”（结构问题，不是成片垃圾），又给出了“大改”的清晰路径：**先拆文件，再换消息列表实现**。
+
+---
+
+## 四、当前进度（dev-1 分支）
+
+- **阶段 1：已完成**  
+  - 所有内联组件与 hook 已拆至 `app/components/chat/`，chat.tsx 已收敛，构建通过。  
+- **阶段 2：待办**  
+  - 安装 `react-virtuoso`，用 Virtuoso 替换当前 `useVirtualScroll`（@tanstack/react-virtual）+ `msgRenderIndex` 分页 + `sessionScrollStateMap` 恢复逻辑；  
+  - 多模型模式下的 `groupedMessages` 仍可保持现有 DOM 结构，仅单模型列表改用 Virtuoso 容器。
