@@ -250,7 +250,13 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.4,
+    version: 4.5,
+
+    // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
+    partialize(state) {
+      const { models: _models, ...persisted } = state as any;
+      return persisted;
+    },
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -260,15 +266,17 @@ export const useAppConfig = createPersistStore(
       }
 
       const models = currentState.models.slice();
-      state.models.forEach((pModel) => {
-        const idx = models.findIndex(
-          (v) => v.name === pModel.name && v.provider === pModel.provider,
-        );
-        if (idx !== -1) models[idx] = pModel;
-        else models.push(pModel);
-      });
+      if (Array.isArray((state as any).models)) {
+        (state as any).models.forEach((pModel: LLMModel) => {
+          const idx = models.findIndex(
+            (v) => v.name === pModel.name && v.provider === pModel.provider,
+          );
+          if (idx !== -1) models[idx] = pModel;
+          else models.push(pModel);
+        });
+      }
 
-      const mergedState = { ...currentState, ...state, models: models };
+      const mergedState = { ...currentState, ...state, models };
 
       return mergedState;
     },
@@ -334,6 +342,11 @@ export const useAppConfig = createPersistStore(
           DEFAULT_CONFIG.modelConfig.autoTitleRefreshInterval;
         state.modelConfig.summaryMinUserMessages =
           DEFAULT_CONFIG.modelConfig.summaryMinUserMessages;
+      }
+
+      if (version < 4.5) {
+        // 历史版本会把 models 全量持久化，清理以减小 app-config 体积
+        delete (state as any).models;
       }
 
       return state as any;

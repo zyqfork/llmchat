@@ -200,7 +200,7 @@ export function stream(
   let responseRes: Response;
   let notifiedToolIds = new Set<string>(); // 跟踪已通知 UI 的工具 ID
 
-  // animate response to make it looks smooth
+  // Flush streamed chunks immediately to keep UI in sync with provider output.
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
       responseText += remainText;
@@ -211,10 +211,9 @@ export function stream(
     }
 
     if (remainText.length > 0) {
-      const fetchCount = Math.max(1, Math.round(remainText.length / 60));
-      const fetchText = remainText.slice(0, fetchCount);
+      const fetchText = remainText;
       responseText += fetchText;
-      remainText = remainText.slice(fetchCount);
+      remainText = "";
       options.onUpdate?.(responseText, fetchText);
     }
 
@@ -614,7 +613,7 @@ export function streamWithThink(
   const MAX_CONSECUTIVE_EMPTY_MESSAGES = 50; // 最大连续空消息数
   let notifiedToolIds = new Set<string>(); // 跟踪已通知 UI 的工具 ID
 
-  // 优化动画机制以提高响应速度
+  // Flush streamed chunks immediately to keep UI in sync with provider output.
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
       // 确保所有剩余内容都被处理
@@ -630,21 +629,12 @@ export function streamWithThink(
     }
 
     if (remainText.length > 0) {
-      const currentTime = Date.now();
-      const timeSinceLastMessage = currentTime - lastMessageTime;
-
-      // 优化：减少最小间隔，提高响应速度
-      if (timeSinceLastMessage >= 10) {
-        // 从20ms降低到10ms
-        // 优化：处理所有可用内容，避免内容积压
-        const fetchCount = Math.max(1, remainText.length); // 处理所有可用内容
-        const fetchText = remainText.slice(0, fetchCount);
-        responseText += fetchText;
-        remainText = remainText.slice(fetchCount);
-        options.onUpdate?.(responseText, fetchText);
-        lastMessageTime = currentTime;
-        messageCount++;
-      }
+      const fetchText = remainText;
+      responseText += fetchText;
+      remainText = "";
+      options.onUpdate?.(responseText, fetchText);
+      lastMessageTime = Date.now();
+      messageCount++;
     }
 
     requestAnimationFrame(animateResponseText);

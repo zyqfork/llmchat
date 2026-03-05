@@ -38,6 +38,34 @@ export function ModelConfigList(props: {
     return model.provider?.providerName;
   });
 
+  const getProviderAliases = (provider: string) => {
+    const aliases = new Set<string>();
+    if (!provider) return aliases;
+
+    aliases.add(provider);
+
+    const byId = accessStore.customProviders.find((p) => p.id === provider);
+    if (byId?.name) aliases.add(byId.name);
+
+    const byName = accessStore.customProviders.find((p) => p.name === provider);
+    if (byName?.id) aliases.add(byName.id);
+
+    if (!provider.startsWith("custom_")) {
+      aliases.add(normalizeProviderName(provider));
+    }
+
+    return aliases;
+  };
+
+  const isSameProvider = (a: string, b: string) => {
+    const aAliases = getProviderAliases(a);
+    const bAliases = getProviderAliases(b);
+    for (const alias of aAliases) {
+      if (bAliases.has(alias)) return true;
+    }
+    return false;
+  };
+
   // 构建当前选中模型的value，需要与option的value格式一致
   const value = (() => {
     const currentModel = props.modelConfig.model;
@@ -49,14 +77,12 @@ export function ModelConfigList(props: {
         if (model.name === currentModel) {
           const modelProviderId =
             model.provider?.id || model.provider?.providerName;
-          const normalizedCurrentProvider = normalizeProviderName(
-            currentProviderName as string,
-          );
-          const normalizedModelProvider = normalizeProviderName(
-            modelProviderId as string,
-          );
-
-          if (normalizedCurrentProvider === normalizedModelProvider) {
+          if (
+            isSameProvider(
+              (currentProviderName || "") as string,
+              (modelProviderId || "") as string,
+            )
+          ) {
             return `${model.name}@${modelProviderId}`;
           }
         }
@@ -82,14 +108,12 @@ export function ModelConfigList(props: {
         if (model.name === currentModel) {
           const modelProviderId =
             model.provider?.id || model.provider?.providerName;
-          const normalizedCurrentProvider = normalizeProviderName(
-            currentProviderName as string,
-          );
-          const normalizedModelProvider = normalizeProviderName(
-            modelProviderId as string,
-          );
-
-          if (normalizedCurrentProvider === normalizedModelProvider) {
+          if (
+            isSameProvider(
+              (currentProviderName || "") as string,
+              (modelProviderId || "") as string,
+            )
+          ) {
             return `${model.name}@${modelProviderId}`;
           }
         }
@@ -115,14 +139,12 @@ export function ModelConfigList(props: {
         if (model.name === currentModel) {
           const modelProviderId =
             model.provider?.id || model.provider?.providerName;
-          const normalizedCurrentProvider = normalizeProviderName(
-            currentProviderName as string,
-          );
-          const normalizedModelProvider = normalizeProviderName(
-            modelProviderId as string,
-          );
-
-          if (normalizedCurrentProvider === normalizedModelProvider) {
+          if (
+            isSameProvider(
+              (currentProviderName || "") as string,
+              (modelProviderId || "") as string,
+            )
+          ) {
             return `${model.name}@${modelProviderId}`;
           }
         }
@@ -148,7 +170,7 @@ export function ModelConfigList(props: {
               );
               props.updateConfig((config) => {
                 config.model = ModalConfigValidator.model(model);
-                config.providerName = normalizeProviderName(providerName!);
+                config.providerName = providerName!;
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
                 const modelCapabilities = getModelCapabilities(config.model);

@@ -14,20 +14,14 @@ import Image from "next/image";
 
 import SendWhiteIcon from "../icons/send-white.svg";
 import BrainIcon from "../icons/brain.svg";
-import RenameIcon from "../icons/rename.svg";
 import EditIcon from "../icons/rename.svg";
-import ExportIcon from "../icons/share.svg";
-import ReturnIcon from "../icons/return.svg";
 import CopyIcon from "../icons/copy.svg";
 import SpeakIcon from "../icons/speak.svg";
 import SpeakStopIcon from "../icons/speak-stop.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import LoadingButtonIcon from "../icons/loading.svg";
 import PromptIcon from "../icons/prompt.svg";
-import MaxIcon from "../icons/max.svg";
-import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
-import ReloadIcon from "../icons/reload.svg";
 import LeftIcon from "../icons/left.svg";
 import RightIcon from "../icons/right.svg";
 import BreakIcon from "../icons/break.svg";
@@ -55,7 +49,6 @@ import McpToolIcon from "../icons/tool.svg";
 import DebugIcon from "../icons/debug.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
 import ConnectionIcon from "../icons/connection.svg";
-import MenuIcon from "../icons/menu.svg";
 import ChatSettingsIcon from "../icons/chat-settings.svg";
 import {
   BOT_HELLO,
@@ -64,7 +57,6 @@ import {
   createMessage,
   DEFAULT_TOPIC,
   ModelType,
-  SubmitKey,
   Theme,
   useAccessStore,
   useAppConfig,
@@ -140,8 +132,13 @@ import { useEnabledModels } from "../utils/hooks";
 import { ClientApi, MultimodalContent, RequestMessage } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
-import { useVirtualScroll } from "./chat/hooks/useVirtualScroll";
 import { useScrollToBottom } from "./chat/hooks/useScrollToBottom";
+import { useSubmitHandler } from "./chat/hooks/useSubmitHandler";
+import {
+  ProviderTooltip,
+  getProviderDisplayName,
+} from "./chat/ProviderTooltip";
+import { LLMMessageContent } from "./chat/LLMMessageContent";
 import { ClearContextDivider } from "./chat/ClearContextDivider";
 import { ChatAction } from "./chat/ChatAction";
 import { DeleteImageButton } from "./chat/DeleteImageButton";
@@ -154,7 +151,7 @@ import { ImagePreviewModal } from "./chat/ImagePreviewModal";
 import { MCPPanel } from "./chat/MCPPanel";
 import { MultiModelPanel } from "./chat/MultiModelPanel";
 import { SessionConfigModel } from "./chat/SessionConfigModel";
-import { PromptToast } from "./chat/PromptToast";
+import { ChatHeader } from "./chat/ChatHeader";
 import { PromptHints, type RenderPrompt } from "./chat/PromptHints";
 import { ChatActions } from "./chat/ChatActions";
 
@@ -179,47 +176,6 @@ type SessionScrollState = {
 };
 const sessionScrollStateMap = new Map<string, SessionScrollState>();
 
-// 通用的厂商查找函数
-function getProviderDisplayName(providerId: string, accessStore: any): string {
-  if (!providerId) {
-    logger.warn(`[Chat] Provider ID is empty`);
-    return "Unknown";
-  }
-
-  logger.debug(`[Chat] Looking up provider display name for: ${providerId}`);
-
-  // 如果是自定义厂商
-  if (providerId.startsWith("custom_")) {
-    logger.debug(`[Chat] Searching for custom provider: ${providerId}`);
-    logger.debug(
-      `[Chat] Available custom providers:`,
-      accessStore.customProviders?.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        enabled: p.enabled,
-      })),
-    );
-
-    const customProvider = accessStore.customProviders?.find(
-      (p: any) => p.id === providerId,
-    );
-    if (customProvider) {
-      logger.debug(
-        `[Chat] Found custom provider: ${customProvider.name} for ID: ${providerId}`,
-      );
-      return customProvider.name;
-    } else {
-      logger.warn(`[Chat] Custom provider not found for ID: ${providerId}`);
-      logger.warn(`[Chat] Available providers:`, accessStore.customProviders);
-      return providerId; // 如果找不到，返回原始ID
-    }
-  }
-
-  // 如果是内置厂商，直接返回ID
-  logger.debug(`[Chat] Using built-in provider: ${providerId}`);
-  return providerId;
-}
-
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
@@ -229,260 +185,6 @@ const ExportMessageModal = dynamic(
     loading: () => null,
   },
 );
-
-// 厂商配置浮窗组件
-const ProviderTooltip = ({
-  children,
-  providerName,
-}: {
-  children: React.ReactNode;
-  providerName: string;
-}) => {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
-  const wrapperRef = useRef<HTMLSpanElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const accessStore = useAccessStore();
-  const navigate = useNavigate();
-
-  // 将ServiceProvider枚举值映射到access store中的key
-  const getProviderKey = (provider: string): string => {
-    const mapping: Record<string, string> = {
-      OpenAI: "openai",
-      Azure: "azure",
-      Google: "google",
-      Anthropic: "anthropic",
-      Alibaba: "alibaba",
-      Moonshot: "moonshot",
-      XAI: "xai",
-      DeepSeek: "deepseek",
-      SiliconFlow: "siliconflow",
-      Ollama: "ollama",
-    };
-    return mapping[provider] || provider.toLowerCase();
-  };
-
-  // 获取厂商配置信息
-  const providerKey = getProviderKey(providerName);
-  const providerConfig = accessStore.getEffectiveProviderConfig(providerKey);
-
-  // 检测浮窗位置并自适应
-  useEffect(() => {
-    if (showTooltip && wrapperRef.current) {
-      // 使用requestAnimationFrame确保DOM已经更新
-      requestAnimationFrame(() => {
-        if (tooltipRef.current && wrapperRef.current) {
-          const wrapperRect = wrapperRef.current.getBoundingClientRect();
-          const tooltipRect = tooltipRef.current.getBoundingClientRect();
-
-          const margin = 12; // 边距
-          const gap = 8; // 与触发元素的间距
-
-          // 计算各个方向的可用空间
-          const spaceAbove = wrapperRect.top;
-          const spaceBelow = window.innerHeight - wrapperRect.bottom;
-          const spaceLeft = wrapperRect.left;
-          const spaceRight = window.innerWidth - wrapperRect.right;
-
-          const tooltipHeight = tooltipRect.height;
-          const tooltipWidth = tooltipRect.width;
-
-          let top = 0;
-          let left = 0;
-
-          // 确定垂直位置
-          if (
-            spaceAbove >= tooltipHeight + gap + margin &&
-            spaceBelow < tooltipHeight + gap
-          ) {
-            // 显示在上方
-            top = wrapperRect.top - tooltipHeight - gap;
-          } else if (spaceBelow >= tooltipHeight + gap + margin) {
-            // 显示在下方
-            top = wrapperRect.bottom + gap;
-          } else if (spaceAbove > spaceBelow) {
-            // 上方空间更大，但不够完整显示，尽量显示在上方
-            top = Math.max(margin, wrapperRect.top - tooltipHeight - gap);
-          } else {
-            // 下方空间更大，显示在下方
-            top = wrapperRect.bottom + gap;
-          }
-
-          // 确定水平位置（优先居中）
-          const centerLeft =
-            wrapperRect.left + wrapperRect.width / 2 - tooltipWidth / 2;
-
-          if (
-            centerLeft >= margin &&
-            centerLeft + tooltipWidth <= window.innerWidth - margin
-          ) {
-            // 居中显示
-            left = centerLeft;
-          } else if (centerLeft < margin) {
-            // 左侧空间不足，靠左对齐
-            left = Math.max(margin, wrapperRect.left);
-          } else {
-            // 右侧空间不足，靠右对齐
-            left = Math.min(
-              window.innerWidth - tooltipWidth - margin,
-              wrapperRect.right - tooltipWidth,
-            );
-          }
-
-          // 确保不超出视口
-          top = Math.max(
-            margin,
-            Math.min(top, window.innerHeight - tooltipHeight - margin),
-          );
-          left = Math.max(
-            margin,
-            Math.min(left, window.innerWidth - tooltipWidth - margin),
-          );
-
-          setTooltipStyle({
-            top: `${top}px`,
-            left: `${left}px`,
-          });
-        }
-      });
-    }
-  }, [showTooltip]);
-
-  // 点击跳转到设置页面
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // 跳转到设置页面的模型服务标签
-    navigate(Path.Settings);
-    // 使用setTimeout确保页面已经加载
-    setTimeout(() => {
-      // 触发切换到模型服务标签的事件
-      window.dispatchEvent(
-        new CustomEvent("switchToModelService", {
-          detail: { provider: providerName },
-        }),
-      );
-    }, 100);
-  };
-
-  // 构建浮窗内容
-  const getTooltipContent = () => {
-    if (!providerConfig) {
-      return [
-        `${Locale.Chat.ProviderTooltip.Provider}: ${providerName}`,
-        Locale.Chat.ProviderTooltip.NoConfig,
-      ];
-    }
-
-    const lines = [
-      `${Locale.Chat.ProviderTooltip.Provider}: ${providerName}`,
-      `${Locale.Chat.ProviderTooltip.Source}: ${
-        providerConfig.source === "frontend"
-          ? Locale.Chat.ProviderTooltip.Frontend
-          : Locale.Chat.ProviderTooltip.Server
-      }`,
-    ];
-
-    if (providerConfig.baseUrl) {
-      lines.push(
-        `${Locale.Chat.ProviderTooltip.BaseUrl}: ${providerConfig.baseUrl}`,
-      );
-    }
-
-    if (providerConfig.apiVersion) {
-      lines.push(
-        `${Locale.Chat.ProviderTooltip.ApiVersion}: ${providerConfig.apiVersion}`,
-      );
-    }
-
-    // 显示API Key状态（不显示具体内容）
-    if (providerConfig.apiKey) {
-      const keyLength = providerConfig.apiKey.length;
-      const maskedKey =
-        keyLength > 8
-          ? `${providerConfig.apiKey.substring(
-              0,
-              4,
-            )}...${providerConfig.apiKey.substring(keyLength - 4)}`
-          : "****";
-      lines.push(`${Locale.Chat.ProviderTooltip.ApiKey}: ${maskedKey}`);
-    }
-
-    return lines;
-  };
-
-  return (
-    <span
-      ref={wrapperRef}
-      className={styles["provider-tooltip-wrapper"]}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-      onClick={handleClick}
-    >
-      {children}
-      {showTooltip && (
-        <div
-          ref={tooltipRef}
-          className={styles["provider-tooltip"]}
-          style={tooltipStyle}
-        >
-          {getTooltipContent().map((line, index) => (
-            <div key={index}>{line}</div>
-          ))}
-          <div className={styles["provider-tooltip-hint"]}>
-            {Locale.Chat.ProviderTooltip.ClickToConfig}
-          </div>
-        </div>
-      )}
-    </span>
-  );
-};
-
-function useSubmitHandler() {
-  const config = useAppConfig();
-  const submitKey = config.submitKey;
-  const isComposing = useRef(false);
-
-  useEffect(() => {
-    const onCompositionStart = () => {
-      isComposing.current = true;
-    };
-    const onCompositionEnd = () => {
-      isComposing.current = false;
-    };
-
-    window.addEventListener("compositionstart", onCompositionStart);
-    window.addEventListener("compositionend", onCompositionEnd);
-
-    return () => {
-      window.removeEventListener("compositionstart", onCompositionStart);
-      window.removeEventListener("compositionend", onCompositionEnd);
-    };
-  }, []);
-
-  const shouldSubmit = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Fix Chinese input method "Enter" on Safari
-    if (e.keyCode == 229) return false;
-    if (e.key !== "Enter") return false;
-    if (e.key === "Enter" && (e.nativeEvent.isComposing || isComposing.current))
-      return false;
-    return (
-      (config.submitKey === SubmitKey.AltEnter && e.altKey) ||
-      (config.submitKey === SubmitKey.CtrlEnter && e.ctrlKey) ||
-      (config.submitKey === SubmitKey.ShiftEnter && e.shiftKey) ||
-      (config.submitKey === SubmitKey.MetaEnter && e.metaKey) ||
-      (config.submitKey === SubmitKey.Enter &&
-        !e.altKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        !e.metaKey)
-    );
-  };
-
-  return {
-    submitKey,
-    shouldSubmit,
-  };
-}
 
 function _Chat() {
   type RenderMessage = ChatMessage & { preview?: boolean };
@@ -1270,13 +972,6 @@ function _Chat() {
     session.multiModelMode?.enabled &&
     session.multiModelMode.selectedModels.length > 1;
 
-  const { virtualizer } = useVirtualScroll({
-    messages,
-    overscan: 6,
-    autoScrollToBottom: false,
-    scrollRef,
-  });
-
   // 多模型消息分组逻辑
   const groupedMessages = useMemo(() => {
     if (!isMultiModel) {
@@ -1403,16 +1098,14 @@ function _Chat() {
 
     const isTouchTopEdge = e.scrollTop <= edgeThreshold;
     const isTouchBottomEdge = bottomHeight >= e.scrollHeight - edgeThreshold;
-    const isHitBottom =
-      bottomHeight >= e.scrollHeight - (isMobileScreen ? 4 : 10);
-    // 恢复跟随仅当“真正滚到最底部”：以当前最后一条消息的底部（大模型正在输入的位置）为参照，与视口底部对齐（1px 容差）
-    const lastMessageEl = e.lastElementChild as HTMLElement | null;
-    const isReallyAtBottom = lastMessageEl
-      ? Math.abs(
-          lastMessageEl.getBoundingClientRect().bottom -
-            e.getBoundingClientRect().bottom,
-        ) <= 1
-      : bottomHeight >= e.scrollHeight - 1;
+    const bottomOffset = Math.max(
+      0,
+      e.scrollHeight - e.clientHeight - e.scrollTop,
+    );
+    const hitBottomThreshold = isMobileScreen ? 6 : 12;
+    const followResumeThreshold = isMobileScreen ? 14 : 20;
+    const isHitBottom = bottomOffset <= hitBottomThreshold;
+    const isAtLatestLine = bottomOffset <= followResumeThreshold;
 
     const prevPageMsgIndex = msgRenderIndex - CHAT_PAGE_SIZE;
     const nextPageMsgIndex = msgRenderIndex + CHAT_PAGE_SIZE;
@@ -1442,11 +1135,7 @@ function _Chat() {
     }
 
     setHitBottom(isHitBottom);
-    setAutoScroll(isReallyAtBottom);
-    const bottomOffset = Math.max(
-      0,
-      e.scrollHeight - e.clientHeight - e.scrollTop,
-    );
+    setAutoScroll(isAtLatestLine);
     const maxStart = Math.max(0, renderMessages.length - CHAT_PAGE_SIZE);
     const isTrulyBottom = isHitBottom && msgRenderIndexRef.current >= maxStart;
     sessionScrollStateMap.set(session.id, {
@@ -1470,7 +1159,9 @@ function _Chat() {
 
   useEffect(() => {
     if (!isStreamingFollow || !autoScroll) return;
-    setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
+    if (isMultiModel) {
+      setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
+    }
     scrollDomToBottom();
   }, [
     isStreamingFollow,
@@ -1478,6 +1169,7 @@ function _Chat() {
     scrollTrigger,
     renderMessages.length,
     scrollDomToBottom,
+    isMultiModel,
   ]);
 
   // clear context index = context length + index in messages
@@ -2168,7 +1860,7 @@ function _Chat() {
               );
             })()}
             <div className={styles["chat-message-item"]}>
-              <Markdown
+              <LLMMessageContent
                 key={message.streaming ? "loading" : "done"}
                 content={(() => {
                   const messageContent =
@@ -2182,6 +1874,7 @@ function _Chat() {
                   }
                   return messageContent;
                 })()}
+                isStreamFinished={!message.streaming && !message.preview}
                 loading={
                   (message.preview || message.streaming) &&
                   (!message.content ||
@@ -2281,132 +1974,27 @@ function _Chat() {
   return (
     <>
       <div className={styles.chat} key={session.id}>
-        <div className="window-header" data-tauri-drag-region>
-          {isMobileScreen && (
-            <div className="window-actions">
-              <div className={"window-action-button"}>
-                <IconButton
-                  icon={<ReturnIcon />}
-                  bordered
-                  title={Locale.Chat.Actions.ChatList}
-                  onClick={() => navigate(Path.Home)}
-                />
-              </div>
-            </div>
-          )}
-
-          <div
-            className={clsx("window-header-title", styles["chat-body-title"])}
-            style={{ display: "flex", alignItems: "center", gap: "10px" }}
-          >
-            {!isMobileScreen && (
-              <div className="window-action-button">
-                <IconButton
-                  icon={<MenuIcon />}
-                  bordered
-                  title={Locale.Chat.UI.SidebarToggle}
-                  onClick={toggleSideBarCollapse}
-                />
-              </div>
-            )}
-            <div style={{ flex: 1 }}>
-              <div
-                className={clsx(
-                  "window-header-main-title",
-                  styles["chat-body-main-title"],
-                )}
-                onClickCapture={() => setIsEditingMessage(true)}
-              >
-                {!session.topic ? DEFAULT_TOPIC : session.topic}
-              </div>
-              <div className="window-header-sub-title">
-                <span>
-                  {Locale.Chat.SubTitle(
-                    filterMcpMessages(session.messages).length,
-                  )}
-                </span>
-                <span className={styles["chat-assistant-name"]}>
-                  {session.mask.name}
-                </span>
-                {/* Response API 会话 ID 显示 */}
-                {session.responseApiConversationId && (
-                  <span
-                    className={styles["response-api-conversation-id"]}
-                    title={`Response API 会话 ID: ${session.responseApiConversationId}`}
-                    onClick={() => {
-                      copyToClipboard(session.responseApiConversationId!);
-                      showToast("会话 ID 已复制到剪贴板");
-                    }}
-                    style={{
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      color: "var(--primary)",
-                      textDecoration: "underline",
-                      marginLeft: "8px",
-                    }}
-                  >
-                    ID: {session.responseApiConversationId.slice(-8)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="window-actions">
-            <div className="window-action-button">
-              <IconButton
-                icon={<ReloadIcon />}
-                bordered
-                title={Locale.Chat.Actions.RefreshTitle}
-                onClick={() => {
-                  showToast(Locale.Chat.Actions.RefreshToast);
-                  chatStore.summarizeSession(true, session);
-                }}
-              />
-            </div>
-            {!isMobileScreen && (
-              <div className="window-action-button">
-                <IconButton
-                  icon={<RenameIcon />}
-                  bordered
-                  title={Locale.Chat.EditMessage.Title}
-                  aria={Locale.Chat.EditMessage.Title}
-                  onClick={() => setIsEditingMessage(true)}
-                />
-              </div>
-            )}
-            <div className="window-action-button">
-              <IconButton
-                icon={<ExportIcon />}
-                bordered
-                title={Locale.Chat.Actions.Export}
-                onClick={() => {
-                  setShowExport(true);
-                }}
-              />
-            </div>
-            {showMaxIcon && (
-              <div className="window-action-button">
-                <IconButton
-                  icon={config.tightBorder ? <MinIcon /> : <MaxIcon />}
-                  bordered
-                  title={Locale.Chat.Actions.FullScreen}
-                  aria={Locale.Chat.Actions.FullScreen}
-                  onClick={() => {
-                    config.update(
-                      (config) => (config.tightBorder = !config.tightBorder),
-                    );
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-          <PromptToast
-            showToast={!hitBottom}
-            showModal={showPromptModal}
-            setShowModal={setShowPromptModal}
-          />
-        </div>
+        <ChatHeader
+          session={session}
+          messageCount={filterMcpMessages(session.messages).length}
+          hitBottom={hitBottom}
+          showPromptModal={showPromptModal}
+          setShowPromptModal={setShowPromptModal}
+          isMobileScreen={isMobileScreen}
+          showMaxIcon={showMaxIcon}
+          tightBorder={config.tightBorder}
+          onBack={() => navigate(Path.Home)}
+          onToggleSidebar={toggleSideBarCollapse}
+          onEditTitle={() => setIsEditingMessage(true)}
+          onExport={() => setShowExport(true)}
+          onRefreshTitle={() => {
+            showToast(Locale.Chat.Actions.RefreshToast);
+            chatStore.summarizeSession(true, session);
+          }}
+          onFullScreenToggle={() =>
+            config.update((c) => (c.tightBorder = !c.tightBorder))
+          }
+        />
         <div className={styles["chat-main"]}>
           <div className={styles["chat-body-container"]}>
             <div
@@ -2443,22 +2031,10 @@ function _Chat() {
                             session.mask.modelConfig.providerName ||
                             "OpenAI";
 
-                          // 获取用户友好的 provider 显示名称
-                          const getProviderDisplayName = (
-                            providerId: string,
-                          ) => {
-                            if (providerId?.startsWith("custom_")) {
-                              const customProvider =
-                                accessStore.customProviders.find(
-                                  (p) => p.id === providerId,
-                                );
-                              return customProvider?.name || providerId;
-                            }
-                            return providerId;
-                          };
-
-                          const providerDisplayName =
-                            getProviderDisplayName(displayProviderId);
+                          const providerDisplayName = getProviderDisplayName(
+                            displayProviderId,
+                            accessStore,
+                          );
 
                           const showActions = !(
                             message.preview || message.content.length === 0
@@ -2568,7 +2144,7 @@ function _Chat() {
                                   )}
 
                                 <div className={styles["chat-message-item"]}>
-                                  <Markdown
+                                  <LLMMessageContent
                                     key={message.streaming ? "loading" : "done"}
                                     content={(() => {
                                       const messageContent =
@@ -2585,6 +2161,9 @@ function _Chat() {
                                       }
                                       return messageContent;
                                     })()}
+                                    isStreamFinished={
+                                      !message.streaming && !message.preview
+                                    }
                                     loading={
                                       (message.preview || message.streaming) &&
                                       (!message.content ||
@@ -2632,37 +2211,14 @@ function _Chat() {
                   return renderSingleMessage(message, i);
                 })
               ) : (
-                <div
-                  style={{
-                    height: virtualizer.getTotalSize(),
-                    width: "100%",
-                    position: "relative",
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((virtualItem: any) => {
-                    const message = messages[virtualItem.index];
-                    if (!message) return null;
-
-                    return (
-                      <div
-                        key={message.id}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
-                        className={styles["virtual-message-item"]}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          transform: `translateY(${virtualItem.start}px)`,
-                          willChange: "transform",
-                        }}
-                      >
-                        {renderSingleMessage(message, virtualItem.index)}
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  {messages.map((msg, idx) =>
+                    renderSingleMessage(
+                      msg as RenderMessage,
+                      msgRenderIndex + idx,
+                    ),
+                  )}
+                </>
               )}
             </div>
             <div className={styles["chat-input-panel"]}>

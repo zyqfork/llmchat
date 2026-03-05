@@ -2956,33 +2956,64 @@ export function Settings() {
 
   // 模型配置设置
   const renderModelConfigSettings = () => {
+    const getProviderAliases = (provider: string) => {
+      const aliases = new Set<string>();
+      if (!provider) return aliases;
+
+      aliases.add(provider);
+
+      // 支持 custom provider 的 id/name 双向匹配
+      const byId = accessStore.customProviders.find((p) => p.id === provider);
+      if (byId?.name) aliases.add(byId.name);
+
+      const byName = accessStore.customProviders.find(
+        (p) => p.name === provider,
+      );
+      if (byName?.id) aliases.add(byName.id);
+
+      // 内置 provider 仍保留归一化匹配
+      if (!provider.startsWith("custom_")) {
+        aliases.add(normalizeProviderName(provider));
+      }
+
+      return aliases;
+    };
+
     // 构建当前选中模型的value，需要与option的value格式一致
     const currentModelValue = (() => {
       const currentModel = config.modelConfig.model;
-      const currentProviderName = config.modelConfig.providerName;
+      const currentProviderName = (config.modelConfig.providerName ||
+        "") as string;
 
-      // 查找匹配的模型，确保value格式一致
+      const isSameProvider = (a: string, b: string) => {
+        const aAliases = getProviderAliases(a);
+        const bAliases = getProviderAliases(b);
+        for (const alias of aAliases) {
+          if (bAliases.has(alias)) return true;
+        }
+        return false;
+      };
+
+      // 仅当当前模型能在可选列表中匹配时才返回 value，避免显示不存在的项
       for (const providerGroup of Object.values(groupModels)) {
         for (const model of providerGroup) {
           if (model.name === currentModel) {
-            const modelProviderId =
-              model.provider?.id || model.provider?.providerName;
-            const normalizedCurrentProvider = normalizeProviderName(
-              currentProviderName as string,
-            );
-            const normalizedModelProvider = normalizeProviderName(
-              modelProviderId as string,
+            const modelProviderId = String(
+              model.provider?.id || model.provider?.providerName || "",
             );
 
-            if (normalizedCurrentProvider === normalizedModelProvider) {
+            if (
+              modelProviderId &&
+              currentProviderName &&
+              isSameProvider(currentProviderName, modelProviderId)
+            ) {
               return `${model.name}@${modelProviderId}`;
             }
           }
         }
       }
 
-      // 如果没找到匹配的，使用原始格式
-      return `${currentModel}@${currentProviderName}`;
+      return "";
     })();
 
     return (
@@ -2999,9 +3030,8 @@ export function Settings() {
               );
               config.update((config) => {
                 config.modelConfig.model = model as any;
-                config.modelConfig.providerName = normalizeProviderName(
-                  providerName!,
-                );
+                // 保留原始 provider id，避免自定义 provider 在刷新后被错误归一化
+                config.modelConfig.providerName = providerName!;
                 // 根据新模型自动更新压缩阈值
                 const autoThreshold = getModelCompressThreshold(model);
                 config.modelConfig.compressMessageLengthThreshold =
@@ -3009,6 +3039,11 @@ export function Settings() {
               });
             }}
           >
+            {currentModelValue === "" && (
+              <option value="" disabled>
+                当前模型不可用，请重新选择
+              </option>
+            )}
             {Object.keys(groupModels).map((providerName, index) => (
               <optgroup label={providerName} key={index}>
                 {groupModels[providerName].map((v, i) => (

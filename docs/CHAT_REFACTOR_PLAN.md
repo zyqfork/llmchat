@@ -40,14 +40,9 @@
 
 拆出上述组件后，**chat.tsx 可收敛到约 1500–2000 行**，只保留 _Chat + 少量本地 UI 与滚动逻辑。
 
-### 3. 真正“未使用”的代码（可删或接上）
+### 3. 已删除的未使用代码
 
-| 位置 | 说明 |
-|------|------|
-| `app/components/chat/ChatWithVirtualScroll.tsx` | **未被任何路由或页面引用**，相当于用虚拟列表写的“示例聊天页”，目前是死代码。可二选一：删除，或作为接入 Virtuoso 的起点。 |
-| `app/components/chat/VirtualMessageList.tsx` | 使用 `@tanstack/react-virtual` 的虚拟列表，**当前主聊天页未使用**。若大改采用 Virtuoso，可考虑用 Virtuoso 替代此实现，或暂时保留作参考。 |
-
-其余在 chat.tsx 里的逻辑（分页、滚动、多模型、MCP、导出等）都是**有被使用**的，不能简单当垃圾删。
+- `ChatWithVirtualScroll.tsx`、`VirtualMessageList.tsx`、`useVirtualScroll` 已删除；主聊天页统一为「可滚动 div + 分页列表」，不再使用虚拟滚动。
 
 ---
 
@@ -94,10 +89,44 @@
 
 ---
 
-## 四、当前进度（dev-1 分支）
+## 四、当前进度
 
 - **阶段 1：已完成**  
   - 所有内联组件与 hook 已拆至 `app/components/chat/`，chat.tsx 已收敛，构建通过。  
-- **阶段 2：待办**  
-  - 安装 `react-virtuoso`，用 Virtuoso 替换当前 `useVirtualScroll`（@tanstack/react-virtual）+ `msgRenderIndex` 分页 + `sessionScrollStateMap` 恢复逻辑；  
-  - 多模型模式下的 `groupedMessages` 仍可保持现有 DOM 结构，仅单模型列表改用 Virtuoso 容器。
+- **虚拟滚动已移除**  
+  - 单模型与多模型统一为「可滚动 div + 分页列表」；已删除 `react-virtuoso` 使用、`useVirtualScroll`、`VirtualMessageList`、`ChatWithVirtualScroll` 及对应测试。  
+- **额外拆分（已做）**  
+  - `ProviderTooltip` + `getProviderDisplayName` → `chat/ProviderTooltip.tsx`；`useSubmitHandler` → `chat/hooks/useSubmitHandler.ts`；**ChatHeader**（窗口标题 + 操作按钮 + PromptToast）→ `chat/ChatHeader.tsx`。
+
+---
+
+## 五、继续拆分建议（chat.tsx 仍较长时）
+
+当前 chat.tsx 仍以 **_Chat** 和 **renderSingleMessage** 为主（约 2700+ 行）。可继续做：
+
+| 目标 | 做法 | 预估减行 |
+|------|------|----------|
+| **Chat 头部** | ~~把「窗口标题 + 导出/设置/全屏等按钮」抽成 `ChatHeader.tsx`~~ **已完成** | - |
+| **单条消息渲染** | 把 `renderSingleMessage` 抽成组件（如 `ChatMessageBubble.tsx`），通过 props 或 Context 传入 session、scrollRef、onResend、onUserStop、showImageModal、TTS、版本切换等；与现有 `MessageItem` 二选一或逐步迁移 | ~1200 |
+| **提交/输入逻辑** | 已拆 `useSubmitHandler`；若还有成块输入相关逻辑，可再拆 `useChatInput` 等 | - |
+
+**注意**：`renderSingleMessage` 依赖很多（多模型、MCP、版本、TTS、思考内容、编辑/重发/删除等），抽组件时建议用 **React Context** 提供 session、chatStore、config、回调，避免 prop drilling。
+
+---
+
+## 六、成熟大模型聊天组件与替代方案
+
+若希望「少自己实现、多复用现成 UI」，可考虑以下库；本仓库当前能力较多（多模型、MCP、思考模式、版本切换、TTS 等），**整页替换成本高**，更现实的是**只替换「消息内容渲染」**（Markdown/流式/代码高亮）。
+
+| 库 | 特点 | 适合做什么 | 说明 |
+|----|------|-------------|------|
+| **[llm-ui](https://github.com/richardgill/llm-ui)**（`@llm-ui/react`） | Headless、Markdown + 代码高亮（Shiki）、流式节流、可定制块 | **只替换「单条消息的 Markdown/流式展示」** | 1.7k+ stars，MIT；不提供整页布局，适合嵌入现有气泡内，替代当前 `<Markdown>` + 手写流式逻辑。 |
+| **LlamaIndex Chat UI** | 完整 Chat 组件（ChatSection、ChatMessages、ChatInput）、Markdown、流式、文件/标注 | 新页面或重写整页聊天 | 若接受较大改造成本，可整页用其布局；需对接现有 session/API。 |
+| **NLUX**（`@nlux/react`） | `<AiChat />` + 适配器、流式、主题变量 | 新对话页或独立模块 | 偏「对话 UI 套件」，和现有 store/多模型/MCP 需自己桥接。 |
+| **Stream Chat React** | 实时聊天、AI 集成、流式 Markdown | 团队/频道类聊天 | 更偏实时协作，与当前「单会话 + 多模型 + 工具」模型差异大。 |
+
+**建议**：
+
+1. **短期**：继续按「五」做拆分（Header、renderSingleMessage），把 chat.tsx 压到 ~1500 行内，不引入新库。
+2. **中期**：若希望**只优化「消息内容渲染」**（流式体验、代码高亮、Markdown 稳定性），可试点 **llm-ui** 的 `useLLMOutput` + 自定义块，只替换每条 assistant 消息里的 Markdown 区域，保留现有气泡、多模型、MCP、操作按钮等。
+3. **长期**：若规划整页重写（新路由、新数据结构），再评估 LlamaIndex Chat UI 或 NLUX 等「整页级」方案。

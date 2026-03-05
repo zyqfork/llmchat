@@ -13,12 +13,15 @@ export function useScrollToBottom(
   const scrollDomToBottom = useCallback(() => {
     const dom = scrollRef.current;
     if (dom) {
+      // 双 rAF：等 React 提交 + 浏览器布局后再读 scrollHeight，避免流式时读到旧高度
       requestAnimationFrame(() => {
-        const targetTop = dom.scrollHeight;
-        const delta = Math.abs(dom.scrollTop - targetTop);
-        if (delta > 1) {
-          dom.scrollTo(0, targetTop);
-        }
+        requestAnimationFrame(() => {
+          const targetTop = dom.scrollHeight;
+          const delta = Math.abs(dom.scrollTop + dom.clientHeight - targetTop);
+          if (delta > 1) {
+            dom.scrollTo(0, targetTop);
+          }
+        });
       });
     }
   }, [scrollRef]);
