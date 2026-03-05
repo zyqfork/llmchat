@@ -624,6 +624,12 @@
   overscroll-behavior: none;
 }
 
+@supports not (scrollbar-gutter: stable) {
+  .chat-body {
+    overflow-y: scroll;
+  }
+}
+
 .chat-body-main-title {
   cursor: pointer;
 
