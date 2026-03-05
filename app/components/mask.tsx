@@ -392,7 +392,10 @@ export function MaskConfig(props: {
                           mask.modelConfig.providerName = providerName as any;
                         }
                         // 根据新模型自动更新压缩阈值
-                        const autoThreshold = getModelCompressThreshold(model);
+                        const autoThreshold = getModelCompressThreshold(
+                          model,
+                          mask.modelConfig.compressThresholdRatio,
+                        );
                         mask.modelConfig.compressMessageLengthThreshold =
                           autoThreshold;
                       }

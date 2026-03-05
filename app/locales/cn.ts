@@ -87,6 +87,8 @@ const cn = {
       Edit: "编辑",
       FullScreen: "全屏",
       RefreshTitle: "刷新标题",
+      CompressNow: "压缩上下文",
+      CompressToast: "上下文已压缩",
       RefreshToast: "已发送刷新标题请求",
       Speech: "朗读",
       StopSpeech: "停止",
@@ -515,6 +517,10 @@ const cn = {
     CompressThreshold: {
       Title: "历史消息长度压缩阈值",
       SubTitle: "当未压缩的历史消息超过该值时，将进行压缩",
+    },
+    CompressThresholdRatio: {
+      Title: "压缩阈值比例",
+      SubTitle: "自动阈值占模型上下文窗口的比例（10%-90%）",
     },
     SummaryMinUserMessages: {
       Title: "压缩最小用户消息数",
@@ -1106,6 +1112,8 @@ const cn = {
     Edit: "当前对话设置",
     Add: "新增一条对话",
     Clear: "上下文已清除",
+    Compressing: "上下文压缩中...",
+    Compressed: "上下文已压缩",
     Revert: "恢复上下文",
   },
 

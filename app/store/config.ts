@@ -82,6 +82,7 @@ export const DEFAULT_CONFIG = {
     sendMemory: true,
     historyMessageCount: 4,
     compressMessageLengthThreshold: 8192, // 默认8K tokens
+    compressThresholdRatio: 0.5, // 上下文窗口压缩比例，默认50%
     autoTitleMinUserTokens: 20,
     autoTitleMinUserMessages: 1,
     autoTitleRefreshInterval: 4,
@@ -216,6 +217,14 @@ export const ModalConfigValidator = {
       DEFAULT_CONFIG.modelConfig.summaryMinUserMessages,
     );
   },
+  compressThresholdRatio(x: number) {
+    return limitNumber(
+      x,
+      0.1,
+      0.9,
+      DEFAULT_CONFIG.modelConfig.compressThresholdRatio,
+    );
+  },
 };
 
 export const useAppConfig = createPersistStore(
@@ -252,7 +261,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.7,
+    version: 4.8,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -332,7 +341,11 @@ export const useAppConfig = createPersistStore(
       if (version < 4.3) {
         // 根据当前模型更新压缩阈值
         state.modelConfig.compressMessageLengthThreshold =
-          getModelCompressThreshold(state.modelConfig.model);
+          getModelCompressThreshold(
+            state.modelConfig.model,
+            state.modelConfig.compressThresholdRatio ??
+              DEFAULT_CONFIG.modelConfig.compressThresholdRatio,
+          );
       }
 
       if (version < 4.4) {
@@ -363,6 +376,13 @@ export const useAppConfig = createPersistStore(
           8192,
           state.modelConfig.compressMessageLengthThreshold || 0,
         );
+      }
+
+      if (version < 4.8) {
+        state.modelConfig.compressThresholdRatio =
+          DEFAULT_CONFIG.modelConfig.compressThresholdRatio;
+        state.modelConfig.compressMessageLengthThreshold =
+          state.modelConfig.compressMessageLengthThreshold || 8192;
       }
 
       return state as any;

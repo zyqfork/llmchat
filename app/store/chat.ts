@@ -119,6 +119,7 @@ export type ChatMessage = RequestMessage & {
   currentVersionIndex?: number; // 当前显示的版本索引
   // 调试信息（HTTP 请求与响应）
   debug?: ChatMessageDebug;
+  isCompressedContextPrompt?: boolean;
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -149,6 +150,8 @@ export interface ChatSession {
   lastUpdate: number;
   lastSummarizeIndex: number;
   clearContextIndex?: number;
+  compressedContextIndex?: number;
+  compressingContextIndex?: number;
   pinned?: boolean; // 钉选状态
 
   mask: Mask;
@@ -865,7 +868,10 @@ export const useChatStore = createPersistStore(
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
             // 根据模型更新压缩阈值
             newMask.modelConfig.compressMessageLengthThreshold =
-              getModelCompressThreshold(sessionModelConfig.model);
+              getModelCompressThreshold(
+                sessionModelConfig.model,
+                newMask.modelConfig.compressThresholdRatio,
+              );
           } else {
             // 即使没有设置默认模型，也要确保使用全局配置
             const sessionModelConfig = getSessionModelConfig(mask);
@@ -873,7 +879,10 @@ export const useChatStore = createPersistStore(
             newMask.modelConfig.providerName = sessionModelConfig.providerName;
             // 根据模型更新压缩阈值
             newMask.modelConfig.compressMessageLengthThreshold =
-              getModelCompressThreshold(sessionModelConfig.model);
+              getModelCompressThreshold(
+                sessionModelConfig.model,
+                newMask.modelConfig.compressThresholdRatio,
+              );
           }
 
           // 禁用全局同步，防止后续操作覆盖我们的助手配置
@@ -1052,6 +1061,9 @@ export const useChatStore = createPersistStore(
           content: mContent,
           isMcpResponse,
         });
+
+        // 被动压缩：发送用户消息前先按阈值检测并执行压缩，完成后再继续发送本次消息
+        await get().summarizeSession(false, session, false);
 
         // 读取模型的流式配置，默认为 true（流式）
         const shouldStream = getModelStreamConfig(modelConfig.model);
@@ -1663,7 +1675,7 @@ export const useChatStore = createPersistStore(
 
         if (session.memoryPrompt.length) {
           return {
-            role: "system",
+            role: "assistant",
             content: Locale.Store.Prompt.History(session.memoryPrompt),
             date: "",
           } as ChatMessage;
@@ -1695,6 +1707,7 @@ export const useChatStore = createPersistStore(
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
         const clearContextIndex = session.clearContextIndex ?? 0;
+        const compressedContextIndex = session.compressedContextIndex ?? 0;
         const messages = session.messages.slice();
         const totalMessageCount = session.messages.length;
 
@@ -1769,7 +1782,11 @@ export const useChatStore = createPersistStore(
           ? Math.min(longTermMemoryStartIndex, shortTermMemoryStartIndex)
           : shortTermMemoryStartIndex;
         // and if user has cleared history messages, we should exclude the memory too.
-        const contextStartIndex = Math.max(clearContextIndex, memoryStartIndex);
+        const contextStartIndex = Math.max(
+          clearContextIndex,
+          compressedContextIndex,
+          memoryStartIndex,
+        );
         const maxTokenThreshold = modelConfig.max_tokens;
 
         // get recent messages as much as possible
@@ -1780,7 +1797,7 @@ export const useChatStore = createPersistStore(
           i -= 1
         ) {
           const msg = messages[i];
-          if (!msg || msg.isError) continue;
+          if (!msg || msg.isError || msg.isCompressedContextPrompt) continue;
           // 使用不包含思考内容的版本来计算Token数量
           tokenCount += estimateTokenLength(
             getMessageTextContentWithoutThinking(msg),
@@ -1834,6 +1851,8 @@ export const useChatStore = createPersistStore(
           session.messages = [];
           session.memoryPrompt = "";
           session.clearContextIndex = undefined;
+          session.compressedContextIndex = undefined;
+          session.compressingContextIndex = undefined;
           session.lastSummarizeIndex = 0;
           session.responseApiConversationId = undefined;
           session.isAutoTopic = true;
@@ -1849,17 +1868,18 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      summarizeSession(
+      async summarizeSession(
         refreshTitle: boolean = false,
         targetSession: ChatSession,
-      ) {
+        forceCompress: boolean = false,
+      ): Promise<boolean> {
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
 
         // skip summarize when using dalle3?
         if (isDalle3(modelConfig.model)) {
-          return;
+          return false;
         }
 
         // 使用摘要模型决策系统
@@ -1972,7 +1992,7 @@ export const useChatStore = createPersistStore(
             "[Summarize] Already in progress for session:",
             session.id,
           );
-          return;
+          return false;
         }
 
         const summarizeIndex = Math.max(
@@ -2010,18 +2030,20 @@ export const useChatStore = createPersistStore(
           DEFAULT_SUMMARY_MIN_USER_MESSAGES;
 
         // 当对话 tokens 接近阈值的 80% 时，提示用户可以压缩
+        const contextMessages = await get().getMessagesWithMemory();
+        const contextTokens = countMessages(contextMessages);
         const threshold = modelConfig.compressMessageLengthThreshold;
         if (
           !refreshTitle &&
-          summaryTokens >= threshold * 0.8 &&
-          summaryTokens < threshold &&
+          contextTokens >= threshold * 0.8 &&
+          contextTokens < threshold &&
           userMessageCount >= summaryMinUserMessages &&
           modelConfig.sendMemory &&
           !session.isSummarizing
         ) {
           logger.debug(
             "[Summarize] Approaching threshold:",
-            summaryTokens,
+            contextTokens,
             "/",
             threshold,
           );
@@ -2029,9 +2051,10 @@ export const useChatStore = createPersistStore(
         }
 
         if (
-          summaryTokens >= modelConfig.compressMessageLengthThreshold &&
-          userMessageCount >= summaryMinUserMessages &&
-          modelConfig.sendMemory
+          forceCompress ||
+          (contextTokens >= modelConfig.compressMessageLengthThreshold &&
+            userMessageCount >= summaryMinUserMessages &&
+            modelConfig.sendMemory)
         ) {
           /** Destruct max_tokens while summarizing
            * this param is just shit
@@ -2046,112 +2069,189 @@ export const useChatStore = createPersistStore(
           }
 
           const { max_tokens, ...modelcfg } = modelConfig;
-          if (!userMessages && !confirmedAssistantMessages) {
-            return;
+          const forceUserMessages =
+            forceCompress && !userMessages
+              ? buildConversationTranscript(
+                  messages.slice(summaryStartIndex),
+                  false,
+                )
+              : userMessages;
+          if (!forceUserMessages && !confirmedAssistantMessages) {
+            return false;
           }
 
           // 设置摘要锁，防止并发
+          const compressedMessageId = nanoid();
           get().updateTargetSession(session, (s) => {
             s.isSummarizing = true;
+            s.compressingContextIndex = messages.length;
+            s.messages = s.messages
+              .filter((m) => !m.isCompressedContextPrompt)
+              .concat(
+                createMessage({
+                  id: compressedMessageId,
+                  role: "assistant",
+                  content: "",
+                  streaming: true,
+                  isCompressedContextPrompt: true,
+                }),
+              );
           });
           const summarizeInput = buildSummaryPrompt(
             summarizePrompt,
-            userMessages,
+            forceUserMessages,
             confirmedAssistantMessages,
             session.memoryPrompt,
           );
-          api.llm.chat({
-            messages: [
-              createMessage({
-                role: "user",
-                content: summarizeInput,
-              }),
-            ],
-            config: {
-              ...modelcfg,
-              stream: true,
-              model,
-              providerName,
-            },
-            useResponseApiContext: false,
-            onUpdate(message) {
-              // 使用通用的移除思考内容函数，与优化提示词保持一致
-              const filteredMessage = removeThinkingContent(message);
-              // 使用正确的状态更新方式，确保 UI 同步
-              get().updateTargetSession(session, (s) => {
-                s.memoryPrompt = filteredMessage;
-              });
-            },
-            onFinish(message, responseRes) {
-              // 使用通用的移除思考内容函数，与优化提示词保持一致
-              const filteredMessage = removeThinkingContent(message);
-
-              if (responseRes?.status === 200) {
-                const summaryLength = estimateTokenLength(filteredMessage);
-
-                // 验证摘要质量：摘要不应该比原始内容更长
-                if (summaryLength > summaryTokens * 0.8) {
-                  logger.warn(
-                    "[Summarize] Summary too long, skipping. Summary:",
-                    summaryLength,
-                    "Original:",
-                    summaryTokens,
-                  );
-                  get().updateTargetSession(session, (s) => {
-                    s.isSummarizing = false;
-                  });
-                  return;
-                }
-
-                // 验证摘要质量：摘要不应该太短（可能失败了）
-                if (summaryLength < 50 && summaryTokens > 1000) {
-                  logger.warn(
-                    "[Summarize] Summary too short, might be failed. Summary:",
-                    summaryLength,
-                    "Original:",
-                    summaryTokens,
-                  );
-                  get().updateTargetSession(session, (s) => {
-                    s.isSummarizing = false;
-                  });
-                  return;
-                }
-
+          return await new Promise<boolean>((resolve) => {
+            let resolved = false;
+            const resolveOnce = (ok: boolean) => {
+              if (!resolved) {
+                resolved = true;
+                resolve(ok);
+              }
+            };
+            api.llm.chat({
+              messages: [
+                createMessage({
+                  role: "user",
+                  content: summarizeInput,
+                }),
+              ],
+              config: {
+                ...modelcfg,
+                stream: true,
+                model,
+                providerName,
+              },
+              useResponseApiContext: false,
+              onUpdate(message) {
+                // 使用通用的移除思考内容函数，与优化提示词保持一致
+                const filteredMessage = removeThinkingContent(message);
+                // 使用正确的状态更新方式，确保 UI 同步
                 get().updateTargetSession(session, (s) => {
-                  s.lastSummarizeIndex = lastSummarizeIndex;
                   s.memoryPrompt = filteredMessage;
-                  s.isSummarizing = false; // 释放摘要锁
+                  const target = s.messages.find(
+                    (m) => m.id === compressedMessageId,
+                  );
+                  if (target) {
+                    target.content = filteredMessage;
+                    target.streaming = true;
+                  }
                 });
-                logger.debug(
-                  "[Summarize] Completed for session:",
-                  session.id,
-                  "summary length:",
-                  filteredMessage.length,
-                  "tokens:",
-                  summaryLength,
-                  "compression ratio:",
-                  ((1 - summaryLength / summaryTokens) * 100).toFixed(1) + "%",
-                );
-              } else {
-                // 请求失败时也要释放锁
+              },
+              onFinish(message, responseRes) {
+                // 使用通用的移除思考内容函数，与优化提示词保持一致
+                const filteredMessage = removeThinkingContent(message);
+
+                if (responseRes?.status === 200) {
+                  const summaryLength = estimateTokenLength(filteredMessage);
+
+                  // 验证摘要质量：摘要不应该比原始内容更长
+                  if (!forceCompress && summaryLength > summaryTokens * 0.8) {
+                    logger.warn(
+                      "[Summarize] Summary too long, skipping. Summary:",
+                      summaryLength,
+                      "Original:",
+                      summaryTokens,
+                    );
+                    get().updateTargetSession(session, (s) => {
+                      s.isSummarizing = false;
+                      s.compressingContextIndex = undefined;
+                      s.messages = s.messages.filter(
+                        (m) => m.id !== compressedMessageId,
+                      );
+                    });
+                    resolveOnce(false);
+                    return;
+                  }
+
+                  // 验证摘要质量：摘要不应该太短（可能失败了）
+                  if (
+                    !forceCompress &&
+                    summaryLength < 50 &&
+                    summaryTokens > 1000
+                  ) {
+                    logger.warn(
+                      "[Summarize] Summary too short, might be failed. Summary:",
+                      summaryLength,
+                      "Original:",
+                      summaryTokens,
+                    );
+                    get().updateTargetSession(session, (s) => {
+                      s.isSummarizing = false;
+                      s.compressingContextIndex = undefined;
+                      s.messages = s.messages.filter(
+                        (m) => m.id !== compressedMessageId,
+                      );
+                    });
+                    resolveOnce(false);
+                    return;
+                  }
+
+                  get().updateTargetSession(session, (s) => {
+                    s.mask.modelConfig.sendMemory = true;
+                    s.lastSummarizeIndex = lastSummarizeIndex;
+                    s.memoryPrompt = filteredMessage;
+                    s.compressedContextIndex = Math.max(
+                      s.compressedContextIndex ?? 0,
+                      lastSummarizeIndex,
+                    );
+                    const target = s.messages.find(
+                      (m) => m.id === compressedMessageId,
+                    );
+                    if (target) {
+                      target.content = filteredMessage;
+                      target.streaming = false;
+                      target.isCompressedContextPrompt = true;
+                    }
+                    s.isSummarizing = false; // 释放摘要锁
+                    s.compressingContextIndex = undefined;
+                  });
+                  logger.debug(
+                    "[Summarize] Completed for session:",
+                    session.id,
+                    "summary length:",
+                    filteredMessage.length,
+                    "tokens:",
+                    summaryLength,
+                    "compression ratio:",
+                    ((1 - summaryLength / summaryTokens) * 100).toFixed(1) +
+                      "%",
+                  );
+                  resolveOnce(true);
+                } else {
+                  // 请求失败时也要释放锁
+                  get().updateTargetSession(session, (s) => {
+                    s.isSummarizing = false;
+                    s.compressingContextIndex = undefined;
+                    s.messages = s.messages.filter(
+                      (m) => m.id !== compressedMessageId,
+                    );
+                  });
+                  logger.error(
+                    "[Summarize] Failed with status:",
+                    responseRes?.status,
+                  );
+                  resolveOnce(false);
+                }
+              },
+              onError(err) {
+                logger.error("[Summarize] Error:", err);
+                // 发生错误时释放摘要锁
                 get().updateTargetSession(session, (s) => {
                   s.isSummarizing = false;
+                  s.compressingContextIndex = undefined;
+                  s.messages = s.messages.filter(
+                    (m) => m.id !== compressedMessageId,
+                  );
                 });
-                logger.error(
-                  "[Summarize] Failed with status:",
-                  responseRes?.status,
-                );
-              }
-            },
-            onError(err) {
-              logger.error("[Summarize] Error:", err);
-              // 发生错误时释放摘要锁
-              get().updateTargetSession(session, (s) => {
-                s.isSummarizing = false;
-              });
-            },
+                resolveOnce(false);
+              },
+            });
           });
         }
+        return false;
       },
 
       updateStat(message: ChatMessage, session: ChatSession) {

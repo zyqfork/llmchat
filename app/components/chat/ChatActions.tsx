@@ -365,7 +365,8 @@ export function ChatActions(props: {
         session.mask.modelConfig.thinkingBudget = -1;
       }
 
-      const autoThreshold = getModelCompressThreshold(nextModel.name);
+      const ratio = session.mask.modelConfig.compressThresholdRatio;
+      const autoThreshold = getModelCompressThreshold(nextModel.name, ratio);
       session.mask.modelConfig.compressMessageLengthThreshold = autoThreshold;
     });
     showToast(nextModel.name);
@@ -573,7 +574,11 @@ export function ChatActions(props: {
               session.clearContextIndex = undefined;
             } else {
               session.clearContextIndex = session.messages.length;
+              session.compressedContextIndex = undefined;
               session.memoryPrompt = "";
+              session.messages = session.messages.filter(
+                (m) => !m.isCompressedContextPrompt,
+              );
               session.responseApiConversationId = undefined;
               session.lastAutoTopicIndex = session.messages.length;
               if (session.multiModelMode) {
@@ -658,7 +663,8 @@ export function ChatActions(props: {
                   session.mask.modelConfig.thinkingBudget = -1;
                 }
 
-                const autoThreshold = getModelCompressThreshold(model);
+                const ratio = session.mask.modelConfig.compressThresholdRatio;
+                const autoThreshold = getModelCompressThreshold(model, ratio);
                 session.mask.modelConfig.compressMessageLengthThreshold =
                   autoThreshold;
               });

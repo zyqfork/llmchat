@@ -210,7 +210,10 @@ export function ModelConfigList(props: {
                 }
 
                 // 根据新模型自动更新压缩阈值
-                const autoThreshold = getModelCompressThreshold(config.model);
+                const autoThreshold = getModelCompressThreshold(
+                  config.model,
+                  config.compressThresholdRatio,
+                );
                 config.compressMessageLengthThreshold = autoThreshold;
               });
             }}
@@ -474,6 +477,7 @@ export function ModelConfigList(props: {
         subTitle={(() => {
           const autoThreshold = getModelCompressThreshold(
             props.modelConfig.model,
+            props.modelConfig.compressThresholdRatio,
           );
           const currentThreshold =
             props.modelConfig.compressMessageLengthThreshold;
@@ -493,6 +497,7 @@ export function ModelConfigList(props: {
           value={props.modelConfig.compressMessageLengthThreshold}
           placeholder={getModelCompressThreshold(
             props.modelConfig.model,
+            props.modelConfig.compressThresholdRatio,
           ).toString()}
           onChange={(e) =>
             props.updateConfig(
@@ -502,6 +507,36 @@ export function ModelConfigList(props: {
             )
           }
         ></input>
+      </ListItem>
+
+      <ListItem
+        title={Locale.Settings.CompressThresholdRatio.Title}
+        subTitle={Locale.Settings.CompressThresholdRatio.SubTitle}
+      >
+        <InputRange
+          aria={Locale.Settings.CompressThresholdRatio.Title}
+          title={`${Math.round(
+            (props.modelConfig.compressThresholdRatio ?? 0.5) * 100,
+          )}%`}
+          value={Math.round(
+            (props.modelConfig.compressThresholdRatio ?? 0.5) * 100,
+          )}
+          min="10"
+          max="90"
+          step="5"
+          onChange={(e) =>
+            props.updateConfig((config) => {
+              const ratio = ModalConfigValidator.compressThresholdRatio(
+                e.target.valueAsNumber / 100,
+              );
+              config.compressThresholdRatio = ratio;
+              config.compressMessageLengthThreshold = getModelCompressThreshold(
+                config.model,
+                ratio,
+              );
+            })
+          }
+        ></InputRange>
       </ListItem>
 
       <ListItem

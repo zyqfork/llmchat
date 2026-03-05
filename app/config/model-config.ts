@@ -338,18 +338,21 @@ export function formatTokenCount(tokens: number): string {
 /**
  * 根据模型的上下文Token数自动计算压缩阈值
  */
-export function getModelCompressThreshold(modelName: string): number {
-  const DEFAULT_THRESHOLD = 8000;
+export function getModelCompressThreshold(
+  modelName: string,
+  ratio: number = 0.5,
+): number {
+  const DEFAULT_THRESHOLD = 8192;
 
   const contextConfig = getModelContextTokens(modelName);
   if (!contextConfig?.contextTokens) {
     return DEFAULT_THRESHOLD;
   }
 
-  // 使用上下文窗口的 15% 作为压缩阈值
-  const threshold = Math.floor(contextConfig.contextTokens * 0.15);
+  const safeRatio = Math.min(0.9, Math.max(0.1, ratio || 0.5));
+  const threshold = Math.floor(contextConfig.contextTokens * safeRatio);
 
-  // 设置合理的上下限：最小8K，最大32K
+  // 默认最小保底 8k，防止小窗口模型过早压缩
   return Math.max(8000, Math.min(threshold, 32000));
 }
 

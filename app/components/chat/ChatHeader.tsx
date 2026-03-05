@@ -9,6 +9,7 @@ import MenuIcon from "../../icons/menu.svg";
 import RenameIcon from "../../icons/rename.svg";
 import ReloadIcon from "../../icons/reload.svg";
 import ExportIcon from "../../icons/share.svg";
+import HistoryIcon from "../../icons/history.svg";
 import MinIcon from "../../icons/min.svg";
 import MaxIcon from "../../icons/max.svg";
 import Locale from "../../locales";
@@ -33,6 +34,7 @@ export interface ChatHeaderProps {
   onEditTitle: () => void;
   onExport: () => void;
   onRefreshTitle: () => void;
+  onCompressContext: () => void;
   onFullScreenToggle: () => void;
 }
 
@@ -50,6 +52,7 @@ export function ChatHeader({
   onEditTitle,
   onExport,
   onRefreshTitle,
+  onCompressContext,
   onFullScreenToggle,
 }: ChatHeaderProps) {
   return (
@@ -119,6 +122,14 @@ export function ChatHeader({
         </div>
       </div>
       <div className="window-actions">
+        <div className="window-action-button">
+          <IconButton
+            icon={<HistoryIcon />}
+            bordered
+            title={Locale.Chat.Actions.CompressNow}
+            onClick={onCompressContext}
+          />
+        </div>
         <div className="window-action-button">
           <IconButton
             icon={<ReloadIcon />}

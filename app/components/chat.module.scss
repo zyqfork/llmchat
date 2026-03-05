@@ -605,6 +605,52 @@
   }
 }
 
+.compressed-context-loading {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+}
+
+.compressed-context-banner {
+  margin: 20px 0 0 0;
+  padding: 4px 0;
+  border-top: var(--border-in-light);
+  border-bottom: var(--border-in-light);
+  box-shadow: var(--card-shadow) inset;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--black);
+  overflow: hidden;
+  position: relative;
+  font-size: 12px;
+  animation: slide-in ease 0.3s;
+  cursor: default;
+
+  $linear: linear-gradient(to right,
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 1),
+      rgba(0, 0, 0, 0));
+  mask-image: $linear;
+}
+
+.compressed-context-tips {
+  opacity: 0.5;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .chat {
   display: flex;
   flex-direction: column;

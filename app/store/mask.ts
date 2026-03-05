@@ -49,6 +49,7 @@ export const createDefaultMask = () => {
       ...globalConfig,
       compressMessageLengthThreshold: getModelCompressThreshold(
         globalConfig.model,
+        globalConfig.compressThresholdRatio,
       ),
     },
     defaultModel: undefined, // 初始化默认模型为 undefined
@@ -73,6 +74,7 @@ export const createEmptyMask = () => {
       ...globalConfig,
       compressMessageLengthThreshold: getModelCompressThreshold(
         globalConfig.model,
+        globalConfig.compressThresholdRatio,
       ),
     },
     defaultModel: undefined, // 初始化默认模型为 undefined

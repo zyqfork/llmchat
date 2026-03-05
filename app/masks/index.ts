@@ -30,6 +30,8 @@ function createMaskFromBuiltin(builtin: BuiltinMask, lang: "cn" | "en"): Mask {
       ...builtin.modelConfig,
       compressMessageLengthThreshold: getModelCompressThreshold(
         builtin.modelConfig?.model || globalConfig.model,
+        builtin.modelConfig?.compressThresholdRatio ??
+          globalConfig.compressThresholdRatio,
       ),
     },
     lang: lang === "cn" ? "cn" : "en",

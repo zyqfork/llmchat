@@ -3033,7 +3033,10 @@ export function Settings() {
                 // 保留原始 provider id，避免自定义 provider 在刷新后被错误归一化
                 config.modelConfig.providerName = providerName!;
                 // 根据新模型自动更新压缩阈值
-                const autoThreshold = getModelCompressThreshold(model);
+                const autoThreshold = getModelCompressThreshold(
+                  model,
+                  config.modelConfig.compressThresholdRatio,
+                );
                 config.modelConfig.compressMessageLengthThreshold =
                   autoThreshold;
               });

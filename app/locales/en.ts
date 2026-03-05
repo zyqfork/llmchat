@@ -90,6 +90,8 @@ const en: LocaleType = {
       Edit: "Edit",
       FullScreen: "FullScreen",
       RefreshTitle: "Refresh Title",
+      CompressNow: "Compress Context",
+      CompressToast: "Context compressed",
       RefreshToast: "Title refresh request sent",
       Speech: "Play",
       StopSpeech: "Stop",
@@ -530,6 +532,11 @@ const en: LocaleType = {
       Title: "History Compression Threshold",
       SubTitle:
         "Will compress if uncompressed messages length exceeds the value",
+    },
+    CompressThresholdRatio: {
+      Title: "Compression Threshold Ratio",
+      SubTitle:
+        "Auto threshold ratio relative to model context window (10%-90%)",
     },
     SummaryMinUserMessages: {
       Title: "Summary Min User Messages",
@@ -1127,6 +1134,8 @@ const en: LocaleType = {
     Edit: "Current Chat Settings",
     Add: "Add a Prompt",
     Clear: "Context Cleared",
+    Compressing: "Compressing context...",
+    Compressed: "Context compressed",
     Revert: "Revert",
   },
 

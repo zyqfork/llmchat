@@ -140,6 +140,7 @@ import {
 } from "./chat/ProviderTooltip";
 import { LLMMessageContent } from "./chat/LLMMessageContent";
 import { ClearContextDivider } from "./chat/ClearContextDivider";
+import { CompressedContextDivider } from "./chat/CompressedContextDivider";
 import { ChatAction } from "./chat/ChatAction";
 import { DeleteImageButton } from "./chat/DeleteImageButton";
 import { EditMessageModal } from "./chat/EditMessageModal";
@@ -240,6 +241,12 @@ function _Chat() {
 
     for (let i = 0; i < visible.length; i++) {
       const m = visible[i];
+
+      // 压缩上下文消息直接透传，避免被 MCP 清洗逻辑误处理
+      if (m.isCompressedContextPrompt) {
+        result.push(m);
+        continue;
+      }
 
       // 仅处理助手消息
       if (m.role !== "assistant") {
@@ -1274,6 +1281,10 @@ function _Chat() {
     (session.clearContextIndex ?? -1) >= 0
       ? session.clearContextIndex! + context.length - msgRenderIndex
       : -1;
+  const compressedContextIndex =
+    (session.compressedContextIndex ?? -1) >= 0
+      ? session.compressedContextIndex! + context.length - msgRenderIndex
+      : -1;
 
   const [showPromptModal, setShowPromptModal] = useState(false);
 
@@ -1550,7 +1561,11 @@ function _Chat() {
             session.clearContextIndex = undefined;
           } else {
             session.clearContextIndex = session.messages.length;
+            session.compressedContextIndex = undefined;
             session.memoryPrompt = ""; // will clear memory
+            session.messages = session.messages.filter(
+              (m) => !m.isCompressedContextPrompt,
+            );
             session.responseApiConversationId = undefined;
             session.lastAutoTopicIndex = session.messages.length;
             if (session.multiModelMode) {
@@ -1580,6 +1595,7 @@ function _Chat() {
     const showTyping = message.preview || message.streaming;
 
     const shouldShowClearContextDivider = i === clearContextIndex - 1;
+    const shouldShowCompressedContextDivider = i === compressedContextIndex - 1;
 
     return (
       <Fragment key={message.id}>
@@ -2064,6 +2080,7 @@ function _Chat() {
           </div>
         </div>
         {shouldShowClearContextDivider && <ClearContextDivider />}
+        {shouldShowCompressedContextDivider && <CompressedContextDivider />}
       </Fragment>
     );
   };
@@ -2087,6 +2104,9 @@ function _Chat() {
           onRefreshTitle={() => {
             showToast(Locale.Chat.Actions.RefreshToast);
             chatStore.summarizeSession(true, session);
+          }}
+          onCompressContext={() => {
+            chatStore.summarizeSession(false, session, true);
           }}
           onFullScreenToggle={() =>
             config.update((c) => (c.tightBorder = !c.tightBorder))
@@ -2327,6 +2347,10 @@ function _Chat() {
                   )}
                 </>
               )}
+              {session.isSummarizing &&
+                session.compressingContextIndex !== undefined && (
+                  <CompressedContextDivider loading />
+                )}
             </div>
             <div className={styles["chat-input-panel"]}>
               <PromptHints
@@ -2646,6 +2670,7 @@ export { EditMessageModal } from "./chat/EditMessageModal";
 export { DeleteImageButton } from "./chat/DeleteImageButton";
 export { ShortcutKeyModal } from "./chat/ShortcutKeyModal";
 export { ClearContextDivider } from "./chat/ClearContextDivider";
+export { CompressedContextDivider } from "./chat/CompressedContextDivider";
 export { SessionConfigModel } from "./chat/SessionConfigModel";
 export { PromptHints, type RenderPrompt } from "./chat/PromptHints";
 export { ChatActions } from "./chat/ChatActions";
