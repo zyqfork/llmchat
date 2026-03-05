@@ -1611,6 +1611,8 @@ function useScrollToBottom(
   detach: boolean = false,
   messages: ChatMessage[],
   initialAutoScroll: boolean = true,
+  scrollTrigger?: string,
+  forceFollow: boolean = false,
 ) {
   // for auto-scroll
   const [autoScroll, setAutoScroll] = useState(initialAutoScroll);
@@ -1629,19 +1631,22 @@ function useScrollToBottom(
 
   // auto scroll
   useEffect(() => {
-    if (autoScroll && !detach) {
+    if (autoScroll && (!detach || forceFollow)) {
       scrollDomToBottom();
     }
-  }, [autoScroll, detach, messages, scrollDomToBottom]);
+  }, [autoScroll, detach, forceFollow, scrollTrigger, scrollDomToBottom]);
 
   // auto scroll when messages length changes
   const lastMessagesLength = useRef(messages.length);
   useEffect(() => {
-    if (messages.length > lastMessagesLength.current && !detach) {
+    if (
+      messages.length > lastMessagesLength.current &&
+      (!detach || forceFollow)
+    ) {
       scrollDomToBottom();
     }
     lastMessagesLength.current = messages.length;
-  }, [messages.length, detach, scrollDomToBottom]);
+  }, [messages.length, detach, forceFollow, scrollDomToBottom, scrollTrigger]);
 
   return {
     scrollRef,
@@ -2658,6 +2663,13 @@ function _Chat() {
 
   const isTyping = userInput !== "";
   const savedScrollState = sessionScrollStateMap.get(session.id);
+  const lastSessionMessage = session.messages[session.messages.length - 1];
+  const lastSessionMessageText = lastSessionMessage
+    ? getMessageTextContent(lastSessionMessage)
+    : "";
+  const scrollTrigger = `${session.messages.length}-${
+    lastSessionMessage?.id ?? ""
+  }-${lastSessionMessageText.length}-${lastSessionMessage?.streaming ? 1 : 0}`;
 
   // if user is typing, should auto scroll to bottom
   // if user is not typing, should auto scroll to bottom only if already at bottom
@@ -2666,6 +2678,7 @@ function _Chat() {
     !(isScrolledToBottom || isAttachWithTop) && !isTyping,
     session.messages,
     savedScrollState?.hitBottom ?? true,
+    scrollTrigger,
   );
   const [hitBottom, setHitBottom] = useState(
     savedScrollState?.hitBottom ?? true,
