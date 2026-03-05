@@ -1199,6 +1199,16 @@ export function isVisionModel(model: string): boolean {
     } catch (error) {
       // 静默处理错误，继续使用其他检测方法
     }
+
+    try {
+      // 与模型能力配置面板保持一致：支持读取 localStorage 中手动勾选的能力
+      const capabilities = getModelCapabilitiesFromConfig(model);
+      if (capabilities.vision === true) {
+        return true;
+      }
+    } catch (error) {
+      // 静默处理错误，继续使用其他检测方法
+    }
   }
 
   // 直接使用生成的配置判断
