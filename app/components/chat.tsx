@@ -1610,8 +1610,11 @@ function useScrollToBottom(
     const dom = scrollRef.current;
     if (dom) {
       requestAnimationFrame(() => {
-        setAutoScroll(true);
-        dom.scrollTo(0, dom.scrollHeight);
+        const targetTop = dom.scrollHeight;
+        const delta = Math.abs(dom.scrollTop - targetTop);
+        if (delta > 1) {
+          dom.scrollTo(0, targetTop);
+        }
       });
     }
   }, [scrollRef]);
@@ -1621,7 +1624,7 @@ function useScrollToBottom(
     if (autoScroll && !detach) {
       scrollDomToBottom();
     }
-  });
+  }, [autoScroll, detach, messages, scrollDomToBottom]);
 
   // auto scroll when messages length changes
   const lastMessagesLength = useRef(messages.length);
@@ -3300,9 +3303,15 @@ function _Chat() {
     return groups;
   }, [isMultiModel, messages]);
 
+  const scrollPagingStateRef = useRef({ lastTop: 0, lastSwitchAt: 0 });
+
   const onChatBodyScroll = (e: HTMLElement) => {
     const bottomHeight = e.scrollTop + e.clientHeight;
-    const edgeThreshold = e.clientHeight;
+    const edgeThreshold = isMobileScreen ? 24 : 36;
+    const hasScrollableSpace = e.scrollHeight > e.clientHeight + 1;
+    const now = Date.now();
+    const scrollDelta = e.scrollTop - scrollPagingStateRef.current.lastTop;
+    scrollPagingStateRef.current.lastTop = e.scrollTop;
 
     const isTouchTopEdge = e.scrollTop <= edgeThreshold;
     const isTouchBottomEdge = bottomHeight >= e.scrollHeight - edgeThreshold;
@@ -3312,10 +3321,28 @@ function _Chat() {
     const prevPageMsgIndex = msgRenderIndex - CHAT_PAGE_SIZE;
     const nextPageMsgIndex = msgRenderIndex + CHAT_PAGE_SIZE;
 
-    if (isTouchTopEdge && !isTouchBottomEdge) {
-      setMsgRenderIndex(prevPageMsgIndex);
-    } else if (isTouchBottomEdge) {
-      setMsgRenderIndex(nextPageMsgIndex);
+    // 在“无滚动条”或同时触顶触底（临界高度）时不做分页切换，避免抖动循环
+    if (
+      hasScrollableSpace &&
+      now - scrollPagingStateRef.current.lastSwitchAt > 120
+    ) {
+      if (
+        isTouchTopEdge &&
+        !isTouchBottomEdge &&
+        scrollDelta < -1 &&
+        msgRenderIndex > 0
+      ) {
+        scrollPagingStateRef.current.lastSwitchAt = now;
+        setMsgRenderIndex(prevPageMsgIndex);
+      } else if (
+        isTouchBottomEdge &&
+        !isTouchTopEdge &&
+        scrollDelta > 1 &&
+        msgRenderIndex < renderMessages.length - CHAT_PAGE_SIZE
+      ) {
+        scrollPagingStateRef.current.lastSwitchAt = now;
+        setMsgRenderIndex(nextPageMsgIndex);
+      }
     }
 
     setHitBottom(isHitBottom);

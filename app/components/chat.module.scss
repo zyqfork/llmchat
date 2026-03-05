@@ -616,6 +616,8 @@
   flex: 1;
   overflow: auto;
   overflow-x: hidden;
+  /* Reserve scrollbar space to avoid width reflow when scrollbar appears/disappears. */
+  scrollbar-gutter: stable;
   padding: 20px;
   padding-bottom: 40px;
   position: relative;
