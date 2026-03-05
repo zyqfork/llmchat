@@ -61,6 +61,7 @@ export interface LLMConfig {
   providerName?: string;
   temperature?: number;
   top_p?: number;
+  max_tokens?: number;
   stream?: boolean;
   presence_penalty?: number;
   frequency_penalty?: number;
@@ -179,7 +180,10 @@ class UnifiedClientApi extends LLMApi {
         messages,
         model: options.config.model,
         temperature: options.config.temperature,
-        maxTokens: undefined, // 可以从 config 中获取
+        topP: options.config.top_p,
+        maxTokens: options.config.max_tokens,
+        presencePenalty: options.config.presence_penalty,
+        frequencyPenalty: options.config.frequency_penalty,
         stream: options.config.stream,
         tools: options.tools,
         useResponseApiContext: options.useResponseApiContext,

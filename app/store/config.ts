@@ -75,13 +75,13 @@ export const DEFAULT_CONFIG = {
     model: "gpt-4o-mini" as ModelType,
     providerName: "OpenAI" as string,
     temperature: 0.7,
-    top_p: 0.95,
-    max_tokens: 8000,
+    top_p: 1,
+    max_tokens: 8192,
     presence_penalty: 0,
     frequency_penalty: 0,
     sendMemory: true,
     historyMessageCount: 4,
-    compressMessageLengthThreshold: 8000, // 默认8K tokens
+    compressMessageLengthThreshold: 8192, // 默认8K tokens
     autoTitleMinUserTokens: 20,
     autoTitleMinUserMessages: 1,
     autoTitleRefreshInterval: 4,
@@ -252,7 +252,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.6,
+    version: 4.7,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -289,7 +289,7 @@ export const useAppConfig = createPersistStore(
       if (version < 3.4) {
         state.modelConfig.sendMemory = true;
         state.modelConfig.historyMessageCount = 4;
-        state.modelConfig.compressMessageLengthThreshold = 1000;
+        state.modelConfig.compressMessageLengthThreshold = 8000;
         state.modelConfig.frequency_penalty = 0;
         state.modelConfig.top_p = 1;
         state.modelConfig.template = DEFAULT_INPUT_TEMPLATE;
@@ -354,6 +354,15 @@ export const useAppConfig = createPersistStore(
       if (version < 4.6) {
         state.modelConfig.topicModel = "";
         state.modelConfig.topicProviderName = "";
+      }
+
+      if (version < 4.7) {
+        state.modelConfig.top_p = 1;
+        state.modelConfig.max_tokens = 8192;
+        state.modelConfig.compressMessageLengthThreshold = Math.max(
+          8192,
+          state.modelConfig.compressMessageLengthThreshold || 0,
+        );
       }
 
       return state as any;

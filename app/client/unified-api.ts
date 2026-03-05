@@ -18,7 +18,10 @@ export interface UnifiedChatOptions {
   messages: SimpleMessage[];
   model: string;
   temperature?: number;
+  topP?: number;
   maxTokens?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
   stream?: boolean;
   tools?: any[];
   systemPrompt?: string;
@@ -199,7 +202,10 @@ export function unifiedChat(
     messages,
     model,
     temperature,
+    topP,
     maxTokens,
+    presencePenalty,
+    frequencyPenalty,
     stream = false,
     tools,
     systemPrompt,
@@ -318,7 +324,10 @@ export function unifiedChat(
   const requestOptions: any = {
     messages: convertMessages(messages),
     temperature,
+    topP,
     maxTokens,
+    presencePenalty,
+    frequencyPenalty,
     providerOptions: options.providerOptions,
   };
 
