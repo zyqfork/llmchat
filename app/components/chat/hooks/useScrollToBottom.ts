@@ -10,17 +10,12 @@ export function useScrollToBottom(
   forceFollow: boolean = false,
 ) {
   const [autoScroll, setAutoScroll] = useState(initialAutoScroll);
-  const settleRaf1Ref = useRef<number | null>(null);
-  const settleRaf2Ref = useRef<number | null>(null);
+  const settleRafRef = useRef<number | null>(null);
   const followRafRef = useRef<number | null>(null);
   const cancelPendingAutoScroll = useCallback(() => {
-    if (settleRaf1Ref.current != null) {
-      cancelAnimationFrame(settleRaf1Ref.current);
-      settleRaf1Ref.current = null;
-    }
-    if (settleRaf2Ref.current != null) {
-      cancelAnimationFrame(settleRaf2Ref.current);
-      settleRaf2Ref.current = null;
+    if (settleRafRef.current != null) {
+      cancelAnimationFrame(settleRafRef.current);
+      settleRafRef.current = null;
     }
     if (followRafRef.current != null) {
       cancelAnimationFrame(followRafRef.current);
@@ -38,20 +33,28 @@ export function useScrollToBottom(
   const isAutoScrollLocked = useCallback(() => autoScrollLockedRef.current, []);
   const scrollDomToBottom = useCallback(() => {
     if (autoScrollLockedRef.current) return;
+    if (settleRafRef.current != null) return;
     const dom = scrollRef.current;
     if (dom) {
-      // 双 rAF：等 React 提交 + 浏览器布局后再读 scrollHeight，避免流式时读到旧高度
-      settleRaf1Ref.current = requestAnimationFrame(() => {
-        settleRaf2Ref.current = requestAnimationFrame(() => {
-          settleRaf1Ref.current = null;
-          settleRaf2Ref.current = null;
-          if (autoScrollLockedRef.current) return;
-          const targetTop = dom.scrollHeight;
-          const delta = Math.abs(dom.scrollTop + dom.clientHeight - targetTop);
-          if (delta > 1) {
-            dom.scrollTo(0, targetTop);
+      // Coalesce streaming updates: at most one bottom-alignment per frame.
+      settleRafRef.current = requestAnimationFrame(() => {
+        settleRafRef.current = null;
+        if (autoScrollLockedRef.current) return;
+        const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+        const delta = Math.abs(dom.scrollTop - maxTop);
+        if (delta > 0.5) {
+          // Pixel-smooth follow: approach bottom progressively instead of snapping.
+          const direction = maxTop > dom.scrollTop ? 1 : -1;
+          const easedStep = Math.max(0.8, Math.min(24, delta * 0.28));
+          const nextTop = dom.scrollTop + direction * easedStep;
+          if (Math.abs(maxTop - nextTop) <= 0.8) {
+            dom.scrollTop = maxTop;
+          } else {
+            dom.scrollTop = nextTop;
+            // Keep following on next frame until fully settled at bottom.
+            scrollDomToBottom();
           }
-        });
+        }
       });
     }
   }, [scrollRef]);

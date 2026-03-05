@@ -175,6 +175,43 @@ type SessionScrollState = {
   hitBottom: boolean;
 };
 const sessionScrollStateMap = new Map<string, SessionScrollState>();
+const SESSION_SCROLL_STATE_KEY = (sessionId: string) =>
+  `session_scroll_state_${sessionId}`;
+
+function getPersistedSessionScrollState(
+  sessionId: string,
+): SessionScrollState | undefined {
+  try {
+    const raw = localStorage.getItem(SESSION_SCROLL_STATE_KEY(sessionId));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as SessionScrollState;
+    if (
+      typeof parsed?.scrollTop !== "number" ||
+      typeof parsed?.bottomOffset !== "number" ||
+      typeof parsed?.msgRenderIndex !== "number" ||
+      typeof parsed?.hitBottom !== "boolean"
+    ) {
+      return undefined;
+    }
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function persistSessionScrollState(
+  sessionId: string,
+  state: SessionScrollState,
+) {
+  try {
+    localStorage.setItem(
+      SESSION_SCROLL_STATE_KEY(sessionId),
+      JSON.stringify(state),
+    );
+  } catch {
+    // ignore storage write failures
+  }
+}
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -377,7 +414,11 @@ function _Chat() {
   }, []);
 
   const isTyping = userInput !== "";
-  const savedScrollState = sessionScrollStateMap.get(session.id);
+  const savedScrollState =
+    sessionScrollStateMap.get(session.id) ??
+    getPersistedSessionScrollState(session.id);
+  const defaultFollowOnLoad =
+    savedScrollState?.hitBottom ?? session.messages.length <= 1;
   const lastSessionMessage = session.messages[session.messages.length - 1];
   const lastSessionMessageText = lastSessionMessage
     ? getMessageTextContent(lastSessionMessage)
@@ -402,13 +443,11 @@ function _Chat() {
     scrollRef,
     !(isScrolledToBottom || isAttachWithTop) && !isTyping,
     session.messages,
-    savedScrollState?.hitBottom ?? true,
+    defaultFollowOnLoad,
     scrollTrigger,
     isStreamingFollow,
   );
-  const [hitBottom, setHitBottom] = useState(
-    savedScrollState?.hitBottom ?? true,
-  );
+  const [hitBottom, setHitBottom] = useState(defaultFollowOnLoad);
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const { isCollapsed, toggleSideBarCollapse } = useDragSideBar();
@@ -474,7 +513,7 @@ function _Chat() {
     setUserInput(text);
     if (text.length > 0 && !hitBottom) {
       setAutoScroll(true);
-      scrollToBottom();
+      jumpToBottom();
     }
     const n = text.trim().length;
 
@@ -1065,7 +1104,9 @@ function _Chat() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const saved = sessionScrollStateMap.get(session.id);
+    const saved =
+      sessionScrollStateMap.get(session.id) ??
+      getPersistedSessionScrollState(session.id);
     if (!saved) {
       return;
     }
@@ -1159,19 +1200,22 @@ function _Chat() {
     }
     const maxStart = Math.max(0, renderMessages.length - CHAT_PAGE_SIZE);
     const isTrulyBottom = isHitBottom && msgRenderIndexRef.current >= maxStart;
-    sessionScrollStateMap.set(session.id, {
+    const nextState = {
       scrollTop: e.scrollTop,
       bottomOffset,
       msgRenderIndex: msgRenderIndexRef.current,
       hitBottom: isTrulyBottom,
-    });
+    };
+    sessionScrollStateMap.set(session.id, nextState);
+    persistSessionScrollState(session.id, nextState);
   };
 
   const onChatBodyWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const dom = e.currentTarget;
     const hasScrollableSpace = dom.scrollHeight > dom.clientHeight + 1;
+    const shouldInterceptUpScroll = isStreamingFollow && autoScroll;
     // Only lock when content is actually scrollable and user scrolls upward.
-    if (hasScrollableSpace && e.deltaY < 0) {
+    if (hasScrollableSpace && shouldInterceptUpScroll && e.deltaY < 0) {
       lockAutoScroll();
       cancelPendingAutoScroll();
       setAutoScroll(false);
@@ -1188,6 +1232,16 @@ function _Chat() {
     scrollDomToBottom();
   }
 
+  function jumpToBottom() {
+    setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
+    cancelPendingAutoScroll();
+    const dom = scrollRef.current;
+    if (dom) {
+      const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+      dom.scrollTop = maxTop;
+    }
+  }
+
   const handleInputFocusOrClick = () => {
     if (hitBottom) {
       scrollToBottom();
@@ -1195,7 +1249,11 @@ function _Chat() {
   };
 
   useEffect(() => {
-    if (!isStreamingFollow || !autoScroll || isAutoScrollLocked()) return;
+    if (!isStreamingFollow || isAutoScrollLocked()) return;
+    if (!autoScroll) {
+      setAutoScroll(true);
+      return;
+    }
     if (isMultiModel) {
       setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     }
@@ -1203,6 +1261,7 @@ function _Chat() {
   }, [
     isStreamingFollow,
     autoScroll,
+    setAutoScroll,
     isAutoScrollLocked,
     scrollTrigger,
     renderMessages.length,
@@ -2044,7 +2103,12 @@ function _Chat() {
               onTouchStart={() => {
                 inputRef.current?.blur();
                 const dom = scrollRef.current;
-                if (dom && dom.scrollHeight > dom.clientHeight + 1) {
+                if (
+                  dom &&
+                  dom.scrollHeight > dom.clientHeight + 1 &&
+                  isStreamingFollow &&
+                  autoScroll
+                ) {
                   lockAutoScroll();
                   setAutoScroll(false);
                 }

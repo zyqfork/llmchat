@@ -651,6 +651,10 @@
   &:last-child {
     animation: slide-in ease 0.3s;
   }
+
+  &.streaming:last-child {
+    animation: none;
+  }
 }
 
 .chat-message-user {
@@ -2281,8 +2285,8 @@
   /* 优化动画性能 */
   &.streaming {
     .chat-message-item {
-      /* 流式消息的动画优化 */
-      animation: fadeIn 0.3s ease-in-out;
+      /* Avoid per-chunk animation jitter during streaming updates. */
+      animation: none;
     }
   }
 }
