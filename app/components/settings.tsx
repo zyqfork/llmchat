@@ -1514,22 +1514,24 @@ export function Settings() {
   const [collapsedProviders, setCollapsedProviders] = useState<
     Record<string, boolean>
   >(() => {
-    // 动态生成初始折叠状态
+    // 动态生成初始折叠状态 - 只有启用的厂商才展开
     const initialState: Record<string, boolean> = {};
     getAllProviders().forEach((provider) => {
-      // 使用 UI 配置中的 defaultCollapsed 设置，默认为 true（除了 OpenAI）
-      initialState[provider.name] = provider.ui?.defaultCollapsed ?? true;
+      const isEnabled = accessStore.enabledProviders?.[provider.name] || false;
+      // 启用的厂商默认展开，未启用的默认折叠
+      initialState[provider.name] = !isEnabled;
     });
     return initialState;
   });
 
-  // 自定义服务商的折叠状态 - 默认全部折叠
+  // 自定义服务商的折叠状态 - 只有启用的厂商才展开
   const [collapsedCustomProviders, setCollapsedCustomProviders] = useState<
     Record<string, boolean>
   >(() => {
     const initialState: Record<string, boolean> = {};
     accessStore.customProviders.forEach((provider) => {
-      initialState[provider.id] = true; // 默认折叠
+      // 启用的厂商默认展开，未启用的默认折叠
+      initialState[provider.id] = !provider.enabled;
     });
     return initialState;
   });
@@ -1540,7 +1542,8 @@ export function Settings() {
       const newState = { ...prev };
       accessStore.customProviders.forEach((provider) => {
         if (!(provider.id in newState)) {
-          newState[provider.id] = true; // 新添加的服务商默认折叠
+          // 新添加的服务商：启用的展开，未启用的折叠
+          newState[provider.id] = !provider.enabled;
         }
       });
       return newState;
@@ -2694,10 +2697,16 @@ export function Settings() {
                         type="checkbox"
                         checked={isEnabled}
                         onChange={(e) => {
+                          const newEnabledState = e.target.checked;
                           if (config.isCustom) {
                             accessStore.updateCustomProvider(config.provider, {
-                              enabled: e.target.checked,
+                              enabled: newEnabledState,
                             });
+                            // 启用时展开，禁用时折叠
+                            setCollapsedCustomProviders((prev) => ({
+                              ...prev,
+                              [config.provider as string]: !newEnabledState,
+                            }));
                           } else {
                             accessStore.update((access) => {
                               if (!access.enabledProviders) {
@@ -2712,8 +2721,13 @@ export function Settings() {
                                 access.enabledProviders = initialProviders;
                               }
                               access.enabledProviders[config.provider] =
-                                e.target.checked;
+                                newEnabledState;
                             });
+                            // 启用时展开，禁用时折叠
+                            setCollapsedProviders((prev) => ({
+                              ...prev,
+                              [config.provider]: !newEnabledState,
+                            }));
                           }
                         }}
                       />
