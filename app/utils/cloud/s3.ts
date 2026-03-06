@@ -148,10 +148,7 @@ export function createS3Client(store: SyncStore) {
 
         const res = await tauriFetch(
           url.toString(),
-          {
-            method: "HEAD",
-            headers,
-          },
+          { method: "HEAD", headers },
           FetchType.Sync,
         );
 
@@ -176,10 +173,7 @@ export function createS3Client(store: SyncStore) {
 
       const res = await tauriFetch(
         url.toString(),
-        {
-          method: "GET",
-          headers,
-        },
+        { method: "GET", headers },
         FetchType.Sync,
       );
 
@@ -205,11 +199,7 @@ export function createS3Client(store: SyncStore) {
 
       const res = await tauriFetch(
         url.toString(),
-        {
-          method: "PUT",
-          headers,
-          body: value,
-        },
+        { method: "PUT", headers, body: value },
         FetchType.Sync,
       );
 

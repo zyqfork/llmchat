@@ -22,10 +22,7 @@ export function createUpstashClient(store: SyncStore) {
         const testKey = config.username || STORAGE_KEY;
         const res = await fetch(
           this.path(`get/${testKey}`, proxyUrl),
-          {
-            method: "GET",
-            headers: this.headers(),
-          },
+          { method: "GET", headers: this.headers() },
           FetchType.Sync,
         );
         logger.debug("[Upstash] check", res.status, res.statusText);
@@ -39,10 +36,7 @@ export function createUpstashClient(store: SyncStore) {
     async redisGet(key: string) {
       const res = await fetch(
         this.path(`get/${key}`, proxyUrl),
-        {
-          method: "GET",
-          headers: this.headers(),
-        },
+        { method: "GET", headers: this.headers() },
         FetchType.Sync,
       );
 
@@ -53,11 +47,7 @@ export function createUpstashClient(store: SyncStore) {
     async redisSet(key: string, value: string) {
       const res = await fetch(
         this.path(`set/${key}`, proxyUrl),
-        {
-          method: "POST",
-          headers: this.headers(),
-          body: value,
-        },
+        { method: "POST", headers: this.headers(), body: value },
         FetchType.Sync,
       );
       logger.debug("[Upstash] set key", key, res.status, res.statusText);

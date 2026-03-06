@@ -13,10 +13,9 @@ import { fetch as tauriFetch, isTauriApp, FetchType } from "../utils/fetch";
 // SDK实例缓存
 const sdkInstances = new Map<string, any>();
 
-// 获取适合的 fetch 函数
+// 获取适合的 fetch 函数（供 AI SDK 的 generateText/streamText 使用）
 function getCustomFetch(): typeof fetch | undefined {
   if (isTauriApp()) {
-    // 在 Tauri 环境中，使用自定义 fetch 函数，指定为 LLM 请求类型
     const customFetch = (
       url: string | URL | Request,
       options?: RequestInit,
@@ -24,11 +23,9 @@ function getCustomFetch(): typeof fetch | undefined {
       const urlString = typeof url === "string" ? url : url.toString();
       return tauriFetch(urlString, options, FetchType.LLM);
     };
-    // 添加 preconnect 属性以匹配 fetch 类型
     (customFetch as any).preconnect = () => {};
     return customFetch as typeof fetch;
   }
-  // 在其他环境中，使用默认的 fetch（不传递 fetch 参数）
   return undefined;
 }
 

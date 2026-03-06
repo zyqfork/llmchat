@@ -13,17 +13,7 @@ fn main() {
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_updater::Builder::new().build())
-    .invoke_handler(tauri::generate_handler![
-      // MCP 请求
-      fetch::tauri_fetch_mcp,
-      fetch::tauri_fetch_mcp_stream,
-      // 大模型请求
-      fetch::tauri_fetch_llm,
-      fetch::tauri_fetch_llm_stream,
-      // 云同步请求
-      fetch::tauri_fetch_sync,
-      fetch::tauri_fetch_sync_stream
-    ])
+    .invoke_handler(tauri::generate_handler![fetch::tauri_fetch])
     .setup(|_app| {
       // 只在启用 debug-devtools feature 时打开开发者工具
       #[cfg(feature = "debug-devtools")]

@@ -40,10 +40,7 @@ export function createGitHubClient(store: SyncStore) {
         const { owner, repo } = parseRepo();
         const res = await tauriFetch(
           `${apiBase}/repos/${owner}/${repo}`,
-          {
-            method: "GET",
-            headers: this.headers(),
-          },
+          { method: "GET", headers: this.headers() },
           FetchType.Sync,
         );
 
@@ -63,10 +60,7 @@ export function createGitHubClient(store: SyncStore) {
 
         const res = await tauriFetch(
           `${apiBase}/repos/${owner}/${repo}/contents/${fullPath}?ref=${branch}`,
-          {
-            method: "GET",
-            headers: this.headers(),
-          },
+          { method: "GET", headers: this.headers() },
           FetchType.Sync,
         );
 
@@ -110,10 +104,7 @@ export function createGitHubClient(store: SyncStore) {
       let sha: string | undefined;
       const existingRes = await tauriFetch(
         `${apiBase}/repos/${owner}/${repo}/contents/${fullPath}?ref=${branch}`,
-        {
-          method: "GET",
-          headers: this.headers(),
-        },
+        { method: "GET", headers: this.headers() },
         FetchType.Sync,
       );
 

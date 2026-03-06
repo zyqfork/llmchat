@@ -15,10 +15,7 @@ export function createWebDavClient(store: SyncStore) {
       try {
         const res = await fetch(
           this.path(config.username || STORAGE_KEY, proxyUrl, "MKCOL"),
-          {
-            method: "GET",
-            headers: this.headers(),
-          },
+          { method: "GET", headers: this.headers() },
           FetchType.Sync,
         );
         const success = [201, 200, 404, 405, 301, 302, 307, 308].includes(
@@ -39,10 +36,7 @@ export function createWebDavClient(store: SyncStore) {
     async get(filePath: string) {
       const res = await fetch(
         this.path(filePath, proxyUrl),
-        {
-          method: "GET",
-          headers: this.headers(),
-        },
+        { method: "GET", headers: this.headers() },
         FetchType.Sync,
       );
 
@@ -61,21 +55,14 @@ export function createWebDavClient(store: SyncStore) {
       if (dirPath) {
         await fetch(
           this.path(dirPath, proxyUrl, "MKCOL"),
-          {
-            method: "MKCOL",
-            headers: this.headers(),
-          },
+          { method: "MKCOL", headers: this.headers() },
           FetchType.Sync,
         );
       }
 
       const res = await fetch(
         this.path(filePath, proxyUrl),
-        {
-          method: "PUT",
-          headers: this.headers(),
-          body: value,
-        },
+        { method: "PUT", headers: this.headers(), body: value },
         FetchType.Sync,
       );
 
