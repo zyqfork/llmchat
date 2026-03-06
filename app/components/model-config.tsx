@@ -95,12 +95,11 @@ export function ModelConfigList(props: {
 
   // 构建对话摘要模型的value
   const compressModelValue = (() => {
-    if (!props.modelConfig.compressModel) {
-      return "";
-    }
-
-    const currentModel = props.modelConfig.compressModel;
-    const currentProviderName = props.modelConfig.compressProviderName;
+    // 如果没配置摘要模型，使用当前对话模型作为默认值（与标题生成模型逻辑一致）
+    const currentModel =
+      props.modelConfig.compressModel || props.modelConfig.model;
+    const currentProviderName =
+      props.modelConfig.compressProviderName || props.modelConfig.providerName;
 
     // 查找匹配的模型，确保value格式一致
     for (const providerGroup of Object.values(groupModels)) {
@@ -126,12 +125,11 @@ export function ModelConfigList(props: {
 
   // 构建提示词优化模型的value
   const optimizeModelValue = (() => {
-    if (!props.modelConfig.optimizeModel) {
-      return "";
-    }
-
-    const currentModel = props.modelConfig.optimizeModel;
-    const currentProviderName = props.modelConfig.optimizeProviderName;
+    // 如果没配置优化模型，使用当前对话模型作为默认值（与标题生成模型逻辑一致）
+    const currentModel =
+      props.modelConfig.optimizeModel || props.modelConfig.model;
+    const currentProviderName =
+      props.modelConfig.optimizeProviderName || props.modelConfig.providerName;
 
     // 查找匹配的模型，确保value格式一致
     for (const providerGroup of Object.values(groupModels)) {
