@@ -204,12 +204,18 @@ export function MaskConfig(props: {
     });
   };
 
+  const globalConfig = useAppConfig();
+
+  // 默认助手：模型配置只读并始终显示当前全局配置
+  const isDefaultAssistant = props.mask.id === DEFAULT_MASK_ID;
+  const displayModelConfig = isDefaultAssistant
+    ? globalConfig.modelConfig
+    : props.mask.modelConfig;
+
   const copyMaskLink = () => {
     const maskLink = `${location.protocol}//${location.host}/#${Path.NewChat}?mask=${props.mask.id}`;
     copyToClipboard(maskLink);
   };
-
-  const globalConfig = useAppConfig();
 
   return (
     <>
@@ -312,7 +318,7 @@ export function MaskConfig(props: {
           </ListItem>
         )}
 
-        {!props.shouldSyncFromGlobal ? (
+        {!props.shouldSyncFromGlobal && !isDefaultAssistant ? (
           <ListItem
             title={Locale.Mask.Config.Share.Title}
             subTitle={Locale.Mask.Config.Share.SubTitle}
@@ -326,7 +332,7 @@ export function MaskConfig(props: {
           </ListItem>
         ) : null}
 
-        {props.shouldSyncFromGlobal ? (
+        {props.shouldSyncFromGlobal && !isDefaultAssistant ? (
           <ListItem
             title={Locale.Mask.Config.Sync.Title}
             subTitle={Locale.Mask.Config.Sync.SubTitle}
@@ -365,6 +371,15 @@ export function MaskConfig(props: {
             updateConfig={updateConfig}
             showModelSelector={true}
             showGlobalOption={true}
+          />
+        ) : isDefaultAssistant ? (
+          // 默认助手：只读，始终显示当前全局配置（设置-模型配置）
+          <ModelConfigList
+            modelConfig={{ ...displayModelConfig }}
+            updateConfig={updateConfig}
+            showModelSelector={false}
+            showGlobalOption={false}
+            readOnly={true}
           />
         ) : (
           // 助手编辑：显示默认模型选择器
@@ -848,7 +863,7 @@ export function MaskPage() {
               updateMask={(updater) =>
                 maskStore.updateMask(editingMaskId!, updater)
               }
-              readonly={false}
+              readonly={editingMask?.id === DEFAULT_MASK_ID}
             />
           </Modal>
         </div>

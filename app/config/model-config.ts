@@ -352,8 +352,9 @@ export function getModelCompressThreshold(
   const safeRatio = Math.min(0.9, Math.max(0.1, ratio || 0.5));
   const threshold = Math.floor(contextConfig.contextTokens * safeRatio);
 
-  // 默认最小保底 8k，防止小窗口模型过早压缩
-  return Math.max(8000, Math.min(threshold, 32000));
+  // 限制最大值为 128k，避免超大模型的压缩阈值过高
+  // 移除最小值限制，允许用户设置较小的压缩阈值用于测试
+  return Math.min(threshold, 128000);
 }
 
 /**

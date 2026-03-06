@@ -653,9 +653,24 @@ export function createSDKInstance(
 // 清除SDK实例缓存
 export function clearSDKCache(providerId?: string) {
   if (providerId) {
-    sdkInstances.delete(providerId);
+    // 清除所有与该 provider 相关的缓存键
+    const keysToDelete: string[] = [];
+    for (const key of sdkInstances.keys()) {
+      if (key === providerId || key.startsWith(`${providerId}-`)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach((key) => sdkInstances.delete(key));
+
+    if (keysToDelete.length > 0) {
+      logger.debug(
+        `[SDK Manager] Cleared ${keysToDelete.length} SDK cache entries for provider: ${providerId}`,
+        keysToDelete,
+      );
+    }
   } else {
     sdkInstances.clear();
+    logger.debug("[SDK Manager] Cleared all SDK cache entries");
   }
 }
 

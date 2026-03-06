@@ -22,6 +22,7 @@ export function ModelConfigList(props: {
   updateConfig: (updater: (config: ModelConfig) => void) => void;
   showModelSelector?: boolean; // 新增参数控制是否显示模型选择器
   showGlobalOption?: boolean; // 新增参数控制是否显示"使用全局配置"选项
+  readOnly?: boolean; // 只读（如默认助手在助手管理中显示全局配置）
 }) {
   // 直接使用启用的模型，无需额外过滤
   const availableModels = useEnabledModels();
@@ -180,6 +181,8 @@ export function ModelConfigList(props: {
     return `${currentModel}@${currentProviderName}`;
   })();
 
+  const disabled = !!props.readOnly;
+
   return (
     <>
       {props.showModelSelector && (
@@ -189,6 +192,7 @@ export function ModelConfigList(props: {
             aria-label={Locale.Settings.Model}
             value={value}
             align="left"
+            disabled={disabled}
             onChange={(e) => {
               const [model, providerName] = getModelProvider(
                 e.currentTarget.value,
@@ -207,12 +211,9 @@ export function ModelConfigList(props: {
                   config.thinkingBudget = -1; // 默认为动态思考
                 }
 
-                // 根据新模型自动更新压缩阈值
-                const autoThreshold = getModelCompressThreshold(
-                  config.model,
-                  config.compressThresholdRatio,
-                );
-                config.compressMessageLengthThreshold = autoThreshold;
+                // 不自动更新压缩阈值，让用户独立配置
+                // compressMessageLengthThreshold 是固定值
+                // compressThresholdRatio 用于计算动态阈值
               });
             }}
           >
@@ -249,8 +250,9 @@ export function ModelConfigList(props: {
           aria={Locale.Settings.Temperature.Title}
           value={props.modelConfig.temperature?.toFixed(1)}
           min="0"
-          max="1" // lets limit it to 0-1
+          max="1"
           step="0.1"
+          disabled={disabled}
           onChange={(e) => {
             props.updateConfig(
               (config) =>
@@ -271,6 +273,7 @@ export function ModelConfigList(props: {
           min="0"
           max="1"
           step="0.1"
+          disabled={disabled}
           onChange={(e) => {
             props.updateConfig(
               (config) =>
@@ -291,6 +294,7 @@ export function ModelConfigList(props: {
           min={1024}
           max={512000}
           value={props.modelConfig.max_tokens}
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -314,6 +318,7 @@ export function ModelConfigList(props: {
               min="-2"
               max="2"
               step="0.1"
+              disabled={disabled}
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
@@ -336,6 +341,7 @@ export function ModelConfigList(props: {
               min="-2"
               max="2"
               step="0.1"
+              disabled={disabled}
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
@@ -356,6 +362,7 @@ export function ModelConfigList(props: {
               aria-label={Locale.Settings.InjectSystemPrompts.Title}
               type="checkbox"
               checked={props.modelConfig.enableInjectSystemPrompts}
+              disabled={disabled}
               onChange={(e) =>
                 props.updateConfig(
                   (config) =>
@@ -374,6 +381,7 @@ export function ModelConfigList(props: {
               aria-label={Locale.Settings.InputTemplate.Title}
               type="text"
               value={props.modelConfig.template}
+              disabled={disabled}
               onChange={(e) =>
                 props.updateConfig(
                   (config) => (config.template = e.currentTarget.value),
@@ -394,6 +402,7 @@ export function ModelConfigList(props: {
           min="0"
           max="64"
           step="1"
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) => (config.historyMessageCount = e.target.valueAsNumber),
@@ -412,6 +421,7 @@ export function ModelConfigList(props: {
           min={1}
           max={10000}
           value={props.modelConfig.autoTitleMinUserTokens ?? 20}
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -435,6 +445,7 @@ export function ModelConfigList(props: {
           min="1"
           max="20"
           step="1"
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -458,6 +469,7 @@ export function ModelConfigList(props: {
           min="1"
           max="20"
           step="1"
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -497,6 +509,7 @@ export function ModelConfigList(props: {
             props.modelConfig.model,
             props.modelConfig.compressThresholdRatio,
           ).toString()}
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -522,16 +535,15 @@ export function ModelConfigList(props: {
           min="10"
           max="90"
           step="5"
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig((config) => {
               const ratio = ModalConfigValidator.compressThresholdRatio(
                 e.target.valueAsNumber / 100,
               );
               config.compressThresholdRatio = ratio;
-              config.compressMessageLengthThreshold = getModelCompressThreshold(
-                config.model,
-                ratio,
-              );
+              // 不自动更新 compressMessageLengthThreshold
+              // 让用户可以独立设置这两个值
             })
           }
         ></InputRange>
@@ -548,6 +560,7 @@ export function ModelConfigList(props: {
           min="1"
           max="20"
           step="1"
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
@@ -564,6 +577,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Memory.Title}
           type="checkbox"
           checked={props.modelConfig.sendMemory}
+          disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
               (config) => (config.sendMemory = e.currentTarget.checked),
@@ -580,6 +594,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
           align="left"
+          disabled={disabled}
           onChange={(e) => {
             const value = e.currentTarget.value;
             if (value === "") {
@@ -635,6 +650,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.OptimizeModel.Title}
           value={optimizeModelValue}
           align="left"
+          disabled={disabled}
           onChange={(e) => {
             const value = e.currentTarget.value;
             if (value === "") {
@@ -690,6 +706,7 @@ export function ModelConfigList(props: {
           aria-label={"标题生成模型"}
           value={topicModelValue}
           align="left"
+          disabled={disabled}
           onChange={(e) => {
             const value = e.currentTarget.value;
             if (value === "") {

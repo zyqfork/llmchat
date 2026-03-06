@@ -529,14 +529,14 @@ const en: LocaleType = {
       SubTitle: "Update title after this many new user messages",
     },
     CompressThreshold: {
-      Title: "History Compression Threshold",
+      Title: "Fixed Compression Threshold",
       SubTitle:
-        "Will compress if uncompressed messages length exceeds the value",
+        "Triggers compression when uncompressed messages exceed this fixed value (independent condition)",
     },
     CompressThresholdRatio: {
-      Title: "Compression Threshold Ratio",
+      Title: "Dynamic Compression Threshold Ratio",
       SubTitle:
-        "Auto threshold ratio relative to model context window (10%-90%)",
+        "Calculates dynamic threshold based on model context window (independent condition, 10%-90%)",
     },
     SummaryMinUserMessages: {
       Title: "Summary Min User Messages",
@@ -1218,6 +1218,11 @@ const en: LocaleType = {
         Title: "Share This Assistant",
         SubTitle: "Generate a link to this assistant",
         Action: "Copy Link",
+      },
+      ReadOnlySync: {
+        Title: "Read-only · Synced with Global",
+        SubTitle:
+          "These settings follow Settings → Model Config. Change them in Settings.",
       },
     },
   },

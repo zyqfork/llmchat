@@ -36,7 +36,7 @@ import { ModelConfigList } from "./model-config";
 import { ProviderIcon } from "./provider-icon";
 import { ModelCapabilityIcons } from "./model-capability-icons";
 import { getModelCapabilities } from "../constant";
-import { normalizeProviderName } from "../client/api";
+import { normalizeProviderName, LLMModel } from "../client/api";
 import {
   getModelCompressThreshold,
   getModelContextTokens,
@@ -52,6 +52,7 @@ import {
   useAccessStore,
   useAppConfig,
   CustomProviderType,
+  ChatConfig,
 } from "../store";
 import { ColorScheme } from "../constant";
 
@@ -1580,7 +1581,7 @@ export function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const clientConfig = useMemo(() => getClientConfig(), []);
+  const clientConfig = getClientConfig();
   const showAccessCode = enabledAccessControl && !clientConfig?.isApp;
 
   const accessCodeComponent = showAccessCode && (
@@ -2936,39 +2937,22 @@ export function Settings() {
   // 临时解决方案
   const availableModels = useEnabledModels();
 
-  const groupModels = groupBy(availableModels, (model) => {
-    const isCustomProvider = model.provider?.id?.startsWith("custom_");
-    if (isCustomProvider) {
-      const customProvider = accessStore.customProviders.find(
-        (p) => p.id === model.provider?.id,
-      );
-      return customProvider?.name || model.provider?.providerName;
-    }
-    return model.provider?.providerName;
-  });
+  const groupModels = React.useMemo(
+    () =>
+      groupBy(availableModels, (model) => {
+        const isCustomProvider = model.provider?.id?.startsWith("custom_");
+        if (isCustomProvider) {
+          const customProvider = accessStore.customProviders.find(
+            (p) => p.id === model.provider?.id,
+          );
+          return customProvider?.name || model.provider?.providerName;
+        }
+        return model.provider?.providerName;
+      }),
+    [availableModels, accessStore.customProviders],
+  );
 
-  // 打开模型配置弹窗
-  const openModelConfig = (provider: string, modelName: string) => {
-    const currentCapabilities = getModelCapabilities(modelName);
-
-    // 获取当前上下文Token数配置
-    const currentContextConfig = getModelContextTokens(modelName);
-    const currentContextTokens = currentContextConfig?.contextTokens;
-
-    setModelConfigForm({
-      modelId: modelName,
-      category: "", // 在设置页面中不显示分组
-      capabilities: {
-        vision: currentCapabilities.vision || false,
-        reasoning: currentCapabilities.reasoning || false,
-        tools: currentCapabilities.tools || false,
-      },
-      contextTokens: currentContextTokens,
-    });
-    setShowModelConfig(modelName);
-  };
-
-  // 模型配置设置
+  // 模型配置设置渲染函数
   const renderModelConfigSettings = () => {
     const getProviderAliases = (provider: string) => {
       const aliases = new Set<string>();
@@ -3054,11 +3038,18 @@ export function Settings() {
                 config.modelConfig.compressMessageLengthThreshold =
                   autoThreshold;
               });
+              window.dispatchEvent(
+                new CustomEvent("modelConfigUpdated", {
+                  detail: { modelName: model },
+                }),
+              );
             }}
           >
             {currentModelValue === "" && (
-              <option value="" disabled>
-                当前模型不可用，请重新选择
+              <option value="">
+                {Object.keys(groupModels).length > 0
+                  ? "请选择模型"
+                  : "暂无可用模型"}
               </option>
             )}
             {Object.keys(groupModels).map((providerName, index) => (
@@ -3083,11 +3074,37 @@ export function Settings() {
             const modelConfig = { ...config.modelConfig };
             updater(modelConfig);
             config.update((config) => (config.modelConfig = modelConfig));
+            window.dispatchEvent(
+              new CustomEvent("modelConfigUpdated", {
+                detail: { modelName: modelConfig.model },
+              }),
+            );
           }}
           showModelSelector={false}
         />
       </List>
     );
+  };
+
+  // 打开模型配置弹窗
+  const openModelConfig = (provider: string, modelName: string) => {
+    const currentCapabilities = getModelCapabilities(modelName);
+
+    // 获取当前上下文Token数配置
+    const currentContextConfig = getModelContextTokens(modelName);
+    const currentContextTokens = currentContextConfig?.contextTokens;
+
+    setModelConfigForm({
+      modelId: modelName,
+      category: "", // 在设置页面中不显示分组
+      capabilities: {
+        vision: currentCapabilities.vision || false,
+        reasoning: currentCapabilities.reasoning || false,
+        tools: currentCapabilities.tools || false,
+      },
+      contextTokens: currentContextTokens,
+    });
+    setShowModelConfig(modelName);
   };
 
   // 语音设置

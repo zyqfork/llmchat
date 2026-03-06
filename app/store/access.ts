@@ -144,7 +144,7 @@ const DEFAULT_ACCESS_STATE = {
   // 启用的服务提供商
   enabledProviders: {
     ...createProviderState(false),
-    [ServiceProvider.OpenAI.name]: true, // 默认启用 OpenAI
+    // 默认不启用任何服务商，由用户自行选择
   },
 
   // 每个服务商启用的模型列表（支持自定义服务商）
@@ -474,6 +474,10 @@ export const useAccessStore = createPersistStore(
     },
 
     updateCustomProvider(id: string, updates: Partial<CustomProvider>) {
+      // 检查是否更新了影响 SDK 实例的配置（endpoint 或 apiKey）
+      const needsCacheInvalidation =
+        updates.endpoint !== undefined || updates.apiKey !== undefined;
+
       set((state) => {
         const customProviders = state.customProviders.map((provider) => {
           if (provider.id !== id) {
@@ -515,6 +519,22 @@ export const useAccessStore = createPersistStore(
 
         return nextState;
       });
+
+      // 如果更新了 endpoint 或 apiKey，清除 SDK 缓存
+      if (needsCacheInvalidation) {
+        // 动态导入以避免循环依赖
+        import("../client/sdk-manager")
+          .then(({ clearSDKCache }) => {
+            clearSDKCache(id);
+            console.log(`[Access Store] Cleared SDK cache for provider: ${id}`);
+          })
+          .catch((error) => {
+            console.error(
+              `[Access Store] Failed to clear SDK cache for ${id}:`,
+              error,
+            );
+          });
+      }
     },
 
     removeCustomProvider(id: string) {

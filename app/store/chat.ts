@@ -52,7 +52,7 @@ import { getModelCompressThreshold } from "../config/model-config";
 import { getModelStreamConfig } from "../config/model-stream";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
-import { createDefaultMask, Mask } from "./mask";
+import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { logger } from "../utils/logger";
@@ -855,40 +855,36 @@ export const useChatStore = createPersistStore(
         const session = createEmptySession();
 
         if (mask) {
-          // 创建一个新的助手对象，确保不会修改原始助手
           const newMask = { ...mask };
 
-          // 深拷贝助手的模型配置，确保使用助手的完整配置
-          newMask.modelConfig = { ...mask.modelConfig };
-
-          // 如果助手有默认模型设置，需要确保模型配置中的模型和提供商是正确的
-          if (mask.defaultModel) {
-            const sessionModelConfig = getSessionModelConfig(mask);
-            newMask.modelConfig.model = sessionModelConfig.model;
-            newMask.modelConfig.providerName = sessionModelConfig.providerName;
-            // 根据模型更新压缩阈值
-            newMask.modelConfig.compressMessageLengthThreshold =
-              getModelCompressThreshold(
-                sessionModelConfig.model,
-                newMask.modelConfig.compressThresholdRatio,
-              );
+          if (mask.id === DEFAULT_MASK_ID) {
+            // 默认助手：新建会话时始终使用当前全局配置，后续仅在对话设置中修改后才使用自定义配置
+            const globalConfig = useAppConfig.getState().modelConfig;
+            newMask.modelConfig = {
+              ...globalConfig,
+              compressMessageLengthThreshold: getModelCompressThreshold(
+                globalConfig.model,
+                globalConfig.compressThresholdRatio,
+              ),
+            };
+            newMask.syncGlobalConfig = true;
           } else {
-            // 即使没有设置默认模型，也要确保使用全局配置
-            const sessionModelConfig = getSessionModelConfig(mask);
-            newMask.modelConfig.model = sessionModelConfig.model;
-            newMask.modelConfig.providerName = sessionModelConfig.providerName;
-            // 根据模型更新压缩阈值
-            newMask.modelConfig.compressMessageLengthThreshold =
-              getModelCompressThreshold(
-                sessionModelConfig.model,
-                newMask.modelConfig.compressThresholdRatio,
-              );
+            // 非默认助手：使用助手自己的配置
+            newMask.modelConfig = { ...mask.modelConfig };
+            if (mask.defaultModel) {
+              const sessionModelConfig = getSessionModelConfig(mask);
+              newMask.modelConfig.model = sessionModelConfig.model;
+              newMask.modelConfig.providerName =
+                sessionModelConfig.providerName;
+            } else {
+              const sessionModelConfig = getSessionModelConfig(mask);
+              newMask.modelConfig.model = sessionModelConfig.model;
+              newMask.modelConfig.providerName =
+                sessionModelConfig.providerName;
+            }
+            newMask.syncGlobalConfig = false;
           }
 
-          // 禁用全局同步，防止后续操作覆盖我们的助手配置
-          newMask.syncGlobalConfig = false;
-
-          // 确保使用新创建的助手对象
           session.mask = newMask;
         }
 
@@ -2039,14 +2035,65 @@ export const useChatStore = createPersistStore(
           modelConfig.summaryMinUserMessages ??
           DEFAULT_SUMMARY_MIN_USER_MESSAGES;
 
-        // 当对话 tokens 接近阈值的 80% 时，提示用户可以压缩
-        const contextMessages = await get().getMessagesWithMemory();
-        const contextTokens = countMessages(contextMessages);
-        const threshold = modelConfig.compressMessageLengthThreshold;
+        // 计算两个独立的压缩触发条件：
+        // 1. 固定阈值：compressMessageLengthThreshold（用户手动设置的固定值）
+        // 2. 动态阈值：基于模型上下文窗口 × compressThresholdRatio
+
+        // 注意：这里不应该使用 getMessagesWithMemory()，因为它会根据 max_tokens 截断消息
+        // 我们需要计算所有未压缩的历史消息的实际长度
+        const effectiveStartIndex = Math.max(
+          clearContextIndex,
+          lastCompressedIdx >= 0 ? lastCompressedIdx : 0,
+        );
+        const uncompressedMessages = messages
+          .slice(effectiveStartIndex)
+          .filter((msg) => !msg.isError && !msg.isCompressedContextPrompt);
+        const contextTokens = countMessages(uncompressedMessages);
+
+        // 条件1：固定阈值
+        const fixedThreshold = modelConfig.compressMessageLengthThreshold;
+        const reachedFixedThreshold = contextTokens >= fixedThreshold;
+
+        // 条件2：动态阈值（基于模型上下文窗口）
+        const dynamicThreshold = getModelCompressThreshold(
+          modelConfig.model,
+          modelConfig.compressThresholdRatio,
+        );
+        const reachedDynamicThreshold = contextTokens >= dynamicThreshold;
+
+        // 满足任一条件即触发压缩
+        const shouldCompress =
+          (reachedFixedThreshold || reachedDynamicThreshold) &&
+          userMessageCount >= summaryMinUserMessages &&
+          modelConfig.sendMemory;
+
+        // 添加详细的调试日志
+        logger.debug("[Summarize] Compression check:", {
+          contextTokens,
+          fixedThreshold,
+          dynamicThreshold,
+          reachedFixedThreshold,
+          reachedDynamicThreshold,
+          userMessageCount,
+          summaryMinUserMessages,
+          sendMemory: modelConfig.sendMemory,
+          isSummarizing: session.isSummarizing,
+          forceCompress,
+          effectiveStartIndex,
+          uncompressedMessagesCount: uncompressedMessages.length,
+          shouldCompress,
+        });
+
+        // 当对话 tokens 接近任一阈值的 80% 时，提示用户可以压缩
+        const approachingThreshold =
+          (contextTokens >= fixedThreshold * 0.8 &&
+            contextTokens < fixedThreshold) ||
+          (contextTokens >= dynamicThreshold * 0.8 &&
+            contextTokens < dynamicThreshold);
+
         if (
           !refreshTitle &&
-          contextTokens >= threshold * 0.8 &&
-          contextTokens < threshold &&
+          approachingThreshold &&
           userMessageCount >= summaryMinUserMessages &&
           modelConfig.sendMemory &&
           !session.isSummarizing
@@ -2054,18 +2101,15 @@ export const useChatStore = createPersistStore(
           logger.debug(
             "[Summarize] Approaching threshold:",
             contextTokens,
-            "/",
-            threshold,
+            "/ fixed:",
+            fixedThreshold,
+            "/ dynamic:",
+            dynamicThreshold,
           );
           // 可以在这里添加 UI 提示，但为了不干扰用户，暂时只记录日志
         }
 
-        if (
-          forceCompress ||
-          (contextTokens >= modelConfig.compressMessageLengthThreshold &&
-            userMessageCount >= summaryMinUserMessages &&
-            modelConfig.sendMemory)
-        ) {
+        if (forceCompress || shouldCompress) {
           /** Destruct max_tokens while summarizing
            * this param is just shit
            **/

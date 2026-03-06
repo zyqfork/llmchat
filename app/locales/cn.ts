@@ -515,12 +515,12 @@ const cn = {
       SubTitle: "每新增多少条用户消息后更新标题",
     },
     CompressThreshold: {
-      Title: "历史消息长度压缩阈值",
-      SubTitle: "当未压缩的历史消息超过该值时，将进行压缩",
+      Title: "固定压缩阈值",
+      SubTitle: "当未压缩的历史消息超过该固定值时触发压缩（独立条件）",
     },
     CompressThresholdRatio: {
-      Title: "压缩阈值比例",
-      SubTitle: "自动阈值占模型上下文窗口的比例（10%-90%）",
+      Title: "动态压缩阈值比例",
+      SubTitle: "基于模型上下文窗口计算动态阈值（独立条件，10%-90%）",
     },
     SummaryMinUserMessages: {
       Title: "压缩最小用户消息数",
@@ -1194,6 +1194,10 @@ const cn = {
         Title: "分享此助手",
         SubTitle: "生成此助手的直达链接",
         Action: "复制链接",
+      },
+      ReadOnlySync: {
+        Title: "只读 · 同步全局配置",
+        SubTitle: "以下配置与「设置 - 模型配置」一致，请在设置中修改",
       },
     },
   },

@@ -82,7 +82,7 @@ export const DEFAULT_CONFIG = {
     sendMemory: true,
     historyMessageCount: 4,
     compressMessageLengthThreshold: 8192, // 默认8K tokens
-    compressThresholdRatio: 0.5, // 上下文窗口压缩比例，默认50%
+    compressThresholdRatio: 0.9, // 上下文窗口压缩比例，默认90%
     autoTitleMinUserTokens: 20,
     autoTitleMinUserMessages: 1,
     autoTitleRefreshInterval: 4,
