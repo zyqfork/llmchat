@@ -1,3 +1,14 @@
+// 只读时字体稍微变浅，能看出不可编辑且保持可读
+.readOnlyConfig {
+  opacity: 0.70;
+
+  input,
+  select {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
 .select-default-model {
   width: 60%;
   select {

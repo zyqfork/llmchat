@@ -184,7 +184,7 @@ export function ModelConfigList(props: {
   const disabled = !!props.readOnly;
 
   return (
-    <>
+    <div className={disabled ? styles.readOnlyConfig : undefined}>
       {props.showModelSelector && (
         <ListItem title={Locale.Settings.Model}>
           <Select
@@ -750,6 +750,6 @@ export function ModelConfigList(props: {
           ))}
         </Select>
       </ListItem>
-    </>
+    </div>
   );
 }
