@@ -155,6 +155,13 @@ import { SessionConfigModel } from "./chat/SessionConfigModel";
 import { ChatHeader } from "./chat/ChatHeader";
 import { PromptHints, type RenderPrompt } from "./chat/PromptHints";
 import { ChatActions } from "./chat/ChatActions";
+import { ChatDebugModal } from "./chat/ChatDebugModal";
+import {
+  sessionScrollStateMap,
+  getPersistedSessionScrollState,
+  persistSessionScrollState,
+} from "./chat/scrollState";
+import { filterMcpMessages } from "./chat/utils/filterMcpMessages";
 
 import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
@@ -169,50 +176,6 @@ import { logger } from "../utils/logger";
 const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
-type SessionScrollState = {
-  scrollTop: number;
-  bottomOffset: number;
-  msgRenderIndex: number;
-  hitBottom: boolean;
-};
-const sessionScrollStateMap = new Map<string, SessionScrollState>();
-const SESSION_SCROLL_STATE_KEY = (sessionId: string) =>
-  `session_scroll_state_${sessionId}`;
-
-function getPersistedSessionScrollState(
-  sessionId: string,
-): SessionScrollState | undefined {
-  try {
-    const raw = localStorage.getItem(SESSION_SCROLL_STATE_KEY(sessionId));
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as SessionScrollState;
-    if (
-      typeof parsed?.scrollTop !== "number" ||
-      typeof parsed?.bottomOffset !== "number" ||
-      typeof parsed?.msgRenderIndex !== "number" ||
-      typeof parsed?.hitBottom !== "boolean"
-    ) {
-      return undefined;
-    }
-    return parsed;
-  } catch {
-    return undefined;
-  }
-}
-
-function persistSessionScrollState(
-  sessionId: string,
-  state: SessionScrollState,
-) {
-  try {
-    localStorage.setItem(
-      SESSION_SCROLL_STATE_KEY(sessionId),
-      JSON.stringify(state),
-    );
-  } catch {
-    // ignore storage write failures
-  }
-}
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -231,115 +194,6 @@ function _Chat() {
   const session = chatStore.currentSession();
   const config = useAppConfig();
 
-  // 过滤和处理 MCP 相关的消息（合并/隐藏提示词模式下的“工具声明”消息）
-  const filterMcpMessages = (messages: ChatMessage[]): ChatMessage[] => {
-    // 1) 先过滤掉 isMcpResponse（原始工具响应）
-    const visible = messages.filter((m) => !m.isMcpResponse);
-
-    // 2) 逐条处理，抽取 ```json:mcp:<clientId> ... ``` 代码块，必要时把它们合并到下一条助手消息
-    const result: ChatMessage[] = [];
-
-    for (let i = 0; i < visible.length; i++) {
-      const m = visible[i];
-
-      // 压缩上下文消息直接透传，避免被 MCP 清洗逻辑误处理
-      if (m.isCompressedContextPrompt) {
-        result.push(m);
-        continue;
-      }
-
-      // 仅处理助手消息
-      if (m.role !== "assistant") {
-        result.push(m);
-        continue;
-      }
-
-      // 读取纯文本内容
-      const content =
-        typeof m.content === "string"
-          ? m.content
-          : Array.isArray(m.content)
-          ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
-          : "";
-
-      // 无 mcp 代码块，直接保留
-      if (!content.includes("```json:mcp:")) {
-        result.push(m);
-        continue;
-      }
-
-      // 提取 MCP 调用信息
-      const mcpMatches = Array.from(
-        content.matchAll(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/g),
-      );
-      let mcpCalls: Array<{
-        toolName: string;
-        clientId: string;
-        rawJson: string;
-      }> = [];
-      mcpMatches.forEach((match) => {
-        try {
-          const clientId = match[1];
-          const rawJson = match[2];
-          const mcpData = JSON.parse(rawJson);
-          const toolName = mcpData.params?.name || "工具";
-          mcpCalls.push({ toolName, clientId, rawJson });
-        } catch (e) {
-          // ignore parse error
-        }
-      });
-      // 去重：防止同一流式回复多次出现相同的 MCP 调用块
-      const seen = new Set<string>();
-      mcpCalls = mcpCalls.filter((c) => {
-        const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      // 移除代码块，保留其余内容
-      const cleanContent = content
-        .replace(/```json:mcp:[\s\S]*?```/g, "")
-        .trim();
-
-      // 如果当前这条消息在提示词模式下纯粹是“调用工具声明”（清理后没有内容），
-      // 则将 mcpCalls 合并到下一条助手消息的 mcpCalls 中，并丢弃本条，避免出现两条消息。
-      if (!cleanContent) {
-        // 向后查找下一条助手消息
-        let merged = false;
-        for (let j = i + 1; j < visible.length; j++) {
-          const next = visible[j];
-          if (next.role === "assistant") {
-            const nextAny: any = next as any;
-            const exist = Array.isArray(nextAny.mcpCalls)
-              ? nextAny.mcpCalls
-              : [];
-            // 合并并去重
-            const combined = [...exist, ...mcpCalls];
-            const seen2 = new Set<string>();
-            nextAny.mcpCalls = combined.filter((c: any) => {
-              const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
-              if (seen2.has(key)) return false;
-              seen2.add(key);
-              return true;
-            });
-            merged = true;
-            break;
-          }
-        }
-        if (!merged) {
-          // 若没有下一条助手消息，则把本条保留为“空内容+mcpCalls”，但前端将仅通过左上角徽标显示
-          result.push({ ...(m as any), content: "", mcpCalls } as any);
-        }
-        continue;
-      }
-
-      // 否则，保留本条消息，内容为清理后文本，并附带 mcpCalls
-      result.push({ ...(m as any), content: cleanContent, mcpCalls } as any);
-    }
-
-    return result;
-  };
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
   const [ratio, setRatio] = useState<number>(1); // 預設正方形
@@ -2549,142 +2403,14 @@ function _Chat() {
         <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />
       )}
 
-      {debugModalOpen && (
-        <div className="modal-mask">
-          <Modal
-            title={Locale.Chat.Actions.Debug}
-            onClose={() => {
-              setDebugModalOpen(false);
-              setDebugMessage(null);
-            }}
-            actions={[
-              <IconButton
-                text={Locale.Chat.Actions.CopyAsCurl}
-                icon={<CopyIcon />}
-                key="copycurl"
-                onClick={() => {
-                  const req = (debugMessage as any)?.debug?.request;
-                  if (!req) return;
-                  const method = (req.method || "POST").toUpperCase();
-                  const url = req.url || "";
-                  const headers = req.headers || {};
-
-                  const lines: string[] = [];
-                  // First line: URL
-                  lines.push(`curl '${url}'`);
-
-                  // Optional method line
-                  if (method && method !== "GET") {
-                    lines.push(`-X ${method}`);
-                  }
-
-                  // Header lines
-                  try {
-                    Object.keys(headers || {}).forEach((k) => {
-                      const v = (headers as any)[k];
-                      const sv = typeof v === "string" ? v : JSON.stringify(v);
-                      lines.push(`-H '${k}: ${sv}'`);
-                    });
-                  } catch {}
-
-                  // Body line (pretty-printed JSON if possible)
-                  const body = req.body;
-                  if (typeof body !== "undefined") {
-                    let bodyStr: string;
-                    try {
-                      if (typeof body === "string") {
-                        const parsed = JSON.parse(body);
-                        bodyStr = JSON.stringify(parsed, null, 2);
-                      } else {
-                        bodyStr = JSON.stringify(body, null, 2);
-                      }
-                    } catch {
-                      bodyStr =
-                        typeof body === "string" ? body : JSON.stringify(body);
-                    }
-                    // Escape single quotes for bash-safe single-quoted string
-                    const escaped = bodyStr.replace(/'/g, `'"'"'`);
-                    lines.push(`-d '${escaped}'`);
-                  }
-
-                  // Add trailing backslashes to all but the last line
-                  const formatted = lines.map((line, idx) =>
-                    idx < lines.length - 1 ? `${line} \\` : line,
-                  );
-
-                  const cmd = formatted.join("\n");
-                  copyToClipboard(cmd);
-                }}
-              />,
-            ]}
-          >
-            <div
-              style={{
-                height: "100%",
-                overflow: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Request</div>
-                <pre
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    userSelect: "text",
-                    cursor: "text",
-                    backgroundColor: "var(--hover-color)",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {(() => {
-                    const req = (debugMessage as any)?.debug?.request;
-                    if (!req) return "<empty>";
-                    // 懒加载：body 为字符串时在此解析，用于格式化显示
-                    let displayReq = req;
-                    if (
-                      typeof req.body === "string" &&
-                      (req.body.trimStart().startsWith("{") ||
-                        req.body.trimStart().startsWith("["))
-                    ) {
-                      try {
-                        displayReq = { ...req, body: JSON.parse(req.body) };
-                      } catch {
-                        /* 解析失败则原样显示 */
-                      }
-                    }
-                    return JSON.stringify(displayReq, null, 2);
-                  })()}
-                </pre>
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Response</div>
-                <pre
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    userSelect: "text",
-                    cursor: "text",
-                    backgroundColor: "var(--hover-color)",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {(() => {
-                    const res = (debugMessage as any)?.debug?.response;
-                    return res ? JSON.stringify(res, null, 2) : "<empty>";
-                  })()}
-                </pre>
-              </div>
-            </div>
-          </Modal>
-        </div>
-      )}
+      <ChatDebugModal
+        show={debugModalOpen}
+        message={debugMessage}
+        onClose={() => {
+          setDebugModalOpen(false);
+          setDebugMessage(null);
+        }}
+      />
       <ImagePreviewModal
         show={imagePreview.show}
         src={imagePreview.src}
