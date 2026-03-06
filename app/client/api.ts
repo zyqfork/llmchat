@@ -187,6 +187,7 @@ class UnifiedClientApi extends LLMApi {
         stream: options.config.stream,
         tools: options.tools,
         useResponseApiContext: options.useResponseApiContext,
+        providerName: options.config.providerName,
       };
 
       if (options.config.stream) {

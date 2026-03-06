@@ -225,6 +225,47 @@ export function isMaskUsingGlobalCompressModel(mask: Mask): boolean {
 }
 
 /**
+ * 获取助手应该使用的内容优化模型
+ * 优先级：助手优化模型配置 > 全局优化模型配置 > 聊天模型（与标题/摘要一致）
+ */
+export function getMaskOptimizeModel(mask: Mask): ModelDecision {
+  const globalConfig = useAppConfig.getState().modelConfig;
+
+  if (mask.modelConfig.optimizeModel) {
+    return {
+      model: mask.modelConfig.optimizeModel,
+      providerName:
+        mask.modelConfig.optimizeProviderName || globalConfig.providerName,
+      source: "mask-config",
+    };
+  }
+
+  if (globalConfig.optimizeModel) {
+    return {
+      model: globalConfig.optimizeModel,
+      providerName:
+        globalConfig.optimizeProviderName || globalConfig.providerName,
+      source: "global-default",
+    };
+  }
+
+  const sessionModelConfig = getSessionModelConfig(mask);
+  return {
+    model: sessionModelConfig.model,
+    providerName: sessionModelConfig.providerName,
+    source: "global-default",
+  };
+}
+
+export function getSessionOptimizeModelConfig(mask: Mask) {
+  const decision = getMaskOptimizeModel(mask);
+  return {
+    model: decision.model,
+    providerName: decision.providerName,
+  };
+}
+
+/**
  * 获取当前会话的有效模型名称（用于压缩阈值计算）
  * 优先级：会话模型配置 > 面具模型配置 > 全局模型配置
  */

@@ -162,6 +162,7 @@ import { filterMcpMessages } from "./chat/utils/filterMcpMessages";
 
 import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
+import { getSessionOptimizeModelConfig } from "../utils/model-resolver";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, getAllTools } from "../mcp/actions.client";
@@ -457,32 +458,11 @@ export function ChatMain() {
     showToast(Locale.Chat.InputActions.OptimizeToast);
 
     try {
-      const modelConfig = session.mask.modelConfig;
       const globalConfig = config.modelConfig;
-
-      // 使用配置的优化模型，优先级：会话配置 > 全局配置 > 当前聊天模型
-      // 空字符串表示使用全局配置
-      let optimizeModel: string;
-      let optimizeProviderName: string;
-
-      if (modelConfig.optimizeModel) {
-        // 会话级别配置了优化模型
-        optimizeModel = modelConfig.optimizeModel;
-        optimizeProviderName =
-          modelConfig.optimizeProviderName || modelConfig.providerName;
-      } else if (globalConfig.optimizeModel) {
-        // 使用全局配置的优化模型
-        optimizeModel = globalConfig.optimizeModel;
-        optimizeProviderName =
-          globalConfig.optimizeProviderName || globalConfig.providerName;
-      } else {
-        // 使用当前聊天模型
-        optimizeModel = modelConfig.model;
-        optimizeProviderName = modelConfig.providerName;
-      }
+      const optimizeModelConfig = getSessionOptimizeModelConfig(session.mask);
 
       const api = getClientApi(
-        optimizeProviderName || ServiceProvider.OpenAI.id,
+        optimizeModelConfig.providerName || ServiceProvider.OpenAI.id,
       );
 
       let optimizedText = "";
@@ -492,8 +472,8 @@ export function ChatMain() {
         Locale.Settings.OptimizeModel.Prompt.Placeholder;
 
       let optimizePrompt = defaultOptimizePrompt;
-      if (modelConfig.optimizeModelPrompt) {
-        optimizePrompt = modelConfig.optimizeModelPrompt;
+      if (session.mask.modelConfig.optimizeModelPrompt) {
+        optimizePrompt = session.mask.modelConfig.optimizeModelPrompt;
       } else if (globalConfig.optimizeModelPrompt) {
         optimizePrompt = globalConfig.optimizeModelPrompt;
       }
@@ -512,9 +492,10 @@ export function ChatMain() {
       await api.llm.chat({
         messages: optimizeMessages,
         config: {
-          model: optimizeModel,
+          model: optimizeModelConfig.model,
           temperature: 0.3,
           stream: true,
+          providerName: optimizeModelConfig.providerName,
         },
         onUpdate: (message: string) => {
           // 去除思考内容，只保留优化后的提示词

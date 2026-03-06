@@ -27,6 +27,8 @@ export interface UnifiedChatOptions {
   systemPrompt?: string;
   providerOptions?: Record<string, any>;
   useResponseApiContext?: boolean;
+  /** 指定使用的 provider（如标题生成、摘要等需与聊天一致时传入） */
+  providerName?: string;
   // 添加配置参数，避免在服务器端使用客户端 store
   apiKey?: string;
   baseUrl?: string;
@@ -210,13 +212,19 @@ export function unifiedChat(
     tools,
     systemPrompt,
     useResponseApiContext = true,
+    providerName: optionsProviderName,
   } = options;
 
-  // 优先使用传入的 providerName，如果没有则根据模型名称推断
+  // 优先使用传入的 providerName（标题/摘要等与聊天同配置时一致），否则用当前会话，最后才按模型推断
   let providerId: string;
+  const { normalizeProviderName } = require("./api");
 
-  // 尝试从客户端 store 获取当前会话的 providerName
-  if (typeof window !== "undefined") {
+  if (optionsProviderName) {
+    providerId = normalizeProviderName(optionsProviderName);
+    logger.debug(
+      `[Unified API] Using options provider: ${providerId} for model: ${model}`,
+    );
+  } else if (typeof window !== "undefined") {
     try {
       const { useChatStore } = require("../store");
       const chatStore = useChatStore.getState();
@@ -225,14 +233,11 @@ export function unifiedChat(
         currentSession?.mask?.modelConfig?.providerName;
 
       if (sessionProviderName) {
-        // 标准化 providerName
-        const { normalizeProviderName } = require("./api");
         providerId = normalizeProviderName(sessionProviderName);
         logger.debug(
           `[Unified API] Using session provider: ${providerId} for model: ${model}`,
         );
       } else {
-        // 如果没有会话配置，则根据模型名称推断
         providerId = getProviderIdFromModel(model);
         logger.debug(
           `[Unified API] Inferred provider: ${providerId} from model: ${model}`,
@@ -246,7 +251,6 @@ export function unifiedChat(
       providerId = getProviderIdFromModel(model);
     }
   } else {
-    // 服务器端环境，根据模型名称推断
     providerId = getProviderIdFromModel(model);
     logger.debug(
       `[Unified API] Server-side provider inference: ${providerId} for model: ${model}`,
