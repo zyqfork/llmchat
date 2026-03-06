@@ -2278,6 +2278,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "futures-util",
+ "once_cell",
  "percent-encoding",
  "reqwest 0.11.27",
  "serde",

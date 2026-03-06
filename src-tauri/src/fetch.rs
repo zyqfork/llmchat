@@ -8,11 +8,24 @@ use std::time::Duration;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::collections::HashMap;
 use futures_util::StreamExt;
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use reqwest::header::{HeaderName, HeaderMap};
 use tauri::Emitter;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// 复用全局 reqwest Client：启用连接池/Keep-Alive，避免每次请求都重建 Client。
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .connect_timeout(Duration::new(10, 0))
+        // 连接池配置：对短请求（同步/模型列表）减少握手开销，对长连接（SSE）保持稳定
+        .pool_idle_timeout(Duration::new(90, 0))
+        .pool_max_idle_per_host(32)
+        .build()
+        .expect("failed to build global reqwest Client")
+});
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct StreamResponse {
@@ -58,13 +71,7 @@ async fn execute_stream_request(
 
     println!("[Tauri Fetch] {} {}", method, url);
 
-    let client = Client::builder()
-        .default_headers(header_map)
-        .redirect(reqwest::redirect::Policy::limited(3))
-        .connect_timeout(Duration::new(10, 0))
-        .timeout(timeout)
-        .build()
-        .map_err(|e| format!("Failed to build client: {}", e))?;
+    let client = &*CLIENT;
 
     let method = method
         .parse::<reqwest::Method>()
@@ -75,6 +82,8 @@ async fn execute_stream_request(
         url.parse::<reqwest::Url>()
             .map_err(|e| format!("Invalid URL: {}", e))?,
     );
+
+    request = request.headers(header_map).timeout(timeout);
 
     if method == reqwest::Method::POST
         || method == reqwest::Method::PUT
