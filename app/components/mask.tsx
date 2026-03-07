@@ -365,12 +365,12 @@ export function MaskConfig(props: {
       <List>
         {/* 根据使用场景显示不同的模型选择器 */}
         {props.isSessionConfig ? (
-          // 会话配置：显示 ModelConfigList 中的模型选择器
+          // 会话配置：显示 ModelConfigList 中的模型选择器，辅助模型不显示"使用全局"选项
           <ModelConfigList
             modelConfig={{ ...props.mask.modelConfig }}
             updateConfig={updateConfig}
             showModelSelector={true}
-            showGlobalOption={true}
+            showGlobalOption={false}
           />
         ) : isDefaultAssistant ? (
           // 默认助手：只读，始终显示当前全局配置（设置-模型配置）

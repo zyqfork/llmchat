@@ -398,7 +398,16 @@ export function SingleMessage(props: SingleMessageProps) {
             );
           })()}
 
-          <div className={styles["chat-message-item"]}>
+          <div
+            className={[
+              styles["chat-message-item"],
+              message.isCompressedContextPrompt
+                ? styles["chat-message-item-compressed"]
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             <LLMMessageContent
               key={message.streaming ? "loading" : "done"}
               content={(() => {

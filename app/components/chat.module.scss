@@ -1193,6 +1193,12 @@
   }
 }
 
+.chat-message-item-compressed {
+  background-color: var(--warning-bg, rgba(245, 158, 11, 0.08)) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  border-left: 3px solid rgba(245, 158, 11, 0.6) !important;
+}
+
 .chat-input-panel {
   position: relative;
   width: 100%;
