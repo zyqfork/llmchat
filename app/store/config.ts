@@ -72,8 +72,8 @@ export const DEFAULT_CONFIG = {
   models: DEFAULT_MODELS as any as LLMModel[],
 
   modelConfig: {
-    model: "gpt-4o-mini" as ModelType,
-    providerName: "OpenAI" as string,
+    model: "" as ModelType,
+    providerName: "" as string,
     temperature: 0.7,
     top_p: 1,
     max_tokens: 8192,

@@ -1354,48 +1354,9 @@ export const useChatStore = createPersistStore(
           isMultiModel: true,
         });
 
-        // 多模型也保持“发送前压缩”：若本条输入会导致跨阈值，先压缩再发送
+        // 多模型也保持"发送前压缩"：先让 summarizeSession 判断是否需要压缩
         if (session.mask.modelConfig.sendMemory) {
-          const compressedBeforeSend = await get().summarizeSession(
-            false,
-            session,
-            false,
-          );
-          if (!compressedBeforeSend) {
-            const messagesForCheck = session.messages;
-            const clearContextIndex = session.clearContextIndex ?? 0;
-            const lastCompressedIdx = messagesForCheck.reduce(
-              (last, m, i) => (m?.isCompressedContextPrompt ? i : last),
-              -1,
-            );
-            // fallback 与 summarizeSession 内部保持一致：依次用 compressedContextIndex、lastSummarizeIndex
-            const effectiveStartIndex = Math.max(
-              clearContextIndex,
-              lastCompressedIdx >= 0
-                ? lastCompressedIdx
-                : (session.compressedContextIndex ?? -1) >= 0
-                ? session.compressedContextIndex!
-                : session.lastSummarizeIndex,
-            );
-            const uncompressedMessages = messagesForCheck
-              .slice(effectiveStartIndex)
-              .filter((msg) => !msg.isError && !msg.isCompressedContextPrompt);
-            const contextTokens = countMessages(uncompressedMessages);
-            // 仅用已有历史 token 判断，不把当前消息计入
-            const fixedThreshold =
-              session.mask.modelConfig.compressMessageLengthThreshold;
-            const dynamicThreshold = getModelCompressThreshold(
-              session.mask.modelConfig.model,
-              session.mask.modelConfig.compressThresholdRatio,
-            );
-
-            if (
-              contextTokens >= fixedThreshold ||
-              contextTokens >= dynamicThreshold
-            ) {
-              await get().summarizeSession(false, session, true);
-            }
-          }
+          await get().summarizeSession(false, session, false);
         }
 
         // 为每个选中的模型创建独立的 bot 消息

@@ -191,6 +191,7 @@ export function ChatMain() {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
+  const availableModels = useEnabledModels();
 
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
@@ -392,6 +393,20 @@ export function ChatMain() {
 
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
+
+    // 无可用模型时，引导用户去设置页面配置
+    if (availableModels.length === 0) {
+      showToast(
+        Locale.Chat.NoModelConfigured,
+        {
+          text: Locale.Chat.GoToSettings,
+          onClick: () => navigate(Path.Settings),
+        },
+        5000,
+      );
+      return;
+    }
+
     setAutoScroll(true);
     scrollToBottom();
     const matchCommand = chatCommands.match(userInput);

@@ -145,6 +145,9 @@ const en: LocaleType = {
       ClientFailed: "MCP client loading failed, handle silently",
       ToolsCount: (count: number) => `${count} tools`,
     },
+    NoModelConfigured:
+      "No models configured. Please go to Settings to add a model.",
+    GoToSettings: "Go to Settings",
     Rename: "Rename Chat",
     Typing: "Typing…",
     Input: (submitKey: string) => {

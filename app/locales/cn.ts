@@ -140,6 +140,8 @@ const cn = {
       ClientFailed: "MCP 客户端加载失败，静默处理",
       ToolsCount: (count: number) => `${count} 个工具`,
     },
+    NoModelConfigured: "尚未配置任何可用模型，请先前往设置配置模型",
+    GoToSettings: "前往配置",
     Rename: "重命名对话",
     Typing: "正在输入…",
     Input: (submitKey: string) => {

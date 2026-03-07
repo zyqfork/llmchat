@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useAccessStore, useAppConfig, CustomProviderType } from "../store";
 import { collectModelsWithDefaultModel } from "./model";
 import { LLMModel } from "../client/api";
@@ -66,7 +66,7 @@ export function useEnabledModels() {
   const accessStore = useAccessStore();
   const configStore = useAppConfig();
 
-  const enabledModels = useMemo(() => {
+  const enabledModels = useMemo<LLMModel[]>(() => {
     const enabledProviders = accessStore.enabledProviders || {};
     const enabledModelsConfig = accessStore.enabledModels || {};
     const customProviders = accessStore.customProviders || [];
@@ -195,6 +195,31 @@ export function useEnabledModels() {
     configStore.customModels,
     configStore.models,
   ]);
+
+  // 当有可用模型时，若当前全局对话模型不在可用列表中，自动切换到第一个可用模型
+  useEffect(() => {
+    if (enabledModels.length === 0) return;
+
+    // 使用 getState() 避免将 configStore 对象加入依赖（防止无限循环）
+    const { modelConfig, update } = useAppConfig.getState();
+    const currentModel = modelConfig.model;
+    const currentProvider = modelConfig.providerName;
+
+    const isCurrentModelAvailable = enabledModels.some((m) => {
+      const modelProviderId = m.provider?.id || m.provider?.providerName || "";
+      return m.name === currentModel && modelProviderId === currentProvider;
+    });
+
+    if (!isCurrentModelAvailable) {
+      const firstModel = enabledModels[0];
+      const newProviderName =
+        firstModel.provider?.id || firstModel.provider?.providerName || "";
+      update((config) => {
+        config.modelConfig.model = firstModel.name as any;
+        config.modelConfig.providerName = newProviderName;
+      });
+    }
+  }, [enabledModels]);
 
   return enabledModels;
 }
