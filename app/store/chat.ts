@@ -862,10 +862,6 @@ export const useChatStore = createPersistStore(
             const globalConfig = useAppConfig.getState().modelConfig;
             newMask.modelConfig = {
               ...globalConfig,
-              compressMessageLengthThreshold: getModelCompressThreshold(
-                globalConfig.model,
-                globalConfig.compressThresholdRatio,
-              ),
             };
             newMask.syncGlobalConfig = true;
           } else {
@@ -998,7 +994,12 @@ export const useChatStore = createPersistStore(
 
         get().checkMcpJson(message);
 
-        get().summarizeSession(false, targetSession);
+        // 压缩统一由 onUserInput 在发送用户消息前处理，以确保压缩消息始终出现在用户消息之前。
+        // 此处只做自动标题生成，不触发压缩（forceCompress=false 且不走到压缩分支）。
+        const latestSession =
+          get().sessions.find((s) => s.id === targetSession.id) ??
+          targetSession;
+        get().summarizeSessionTitleOnly(latestSession);
 
         // 触发自动同步（如果启用）
         const { useSyncStore } = require("./sync");
@@ -1021,21 +1022,26 @@ export const useChatStore = createPersistStore(
         attachImages?: string[],
         isMcpResponse?: boolean,
       ) {
-        const session = get().currentSession();
+        // 记录 sessionId，后续每步都从 store 取最新 session，避免旧快照问题
+        const sessionId = get().currentSession().id;
 
         // 检查是否为多模型模式
-        if (
-          session.multiModelMode?.enabled &&
-          session.multiModelMode.selectedModels.length > 1
-        ) {
-          return get().onMultiModelUserInput(
-            content,
-            attachImages,
-            isMcpResponse,
-          );
+        {
+          const s = get().sessions.find((s) => s.id === sessionId)!;
+          if (
+            s.multiModelMode?.enabled &&
+            s.multiModelMode.selectedModels.length > 1
+          ) {
+            return get().onMultiModelUserInput(
+              content,
+              attachImages,
+              isMcpResponse,
+            );
+          }
         }
 
-        const modelConfig = session.mask.modelConfig;
+        const modelConfig = get().sessions.find((s) => s.id === sessionId)!.mask
+          .modelConfig;
 
         // MCP Response no need to fill template
         let mContent: string | MultimodalContent[] = isMcpResponse
@@ -1052,23 +1058,30 @@ export const useChatStore = createPersistStore(
           ];
         }
 
-        let userMessage: ChatMessage = createMessage({
+        // ── 串行第一步：压缩（如需要），await 等待压缩完成后才继续 ────────────
+        if (modelConfig.sendMemory && !isMcpResponse) {
+          // 每次都从 store 取最新 session，保证 messages 是最新的
+          const freshSession = get().sessions.find((s) => s.id === sessionId)!;
+          await get().summarizeSession(false, freshSession, false);
+        }
+
+        // ── 串行第二步：压缩完成后，取最新 session 写入用户消息并发请求 ──
+        const session = get().sessions.find((s) => s.id === sessionId)!;
+
+        const userMessage: ChatMessage = createMessage({
           role: "user",
           content: mContent,
           isMcpResponse,
         });
-
-        // 被动压缩：发送用户消息前先按阈值检测并执行压缩，完成后再继续发送本次消息
-        await get().summarizeSession(false, session, false);
 
         // 读取模型的流式配置，默认为 true（流式）
         const shouldStream = getModelStreamConfig(modelConfig.model);
 
         const botMessage: ChatMessage = createMessage({
           role: "assistant",
-          streaming: true, // 初始状态设为 true，表示正在等待响应（无论流式还是非流式）
+          streaming: true,
           model: modelConfig.model,
-          modelKey: `${modelConfig.model}@${modelConfig.providerName}`, // 添加 modelKey 以便显示提供商信息
+          modelKey: `${modelConfig.model}@${modelConfig.providerName}`,
         });
 
         // get recent messages
@@ -1340,6 +1353,50 @@ export const useChatStore = createPersistStore(
           isMcpResponse,
           isMultiModel: true,
         });
+
+        // 多模型也保持“发送前压缩”：若本条输入会导致跨阈值，先压缩再发送
+        if (session.mask.modelConfig.sendMemory) {
+          const compressedBeforeSend = await get().summarizeSession(
+            false,
+            session,
+            false,
+          );
+          if (!compressedBeforeSend) {
+            const messagesForCheck = session.messages;
+            const clearContextIndex = session.clearContextIndex ?? 0;
+            const lastCompressedIdx = messagesForCheck.reduce(
+              (last, m, i) => (m?.isCompressedContextPrompt ? i : last),
+              -1,
+            );
+            // fallback 与 summarizeSession 内部保持一致：依次用 compressedContextIndex、lastSummarizeIndex
+            const effectiveStartIndex = Math.max(
+              clearContextIndex,
+              lastCompressedIdx >= 0
+                ? lastCompressedIdx
+                : (session.compressedContextIndex ?? -1) >= 0
+                ? session.compressedContextIndex!
+                : session.lastSummarizeIndex,
+            );
+            const uncompressedMessages = messagesForCheck
+              .slice(effectiveStartIndex)
+              .filter((msg) => !msg.isError && !msg.isCompressedContextPrompt);
+            const contextTokens = countMessages(uncompressedMessages);
+            // 仅用已有历史 token 判断，不把当前消息计入
+            const fixedThreshold =
+              session.mask.modelConfig.compressMessageLengthThreshold;
+            const dynamicThreshold = getModelCompressThreshold(
+              session.mask.modelConfig.model,
+              session.mask.modelConfig.compressThresholdRatio,
+            );
+
+            if (
+              contextTokens >= fixedThreshold ||
+              contextTokens >= dynamicThreshold
+            ) {
+              await get().summarizeSession(false, session, true);
+            }
+          }
+        }
 
         // 为每个选中的模型创建独立的 bot 消息
         const botMessages: Record<string, ChatMessage> = {};
@@ -1864,6 +1921,92 @@ export const useChatStore = createPersistStore(
         });
       },
 
+      /** 仅触发自动标题生成，不做压缩。供 onNewMessage 调用，避免压缩消息出现在用户消息后面。 */
+      summarizeSessionTitleOnly(targetSession: ChatSession) {
+        const config = useAppConfig.getState();
+        const session = targetSession;
+        const modelConfig = session.mask.modelConfig;
+
+        if (isDalle3(modelConfig.model)) return;
+
+        const titleMinUserTokens =
+          modelConfig.autoTitleMinUserTokens ??
+          DEFAULT_AUTO_TITLE_MIN_USER_TOKENS;
+        const titleMinUserMessages =
+          modelConfig.autoTitleMinUserMessages ??
+          DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES;
+        const titleRefreshInterval =
+          modelConfig.autoTitleRefreshInterval ??
+          DEFAULT_AUTO_TITLE_REFRESH_INTERVAL;
+        const lastAutoTopicIndex = session.lastAutoTopicIndex ?? 0;
+        const clearContextIndex = session.clearContextIndex ?? 0;
+        const messages = session.messages;
+        const effectiveMessages = messages.slice(clearContextIndex);
+        const effectiveUserTokens = countUserTokens(effectiveMessages);
+        const effectiveUserMessages = countUserMessages(effectiveMessages);
+        const messagesSinceLastTitle = messages.slice(
+          Math.min(lastAutoTopicIndex, messages.length),
+        );
+        const userMessagesSinceLastTitle = countUserMessages(
+          messagesSinceLastTitle,
+        );
+        const isInitialTitle =
+          session.topic === DEFAULT_TOPIC || lastAutoTopicIndex === 0;
+        const shouldAutoGenerateTitle =
+          config.enableAutoGenerateTitle &&
+          (session.isAutoTopic ?? session.topic === DEFAULT_TOPIC);
+        const shouldUpdateTitle =
+          shouldAutoGenerateTitle &&
+          effectiveUserTokens >= titleMinUserTokens &&
+          effectiveUserMessages >= titleMinUserMessages &&
+          (isInitialTitle ||
+            userMessagesSinceLastTitle >= titleRefreshInterval);
+
+        if (!shouldUpdateTitle) return;
+
+        const globalConfig = useAppConfig.getState().modelConfig;
+        const topicModelConfig = getSessionTopicModelConfig(session.mask);
+        const topicApi: ClientApi = getClientApi(
+          topicModelConfig.providerName as string,
+        );
+        const startIndex = Math.max(
+          clearContextIndex,
+          messages.length - modelConfig.historyMessageCount,
+        );
+        const topicSourceMessages = messages
+          .slice(
+            startIndex < messages.length ? startIndex : messages.length - 1,
+            messages.length,
+          )
+          .filter((msg) => !msg.isError);
+        const topicPrompt =
+          modelConfig.topicPrompt ||
+          globalConfig.topicPrompt ||
+          Locale.Store.Prompt.Topic;
+        topicApi.llm.chat({
+          messages: buildTopicRequestMessages(topicPrompt, topicSourceMessages),
+          config: {
+            model: topicModelConfig.model,
+            stream: false,
+            providerName: topicModelConfig.providerName,
+          },
+          useResponseApiContext: false,
+          onFinish(message, responseRes) {
+            if (responseRes?.status === 200) {
+              const filteredMessage = removeThinkingContent(message);
+              get().updateTargetSession(session, (s) => {
+                s.topic =
+                  filteredMessage.length > 0
+                    ? trimTopic(filteredMessage)
+                    : DEFAULT_TOPIC;
+                s.isAutoTopic = true;
+                s.lastAutoTopicIndex = messages.length;
+              });
+            }
+          },
+        });
+      },
+
       async summarizeSession(
         refreshTitle: boolean = false,
         targetSession: ChatSession,
@@ -2040,10 +2183,17 @@ export const useChatStore = createPersistStore(
         // 2. 动态阈值：基于模型上下文窗口 × compressThresholdRatio
 
         // 注意：这里不应该使用 getMessagesWithMemory()，因为它会根据 max_tokens 截断消息
-        // 我们需要计算所有未压缩的历史消息的实际长度
+        // 我们需要计算所有未压缩的历史消息的实际长度。
+        // effectiveStartIndex 与 summarizeIndex 保持一致的 fallback 逻辑：
+        //   优先用最后一条压缩消息的位置，其次用 compressedContextIndex，
+        //   再其次用 lastSummarizeIndex，最后才是 0。
         const effectiveStartIndex = Math.max(
           clearContextIndex,
-          lastCompressedIdx >= 0 ? lastCompressedIdx : 0,
+          lastCompressedIdx >= 0
+            ? lastCompressedIdx
+            : (session.compressedContextIndex ?? -1) >= 0
+            ? session.compressedContextIndex!
+            : session.lastSummarizeIndex,
         );
         const uncompressedMessages = messages
           .slice(effectiveStartIndex)
@@ -2214,51 +2364,30 @@ export const useChatStore = createPersistStore(
               },
               onFinish(message, responseRes) {
                 // 使用通用的移除思考内容函数，与优化提示词保持一致
-                const filteredMessage = removeThinkingContent(message);
+                // 若过滤后内容为空（模型只输出了思考块），回退到原始消息，确保摘要不丢失
+                const filteredMessage =
+                  removeThinkingContent(message) || message;
 
                 if (responseRes?.status === 200) {
                   const summaryLength = estimateTokenLength(filteredMessage);
 
-                  // 验证摘要质量：摘要不应该比原始内容更长
-                  if (!forceCompress && summaryLength > summaryTokens * 0.8) {
-                    logger.warn(
-                      "[Summarize] Summary too long, skipping. Summary:",
-                      summaryLength,
-                      "Original:",
-                      summaryTokens,
-                    );
-                    get().updateTargetSession(session, (s) => {
-                      s.isSummarizing = false;
-                      s.compressingContextIndex = undefined;
-                      s.messages = s.messages.filter(
-                        (m) => m.id !== compressedMessageId,
+                  // 仅记录可疑摘要质量，不直接删除压缩消息，避免用户感知为“压缩结果消失”
+                  if (!forceCompress && summaryTokens > 0) {
+                    if (summaryLength > summaryTokens * 0.8) {
+                      logger.warn(
+                        "[Summarize] Summary seems too long. Summary:",
+                        summaryLength,
+                        "Original:",
+                        summaryTokens,
                       );
-                    });
-                    resolveOnce(false);
-                    return;
-                  }
-
-                  // 验证摘要质量：摘要不应该太短（可能失败了）
-                  if (
-                    !forceCompress &&
-                    summaryLength < 50 &&
-                    summaryTokens > 1000
-                  ) {
-                    logger.warn(
-                      "[Summarize] Summary too short, might be failed. Summary:",
-                      summaryLength,
-                      "Original:",
-                      summaryTokens,
-                    );
-                    get().updateTargetSession(session, (s) => {
-                      s.isSummarizing = false;
-                      s.compressingContextIndex = undefined;
-                      s.messages = s.messages.filter(
-                        (m) => m.id !== compressedMessageId,
+                    } else if (summaryLength < 50 && summaryTokens > 1000) {
+                      logger.warn(
+                        "[Summarize] Summary seems too short. Summary:",
+                        summaryLength,
+                        "Original:",
+                        summaryTokens,
                       );
-                    });
-                    resolveOnce(false);
-                    return;
+                    }
                   }
 
                   get().updateTargetSession(session, (s) => {

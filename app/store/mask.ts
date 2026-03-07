@@ -4,7 +4,6 @@ import { ModelConfig, useAppConfig } from "./config";
 import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
-import { getModelCompressThreshold } from "../config/model-config";
 import { getBuiltinMasks } from "../masks";
 
 export type Mask = {
@@ -47,10 +46,6 @@ export const createDefaultMask = () => {
     syncGlobalConfig: false, // 修改为 false，让默认助手也保持自己的配置
     modelConfig: {
       ...globalConfig,
-      compressMessageLengthThreshold: getModelCompressThreshold(
-        globalConfig.model,
-        globalConfig.compressThresholdRatio,
-      ),
     },
     defaultModel: undefined, // 初始化默认模型为 undefined
 
@@ -72,10 +67,6 @@ export const createEmptyMask = () => {
     syncGlobalConfig: true, // use global config as default
     modelConfig: {
       ...globalConfig,
-      compressMessageLengthThreshold: getModelCompressThreshold(
-        globalConfig.model,
-        globalConfig.compressThresholdRatio,
-      ),
     },
     defaultModel: undefined, // 初始化默认模型为 undefined
 

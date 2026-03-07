@@ -96,6 +96,11 @@ export function ModelConfigList(props: {
 
   // 构建对话摘要模型的value
   const compressModelValue = (() => {
+    // 在会话/助手配置中，未显式配置时保持“使用全局摘要模型配置”被选中
+    if (props.showGlobalOption && !props.modelConfig.compressModel) {
+      return "";
+    }
+
     // 如果没配置摘要模型，使用当前对话模型作为默认值（与标题生成模型逻辑一致）
     const currentModel =
       props.modelConfig.compressModel || props.modelConfig.model;

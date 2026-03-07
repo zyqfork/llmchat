@@ -1576,13 +1576,31 @@ export function ChatMain() {
                   {messages.map((msg, idx) => {
                     const i = msgRenderIndex + idx;
                     const nextMsg = renderMessages[i + 1];
+                    // 方式1：下一条消息本身是压缩消息（一般情况）
+                    const nextIsCompressed =
+                      !!nextMsg?.isCompressedContextPrompt;
+                    // 方式2：当压缩消息恰好是最后一条（nextMsg 不存在）时，
+                    // 通过 compressedContextIndex / compressingContextIndex 来判断
+                    const compressedInRender =
+                      (session.compressedContextIndex ?? -1) >= 0
+                        ? context.length + session.compressedContextIndex!
+                        : -1;
+                    const compressingInRender =
+                      (session.compressingContextIndex ?? -1) >= 0
+                        ? context.length + session.compressingContextIndex!
+                        : -1;
                     const showCompressedDividerAfter =
-                      !!nextMsg?.isCompressedContextPrompt &&
-                      !nextMsg?.streaming;
+                      (nextIsCompressed && !nextMsg?.streaming) ||
+                      (!nextMsg &&
+                        i + 1 === compressedInRender &&
+                        !session.isSummarizing);
                     const showCompressingDividerAfter =
-                      !!nextMsg?.isCompressedContextPrompt &&
-                      !!nextMsg?.streaming &&
-                      !!session.isSummarizing;
+                      (nextIsCompressed &&
+                        !!nextMsg?.streaming &&
+                        !!session.isSummarizing) ||
+                      (!nextMsg &&
+                        i + 1 === compressingInRender &&
+                        !!session.isSummarizing);
                     return renderSingleMessage(msg as RenderMessage, i, {
                       showCompressedDividerAfter,
                       showCompressingDividerAfter,
