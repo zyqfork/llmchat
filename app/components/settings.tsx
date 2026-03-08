@@ -234,188 +234,156 @@ function AddCustomProviderModal({
 
   return (
     <div className="modal-mask">
-      <div className={styles["modal-container"]}>
-        <div className={styles["modal-header"]}>
-          <div className={styles["modal-title"]}>
-            {Locale.Settings.Access.CustomProvider.Modal.Title}
-          </div>
-          <button className={styles["modal-close-button"]} onClick={onClose}>
-            ×
-          </button>
-        </div>
-
-        <div className={styles["modal-content"]}>
-          <div className={styles["custom-provider-form"]}>
-            <div className={styles["form-field"]}>
-              <label className={styles["form-label"]}>
-                {Locale.Settings.Access.CustomProvider.Modal.Name.Title} *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder={
-                  Locale.Settings.Access.CustomProvider.Modal.Name.Placeholder
-                }
-                className={`${styles["form-input"]} ${
-                  errors.name ? styles["error"] : ""
-                }`}
-              />
-            </div>
-            {errors.name ? (
-              <div className={styles["error-message"]}>{errors.name}</div>
-            ) : null}
-
-            <div className={styles["form-field"]}>
-              <label className={styles["form-label"]}>
-                {Locale.Settings.Access.CustomProvider.Modal.Type.Title} *
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    type: (e.target as HTMLSelectElement)
-                      .value as CustomProviderType,
-                  })
-                }
-                className={styles["form-select"]}
-              >
-                {providerTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} - {option.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles["form-field"]}>
-              <label className={styles["form-label"]}>
-                基础路径 (Base Path)
-              </label>
-              <input
-                type="text"
-                value={formData.endpoint}
-                onChange={(e) =>
-                  setFormData({ ...formData, endpoint: e.target.value })
-                }
-                placeholder="https://api.openai.com/v1"
-                className={styles["form-input"]}
-              />
-            </div>
-
-            {/* OpenAI 兼容服务商的额外配置 */}
-            {isOpenAICompatible && (
-              <>
-                <div
-                  className={`${styles["form-field"]} ${styles["checkbox-field"]}`}
-                >
-                  <label className={styles["form-checkbox-label"]}>
-                    <input
-                      type="checkbox"
-                      checked={formData.useResponseApi}
-                      onChange={(e) =>
-                        handleResponseApiChange(e.target.checked)
-                      }
-                      className={styles["form-checkbox"]}
-                    />
-                    使用 Response API
-                  </label>
-                  <div className={styles["form-description"]}>
-                    启用后该服务商的所有模型调用都将使用 Response API
-                  </div>
-                </div>
-
-                <div className={styles["form-field"]}>
-                  <label className={styles["form-label"]}>API 路径</label>
-                  <input
-                    type="text"
-                    value={formData.apiPath}
-                    onChange={(e) =>
-                      setFormData({ ...formData, apiPath: e.target.value })
-                    }
-                    placeholder={getDefaultApiPath()}
-                    className={styles["form-input"]}
-                  />
-                </div>
-
-                <div
-                  className={`${styles["form-field"]} ${styles["checkbox-field"]}`}
-                >
-                  <label className={styles["form-checkbox-label"]}>
-                    <input
-                      type="checkbox"
-                      checked={formData.useProxy}
-                      onChange={(e) =>
-                        setFormData({ ...formData, useProxy: e.target.checked })
-                      }
-                      className={styles["form-checkbox"]}
-                    />
-                    启用代理
-                  </label>
-                </div>
-
-                {formData.useProxy && (
-                  <>
-                    <div className={styles["form-field"]}>
-                      <label className={styles["form-label"]}>代理地址 *</label>
-                      <input
-                        type="text"
-                        value={formData.proxyUrl}
-                        onChange={(e) =>
-                          setFormData({ ...formData, proxyUrl: e.target.value })
-                        }
-                        placeholder="http://localhost:port"
-                        className={`${styles["form-input"]} ${
-                          errors.proxyUrl ? styles["error"] : ""
-                        }`}
-                      />
-                    </div>
-                    {errors.proxyUrl ? (
-                      <div className={styles["error-message"]}>
-                        {errors.proxyUrl}
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </>
-            )}
-
-            <div className={styles["form-field"]}>
-              <label className={styles["form-label"]}>
-                {Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title} *
-              </label>
-              <input
-                type="password"
-                value={formData.apiKey}
-                onChange={(e) =>
-                  setFormData({ ...formData, apiKey: e.target.value })
-                }
-                placeholder={
-                  Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
-                }
-                className={`${styles["form-input"]} ${
-                  errors.apiKey ? styles["error"] : ""
-                }`}
-              />
-            </div>
-            {errors.apiKey ? (
-              <div className={styles["error-message"]}>{errors.apiKey}</div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className={styles["modal-footer"]}>
+      <Modal
+        title={Locale.Settings.Access.CustomProvider.Modal.Title}
+        onClose={onClose}
+        actions={[
           <IconButton
+            key="confirm"
             text={Locale.Settings.Access.CustomProvider.Modal.Confirm}
             onClick={handleSubmit}
             type="primary"
             bordered
-          />
-        </div>
-      </div>
+          />,
+        ]}
+      >
+        <List>
+          <ListItem
+            title={
+              Locale.Settings.Access.CustomProvider.Modal.Name.Title + " *"
+            }
+            subTitle={
+              errors.name ? (
+                <span style={{ color: "var(--red)" }}>{errors.name}</span>
+              ) : undefined
+            }
+          >
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Modal.Name.Placeholder
+              }
+            />
+          </ListItem>
+
+          <ListItem
+            title={
+              Locale.Settings.Access.CustomProvider.Modal.Type.Title + " *"
+            }
+          >
+            <Select
+              value={formData.type}
+              align="left"
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  type: e.currentTarget.value as CustomProviderType,
+                })
+              }
+            >
+              {providerTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} - {option.description}
+                </option>
+              ))}
+            </Select>
+          </ListItem>
+
+          <ListItem title="基础路径 (Base Path)">
+            <input
+              type="text"
+              value={formData.endpoint}
+              onChange={(e) =>
+                setFormData({ ...formData, endpoint: e.target.value })
+              }
+              placeholder="https://api.openai.com/v1"
+            />
+          </ListItem>
+
+          {isOpenAICompatible && (
+            <>
+              <ListItem
+                title="使用 Response API"
+                subTitle="启用后该服务商的所有模型调用都将使用 Response API"
+              >
+                <input
+                  type="checkbox"
+                  checked={formData.useResponseApi}
+                  onChange={(e) => handleResponseApiChange(e.target.checked)}
+                />
+              </ListItem>
+
+              <ListItem title="API 路径">
+                <input
+                  type="text"
+                  value={formData.apiPath}
+                  onChange={(e) =>
+                    setFormData({ ...formData, apiPath: e.target.value })
+                  }
+                  placeholder={getDefaultApiPath()}
+                />
+              </ListItem>
+
+              <ListItem title="启用代理">
+                <input
+                  type="checkbox"
+                  checked={formData.useProxy}
+                  onChange={(e) =>
+                    setFormData({ ...formData, useProxy: e.target.checked })
+                  }
+                />
+              </ListItem>
+
+              {formData.useProxy && (
+                <ListItem
+                  title="代理地址 *"
+                  subTitle={
+                    errors.proxyUrl ? (
+                      <span style={{ color: "var(--red)" }}>
+                        {errors.proxyUrl}
+                      </span>
+                    ) : undefined
+                  }
+                >
+                  <input
+                    type="text"
+                    value={formData.proxyUrl}
+                    onChange={(e) =>
+                      setFormData({ ...formData, proxyUrl: e.target.value })
+                    }
+                    placeholder="http://localhost:port"
+                  />
+                </ListItem>
+              )}
+            </>
+          )}
+
+          <ListItem
+            title={
+              Locale.Settings.Access.CustomProvider.Modal.ApiKey.Title + " *"
+            }
+            subTitle={
+              errors.apiKey ? (
+                <span style={{ color: "var(--red)" }}>{errors.apiKey}</span>
+              ) : undefined
+            }
+          >
+            <PasswordInput
+              value={formData.apiKey}
+              onChange={(e) =>
+                setFormData({ ...formData, apiKey: e.currentTarget.value })
+              }
+              placeholder={
+                Locale.Settings.Access.CustomProvider.Modal.ApiKey.Placeholder
+              }
+            />
+          </ListItem>
+        </List>
+      </Modal>
     </div>
   );
 }
