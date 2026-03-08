@@ -19,6 +19,7 @@ import {
   Mask,
   useMaskStore,
 } from "../store/mask";
+import { getBuiltinMasks } from "../masks";
 import {
   ChatMessage,
   createMessage,
@@ -636,37 +637,46 @@ export function MaskPage() {
   const navigate = useNavigate();
 
   const maskStore = useMaskStore();
+  const storeMasks = useMaskStore((s) => s.masks);
   const chatStore = useChatStore();
 
   const filterLang = maskStore.language;
 
-  const allMasks = maskStore
-    .getAll()
-    .filter((m) => !filterLang || m.lang === filterLang);
+  // 自定义助手：仅用户创建的（排除默认助手），按创建时间倒序
+  const customMasksRaw = Object.values(storeMasks)
+    .filter(
+      (m) => m.id !== DEFAULT_MASK_ID && (!filterLang || m.lang === filterLang),
+    )
+    .sort((a, b) => b.createdAt - a.createdAt);
+  // 内置助手：默认助手 + 预设列表
+  const defaultMask = storeMasks[DEFAULT_MASK_ID];
+  const builtinMasksRaw = [
+    ...(defaultMask && (!filterLang || defaultMask.lang === filterLang)
+      ? [defaultMask]
+      : []),
+    ...getBuiltinMasks().filter((m) => !filterLang || m.lang === filterLang),
+  ];
 
-  const [searchMasks, setSearchMasks] = useState<Mask[]>([]);
   const [searchText, setSearchText] = useState("");
-  const masks = searchText.length > 0 ? searchMasks : allMasks;
+  const filterByName = (list: Mask[], text: string) =>
+    text.length > 0
+      ? list.filter((m) => m.name.toLowerCase().includes(text.toLowerCase()))
+      : list;
+  const customMasks = filterByName(customMasksRaw, searchText);
+  const builtinMasks = filterByName(builtinMasksRaw, searchText);
+  const totalCount = customMasksRaw.length + builtinMasksRaw.length;
 
-  // refactored already, now it accurate
-  const onSearch = (text: string) => {
-    setSearchText(text);
-    if (text.length > 0) {
-      const result = allMasks.filter((m) =>
-        m.name.toLowerCase().includes(text.toLowerCase()),
-      );
-      setSearchMasks(result);
-    } else {
-      setSearchMasks(allMasks);
-    }
-  };
+  const onSearch = (text: string) => setSearchText(text);
 
   const [editingMaskId, setEditingMaskId] = useState<string | undefined>();
-  const editingMask = maskStore.get(editingMaskId);
+  const editingMask = editingMaskId ? storeMasks[editingMaskId] : undefined;
   const closeMaskModal = () => setEditingMaskId(undefined);
 
   const downloadAll = () => {
-    downloadAs(JSON.stringify(masks), FileName.Masks);
+    downloadAs(
+      JSON.stringify(customMasks.concat(builtinMasks)),
+      FileName.Masks,
+    );
   };
 
   const importFromFile = () => {
@@ -698,7 +708,7 @@ export function MaskPage() {
               {Locale.Mask.Page.Title}
             </div>
             <div className="window-header-submai-title">
-              {Locale.Mask.Page.SubTitle(allMasks.length)}
+              {Locale.Mask.Page.SubTitle(totalCount)}
             </div>
           </div>
 
@@ -772,8 +782,12 @@ export function MaskPage() {
             />
           </div>
 
-          <div>
-            {masks.map((m) => (
+          {/* 自定义助手：编辑 + 删除 */}
+          <div className={styles["mask-group"]}>
+            <div className={styles["mask-group-title"]}>
+              {Locale.Mask.GroupCustom}
+            </div>
+            {customMasks.map((m) => (
               <div className={styles["mask-item"]} key={m.id}>
                 <div className={styles["mask-header"]}>
                   <div className={styles["mask-icon"]}>
@@ -809,17 +823,68 @@ export function MaskPage() {
                     text={Locale.Mask.Item.Edit}
                     onClick={() => setEditingMaskId(m.id)}
                   />
-                  {m.id !== DEFAULT_MASK_ID && (
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      text={Locale.Mask.Item.Delete}
-                      onClick={async () => {
-                        if (await showConfirm(Locale.Mask.Item.DeleteConfirm)) {
-                          maskStore.delete(m.id);
-                        }
-                      }}
+                  <IconButton
+                    icon={<DeleteIcon />}
+                    text={Locale.Mask.Item.Delete}
+                    onClick={async () => {
+                      if (await showConfirm(Locale.Mask.Item.DeleteConfirm)) {
+                        maskStore.delete(m.id);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 内置助手：仅查看，修改后变为新增自定义助手 */}
+          <div className={styles["mask-group"]}>
+            <div className={styles["mask-group-title"]}>
+              {Locale.Mask.GroupBuiltin}
+            </div>
+            {builtinMasks.map((m) => (
+              <div className={styles["mask-item"]} key={m.id}>
+                <div className={styles["mask-header"]}>
+                  <div className={styles["mask-icon"]}>
+                    <MaskAvatar
+                      avatar={m.avatar}
+                      model={getMaskEffectiveModel(m) as any}
                     />
-                  )}
+                  </div>
+                  <div className={styles["mask-title"]}>
+                    <div className={styles["mask-name"]}>{m.name}</div>
+                    <div className={styles["mask-info"]}>
+                      {`${Locale.Mask.Item.Info(m.context.length)} / ${
+                        ALL_LANG_OPTIONS[m.lang]
+                      } / ${getMaskEffectiveModel(
+                        m,
+                      )} / ${Locale.Mask.ConversationCount(
+                        chatStore.getSessionsByMask(m.id).length,
+                      )}`}
+                    </div>
+                  </div>
+                </div>
+                <div className={styles["mask-actions"]}>
+                  <IconButton
+                    icon={<AddIcon />}
+                    text={Locale.Mask.Item.Chat}
+                    onClick={() => {
+                      chatStore.newSession(m);
+                      navigate(Path.Chat);
+                    }}
+                  />
+                  <IconButton
+                    icon={<EditIcon />}
+                    text={Locale.Mask.Item.View}
+                    onClick={() => {
+                      if (storeMasks[m.id]) {
+                        setEditingMaskId(m.id);
+                      } else {
+                        const created = maskStore.create({ ...m });
+                        setEditingMaskId(created.id);
+                      }
+                    }}
+                  />
                 </div>
               </div>
             ))}

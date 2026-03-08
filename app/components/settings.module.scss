@@ -607,6 +607,36 @@
   }
 }
 
+// 助手管理分组：自定义 / 内置 视觉隔离（无底色，仅留边框与间距）
+.mask-group {
+  margin-top: 16px;
+  padding: 12px 0;
+  border: 1px solid var(--border-in-light);
+  border-radius: 8px;
+
+  &:first-of-type {
+    margin-top: 8px;
+  }
+
+  .mask-group-title {
+    margin-top: 0;
+  }
+}
+
+// 助手管理分组标题
+.mask-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--black);
+  margin: 16px 0 8px 4px;
+  padding-left: 4px;
+
+  .mask-group & {
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
+}
+
 // 暗色模式下的 select 优化
 .dark {
   .form-group {

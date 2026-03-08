@@ -5,6 +5,7 @@ import styles from "./settings.module.scss";
 import ResetIcon from "../icons/reload.svg";
 import AddIcon from "../icons/add.svg";
 import CloseIcon from "../icons/close.svg";
+import DeleteIcon from "../icons/delete.svg";
 import CopyIcon from "../icons/copy.svg";
 import ClearIcon from "../icons/clear.svg";
 import LoadingIcon from "../icons/three-dots.svg";
@@ -88,7 +89,10 @@ import { Avatar, AvatarPicker } from "./emoji";
 import { getClientConfig } from "../config/client";
 import { useSyncStore } from "../store/sync";
 import { nanoid } from "nanoid";
-import { useMaskStore } from "../store/mask";
+import { useMaskStore, DEFAULT_MASK_ID } from "../store/mask";
+import { getBuiltinMasks } from "../masks";
+import { MaskConfig, MaskAvatar } from "./mask";
+import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { ProviderType } from "../utils/cloud";
 import { TTSConfigList } from "./tts-config";
 import { RealtimeConfigList } from "./realtime-chat/realtime-config";
@@ -1406,6 +1410,187 @@ function SyncItems() {
   );
 }
 
+function MaskManageSection() {
+  const maskStore = useMaskStore();
+  const masks = useMaskStore((s) => s.masks);
+  const chatStore = useChatStore();
+  const config = useAppConfig();
+  const [editingMaskId, setEditingMaskId] = useState<string | undefined>();
+  const editingMask = editingMaskId ? masks[editingMaskId] : undefined;
+
+  // 自定义助手：仅用户创建的（排除默认助手），按添加时间倒序
+  const customMasks = Object.values(masks)
+    .filter((m) => m.id !== DEFAULT_MASK_ID)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  // 内置助手：默认助手 + 预设列表
+  const defaultMask = masks[DEFAULT_MASK_ID];
+  const builtinMasks = (defaultMask ? [defaultMask] : []).concat(
+    getBuiltinMasks(),
+  );
+
+  return (
+    <>
+      <List>
+        <ListItem
+          title={Locale.Settings.Mask.ModelIcon.Title}
+          subTitle={Locale.Settings.Mask.ModelIcon.SubTitle}
+        >
+          <input
+            aria-label={Locale.Settings.Mask.ModelIcon.Title}
+            type="checkbox"
+            checked={config.useModelIconAsAvatar}
+            onChange={(e) =>
+              config.update(
+                (c) => (c.useModelIconAsAvatar = e.currentTarget.checked),
+              )
+            }
+          />
+        </ListItem>
+      </List>
+
+      <List>
+        <ListItem
+          title={Locale.Mask.Management}
+          subTitle={Locale.Mask.Page.SubTitle(customMasks.length)}
+        >
+          <IconButton
+            icon={<AddIcon />}
+            text={Locale.Mask.NewMask}
+            bordered
+            onClick={() => {
+              const created = maskStore.create();
+              setEditingMaskId(created.id);
+            }}
+          />
+        </ListItem>
+      </List>
+
+      {/* 自定义助手：可删除，与内置助手视觉隔离 */}
+      <div className={styles["mask-group"]} data-group="custom">
+        <div className={styles["mask-group-title"]}>
+          {Locale.Mask.GroupCustom}
+        </div>
+        <List>
+          {customMasks.map((m) => (
+            <ListItem
+              key={m.id}
+              title={m.name}
+              subTitle={`${getMaskEffectiveModel(m)} / ${Locale.Mask.Item.Info(
+                m.context.length,
+              )} / ${Locale.Mask.ConversationCount(
+                chatStore.getSessionsByMask(m.id).length,
+              )}`}
+              icon={
+                <MaskAvatar
+                  avatar={m.avatar}
+                  model={getMaskEffectiveModel(m) as any}
+                />
+              }
+            >
+              <div style={{ display: "flex", gap: "8px" }}>
+                <IconButton
+                  icon={<EditIcon />}
+                  text={Locale.Mask.Item.Edit}
+                  onClick={() => setEditingMaskId(m.id)}
+                />
+                <IconButton
+                  icon={<DeleteIcon />}
+                  text={Locale.Mask.Item.Delete}
+                  onClick={async () => {
+                    if (await showConfirm(Locale.Mask.Item.DeleteConfirm)) {
+                      maskStore.delete(m.id);
+                    }
+                  }}
+                />
+              </div>
+            </ListItem>
+          ))}
+        </List>
+      </div>
+
+      {/* 内置助手：仅查看，修改后变为新增自定义助手 */}
+      <div className={styles["mask-group"]} data-group="builtin">
+        <div className={styles["mask-group-title"]}>
+          {Locale.Mask.GroupBuiltin}
+        </div>
+        <List>
+          {builtinMasks.map((m) => (
+            <ListItem
+              key={m.id}
+              title={m.name}
+              subTitle={`${getMaskEffectiveModel(m)} / ${Locale.Mask.Item.Info(
+                m.context.length,
+              )}${
+                m.id === DEFAULT_MASK_ID
+                  ? ` / ${Locale.Mask.ConversationCount(
+                      chatStore.getSessionsByMask(m.id).length,
+                    )}`
+                  : ""
+              }`}
+              icon={
+                <MaskAvatar
+                  avatar={m.avatar}
+                  model={getMaskEffectiveModel(m) as any}
+                />
+              }
+            >
+              <IconButton
+                icon={<EditIcon />}
+                text={Locale.Mask.Item.View}
+                onClick={() => {
+                  if (masks[m.id]) {
+                    setEditingMaskId(m.id);
+                  } else {
+                    const created = maskStore.create({ ...m });
+                    setEditingMaskId(created.id);
+                  }
+                }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      </div>
+
+      {editingMask && (
+        <div className="modal-mask">
+          <Modal
+            title={
+              editingMask.id === DEFAULT_MASK_ID
+                ? Locale.Mask.DefaultName
+                : Locale.Mask.EditModal.Title
+            }
+            onClose={() => setEditingMaskId(undefined)}
+            actions={
+              editingMask.id !== DEFAULT_MASK_ID
+                ? [
+                    <IconButton
+                      key="copy"
+                      icon={<CopyIcon />}
+                      bordered
+                      text={Locale.Mask.EditModal.Clone}
+                      onClick={() => {
+                        maskStore.create(editingMask);
+                        setEditingMaskId(undefined);
+                      }}
+                    />,
+                  ]
+                : []
+            }
+          >
+            <MaskConfig
+              mask={editingMask}
+              updateMask={(updater) =>
+                maskStore.updateMask(editingMaskId!, updater)
+              }
+              readonly={editingMask.id === DEFAULT_MASK_ID}
+            />
+          </Modal>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function Settings() {
   const navigate = useNavigate();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -2351,26 +2536,7 @@ export function Settings() {
   const renderSyncSettings = () => <SyncItems />;
 
   // 助手设置
-  const renderMaskSettings = () => (
-    <List>
-      <ListItem
-        title={Locale.Settings.Mask.ModelIcon.Title}
-        subTitle={Locale.Settings.Mask.ModelIcon.SubTitle}
-      >
-        <input
-          aria-label={Locale.Settings.Mask.ModelIcon.Title}
-          type="checkbox"
-          checked={config.useModelIconAsAvatar}
-          onChange={(e) =>
-            updateConfig(
-              (config) =>
-                (config.useModelIconAsAvatar = e.currentTarget.checked),
-            )
-          }
-        ></input>
-      </ListItem>
-    </List>
-  );
+  const renderMaskSettings = () => <MaskManageSection />;
 
   // 提示词设置
   const renderPromptSettings = () => {

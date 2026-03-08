@@ -1159,6 +1159,8 @@ const cn = {
       Search: "搜索角色助手",
       Create: "新建",
     },
+    GroupCustom: "自定义助手",
+    GroupBuiltin: "内置助手",
     Item: {
       Info: (count: number) => `包含 ${count} 条预设对话`,
       Chat: "对话",
@@ -1166,6 +1168,7 @@ const cn = {
       Edit: "编辑",
       Delete: "删除",
       DeleteConfirm: "确认删除？",
+      DeleteDefaultForbidden: "默认助手不能删除",
     },
     EditModal: {
       Title: "编辑助手",

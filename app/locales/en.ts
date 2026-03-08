@@ -1183,6 +1183,8 @@ const en: LocaleType = {
       Search: "Search Templates",
       Create: "Create",
     },
+    GroupCustom: "Custom Assistants",
+    GroupBuiltin: "Built-in Assistants",
     Item: {
       Info: (count: number) => `${count} prompts`,
       Chat: "Chat",
@@ -1190,6 +1192,7 @@ const en: LocaleType = {
       Edit: "Edit",
       Delete: "Delete",
       DeleteConfirm: "Confirm to delete?",
+      DeleteDefaultForbidden: "Default assistant cannot be deleted",
     },
     EditModal: {
       Title: "Edit Assistant",

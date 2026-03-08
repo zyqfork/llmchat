@@ -8,6 +8,22 @@
     padding: 20px;
     overflow-y: auto;
 
+    .mask-group {
+      margin-top: 16px;
+
+      &:first-of-type {
+        margin-top: 0;
+      }
+    }
+
+    .mask-group-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--black);
+      margin: 0 0 8px 0;
+      padding-left: 4px;
+    }
+
     .mask-filter {
       width: 100%;
       max-width: 100%;
