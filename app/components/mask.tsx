@@ -440,7 +440,7 @@ export function MaskConfig(props: {
               modelConfig={{ ...props.mask.modelConfig }}
               updateConfig={updateConfig}
               showModelSelector={false}
-              showGlobalOption={true}
+              showGlobalOption={false}
             />
           </>
         )}

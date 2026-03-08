@@ -143,6 +143,11 @@ function AddCustomProviderModal({
     apiPath: "",
     useProxy: false,
     proxyUrl: "",
+    // Google 服务商的额外配置
+    googleSafetySettings:
+      GoogleSafetySettingsThreshold.BLOCK_NONE as GoogleSafetySettingsThreshold,
+    // Anthropic 服务商的额外配置
+    anthropicVersion: "2023-06-01",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const accessStore = useAccessStore();
@@ -203,6 +208,14 @@ function AddCustomProviderModal({
           apiPath: formData.apiPath.trim() || undefined,
           useProxy: formData.useProxy,
           proxyUrl: formData.proxyUrl.trim() || undefined,
+          googleSafetySettings:
+            formData.type === "google"
+              ? formData.googleSafetySettings
+              : undefined,
+          anthropicVersion:
+            formData.type === "anthropic"
+              ? formData.anthropicVersion.trim() || undefined
+              : undefined,
         },
       });
     }
@@ -210,6 +223,15 @@ function AddCustomProviderModal({
 
   // 检查是否是 OpenAI 兼容类型
   const isOpenAICompatible = formData.type === "openai";
+  const isGoogle = formData.type === "google";
+  const isAnthropic = formData.type === "anthropic";
+
+  // 根据服务商类型获取默认基础路径
+  const getDefaultEndpoint = () => {
+    if (isGoogle) return "https://generativelanguage.googleapis.com/";
+    if (isAnthropic) return "https://api.anthropic.com/v1";
+    return "https://api.openai.com/v1";
+  };
 
   // 根据 Response API 选择自动设置默认 API 路径
   const getDefaultApiPath = () => {
@@ -287,20 +309,20 @@ function AddCustomProviderModal({
             >
               {providerTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label} - {option.description}
+                  {option.description}
                 </option>
               ))}
             </Select>
           </ListItem>
 
-          <ListItem title="基础路径 (Base Path)">
+          <ListItem title="基础路径 (Base Path)" subTitle="留空使用默认地址">
             <input
               type="text"
               value={formData.endpoint}
               onChange={(e) =>
                 setFormData({ ...formData, endpoint: e.target.value })
               }
-              placeholder="https://api.openai.com/v1"
+              placeholder={getDefaultEndpoint()}
             />
           </ListItem>
 
@@ -317,7 +339,7 @@ function AddCustomProviderModal({
                 />
               </ListItem>
 
-              <ListItem title="API 路径">
+              <ListItem title="API 路径" subTitle="API 端点路径，可自定义">
                 <input
                   type="text"
                   value={formData.apiPath}
@@ -327,39 +349,80 @@ function AddCustomProviderModal({
                   placeholder={getDefaultApiPath()}
                 />
               </ListItem>
-
-              <ListItem title="启用代理">
-                <input
-                  type="checkbox"
-                  checked={formData.useProxy}
-                  onChange={(e) =>
-                    setFormData({ ...formData, useProxy: e.target.checked })
-                  }
-                />
-              </ListItem>
-
-              {formData.useProxy && (
-                <ListItem
-                  title="代理地址 *"
-                  subTitle={
-                    errors.proxyUrl ? (
-                      <span style={{ color: "var(--red)" }}>
-                        {errors.proxyUrl}
-                      </span>
-                    ) : undefined
-                  }
-                >
-                  <input
-                    type="text"
-                    value={formData.proxyUrl}
-                    onChange={(e) =>
-                      setFormData({ ...formData, proxyUrl: e.target.value })
-                    }
-                    placeholder="http://localhost:port"
-                  />
-                </ListItem>
-              )}
             </>
+          )}
+
+          {isGoogle && (
+            <ListItem
+              title={Locale.Settings.Access.Google.GoogleSafetySettings.Title}
+              subTitle={
+                Locale.Settings.Access.Google.GoogleSafetySettings.SubTitle
+              }
+            >
+              <Select
+                value={formData.googleSafetySettings}
+                align="left"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    googleSafetySettings: e.currentTarget
+                      .value as GoogleSafetySettingsThreshold,
+                  })
+                }
+              >
+                {Object.entries(GoogleSafetySettingsThreshold).map(([k, v]) => (
+                  <option value={v} key={k}>
+                    {k}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
+          )}
+
+          {isAnthropic && (
+            <ListItem
+              title="Anthropic Version"
+              subTitle="API 版本号，默认 2023-06-01"
+            >
+              <input
+                type="text"
+                value={formData.anthropicVersion}
+                onChange={(e) =>
+                  setFormData({ ...formData, anthropicVersion: e.target.value })
+                }
+                placeholder="2023-06-01"
+              />
+            </ListItem>
+          )}
+
+          <ListItem title="启用代理" subTitle="通过代理地址转发请求">
+            <input
+              type="checkbox"
+              checked={formData.useProxy}
+              onChange={(e) =>
+                setFormData({ ...formData, useProxy: e.target.checked })
+              }
+            />
+          </ListItem>
+
+          {formData.useProxy && (
+            <ListItem
+              title="代理地址 *"
+              subTitle={
+                errors.proxyUrl ? (
+                  <span style={{ color: "var(--red)" }}>{errors.proxyUrl}</span>
+                ) : undefined
+              }
+            >
+              <input
+                type="text"
+                value={formData.proxyUrl}
+                onChange={(e) =>
+                  setFormData({ ...formData, proxyUrl: e.target.value })
+                }
+                placeholder="http://localhost:port"
+              />
+            </ListItem>
           )}
 
           <ListItem

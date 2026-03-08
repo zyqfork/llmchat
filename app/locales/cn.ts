@@ -945,9 +945,9 @@ const cn = {
           },
           Type: {
             Title: "服务商类型",
-            OpenAI: "OpenAI - 兼容 OpenAI API 的服务",
-            Google: "Google - Google Gemini API",
-            Anthropic: "Anthropic - Anthropic Claude API",
+            OpenAI: "OpenAI Compatible API",
+            Google: "Google Gemini API",
+            Anthropic: "Anthropic Claude API",
           },
           ApiKey: {
             Title: "API Key",
