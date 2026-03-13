@@ -258,6 +258,8 @@ export function ChatMain() {
     };
   }, [session.id, isLoading]); // 依赖 isLoading，请求开始时重新检查
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** 发送用户消息后需在下一帧滚动到底部（此时新消息已渲染） */
+  const scrollAfterUserSendRef = useRef(false);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
         scrollRef.current.scrollHeight -
@@ -409,6 +411,7 @@ export function ChatMain() {
 
     setAutoScroll(true);
     scrollToBottom();
+    scrollAfterUserSendRef.current = true; // 发送后等消息入列表再滚到底部
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -1081,9 +1084,15 @@ export function ChatMain() {
     }
   };
 
+  /** 直接定位到最底部（不带动画） */
   function scrollToBottom() {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
-    scrollDomToBottom();
+    cancelPendingAutoScroll();
+    const dom = scrollRef.current;
+    if (dom) {
+      const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+      dom.scrollTop = maxTop;
+    }
   }
 
   function jumpToBottom() {
@@ -1095,6 +1104,36 @@ export function ChatMain() {
       dom.scrollTop = maxTop;
     }
   }
+
+  // 发送消息后，等用户消息（及可能的 bot 占位）写入列表并渲染，直接定位到底部
+  const prevMessagesLengthRef = useRef(session.messages.length);
+  useEffect(() => {
+    prevMessagesLengthRef.current = session.messages.length;
+    scrollAfterUserSendRef.current = false;
+  }, [session.id]);
+  useEffect(() => {
+    if (!scrollAfterUserSendRef.current) return;
+    if (session.messages.length <= prevMessagesLengthRef.current) return;
+    scrollAfterUserSendRef.current = false;
+    prevMessagesLengthRef.current = session.messages.length;
+    requestAnimationFrame(() => {
+      setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
+      cancelPendingAutoScroll();
+      const dom = scrollRef.current;
+      if (dom) {
+        const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+        dom.scrollTop = maxTop;
+      }
+    });
+  }, [session.messages.length, renderMessages.length]);
+
+  // 有预览内容时（输入/粘贴大段文字），将预览气泡定位到底部可见
+  useEffect(() => {
+    if (!config.sendPreviewBubble || debouncedPreviewInput.length === 0) return;
+    requestAnimationFrame(() => {
+      jumpToBottom();
+    });
+  }, [config.sendPreviewBubble, debouncedPreviewInput]);
 
   const handleInputFocusOrClick = () => {
     if (hitBottom) {
@@ -1108,10 +1147,7 @@ export function ChatMain() {
       setAutoScroll(true);
       return;
     }
-    if (isMultiModel) {
-      setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
-    }
-    scrollDomToBottom();
+    scrollToBottom();
   }, [
     isStreamingFollow,
     autoScroll,
@@ -1119,7 +1155,7 @@ export function ChatMain() {
     isAutoScrollLocked,
     scrollTrigger,
     renderMessages.length,
-    scrollDomToBottom,
+    scrollToBottom,
     isMultiModel,
   ]);
 

@@ -46,31 +46,56 @@ export interface UnifiedChatResponse {
   providerMetadata?: any;
 }
 
+/**
+ * 从「已启用模型」配置中查找拥有该模型的厂商 ID。
+ * 用于在未传入 providerName 时，优先使用用户实际启用该模型的厂商（如自定义 OpenAI 端点下的 DeepSeek），
+ * 避免按模型名前缀误判到官方厂商（如 deepseek-* -> DeepSeek 官方）导致请求发错地址。
+ */
+function getProviderIdFromEnabledModels(model: string): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const { useAccessStore } = require("../store/access");
+    const accessStore = useAccessStore.getState();
+    const enabledModels = accessStore.enabledModels || {};
+    const enabledProviders = accessStore.enabledProviders || {};
+
+    // 先查自定义服务商（enabledModels 的 key 为 custom provider 的 id）
+    const customProviders = accessStore.customProviders || [];
+    for (const p of customProviders) {
+      if (!p.enabled) continue;
+      const list = enabledModels[p.id];
+      if (Array.isArray(list) && list.includes(model)) {
+        logger.debug(
+          `[Unified API] Resolved provider from enabled models: ${p.id} for model: ${model}`,
+        );
+        return p.id;
+      }
+    }
+
+    // 再查内置服务商（enabledModels / enabledProviders 的 key 为 provider.name，需转成 provider.id）
+    const providers = getAllProviders();
+    for (const provider of providers) {
+      const isEnabled = enabledProviders[provider.name];
+      if (!isEnabled) continue;
+      const list = enabledModels[provider.name];
+      if (Array.isArray(list) && list.includes(model)) {
+        logger.debug(
+          `[Unified API] Resolved provider from enabled models: ${provider.id} for model: ${model}`,
+        );
+        return provider.id;
+      }
+    }
+  } catch (error) {
+    logger.warn(
+      `[Unified API] Could not resolve provider from enabled models:`,
+      error,
+    );
+  }
+  return undefined;
+}
+
 // 根据模型名称获取provider ID - 改进版本
 function getProviderIdFromModel(model: string): string {
-  // 首先尝试从启用的服务商中查找拥有该模型的服务商
-  if (typeof window !== "undefined") {
-    try {
-      const { useAccessStore } = require("../store/access");
-      const accessStore = useAccessStore.getState();
-
-      // 检查自定义服务商
-      const enabledCustomProviders = accessStore.customProviders.filter(
-        (p: any) => p.enabled,
-      );
-
-      // 这里我们无法直接查询模型列表，但可以优先考虑自定义服务商
-      // 如果有启用的自定义服务商，记录一下（但不能直接返回，因为不知道哪个有这个模型）
-
-      logger.debug(`[Unified API] Model inference for: ${model}`, {
-        enabledCustomProviders: enabledCustomProviders.length,
-        note: "Consider improving model-to-provider mapping",
-      });
-    } catch (error) {
-      logger.warn(`[Unified API] Could not check custom providers:`, error);
-    }
-  }
-
   // 基于模型名称前缀的推断逻辑
   if (
     model.startsWith("gpt-") ||
@@ -238,22 +263,27 @@ export function unifiedChat(
           `[Unified API] Using session provider: ${providerId} for model: ${model}`,
         );
       } else {
-        providerId = getProviderIdFromModel(model);
+        // 优先从「已启用模型」解析厂商，避免 deepseek 等被误判到官方厂商导致请求发错地址
+        const fromEnabled = getProviderIdFromEnabledModels(model);
+        providerId = fromEnabled ?? getProviderIdFromModel(model);
         logger.debug(
-          `[Unified API] Inferred provider: ${providerId} from model: ${model}`,
+          `[Unified API] Resolved provider: ${providerId} for model: ${model}`,
+          fromEnabled ? "(from enabled models)" : "(from model name inference)",
         );
       }
     } catch (error) {
       logger.warn(
-        `[Unified API] Could not get session provider, falling back to model inference:`,
+        `[Unified API] Could not get session provider, falling back to enabled models / model inference:`,
         error,
       );
-      providerId = getProviderIdFromModel(model);
+      const fromEnabled = getProviderIdFromEnabledModels(model);
+      providerId = fromEnabled ?? getProviderIdFromModel(model);
     }
   } else {
-    providerId = getProviderIdFromModel(model);
+    const fromEnabled = getProviderIdFromEnabledModels(model);
+    providerId = fromEnabled ?? getProviderIdFromModel(model);
     logger.debug(
-      `[Unified API] Server-side provider inference: ${providerId} for model: ${model}`,
+      `[Unified API] Server-side provider: ${providerId} for model: ${model}`,
     );
   }
 
