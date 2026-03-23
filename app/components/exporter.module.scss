@@ -222,6 +222,22 @@
           overflow: hidden;
         }
 
+        // 导出图片时，避免 markdown 表格进入滚动容器导致截图出现滚动条和内容截断
+        .markdown-body table {
+          display: table;
+          width: 100%;
+          max-width: 100%;
+          overflow: visible;
+          table-layout: auto;
+        }
+
+        .markdown-body table th,
+        .markdown-body table td {
+          white-space: normal;
+          word-break: break-word;
+          overflow-wrap: anywhere;
+        }
+
         .message-image {
           width: 100%;
           margin-top: 10px;
@@ -374,4 +390,20 @@
   padding: 0;
   max-width: 100%;
   background-color: transparent;
+
+  // 多模型导出列也需要同样处理表格滚动问题
+  .markdown-body table {
+    display: table;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    table-layout: auto;
+  }
+
+  .markdown-body table th,
+  .markdown-body table td {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
 }
