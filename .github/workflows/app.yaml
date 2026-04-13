@@ -87,9 +87,9 @@ jobs:
         run: |
           sudo apt-get update
           if [ "${{ matrix.config.os }}" = "ubuntu-22.04" ]; then
-            sudo apt-get install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+            sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev libappindicator3-dev librsvg2-dev patchelf
           else
-            sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+            sudo apt-get install -y libwebkit2gtk-4.1-dev libsoup-3.0-dev libappindicator3-dev librsvg2-dev patchelf
           fi
 
 
