@@ -2,6 +2,7 @@ import { resolveLLMAdapter, LLMEngine } from "./llm-adapter";
 import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
 import { inferProviderIdByModel } from "./provider-inference";
+import { resolvePiProviderByModel } from "./pi-provider-resolver";
 
 type ProviderLike = Pick<
   ReturnType<typeof getAllProviders>[number],
@@ -97,7 +98,11 @@ function getProviderIdFromEnabledModels(model: string): string | undefined {
 }
 
 // 根据模型名称获取provider ID - 改进版本
-function getProviderIdFromModel(model: string): string {
+async function getProviderIdFromModel(model: string): Promise<string> {
+  const catalogResolved = await resolvePiProviderByModel(model);
+  if (catalogResolved) {
+    return catalogResolved;
+  }
   const inferred = inferProviderIdByModel(model);
   if (inferred !== "openai") {
     return inferred;
@@ -246,7 +251,7 @@ export function unifiedChat(
         } else {
           // 优先从「已启用模型」解析厂商，避免 deepseek 等被误判到官方厂商导致请求发错地址
           const fromEnabled = getProviderIdFromEnabledModels(model);
-          providerId = fromEnabled ?? getProviderIdFromModel(model);
+          providerId = fromEnabled ?? (await getProviderIdFromModel(model));
           logger.debug(
             `[Unified API] Resolved provider: ${providerId} for model: ${model}`,
             fromEnabled
@@ -260,11 +265,11 @@ export function unifiedChat(
           error,
         );
         const fromEnabled = getProviderIdFromEnabledModels(model);
-        providerId = fromEnabled ?? getProviderIdFromModel(model);
+        providerId = fromEnabled ?? (await getProviderIdFromModel(model));
       }
     } else {
       const fromEnabled = getProviderIdFromEnabledModels(model);
-      providerId = fromEnabled ?? getProviderIdFromModel(model);
+      providerId = fromEnabled ?? (await getProviderIdFromModel(model));
       logger.debug(
         `[Unified API] Server-side provider: ${providerId} for model: ${model}`,
       );

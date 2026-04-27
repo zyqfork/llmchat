@@ -6,12 +6,33 @@ import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-
 
 // 尝试导入生成的配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
+let PI_MODELS_CACHE: Record<string, Record<string, any>> = {};
 
 try {
   const generatedConfig = require("./generated/models-config");
   MODELS_DEV_CONFIG = generatedConfig.MODELS_DEV_CONFIG || {};
 } catch (error) {
   console.warn("Generated models config not found");
+}
+
+try {
+  const piAi = require("@mariozechner/pi-ai");
+  const providers = Array.isArray(piAi?.getProviders?.())
+    ? piAi.getProviders()
+    : [];
+  for (const provider of providers) {
+    const models = Array.isArray(piAi?.getModels?.(provider))
+      ? piAi.getModels(provider)
+      : [];
+    PI_MODELS_CACHE[String(provider).toLowerCase()] = {};
+    for (const model of models) {
+      if (model?.id) {
+        PI_MODELS_CACHE[String(provider).toLowerCase()][model.id] = model;
+      }
+    }
+  }
+} catch {
+  // ignore, keep generated config + heuristic fallback
 }
 
 // ============================================================================
@@ -104,6 +125,19 @@ function findModelInConfig(modelId: string, providerId?: string): any | null {
     }
   }
 
+  if (providerId) {
+    const models = PI_MODELS_CACHE[providerId.toLowerCase()];
+    if (models && models[modelId]) {
+      return models[modelId];
+    }
+  }
+
+  for (const models of Object.values(PI_MODELS_CACHE)) {
+    if (models && typeof models === "object" && modelId in models) {
+      return (models as Record<string, any>)[modelId];
+    }
+  }
+
   return null;
 }
 
@@ -167,16 +201,18 @@ export function getModelCapabilities(
       tools: false,
     };
 
-    // 视觉能力：检查 modalities.input 是否包含 "image"
-    if (
-      model.modalities?.input &&
-      Array.isArray(model.modalities.input) &&
-      model.modalities.input.includes("image")
-    ) {
+    const inputModalities = Array.isArray(model.modalities?.input)
+      ? model.modalities.input
+      : Array.isArray(model.input)
+      ? model.input
+      : [];
+
+    // 视觉能力：检查输入模态是否包含 image
+    if (inputModalities.includes("image")) {
       capabilities.vision = true;
     }
 
-    // 推理能力：检查 reasoning 字段
+    // 推理能力：兼容 generated config 与 pi-ai catalog
     if (model.reasoning === true) {
       capabilities.reasoning = true;
 
@@ -191,8 +227,18 @@ export function getModelCapabilities(
       }
     }
 
-    // 工具调用能力：检查 tool_call 字段
+    // 工具调用能力：generated config 优先，其次按 API 类型做保守判断
     if (model.tool_call === true) {
+      capabilities.tools = true;
+    } else if (
+      typeof model.api === "string" &&
+      [
+        "openai-completions",
+        "openai-responses",
+        "anthropic-messages",
+        "google-generative-ai",
+      ].includes(model.api)
+    ) {
       capabilities.tools = true;
     }
   }
@@ -282,6 +328,14 @@ export function getModelContextTokens(
   // 从配置中获取
   const model = findModelInConfig(modelName, providerName);
   if (!model || !model.limit) {
+    if (model && typeof model.contextWindow === "number") {
+      return {
+        contextTokens: model.contextWindow,
+        maxOutputTokens:
+          typeof model.maxTokens === "number" ? model.maxTokens : undefined,
+        description: typeof model.name === "string" ? model.name : undefined,
+      };
+    }
     return null;
   }
 

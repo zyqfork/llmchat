@@ -1,7 +1,7 @@
 import { logger } from "../utils/logger";
 import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
 import { getAllProviders } from "../constant";
-import { getKnownPiProvider } from "./pi-ai-provider-map";
+import { resolvePiProviderId } from "./pi-provider-resolver";
 import { executeMcpToolCall } from "./mcp-tool-executor";
 import { runAgentLoop } from "@mariozechner/pi-agent-core";
 
@@ -203,11 +203,15 @@ function getProviderRuntimeConfig(providerId: string) {
   }
 }
 
-function toPiModel(providerId: string, modelId: string, cfg?: any): any | null {
+function toPiModel(
+  providerId: string,
+  modelId: string,
+  cfg?: any,
+  knownProvider?: string,
+): any | null {
   const runtimeCfg = cfg || getProviderRuntimeConfig(providerId);
   if (!runtimeCfg?.apiKey) return null;
 
-  const knownProvider = getKnownPiProvider(providerId);
   const isCustomProvider = String(providerId || "").startsWith("custom_");
   const baseUrl: string = String(runtimeCfg.baseUrl || "");
   const isOfficialOpenAIHost =
@@ -267,11 +271,10 @@ function toPiModel(providerId: string, modelId: string, cfg?: any): any | null {
 
 function attachBuiltinModelToConfig(
   piAi: PiAiModule,
-  providerId: string,
+  knownProvider: string | undefined,
   modelId: string,
   cfg: any,
 ) {
-  const knownProvider = getKnownPiProvider(providerId);
   if (!knownProvider || !cfg) {
     return;
   }
@@ -447,9 +450,10 @@ class PiAiAdapter implements LLMAdapter {
     return (async () => {
       const piAi = await getPiAiModule();
       const cfg = getProviderRuntimeConfig(req.providerId) as any;
-      attachBuiltinModelToConfig(piAi, req.providerId, req.model, cfg);
+      const knownProvider = await resolvePiProviderId(req.providerId);
+      attachBuiltinModelToConfig(piAi, knownProvider, req.model, cfg);
 
-      const model = toPiModel(req.providerId, req.model, cfg);
+      const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
       if (!cfg?.apiKey || !model) {
         throw new Error(
           `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
@@ -586,8 +590,9 @@ class PiAiAdapter implements LLMAdapter {
   async generateText(req: LLMAdapterRequest) {
     const piAi = await getPiAiModule();
     const cfg = getProviderRuntimeConfig(req.providerId) as any;
-    attachBuiltinModelToConfig(piAi, req.providerId, req.model, cfg);
-    const model = toPiModel(req.providerId, req.model, cfg);
+    const knownProvider = await resolvePiProviderId(req.providerId);
+    attachBuiltinModelToConfig(piAi, knownProvider, req.model, cfg);
+    const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
     if (!cfg?.apiKey || !model) {
       throw new Error(
         `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,

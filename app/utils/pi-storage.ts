@@ -1,201 +1,74 @@
-export interface StorageBackend {
-  get<T = unknown>(storeName: string, key: string): Promise<T | null>;
-  set<T = unknown>(storeName: string, key: string, value: T): Promise<void>;
-  delete(storeName: string, key: string): Promise<void>;
-  keys(storeName: string, prefix?: string): Promise<string[]>;
-  clear(storeName: string): Promise<void>;
-  getQuotaInfo(): Promise<{ usage: number; quota: number; percent: number }>;
-  requestPersistence(): Promise<boolean>;
-}
+type PiSettingsStore = {
+  get<T>(key: string): Promise<T | null>;
+  set<T>(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<void>;
+  list(): Promise<string[]>;
+  clear(): Promise<void>;
+};
 
-export interface IndexedDBConfig {
-  dbName: string;
-  version: number;
-  stores: Array<{
-    name: string;
-    keyPath?: string;
-    autoIncrement?: boolean;
-    indices?: Array<{
-      name: string;
-      keyPath: string;
-      unique?: boolean;
-    }>;
-  }>;
-}
+type PiWebUiModule = {
+  IndexedDBStorageBackend: new (config: any) => any;
+  SettingsStore: new (backend: any) => PiSettingsStore;
+};
 
-// Adapted from @mariozechner/pi-web-ui IndexedDBStorageBackend.
-export class IndexedDBStorageBackend implements StorageBackend {
-  private dbPromise: Promise<IDBDatabase> | null = null;
+class LocalStorageSettingsStore implements PiSettingsStore {
+  private readonly prefix = "pi_settings_";
 
-  constructor(private readonly config: IndexedDBConfig) {}
-
-  private async getDB(): Promise<IDBDatabase> {
-    if (!this.dbPromise) {
-      this.dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(this.config.dbName, this.config.version);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-
-        request.onupgradeneeded = () => {
-          const db = request.result;
-          for (const storeConfig of this.config.stores) {
-            if (!db.objectStoreNames.contains(storeConfig.name)) {
-              const store = db.createObjectStore(storeConfig.name, {
-                keyPath: storeConfig.keyPath,
-                autoIncrement: storeConfig.autoIncrement,
-              });
-              if (storeConfig.indices) {
-                for (const indexConfig of storeConfig.indices) {
-                  store.createIndex(indexConfig.name, indexConfig.keyPath, {
-                    unique: indexConfig.unique,
-                  });
-                }
-              }
-            }
-          }
-        };
-      });
-    }
-    return this.dbPromise;
+  private key(name: string) {
+    return `${this.prefix}${name}`;
   }
-
-  private promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async get<T = unknown>(storeName: string, key: string): Promise<T | null> {
-    const db = await this.getDB();
-    const tx = db.transaction(storeName, "readonly");
-    const store = tx.objectStore(storeName);
-    const result = await this.promisifyRequest(store.get(key));
-    return (result as T | undefined) ?? null;
-  }
-
-  async set<T = unknown>(
-    storeName: string,
-    key: string,
-    value: T,
-  ): Promise<void> {
-    const db = await this.getDB();
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-
-    if (store.keyPath) {
-      await this.promisifyRequest(store.put(value));
-    } else {
-      await this.promisifyRequest(store.put(value, key));
-    }
-  }
-
-  async delete(storeName: string, key: string): Promise<void> {
-    const db = await this.getDB();
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    await this.promisifyRequest(store.delete(key));
-  }
-
-  async keys(storeName: string, prefix?: string): Promise<string[]> {
-    const db = await this.getDB();
-    const tx = db.transaction(storeName, "readonly");
-    const store = tx.objectStore(storeName);
-
-    if (prefix) {
-      const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`, false, false);
-      const keys = await this.promisifyRequest(store.getAllKeys(range));
-      return keys.map((k) => String(k));
-    }
-
-    const keys = await this.promisifyRequest(store.getAllKeys());
-    return keys.map((k) => String(k));
-  }
-
-  async clear(storeName: string): Promise<void> {
-    const db = await this.getDB();
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    await this.promisifyRequest(store.clear());
-  }
-
-  async getQuotaInfo(): Promise<{
-    usage: number;
-    quota: number;
-    percent: number;
-  }> {
-    if (!navigator.storage?.estimate) {
-      return { usage: 0, quota: 0, percent: 0 };
-    }
-    const estimate = await navigator.storage.estimate();
-    const usage = estimate.usage ?? 0;
-    const quota = estimate.quota ?? 0;
-    return {
-      usage,
-      quota,
-      percent: quota > 0 ? (usage / quota) * 100 : 0,
-    };
-  }
-
-  async requestPersistence(): Promise<boolean> {
-    if (!navigator.storage?.persist) {
-      return false;
-    }
-    return navigator.storage.persist();
-  }
-}
-
-// Adapted from @mariozechner/pi-web-ui SettingsStore.
-export class SettingsStore {
-  constructor(private readonly backend: StorageBackend) {}
 
   async get<T>(key: string): Promise<T | null> {
-    return this.backend.get<T>("settings", key);
+    if (typeof window === "undefined") return null;
+    const value = window.localStorage.getItem(this.key(key));
+    if (value == null) return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
   }
 
   async set<T>(key: string, value: T): Promise<void> {
-    await this.backend.set("settings", key, value);
+    if (typeof window === "undefined") return;
+    const payload =
+      typeof value === "string" ? value : JSON.stringify(value ?? null);
+    window.localStorage.setItem(this.key(key), payload);
   }
 
   async delete(key: string): Promise<void> {
-    await this.backend.delete("settings", key);
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(this.key(key));
   }
 
   async list(): Promise<string[]> {
-    return this.backend.keys("settings");
+    if (typeof window === "undefined") return [];
+    const out: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const full = window.localStorage.key(i) || "";
+      if (full.startsWith(this.prefix)) {
+        out.push(full.slice(this.prefix.length));
+      }
+    }
+    return out;
   }
 
   async clear(): Promise<void> {
-    await this.backend.clear("settings");
+    if (typeof window === "undefined") return;
+    const keys = await this.list();
+    keys.forEach((k) => window.localStorage.removeItem(this.key(k)));
   }
 }
-
-type PiSettingsStore = Pick<
-  SettingsStore,
-  "get" | "set" | "delete" | "list" | "clear"
->;
 
 let settingsStorePromise: Promise<PiSettingsStore> | null = null;
 
-function createLocalStore(): PiSettingsStore {
-  const backend = new IndexedDBStorageBackend({
-    dbName: "llmchat-storage",
-    version: 1,
-    stores: [{ name: "settings" }],
-  });
-  return new SettingsStore(backend);
-}
-
 async function loadPiWebUiStore(): Promise<PiSettingsStore> {
   if (typeof window === "undefined") {
-    return createLocalStore();
+    return new LocalStorageSettingsStore();
   }
+
   try {
-    const mod = (await import("@mariozechner/pi-web-ui")) as {
-      IndexedDBStorageBackend: new (config: IndexedDBConfig) => StorageBackend;
-      SettingsStore: new (backend: StorageBackend) => PiSettingsStore;
-    };
+    const mod = (await import("@mariozechner/pi-web-ui")) as PiWebUiModule;
     const backend = new mod.IndexedDBStorageBackend({
       dbName: "llmchat-storage",
       version: 1,
@@ -203,7 +76,7 @@ async function loadPiWebUiStore(): Promise<PiSettingsStore> {
     });
     return new mod.SettingsStore(backend);
   } catch {
-    return createLocalStore();
+    return new LocalStorageSettingsStore();
   }
 }
 

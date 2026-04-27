@@ -3,7 +3,7 @@ import { useAccessStore } from "../store/access";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
 import { LLMModel } from "./api";
-import { getKnownPiProvider } from "./pi-ai-provider-map";
+import { resolvePiProviderId } from "./pi-provider-resolver";
 
 type PiAiModelCatalogModule = {
   getModels: (provider: string) => Array<{ id: string; name?: string }>;
@@ -36,7 +36,7 @@ export class ModelFetcher {
   private static async getModelsFromPiAiCatalog(
     providerId: string,
   ): Promise<LLMModel[]> {
-    const mappedProvider = getKnownPiProvider(providerId);
+    const mappedProvider = await resolvePiProviderId(providerId);
     if (!mappedProvider) return [];
     try {
       const piAiCatalog = await loadPiAiCatalog();
