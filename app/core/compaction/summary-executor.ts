@@ -1,3 +1,5 @@
+import { DEFAULT_COMPACTION_SYSTEM_PROMPT } from "./summary-utils";
+
 export interface SummaryExecutorApi {
   llm: {
     chat: (options: SummaryChatOptions) => void;
@@ -6,7 +8,7 @@ export interface SummaryExecutorApi {
 
 export interface SummaryChatOptions {
   messages: Array<{
-    role: "user";
+    role: "system" | "user";
     content: string;
     id: string;
     date: string;
@@ -24,6 +26,7 @@ export interface SummaryChatOptions {
 
 export interface SummaryExecutionParams {
   api: SummaryExecutorApi;
+  systemPrompt?: string;
   summarizeInput: string;
   modelConfig: Record<string, unknown>;
   model: string;
@@ -49,6 +52,13 @@ export async function executeSummaryStream(
 
     params.api.llm.chat({
       messages: [
+        {
+          role: "system",
+          content:
+            params.systemPrompt?.trim() || DEFAULT_COMPACTION_SYSTEM_PROMPT,
+          id: "summary-system-prompt",
+          date: new Date().toLocaleString(),
+        },
         {
           role: "user",
           content: params.summarizeInput,

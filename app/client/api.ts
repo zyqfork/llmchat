@@ -131,7 +131,11 @@ function getResponseApiConversationId(
 function buildResponseWithMetadata(
   responseId?: string,
   requestDebug?: any,
-  responseDebug?: { status?: number; headers?: Record<string, string> },
+  responseDebug?: {
+    status?: number;
+    headers?: Record<string, string>;
+    body?: any;
+  },
 ): Response {
   const status = responseDebug?.status ?? 200;
   const headers = responseDebug?.headers ?? {};
@@ -142,10 +146,62 @@ function buildResponseWithMetadata(
   if (requestDebug) {
     (response as any).__requestDebug = requestDebug;
   }
-  if (responseId) {
+  if (typeof responseDebug?.body !== "undefined") {
+    (response as any).__responseBody = responseDebug.body;
+  } else if (responseId) {
     (response as any).__responseBody = { id: responseId };
   }
   return response;
+}
+
+function normalizeUrlWithPath(url: string, body?: any): string {
+  const u = url.replace(/\/+$/, "");
+  if (/\/(chat\/completions|responses|messages|models)(\?|$)/i.test(u)) {
+    return u;
+  }
+  if (body && typeof body === "object") {
+    if ("input" in body && !("messages" in body)) return `${u}/responses`;
+    if ("messages" in body) return `${u}/chat/completions`;
+  }
+  return `${u}/chat/completions`;
+}
+
+function normalizeDebugRequest(
+  requestDebug: any,
+  providerName?: string,
+  fallbackBody?: any,
+) {
+  const raw =
+    requestDebug && typeof requestDebug === "object" ? requestDebug : {};
+  const body = typeof raw.body !== "undefined" ? raw.body : fallbackBody;
+  const headersFromDebug =
+    raw.headers &&
+    typeof raw.headers === "object" &&
+    !Array.isArray(raw.headers)
+      ? raw.headers
+      : {};
+  const authHeaders = getHeaders(false, { providerName });
+
+  const mergedHeaders: Record<string, string> = {
+    ...headersFromDebug,
+    ...(Object.keys(headersFromDebug).length === 0 ? authHeaders : {}),
+  };
+
+  const rawUrl =
+    typeof raw.url === "string" && raw.url.trim().length > 0
+      ? raw.url
+      : "pi-ai";
+  const normalizedUrl =
+    rawUrl.startsWith("http") || rawUrl.startsWith("/")
+      ? normalizeUrlWithPath(rawUrl, body)
+      : rawUrl;
+
+  return {
+    url: normalizedUrl,
+    method: (raw.method || "POST").toUpperCase(),
+    headers: mergedHeaders,
+    body,
+  };
 }
 
 export abstract class LLMApi {
@@ -343,11 +399,11 @@ class UnifiedClientApi extends LLMApi {
               typeof (streamResult as any)?.requestDebug === "function"
                 ? (streamResult as any).requestDebug()
                 : undefined;
-            const requestDebug = requestDebugFromAdapter ?? {
-              url: "pi-ai Stream",
-              method: "POST",
-              headers: {},
-            };
+            const requestDebug = normalizeDebugRequest(
+              requestDebugFromAdapter,
+              options.config.providerName,
+              requestOptions,
+            );
             const responseDebug =
               typeof (streamResult as any)?.responseDebug === "function"
                 ? (streamResult as any).responseDebug()
@@ -382,11 +438,11 @@ class UnifiedClientApi extends LLMApi {
           result?.providerMetadata,
         );
 
-        const requestDebug = (result as any)?.requestDebug ?? {
-          url: "pi-ai",
-          method: "POST",
-          headers: {},
-        };
+        const requestDebug = normalizeDebugRequest(
+          (result as any)?.requestDebug,
+          options.config.providerName,
+          requestOptions,
+        );
         const responseDebug = (result as any)?.responseDebug;
 
         options.onUpdate?.(content, content);

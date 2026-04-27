@@ -95,7 +95,10 @@ export const DEFAULT_CONFIG = {
     optimizeProviderName: "",
     optimizeModelPrompt: "", // 内容优化模型的系统提示词，空字符串表示使用默认提示词
     topicPrompt: "", // 标题生成提示词，空字符串表示使用默认提示词
-    summarizePrompt: "", // 对话摘要提示词，空字符串表示使用默认提示词
+    summarizePrompt: "", // 兼容旧字段：上下文压缩附加要求提示词
+    compactionSystemPrompt: "", // 上下文压缩 System Prompt，空字符串表示使用默认模板
+    compactionInitialPrompt: "", // 上下文压缩首次模板，空字符串表示使用默认模板
+    compactionUpdatePrompt: "", // 上下文压缩增量模板，空字符串表示使用默认模板
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,
@@ -261,7 +264,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.8,
+    version: 4.9,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -383,6 +386,11 @@ export const useAppConfig = createPersistStore(
           DEFAULT_CONFIG.modelConfig.compressThresholdRatio;
         state.modelConfig.compressMessageLengthThreshold =
           state.modelConfig.compressMessageLengthThreshold || 8192;
+      }
+      if (version < 4.9) {
+        state.modelConfig.compactionSystemPrompt = "";
+        state.modelConfig.compactionInitialPrompt = "";
+        state.modelConfig.compactionUpdatePrompt = "";
       }
 
       return state as any;

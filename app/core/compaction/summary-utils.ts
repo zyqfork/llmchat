@@ -1,105 +1,299 @@
 export interface SummaryInputMessage {
   role: "system" | "user" | "assistant";
   isError?: boolean;
+  content?: any;
+  tools?: Array<{
+    id: string;
+    type?: string;
+    function?: {
+      name: string;
+      arguments?: string;
+    };
+    content?: string;
+    isError?: boolean;
+    errorMsg?: string;
+  }>;
 }
 
 export interface SummaryInputResult {
   userMessages: string;
-  confirmedAssistantMessages: string;
   userMessageCount: number;
   userTokens: number;
-  confirmedAssistantTokens: number;
 }
 
-export function isLowValueAssistantMessage(content: string) {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return true;
-  }
+const TOOL_RESULT_MAX_CHARS = 2000;
 
-  if (trimmed.length <= 6) {
-    return true;
-  }
+export const DEFAULT_COMPACTION_SYSTEM_PROMPT = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.
 
-  const genericReply =
-    /^(好的|好|可以|没问题|谢谢|不客气|抱歉|了解|明白|收到|欢迎|你好|嗨|嗯|ok|okay)[\s.!?。！？]*$/i;
+Do NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.`;
 
-  return genericReply.test(trimmed);
+export const DEFAULT_COMPACTION_INITIAL_PROMPT = `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
+
+Use this EXACT format:
+
+## Goal
+[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
+
+## Constraints & Preferences
+- [Any constraints, preferences, or requirements mentioned by user]
+- [Or "(none)" if none were mentioned]
+
+## Progress
+### Done
+- [x] [Completed tasks/changes]
+
+### In Progress
+- [ ] [Current work]
+
+### Blocked
+- [Issues preventing progress, if any]
+
+## Key Decisions
+- **[Decision]**: [Brief rationale]
+
+## Next Steps
+1. [Ordered list of what should happen next]
+
+## Critical Context
+- [Any data, examples, or references needed to continue]
+- [Or "(none)" if not applicable]
+
+Keep each section concise. Preserve exact file paths, function names, and error messages.`;
+
+export const DEFAULT_COMPACTION_UPDATE_PROMPT = `The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
+
+Update the existing structured summary with new information. RULES:
+- PRESERVE all existing information from the previous summary
+- ADD new progress, decisions, and context from the new messages
+- UPDATE the Progress section: move items from "In Progress" to "Done" when completed
+- UPDATE "Next Steps" based on what was accomplished
+- PRESERVE exact file paths, function names, and error messages
+- If something is no longer relevant, you may remove it
+
+Use this EXACT format:
+
+## Goal
+[Preserve existing goals, add new ones if the task expanded]
+
+## Constraints & Preferences
+- [Preserve existing, add new ones discovered]
+
+## Progress
+### Done
+- [x] [Include previously done items AND newly completed items]
+
+### In Progress
+- [ ] [Current work - update based on progress]
+
+### Blocked
+- [Current blockers - remove if resolved]
+
+## Key Decisions
+- **[Decision]**: [Brief rationale] (preserve all previous, add new)
+
+## Next Steps
+1. [Update based on current state]
+
+## Critical Context
+- [Preserve important context, add new if needed]
+
+Keep each section concise. Preserve exact file paths, function names, and error messages.`;
+
+function truncateForSummary(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const truncatedChars = text.length - maxChars;
+  return `${text.slice(
+    0,
+    maxChars,
+  )}\n\n[... ${truncatedChars} more characters truncated]`;
 }
 
-export function isUserConfirmationMessage(content: string) {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return false;
+function stringifyContent(content: any): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  const textParts: string[] = [];
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    if (part.type === "text" && typeof part.text === "string") {
+      textParts.push(part.text);
+      continue;
+    }
+    if (part.type === "image_url" && part.image_url?.url) {
+      textParts.push(`[image] ${part.image_url.url}`);
+      continue;
+    }
+    if (part.type === "toolCall") {
+      const name = part.name || "tool";
+      const args = JSON.stringify(part.arguments || {});
+      textParts.push(`[toolCall] ${name} ${args}`);
+      continue;
+    }
+    if (part.type === "toolResult" && typeof part.content === "string") {
+      textParts.push(
+        `[toolResult] ${truncateForSummary(
+          part.content,
+          TOOL_RESULT_MAX_CHARS,
+        )}`,
+      );
+    }
   }
+  return textParts.join("\n");
+}
 
-  if (/(不|别|不要|不是|错|不对|不行|别这样)/i.test(trimmed)) {
-    return false;
+function serializeConversation<T extends SummaryInputMessage>(
+  messages: T[],
+  startIndex: number,
+): string {
+  const lines: string[] = [];
+  for (let i = Math.max(0, startIndex); i < messages.length; i++) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role === "system") continue;
+    const content = stringifyContent(msg.content).trim();
+    if (!content) continue;
+    if (msg.role === "user") lines.push(`[User]: ${content}`);
+    if (msg.role === "assistant") lines.push(`[Assistant]: ${content}`);
   }
-
-  if (/[?？]/.test(trimmed)) {
-    return false;
-  }
-
-  if (/(但是|不过|然而|可是|只是)/i.test(trimmed)) {
-    return false;
-  }
-
-  if (trimmed.length > 20) {
-    return false;
-  }
-
-  const confirmation =
-    /^(好的?|可以|行|没问题|确认|对|是的|没错|就这样|按这个|按此|照这个|照此|听你的|继续|ok|okay)[\s.!。！]*$/i;
-
-  return confirmation.test(trimmed);
+  return lines.join("\n\n");
 }
 
 function buildPromptWithUserMessages(
-  instruction: string,
   userMessages: string,
+  prompts?: {
+    initialPrompt?: string;
+    updatePrompt?: string;
+  },
   previousSummary?: string,
 ) {
-  let output = instruction;
+  const initialPrompt =
+    prompts?.initialPrompt?.trim() || DEFAULT_COMPACTION_INITIAL_PROMPT;
+  const updatePrompt =
+    prompts?.updatePrompt?.trim() || DEFAULT_COMPACTION_UPDATE_PROMPT;
+  const output = previousSummary ? updatePrompt : initialPrompt;
+  let promptText = `<conversation>\n${userMessages}\n</conversation>\n\n`;
+  if (previousSummary && previousSummary.trim().length > 0) {
+    promptText += `<previous-summary>\n${previousSummary}\n</previous-summary>\n\n`;
+  }
+  promptText += output;
+  return promptText;
+}
 
-  if (output.includes("{{previous_summary}}")) {
-    output = output.replace("{{previous_summary}}", previousSummary ?? "");
-  } else if (previousSummary && previousSummary.trim().length > 0) {
-    output = `${output}\n\n已有语义状态：\n${previousSummary}`;
+function estimateMessageTokens<T extends SummaryInputMessage>(
+  message: T,
+  getContent: (message: T) => string,
+): number {
+  if (!message || message.isError || message.role === "system") return 0;
+  const content = getContent(message) || "";
+  return Math.ceil(content.length / 4);
+}
+
+function findTurnStartIndex<T extends SummaryInputMessage>(
+  messages: T[],
+  messageIndex: number,
+  startIndex: number,
+): number {
+  for (let i = messageIndex; i >= startIndex; i--) {
+    if (messages[i]?.role === "user") return i;
+  }
+  return -1;
+}
+
+function hasToolMarkers(content: string): boolean {
+  if (!content) return false;
+  return /\[tool(call|result)\]/i.test(content);
+}
+
+function hasToolPayload<T extends SummaryInputMessage>(
+  message: T,
+  getContent: (message: T) => string,
+): boolean {
+  if (!message) return false;
+  if (Array.isArray(message.tools) && message.tools.length > 0) return true;
+  const content = getContent(message) || "";
+  return hasToolMarkers(content);
+}
+
+function findValidCutPoints<T extends SummaryInputMessage>(
+  messages: T[],
+  startIndex: number,
+  getContent: (message: T) => string,
+): number[] {
+  const cutPoints: number[] = [];
+  for (let i = startIndex; i < messages.length; i++) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role === "system") continue;
+
+    // Prefer user boundaries, and skip tool-heavy assistant boundaries.
+    if (msg.role === "user") {
+      cutPoints.push(i);
+      continue;
+    }
+    if (msg.role === "assistant" && !hasToolPayload(msg, getContent)) {
+      cutPoints.push(i);
+    }
+  }
+  return cutPoints;
+}
+
+export function collectCompactionSlice<T extends SummaryInputMessage>(
+  messages: T[],
+  startIndex: number,
+  keepRecentTokens: number,
+  getContent: (message: T) => string,
+) {
+  const validCutPoints = findValidCutPoints(messages, startIndex, getContent);
+  if (validCutPoints.length === 0) {
+    return {
+      summaryStartIndex: Math.max(0, startIndex),
+      firstKeptIndex: Math.max(0, startIndex),
+      isSplitTurn: false,
+      turnStartIndex: -1,
+    };
   }
 
-  if (output.includes("{{user_messages}}")) {
-    return output.replace("{{user_messages}}", userMessages);
+  let accumulatedTokens = 0;
+  let cutIndex = validCutPoints[0];
+
+  for (let i = messages.length - 1; i >= startIndex; i--) {
+    const msg = messages[i];
+    if (!msg || msg.isError || msg.role === "system") continue;
+    accumulatedTokens += estimateMessageTokens(msg, getContent);
+    if (accumulatedTokens >= keepRecentTokens) {
+      const found = validCutPoints.find((point) => point >= i);
+      cutIndex = found ?? validCutPoints[validCutPoints.length - 1];
+      break;
+    }
   }
 
-  if (!userMessages) {
-    return output;
-  }
+  const isSplitTurn =
+    messages[cutIndex]?.role === "assistant" &&
+    findTurnStartIndex(messages, cutIndex, startIndex) >= startIndex;
+  const turnStartIndex = isSplitTurn
+    ? findTurnStartIndex(messages, cutIndex, startIndex)
+    : -1;
+  const summaryStartIndex = isSplitTurn ? turnStartIndex : cutIndex;
 
-  return `${output}\n\n用户发言：\n${userMessages}`;
+  return {
+    summaryStartIndex: Math.max(startIndex, summaryStartIndex),
+    firstKeptIndex: Math.max(startIndex, cutIndex),
+    isSplitTurn,
+    turnStartIndex,
+  };
 }
 
 export function buildSummaryPrompt(
-  instruction: string,
   userMessages: string,
-  confirmedAssistantMessages: string,
+  prompts?: {
+    initialPrompt?: string;
+    updatePrompt?: string;
+  },
   previousSummary?: string,
 ) {
-  let output = buildPromptWithUserMessages(
-    instruction,
+  const output = buildPromptWithUserMessages(
     userMessages,
+    prompts,
     previousSummary,
   );
-
-  if (output.includes("{{assistant_messages}}")) {
-    return output.replace("{{assistant_messages}}", confirmedAssistantMessages);
-  }
-
-  if (!confirmedAssistantMessages) {
-    return output;
-  }
-
-  return `${output}\n\n用户确认的助手结论：\n${confirmedAssistantMessages}`;
+  return output;
 }
 
 export function collectSummaryInputs<T extends SummaryInputMessage>(
@@ -108,13 +302,10 @@ export function collectSummaryInputs<T extends SummaryInputMessage>(
   getContent: (message: T) => string,
   estimateTokens: (content: string) => number,
 ): SummaryInputResult {
-  const userLines: string[] = [];
-  const confirmedAssistantLines: string[] = [];
   let userMessageCount = 0;
-  let userTokens = 0;
-  let confirmedAssistantTokens = 0;
-  let pendingAssistant: string | null = null;
-  const rangeStart = Math.max(0, startIndex - 1);
+  const serializedConversation = serializeConversation(messages, startIndex);
+  const userTokens = estimateTokens(serializedConversation);
+  const rangeStart = Math.max(0, startIndex);
 
   for (let i = rangeStart; i < messages.length; i++) {
     const msg = messages[i];
@@ -126,37 +317,14 @@ export function collectSummaryInputs<T extends SummaryInputMessage>(
       continue;
     }
 
-    if (msg.role === "assistant") {
-      pendingAssistant = content;
-      continue;
-    }
-
     if (msg.role === "user") {
-      if (i >= startIndex) {
-        userLines.push(content);
-        userMessageCount += 1;
-        userTokens += estimateTokens(content);
-      }
-
-      if (
-        pendingAssistant &&
-        i >= startIndex &&
-        isUserConfirmationMessage(content) &&
-        !isLowValueAssistantMessage(pendingAssistant)
-      ) {
-        confirmedAssistantLines.push(pendingAssistant);
-        confirmedAssistantTokens += estimateTokens(pendingAssistant);
-      }
-
-      pendingAssistant = null;
+      userMessageCount += 1;
     }
   }
 
   return {
-    userMessages: userLines.join("\n"),
-    confirmedAssistantMessages: confirmedAssistantLines.join("\n"),
+    userMessages: serializedConversation,
     userMessageCount,
     userTokens,
-    confirmedAssistantTokens,
   };
 }

@@ -60,8 +60,10 @@ import {
   getCompactionPolicy,
   buildSummaryPrompt,
   collectSummaryInputs,
-  isLowValueAssistantMessage,
-  isUserConfirmationMessage,
+  collectCompactionSlice,
+  DEFAULT_COMPACTION_INITIAL_PROMPT,
+  DEFAULT_COMPACTION_SYSTEM_PROMPT,
+  DEFAULT_COMPACTION_UPDATE_PROMPT,
 } from "../core/compaction";
 
 const localStorage = safeLocalStorage();
@@ -359,49 +361,12 @@ function buildTopicPrompt(
   return output;
 }
 
-function getConfirmedAssistantForTitle(messages: ChatMessage[]) {
-  let lastUserContent = "";
-  let lastUserIndex = -1;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (!msg || msg.isError || msg.role !== "user") {
-      continue;
-    }
-    const content = getMessageTextContentWithoutThinking(msg).trim();
-    if (!content) {
-      continue;
-    }
-    lastUserContent = content;
-    lastUserIndex = i;
-    break;
-  }
-
-  if (!lastUserContent || !isUserConfirmationMessage(lastUserContent)) {
-    return "";
-  }
-
-  for (let i = lastUserIndex - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (!msg || msg.isError || msg.role !== "assistant") {
-      continue;
-    }
-    const content = getMessageTextContentWithoutThinking(msg).trim();
-    if (!content || isLowValueAssistantMessage(content)) {
-      return "";
-    }
-    return content;
-  }
-
-  return "";
-}
-
 function buildTopicRequestMessages(
   topicPrompt: string,
   messages: ChatMessage[],
 ) {
   const userMessages = buildUserMessagesText(messages);
-  const assistantMessage = getConfirmedAssistantForTitle(messages);
+  const assistantMessage = "";
 
   const topicInput = buildTopicPrompt(
     topicPrompt,
@@ -1076,7 +1041,7 @@ export const useChatStore = createPersistStore(
                     response: {
                       status: responseRes?.status,
                       headers: respHeaders,
-                      body: message,
+                      body: (responseRes as any)?.__responseBody ?? message,
                     },
                   },
                 } as ChatMessage;
@@ -1381,7 +1346,7 @@ export const useChatStore = createPersistStore(
                     response: {
                       status: responseRes?.status,
                       headers: respHeaders,
-                      body: message,
+                      body: (responseRes as any)?.__responseBody ?? message,
                     },
                   };
 
@@ -1695,11 +1660,19 @@ export const useChatStore = createPersistStore(
           reversedRecentMessages.push(msgToSend);
         }
         // concat all messages
+        const normalizedRecentMessages = reversedRecentMessages.reverse();
+        // 防止异常情况下把“没有前置 user 的 assistant 历史”发给模型
+        while (
+          normalizedRecentMessages.length > 0 &&
+          normalizedRecentMessages[0]?.role === "assistant"
+        ) {
+          normalizedRecentMessages.shift();
+        }
         const recentMessages = [
           ...systemPrompts,
           ...longTermMemoryPrompts,
           ...contextPrompts,
-          ...reversedRecentMessages.reverse(),
+          ...normalizedRecentMessages,
         ];
 
         return recentMessages;
@@ -1957,7 +1930,7 @@ export const useChatStore = createPersistStore(
           (last, m, i) => (m?.isCompressedContextPrompt ? i : last),
           -1,
         );
-        const summarizeIndex =
+        const boundaryStartIndex =
           lastCompressedIdx >= 0
             ? lastCompressedIdx
             : (session.compressedContextIndex ?? -1) >= 0
@@ -1966,37 +1939,15 @@ export const useChatStore = createPersistStore(
                 session.lastSummarizeIndex,
                 session.clearContextIndex ?? 0,
               );
-        let toBeSummarizedMsgs = messages
-          .filter((msg) => !msg.isError)
-          .slice(summarizeIndex);
-
-        const historyMsgLength = countMessages(toBeSummarizedMsgs);
-
-        if (historyMsgLength > (modelConfig?.max_tokens || 4000)) {
-          const n = toBeSummarizedMsgs.length;
-          toBeSummarizedMsgs = toBeSummarizedMsgs.slice(
-            Math.max(0, n - modelConfig.historyMessageCount),
-          );
-        }
-        const summaryStartIndex = Math.max(
-          0,
-          messages.length - toBeSummarizedMsgs.length,
-        );
         const lastSummarizeIndex = session.messages.length;
 
-        const {
-          userMessages,
-          confirmedAssistantMessages,
-          userMessageCount,
-          userTokens,
-          confirmedAssistantTokens,
-        } = collectSummaryInputs(
+        // 先用完整未压缩边界统计压缩条件，之后再按 keepRecentTokens 切 summary slice
+        const { userMessageCount } = collectSummaryInputs(
           messages,
-          summaryStartIndex,
+          boundaryStartIndex,
           (msg) => getMessageTextContentWithoutThinking(msg).trim(),
           estimateTokenLength,
         );
-        const summaryTokens = userTokens + confirmedAssistantTokens;
         const summaryMinUserMessages =
           modelConfig.summaryMinUserMessages ??
           DEFAULT_SUMMARY_MIN_USER_MESSAGES;
@@ -2034,6 +1985,9 @@ export const useChatStore = createPersistStore(
           sendMemory: modelConfig.sendMemory,
         });
         const {
+          contextWindow,
+          reserveTokens,
+          keepRecentTokens,
           dynamicThreshold,
           reachedFixedThreshold,
           reachedDynamicThreshold,
@@ -2044,6 +1998,9 @@ export const useChatStore = createPersistStore(
         // 添加详细的调试日志
         logger.debug("[Summarize] Compression check:", {
           contextTokens,
+          contextWindow,
+          reserveTokens,
+          keepRecentTokens,
           fixedThreshold,
           dynamicThreshold,
           reachedFixedThreshold,
@@ -2071,17 +2028,41 @@ export const useChatStore = createPersistStore(
         }
 
         if (forceCompress || shouldCompress) {
+          const compactionSlice = collectCompactionSlice(
+            messages,
+            boundaryStartIndex,
+            keepRecentTokens,
+            (msg: ChatMessage) =>
+              getMessageTextContentWithoutThinking(msg).trim(),
+          );
+          const summaryStartIndex = compactionSlice.summaryStartIndex;
+
+          const { userMessages, userTokens } = collectSummaryInputs(
+            messages,
+            summaryStartIndex,
+            (msg: ChatMessage) =>
+              getMessageTextContentWithoutThinking(msg).trim(),
+            estimateTokenLength,
+          );
+          const summaryTokens = userTokens;
+
           /** Destruct max_tokens while summarizing
            * this param is just shit
            **/
-          // 获取摘要模型的提示词，优先级：会话配置 > 全局配置 > 默认提示词
+          // 获取上下文压缩模板，优先级：会话配置 > 全局配置 > 默认模板
           const globalConfig = useAppConfig.getState().modelConfig;
-          let summarizePrompt = Locale.Store.Prompt.Summarize;
-          if (modelConfig.summarizePrompt) {
-            summarizePrompt = modelConfig.summarizePrompt;
-          } else if (globalConfig.summarizePrompt) {
-            summarizePrompt = globalConfig.summarizePrompt;
-          }
+          const compactionSystemPrompt =
+            modelConfig.compactionSystemPrompt ||
+            globalConfig.compactionSystemPrompt ||
+            DEFAULT_COMPACTION_SYSTEM_PROMPT;
+          const compactionInitialPrompt =
+            modelConfig.compactionInitialPrompt ||
+            globalConfig.compactionInitialPrompt ||
+            DEFAULT_COMPACTION_INITIAL_PROMPT;
+          const compactionUpdatePrompt =
+            modelConfig.compactionUpdatePrompt ||
+            globalConfig.compactionUpdatePrompt ||
+            DEFAULT_COMPACTION_UPDATE_PROMPT;
 
           const { max_tokens, ...modelcfg } = modelConfig;
           const forceUserMessages =
@@ -2091,7 +2072,7 @@ export const useChatStore = createPersistStore(
                   false,
                 )
               : userMessages;
-          if (!forceUserMessages && !confirmedAssistantMessages) {
+          if (!forceUserMessages) {
             return false;
           }
 
@@ -2131,9 +2112,11 @@ export const useChatStore = createPersistStore(
             s.compressingContextIndex = s.messages.length - 1;
           });
           const summarizeInput = buildSummaryPrompt(
-            summarizePrompt,
             forceUserMessages,
-            confirmedAssistantMessages,
+            {
+              initialPrompt: compactionInitialPrompt,
+              updatePrompt: compactionUpdatePrompt,
+            },
             previousSummary,
           );
           const compactionContext = {
@@ -2144,6 +2127,7 @@ export const useChatStore = createPersistStore(
           };
           return await executeSummaryStream({
             api,
+            systemPrompt: compactionSystemPrompt,
             summarizeInput,
             modelConfig: modelcfg,
             model,
@@ -2375,7 +2359,7 @@ export const useChatStore = createPersistStore(
                     response: {
                       status: responseRes?.status,
                       headers: respHeaders,
-                      body: message,
+                      body: (responseRes as any)?.__responseBody ?? message,
                     },
                   };
                   finishedMessage = currentMessage;

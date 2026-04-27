@@ -28,8 +28,36 @@ type DebugCapture = {
   response?: {
     status?: number;
     headers?: Record<string, string>;
+    body?: any;
   };
 };
+
+async function tryCaptureResponseBody(
+  response: unknown,
+): Promise<any | undefined> {
+  const r = response as any;
+  try {
+    let text: string | undefined;
+    if (
+      typeof r?.clone === "function" &&
+      typeof r?.clone()?.text === "function"
+    ) {
+      text = await r.clone().text();
+    } else if (typeof r?.text === "function") {
+      text = await r.text();
+    } else if (typeof r?.body === "string") {
+      text = r.body;
+    }
+    if (!text) return undefined;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  } catch {
+    return undefined;
+  }
+}
 
 function extractSystemPrompt(messages: any[]) {
   const systemChunks: string[] = [];
@@ -202,6 +230,101 @@ function toPiTools(openAiTools: any[] = []) {
     .filter(Boolean);
 }
 
+function trimSlash(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+function normalizeDebugHeaders(
+  rawHeaders?: Record<string, string> | Headers | Array<[string, string]>,
+) {
+  if (!rawHeaders) return {};
+
+  try {
+    if (typeof Headers !== "undefined" && rawHeaders instanceof Headers) {
+      const normalized: Record<string, string> = {};
+      rawHeaders.forEach((value, key) => {
+        normalized[key] = value;
+      });
+      return normalized;
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  if (Array.isArray(rawHeaders)) {
+    const normalized: Record<string, string> = {};
+    rawHeaders.forEach(([key, value]) => {
+      if (typeof key === "string") {
+        normalized[key] = String(value ?? "");
+      }
+    });
+    return normalized;
+  }
+
+  return { ...(rawHeaders as Record<string, string>) };
+}
+
+function hasHeader(headers: Record<string, string>, name: string) {
+  const lower = name.toLowerCase();
+  return Object.keys(headers).some((k) => k.toLowerCase() === lower);
+}
+
+function looksLikeFullApiPath(url: string) {
+  return /\/(chat\/completions|responses|messages|models)(\?|$)/.test(url);
+}
+
+function buildDebugRequestUrl(baseUrl: string | undefined, api: string) {
+  const normalized = trimSlash(baseUrl || "");
+  if (!normalized) return "";
+  if (looksLikeFullApiPath(normalized)) return normalized;
+
+  switch (api) {
+    case "openai-responses":
+      return `${normalized}/responses`;
+    case "anthropic-messages":
+      return `${normalized}/messages`;
+    case "google-generative-ai":
+      return `${normalized}/models`;
+    case "openai-completions":
+    default:
+      return `${normalized}/chat/completions`;
+  }
+}
+
+function buildDebugHeaders(
+  providerId: string,
+  apiKey: string,
+  api: string,
+  rawHeaders?: Record<string, string> | Headers | Array<[string, string]>,
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...normalizeDebugHeaders(rawHeaders),
+  };
+  if (apiKey) {
+    if (api === "anthropic-messages") {
+      if (!hasHeader(headers, "x-api-key")) {
+        headers["x-api-key"] = apiKey;
+      }
+      if (!hasHeader(headers, "anthropic-version")) {
+        headers["anthropic-version"] = "2023-06-01";
+      }
+    } else if (api === "google-generative-ai") {
+      if (!hasHeader(headers, "x-goog-api-key")) {
+        headers["x-goog-api-key"] = apiKey;
+      }
+    } else {
+      if (!hasHeader(headers, "Authorization")) {
+        headers.Authorization = `Bearer ${apiKey}`;
+      }
+    }
+  }
+  if (!hasHeader(headers, "x-provider-id")) {
+    headers["x-provider-id"] = providerId;
+  }
+  return headers;
+}
+
 function parseMcpToolMeta(toolName: string, allTools: any[]) {
   const byMeta = allTools.find((t) => t?.function?.name === toolName)?._mcpMeta;
   if (byMeta?.clientId && byMeta?.toolName) return byMeta;
@@ -284,18 +407,29 @@ class PiAiAdapter implements LLMAdapter {
           signal: req.options?.abortSignal,
           onPayload: (payload, usedModel) => {
             debugCapture.request = {
-              url: usedModel.baseUrl,
+              url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
               method: "POST",
-              headers: usedModel.headers ?? {},
+              headers: buildDebugHeaders(
+                req.providerId,
+                cfg.apiKey,
+                usedModel.api,
+                usedModel.headers ?? {},
+              ),
               body: payload,
             };
             return undefined;
           },
           onResponse: (response) => {
-            debugCapture.response = {
+            const capturedResponse: NonNullable<DebugCapture["response"]> = {
               status: response.status,
               headers: response.headers,
             };
+            debugCapture.response = capturedResponse;
+            void tryCaptureResponseBody(response).then((body) => {
+              if (typeof body !== "undefined") {
+                capturedResponse.body = body;
+              }
+            });
           },
         });
 
@@ -379,18 +513,29 @@ class PiAiAdapter implements LLMAdapter {
         signal: req.options?.abortSignal,
         onPayload: (payload, usedModel) => {
           debugCapture.request = {
-            url: usedModel.baseUrl,
+            url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
             method: "POST",
-            headers: usedModel.headers ?? {},
+            headers: buildDebugHeaders(
+              req.providerId,
+              cfg.apiKey,
+              usedModel.api,
+              usedModel.headers ?? {},
+            ),
             body: payload,
           };
           return undefined;
         },
         onResponse: (response) => {
-          debugCapture.response = {
+          const capturedResponse: NonNullable<DebugCapture["response"]> = {
             status: response.status,
             headers: response.headers,
           };
+          debugCapture.response = capturedResponse;
+          void tryCaptureResponseBody(response).then((body) => {
+            if (typeof body !== "undefined") {
+              capturedResponse.body = body;
+            }
+          });
         },
       });
       context.messages.push(result as any);

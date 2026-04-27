@@ -100,6 +100,11 @@ import { ModelManager } from "./model-manager";
 import { useAllModels } from "../utils/hooks";
 import { getModelProvider } from "../utils/model";
 import { useEnabledModels } from "../utils/hooks";
+import {
+  DEFAULT_COMPACTION_INITIAL_PROMPT,
+  DEFAULT_COMPACTION_SYSTEM_PROMPT,
+  DEFAULT_COMPACTION_UPDATE_PROMPT,
+} from "../core/compaction";
 
 // 设置页面的分类枚举
 enum SettingsTab {
@@ -506,25 +511,23 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
 
 // 系统提示词编辑弹窗
 function SystemPromptEditModal(props: {
-  type: "optimize" | "topic" | "summarize";
+  type: "optimize" | "topic";
   value: string;
   defaultValue: string;
   onSave: (value: string) => void;
   onClose: () => void;
 }) {
   const [promptValue, setPromptValue] = useState(props.value);
-  const title =
-    props.type === "optimize"
-      ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title
-      : props.type === "topic"
-      ? Locale.Settings.Prompt.SystemPrompts.Topic.Title
-      : Locale.Settings.Prompt.SystemPrompts.Summarize.Title;
-  const subTitle =
-    props.type === "optimize"
-      ? Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle
-      : props.type === "topic"
-      ? Locale.Settings.Prompt.SystemPrompts.Topic.SubTitle
-      : Locale.Settings.Prompt.SystemPrompts.Summarize.SubTitle;
+  const titleMap: Record<"optimize" | "topic", string> = {
+    optimize: Locale.Settings.Prompt.SystemPrompts.OptimizeModel.Title,
+    topic: Locale.Settings.Prompt.SystemPrompts.Topic.Title,
+  };
+  const subTitleMap: Record<"optimize" | "topic", string> = {
+    optimize: Locale.Settings.Prompt.SystemPrompts.OptimizeModel.SubTitle,
+    topic: Locale.Settings.Prompt.SystemPrompts.Topic.SubTitle,
+  };
+  const title = titleMap[props.type];
+  const subTitle = subTitleMap[props.type];
 
   return (
     <div className="modal-mask">
@@ -559,6 +562,96 @@ function SystemPromptEditModal(props: {
           ></Input>
           <div className={styles["edit-prompt-hint"]}>
             留空将使用默认提示词：{props.defaultValue}
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function CompactionPromptEditModal(props: {
+  values: {
+    systemPrompt: string;
+    initialPrompt: string;
+    updatePrompt: string;
+  };
+  defaults: {
+    systemPrompt: string;
+    initialPrompt: string;
+    updatePrompt: string;
+  };
+  onSave: (values: {
+    systemPrompt: string;
+    initialPrompt: string;
+    updatePrompt: string;
+  }) => void;
+  onClose: () => void;
+}) {
+  const [values, setValues] = useState(props.values);
+
+  return (
+    <div className="modal-mask">
+      <Modal
+        title={Locale.Settings.Prompt.SystemPrompts.Summarize.Title}
+        onClose={props.onClose}
+        actions={[
+          <IconButton
+            key="save"
+            onClick={() => props.onSave(values)}
+            text="保存"
+            type="primary"
+            bordered
+          />,
+          <IconButton
+            key="cancel"
+            onClick={props.onClose}
+            text="取消"
+            bordered
+          />,
+        ]}
+      >
+        <div className={styles["edit-prompt-modal"]}>
+          <div className={styles["edit-prompt-subtitle"]}>
+            {Locale.Settings.Prompt.SystemPrompts.Summarize.SubTitle}
+          </div>
+          <div className={styles["edit-prompt-subtitle"]}>System Prompt</div>
+          <Input
+            value={values.systemPrompt}
+            className={styles["edit-prompt-content"]}
+            rows={6}
+            onInput={(e) =>
+              setValues((prev) => ({
+                ...prev,
+                systemPrompt: e.currentTarget.value,
+              }))
+            }
+          />
+          <div className={styles["edit-prompt-subtitle"]}>Initial Prompt</div>
+          <Input
+            value={values.initialPrompt}
+            className={styles["edit-prompt-content"]}
+            rows={10}
+            onInput={(e) =>
+              setValues((prev) => ({
+                ...prev,
+                initialPrompt: e.currentTarget.value,
+              }))
+            }
+          />
+          <div className={styles["edit-prompt-subtitle"]}>Update Prompt</div>
+          <Input
+            value={values.updatePrompt}
+            className={styles["edit-prompt-content"]}
+            rows={10}
+            onInput={(e) =>
+              setValues((prev) => ({
+                ...prev,
+                updatePrompt: e.currentTarget.value,
+              }))
+            }
+          />
+          <div className={styles["edit-prompt-hint"]}>
+            留空将使用默认模板（pi-mono 原始模板，英文）。
           </div>
         </div>
       </Modal>
@@ -1712,7 +1805,7 @@ export function Settings() {
   const customCount = promptStore.getUserPrompts().length ?? 0;
   const [shouldShowPromptModal, setShowPromptModal] = useState(false);
   const [editingSystemPrompt, setEditingSystemPrompt] = useState<
-    "optimize" | "topic" | "summarize" | null
+    "optimize" | "topic" | "compaction" | null
   >(null);
   const [showModelManager, setShowModelManager] = useState(false);
   const [currentProvider, setCurrentProvider] = useState<string | null>(null);
@@ -2540,37 +2633,27 @@ export function Settings() {
 
   // 提示词设置
   const renderPromptSettings = () => {
-    const getSystemPromptValue = (type: "optimize" | "topic" | "summarize") => {
+    const getSystemPromptValue = (type: "optimize" | "topic") => {
       if (type === "optimize") {
         return (
           config.modelConfig.optimizeModelPrompt ||
           Locale.Settings.OptimizeModel.Prompt.Placeholder
         );
-      } else if (type === "topic") {
-        return config.modelConfig.topicPrompt || Locale.Store.Prompt.Topic;
-      } else {
-        return (
-          config.modelConfig.summarizePrompt || Locale.Store.Prompt.Summarize
-        );
       }
+      if (type === "topic") {
+        return config.modelConfig.topicPrompt || Locale.Store.Prompt.Topic;
+      }
+      return config.modelConfig.topicPrompt || Locale.Store.Prompt.Topic;
     };
 
-    const getSystemPromptDefault = (
-      type: "optimize" | "topic" | "summarize",
-    ) => {
+    const getSystemPromptDefault = (type: "optimize" | "topic") => {
       if (type === "optimize") {
         return Locale.Settings.OptimizeModel.Prompt.Placeholder;
-      } else if (type === "topic") {
-        return Locale.Store.Prompt.Topic;
-      } else {
-        return Locale.Store.Prompt.Summarize;
       }
+      return Locale.Store.Prompt.Topic;
     };
 
-    const saveSystemPrompt = (
-      type: "optimize" | "topic" | "summarize",
-      value: string,
-    ) => {
+    const saveSystemPrompt = (type: "optimize" | "topic", value: string) => {
       if (type === "optimize") {
         updateConfig(
           (config) =>
@@ -2584,12 +2667,6 @@ export function Settings() {
           (config) =>
             (config.modelConfig.topicPrompt =
               value === Locale.Store.Prompt.Topic ? "" : value),
-        );
-      } else if (type === "summarize") {
-        updateConfig(
-          (config) =>
-            (config.modelConfig.summarizePrompt =
-              value === Locale.Store.Prompt.Summarize ? "" : value),
         );
       }
       setEditingSystemPrompt(null);
@@ -2637,7 +2714,7 @@ export function Settings() {
             <IconButton
               icon={<EditIcon />}
               text={Locale.Settings.Prompt.Edit}
-              onClick={() => setEditingSystemPrompt("summarize")}
+              onClick={() => setEditingSystemPrompt("compaction")}
             />
           </ListItem>
 
@@ -2668,12 +2745,51 @@ export function Settings() {
         {shouldShowPromptModal && (
           <UserPromptModal onClose={() => setShowPromptModal(false)} />
         )}
-        {editingSystemPrompt && (
+        {(editingSystemPrompt === "optimize" ||
+          editingSystemPrompt === "topic") && (
           <SystemPromptEditModal
             type={editingSystemPrompt}
             value={getSystemPromptValue(editingSystemPrompt)}
             defaultValue={getSystemPromptDefault(editingSystemPrompt)}
             onSave={(value) => saveSystemPrompt(editingSystemPrompt, value)}
+            onClose={() => setEditingSystemPrompt(null)}
+          />
+        )}
+        {editingSystemPrompt === "compaction" && (
+          <CompactionPromptEditModal
+            values={{
+              systemPrompt:
+                config.modelConfig.compactionSystemPrompt ||
+                DEFAULT_COMPACTION_SYSTEM_PROMPT,
+              initialPrompt:
+                config.modelConfig.compactionInitialPrompt ||
+                DEFAULT_COMPACTION_INITIAL_PROMPT,
+              updatePrompt:
+                config.modelConfig.compactionUpdatePrompt ||
+                DEFAULT_COMPACTION_UPDATE_PROMPT,
+            }}
+            defaults={{
+              systemPrompt: DEFAULT_COMPACTION_SYSTEM_PROMPT,
+              initialPrompt: DEFAULT_COMPACTION_INITIAL_PROMPT,
+              updatePrompt: DEFAULT_COMPACTION_UPDATE_PROMPT,
+            }}
+            onSave={(values) => {
+              updateConfig((config) => {
+                config.modelConfig.compactionSystemPrompt =
+                  values.systemPrompt === DEFAULT_COMPACTION_SYSTEM_PROMPT
+                    ? ""
+                    : values.systemPrompt;
+                config.modelConfig.compactionInitialPrompt =
+                  values.initialPrompt === DEFAULT_COMPACTION_INITIAL_PROMPT
+                    ? ""
+                    : values.initialPrompt;
+                config.modelConfig.compactionUpdatePrompt =
+                  values.updatePrompt === DEFAULT_COMPACTION_UPDATE_PROMPT
+                    ? ""
+                    : values.updatePrompt;
+              });
+              setEditingSystemPrompt(null);
+            }}
             onClose={() => setEditingSystemPrompt(null)}
           />
         )}
