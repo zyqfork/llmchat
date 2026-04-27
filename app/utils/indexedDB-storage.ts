@@ -9,9 +9,13 @@ class PiSettingsBackedStorage implements StateStorage {
 
   async getItem(name: string): Promise<string | null> {
     try {
-      const value = await this.settingsStore.get<string>(name);
+      const value = await this.settingsStore.get<unknown>(name);
       if (typeof value === "string") {
         return value;
+      }
+      if (value !== null && typeof value !== "undefined") {
+        // createJSONStorage expects a JSON string from storage.getItem.
+        return JSON.stringify(value);
       }
     } catch {
       // fall through to localStorage fallback

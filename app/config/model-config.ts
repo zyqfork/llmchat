@@ -6,33 +6,13 @@ import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-
 
 // 尝试导入生成的配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
-let PI_MODELS_CACHE: Record<string, Record<string, any>> = {};
+const PI_MODELS_CACHE: Record<string, Record<string, any>> = {};
 
 try {
   const generatedConfig = require("./generated/models-config");
   MODELS_DEV_CONFIG = generatedConfig.MODELS_DEV_CONFIG || {};
 } catch (error) {
   console.warn("Generated models config not found");
-}
-
-try {
-  const piAi = require("@mariozechner/pi-ai");
-  const providers = Array.isArray(piAi?.getProviders?.())
-    ? piAi.getProviders()
-    : [];
-  for (const provider of providers) {
-    const models = Array.isArray(piAi?.getModels?.(provider))
-      ? piAi.getModels(provider)
-      : [];
-    PI_MODELS_CACHE[String(provider).toLowerCase()] = {};
-    for (const model of models) {
-      if (model?.id) {
-        PI_MODELS_CACHE[String(provider).toLowerCase()][model.id] = model;
-      }
-    }
-  }
-} catch {
-  // ignore, keep generated config + heuristic fallback
 }
 
 // ============================================================================

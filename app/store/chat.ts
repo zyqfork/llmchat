@@ -73,6 +73,7 @@ const DEFAULT_AUTO_TITLE_MIN_USER_TOKENS = 20;
 const DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES = 1;
 const DEFAULT_AUTO_TITLE_REFRESH_INTERVAL = 4;
 const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 1;
+const SUMMARY_MAX_OUTPUT_TOKENS = 2048;
 
 export type ChatMessageTool = {
   id: string;
@@ -2117,7 +2118,16 @@ export const useChatStore = createPersistStore(
             globalConfig.compactionUpdatePrompt ||
             DEFAULT_COMPACTION_UPDATE_PROMPT;
 
-          const { max_tokens, ...modelcfg } = modelConfig;
+          const {
+            max_tokens,
+            max_completion_tokens,
+            maxCompletionTokens,
+            ...modelcfg
+          } = modelConfig as any;
+          const summaryModelConfig = {
+            ...modelcfg,
+            max_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
+          };
           const forceUserMessages =
             forceCompress && !userMessages
               ? buildConversationTranscript(
@@ -2182,7 +2192,7 @@ export const useChatStore = createPersistStore(
             api,
             systemPrompt: compactionSystemPrompt,
             summarizeInput,
-            modelConfig: modelcfg,
+            modelConfig: summaryModelConfig,
             model,
             providerName,
             sanitizeMessage: removeThinkingContent,

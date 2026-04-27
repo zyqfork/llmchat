@@ -1139,6 +1139,9 @@ const en: LocaleType = {
     Clear: "Context Cleared",
     Compressing: "Compressing context...",
     Compressed: "Context compressed",
+    CompressedTag: "Compressed",
+    Expand: "Expand",
+    Collapse: "Collapse",
     Revert: "Revert",
   },
 

@@ -1117,6 +1117,9 @@ const cn = {
     Clear: "上下文已清除",
     Compressing: "上下文压缩中...",
     Compressed: "上下文已压缩",
+    CompressedTag: "已压缩",
+    Expand: "展开查看",
+    Collapse: "收起",
     Revert: "恢复上下文",
   },
 

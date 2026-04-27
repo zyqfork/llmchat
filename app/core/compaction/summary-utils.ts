@@ -99,6 +99,42 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`;
 
+function getPreferredLocale(): string {
+  if (typeof navigator !== "undefined" && navigator.language) {
+    return String(navigator.language).toLowerCase();
+  }
+  return "en-us";
+}
+
+function getCompactionLanguageDirective(): string {
+  const locale = getPreferredLocale();
+  const byPrefix: Array<[string, string]> = [
+    ["zh", "请使用用户当前会话语言输出总结。"],
+    ["en", "Write the summary in the language used by the user."],
+    ["ja", "要約はユーザーが会話で使っている言語で出力してください。"],
+    ["ko", "요약은 사용자가 대화에서 사용하는 언어로 작성하세요."],
+    ["fr", "Rédigez le résumé dans la langue utilisée par l'utilisateur."],
+    ["es", "Redacta el resumen en el idioma que use el usuario."],
+    [
+      "de",
+      "Schreibe die Zusammenfassung in der vom Nutzer verwendeten Sprache.",
+    ],
+    ["it", "Scrivi il riepilogo nella lingua usata dall'utente."],
+    ["pt", "Escreva o resumo no idioma usado pelo usuário."],
+    ["ru", "Пишите сводку на языке, который использует пользователь."],
+    ["ar", "اكتب الملخص باللغة التي يستخدمها المستخدم في المحادثة."],
+    ["tr", "Özeti kullanıcının konuşmada kullandığı dilde yazın."],
+    ["vi", "Hãy viết bản tóm tắt bằng ngôn ngữ người dùng đang sử dụng."],
+    ["bn", "সারাংশটি ব্যবহারকারীর ব্যবহৃত ভাষায় লিখুন।"],
+    ["cs", "Shrnutí pište v jazyce, který uživatel používá v konverzaci."],
+    ["da", "Skriv opsummeringen på det sprog, som brugeren bruger i samtalen."],
+  ];
+  const matched = byPrefix.find(([prefix]) => locale.startsWith(prefix));
+  const instruction =
+    matched?.[1] || "Write the summary in the language used by the user.";
+  return `${instruction}\nPreferred locale: ${locale}`;
+}
+
 function truncateForSummary(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   const truncatedChars = text.length - maxChars;
@@ -173,7 +209,7 @@ function buildPromptWithUserMessages(
   if (previousSummary && previousSummary.trim().length > 0) {
     promptText += `<previous-summary>\n${previousSummary}\n</previous-summary>\n\n`;
   }
-  promptText += output;
+  promptText += `${output}\n\n${getCompactionLanguageDirective()}`;
   return promptText;
 }
 

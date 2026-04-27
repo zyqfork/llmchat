@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
 
 import EditIcon from "../../icons/rename.svg";
@@ -96,6 +96,14 @@ export function SingleMessage(props: SingleMessageProps) {
   } = props;
 
   const isUser = message.role === "user";
+  const isCompressedContextMessage = !!message.isCompressedContextPrompt;
+  const [isCompressedExpanded, setIsCompressedExpanded] = useState(false);
+
+  useEffect(() => {
+    if (isCompressedContextMessage) {
+      setIsCompressedExpanded(false);
+    }
+  }, [isCompressedContextMessage, message.id]);
 
   return (
     <Fragment key={message.id}>
@@ -401,39 +409,88 @@ export function SingleMessage(props: SingleMessageProps) {
           <div
             className={[
               styles["chat-message-item"],
-              message.isCompressedContextPrompt
+              isCompressedContextMessage
                 ? styles["chat-message-item-compressed"]
                 : "",
             ]
               .filter(Boolean)
               .join(" ")}
           >
-            <LLMMessageContent
-              key={message.streaming ? "loading" : "done"}
-              content={(() => {
-                const messageContent =
-                  typeof message.content === "string"
-                    ? message.content
-                    : getMessageTextContent(message);
-                const isThinking = isThinkingModel(message.model);
-                const shouldWrap = !message.streaming && isThinking;
-                if (shouldWrap) {
-                  return wrapThinkingPart(messageContent);
+            {isCompressedContextMessage && !message.streaming ? (
+              <div className={styles["compressed-context-message-wrap"]}>
+                <button
+                  className={styles["compressed-context-toggle"]}
+                  onClick={() => setIsCompressedExpanded((v) => !v)}
+                >
+                  <span className={styles["compressed-context-marker"]}>
+                    {Locale.Context.CompressedTag}
+                  </span>
+                  <span className={styles["compressed-context-title"]}>
+                    {Locale.Context.Compressed}
+                  </span>
+                  <span className={styles["compressed-context-toggle-text"]}>
+                    {isCompressedExpanded
+                      ? Locale.Context.Collapse
+                      : Locale.Context.Expand}
+                  </span>
+                </button>
+                {isCompressedExpanded && (
+                  <LLMMessageContent
+                    key={message.streaming ? "loading" : "done"}
+                    content={(() => {
+                      const messageContent =
+                        typeof message.content === "string"
+                          ? message.content
+                          : getMessageTextContent(message);
+                      const isThinking = isThinkingModel(message.model);
+                      const shouldWrap = !message.streaming && isThinking;
+                      if (shouldWrap) {
+                        return wrapThinkingPart(messageContent);
+                      }
+                      return messageContent;
+                    })()}
+                    isStreamFinished={!message.streaming && !message.preview}
+                    loading={
+                      (message.preview || message.streaming) &&
+                      (!message.content ||
+                        (typeof message.content === "string" &&
+                          message.content.length === 0))
+                    }
+                    fontSize={fontSize}
+                    fontFamily={fontFamily}
+                    parentRef={scrollRef}
+                    defaultShow={index >= totalMessages - 6}
+                  />
+                )}
+              </div>
+            ) : (
+              <LLMMessageContent
+                key={message.streaming ? "loading" : "done"}
+                content={(() => {
+                  const messageContent =
+                    typeof message.content === "string"
+                      ? message.content
+                      : getMessageTextContent(message);
+                  const isThinking = isThinkingModel(message.model);
+                  const shouldWrap = !message.streaming && isThinking;
+                  if (shouldWrap) {
+                    return wrapThinkingPart(messageContent);
+                  }
+                  return messageContent;
+                })()}
+                isStreamFinished={!message.streaming && !message.preview}
+                loading={
+                  (message.preview || message.streaming) &&
+                  (!message.content ||
+                    (typeof message.content === "string" &&
+                      message.content.length === 0))
                 }
-                return messageContent;
-              })()}
-              isStreamFinished={!message.streaming && !message.preview}
-              loading={
-                (message.preview || message.streaming) &&
-                (!message.content ||
-                  (typeof message.content === "string" &&
-                    message.content.length === 0))
-              }
-              fontSize={fontSize}
-              fontFamily={fontFamily}
-              parentRef={scrollRef}
-              defaultShow={index >= totalMessages - 6}
-            />
+                fontSize={fontSize}
+                fontFamily={fontFamily}
+                parentRef={scrollRef}
+                defaultShow={index >= totalMessages - 6}
+              />
+            )}
             {getMessageImages(message).length === 1 && (
               <div
                 className={styles["chat-message-item-image-container"]}

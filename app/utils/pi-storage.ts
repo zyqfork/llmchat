@@ -11,6 +11,11 @@ type PiWebUiModule = {
   SettingsStore: new (backend: any) => PiSettingsStore;
 };
 
+const dynamicImportModule = new Function(
+  "moduleName",
+  "return import(moduleName)",
+) as (moduleName: string) => Promise<any>;
+
 class LocalStorageSettingsStore implements PiSettingsStore {
   private readonly prefix = "pi_settings_";
 
@@ -67,8 +72,15 @@ async function loadPiWebUiStore(): Promise<PiSettingsStore> {
     return new LocalStorageSettingsStore();
   }
 
+  // Static export build must stay fully build-safe and avoid pulling
+  // @mariozechner/pi-web-ui root entry (it drags pdfjs worker into bundle).
+  if (process.env.BUILD_MODE === "export") {
+    return new LocalStorageSettingsStore();
+  }
+
   try {
-    const mod = (await import("@mariozechner/pi-web-ui")) as PiWebUiModule;
+    const pkg = "@mariozechner/pi-web-ui";
+    const mod = (await dynamicImportModule(pkg)) as PiWebUiModule;
     const backend = new mod.IndexedDBStorageBackend({
       dbName: "llmchat-storage",
       version: 1,
