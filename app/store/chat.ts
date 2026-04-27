@@ -73,6 +73,7 @@ const DEFAULT_AUTO_TITLE_MIN_USER_TOKENS = 20;
 const DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES = 1;
 const DEFAULT_AUTO_TITLE_REFRESH_INTERVAL = 4;
 const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 1;
+const TITLE_MAX_OUTPUT_TOKENS = 128;
 const SUMMARY_MAX_OUTPUT_TOKENS = 2048;
 
 export type ChatMessageTool = {
@@ -1825,6 +1826,7 @@ export const useChatStore = createPersistStore(
           messages: buildTopicRequestMessages(topicPrompt, topicSourceMessages),
           config: {
             model: topicModelConfig.model,
+            max_tokens: TITLE_MAX_OUTPUT_TOKENS,
             stream: false,
             providerName: topicModelConfig.providerName,
           },
@@ -1942,6 +1944,7 @@ export const useChatStore = createPersistStore(
             ),
             config: {
               model: topicModelConfig.model,
+              max_tokens: TITLE_MAX_OUTPUT_TOKENS,
               stream: false,
               providerName: topicModelConfig.providerName,
             },

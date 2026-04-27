@@ -512,6 +512,7 @@ export function ChatMain() {
         config: {
           model: optimizeModelConfig.model,
           temperature: 0.3,
+          max_tokens: 1024,
           stream: true,
           providerName: optimizeModelConfig.providerName,
         },
