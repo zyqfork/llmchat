@@ -419,7 +419,21 @@ export function SingleMessage(props: SingleMessageProps) {
             {isCompressedContextMessage && !message.streaming ? (
               <div className={styles["compressed-context-message-wrap"]}>
                 <button
-                  className={styles["compressed-context-toggle"]}
+                  className={[
+                    styles["compressed-context-toggle"],
+                    isCompressedExpanded
+                      ? styles["compressed-context-toggle-expanded"]
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  type="button"
+                  aria-expanded={isCompressedExpanded}
+                  aria-label={
+                    isCompressedExpanded
+                      ? Locale.Context.Collapse
+                      : Locale.Context.Expand
+                  }
                   onClick={() => setIsCompressedExpanded((v) => !v)}
                 >
                   <span className={styles["compressed-context-marker"]}>
@@ -428,10 +442,23 @@ export function SingleMessage(props: SingleMessageProps) {
                   <span className={styles["compressed-context-title"]}>
                     {Locale.Context.Compressed}
                   </span>
-                  <span className={styles["compressed-context-toggle-text"]}>
+                  <span className={styles["compressed-context-action"]}>
                     {isCompressedExpanded
                       ? Locale.Context.Collapse
                       : Locale.Context.Expand}
+                  </span>
+                  <span
+                    className={[
+                      styles["compressed-context-toggle-arrow"],
+                      isCompressedExpanded
+                        ? styles["compressed-context-toggle-arrow-expanded"]
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-hidden="true"
+                  >
+                    ▾
                   </span>
                 </button>
                 {isCompressedExpanded && (

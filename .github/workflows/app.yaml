@@ -2,6 +2,11 @@ name: Release App
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to build (manual trigger only)
+        required: false
+        default: main
   release:
     types: [published]
 
@@ -15,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
       - name: setup node
         uses: actions/setup-node@v3
         with:
@@ -66,6 +73,8 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
 
       - name: setup node
         uses: actions/setup-node@v3
