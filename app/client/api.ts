@@ -15,7 +15,6 @@ import {
   CustomProviderType,
 } from "../store";
 import { unifiedChat, UnifiedChatOptions } from "./unified-api";
-import { getCapturedDebugInfo } from "./sdk-manager";
 import { logger } from "../utils/logger";
 import { ModelSize } from "../typing";
 
@@ -162,14 +161,6 @@ export abstract class LLMApi {
 class UnifiedClientApi extends LLMApi {
   async chat(options: ChatOptions): Promise<void> {
     try {
-      // 清除之前的调试信息
-      try {
-        const { clearCapturedDebugInfo } = await import("./sdk-manager");
-        clearCapturedDebugInfo();
-      } catch (e) {
-        logger.warn("[Unified Client API] Failed to clear debug info:", e);
-      }
-
       // 转换消息格式 - options.messages 已经是 RequestMessage[] 类型
       const messages = options.messages.map((msg) => ({
         role: msg.role,
@@ -231,6 +222,43 @@ class UnifiedClientApi extends LLMApi {
             if (streamResult.fullStream) {
               for await (const part of streamResult.fullStream) {
                 switch (part.type) {
+                  case "tool-call": {
+                    const toolCall = (part as any).toolCall;
+                    if (toolCall?.id && toolCall?.name) {
+                      options.onBeforeTool?.({
+                        id: toolCall.id,
+                        type: "function",
+                        function: {
+                          name: toolCall.name,
+                          arguments: JSON.stringify(toolCall.arguments ?? {}),
+                        },
+                      });
+                    }
+                    break;
+                  }
+                  case "tool-result": {
+                    const toolCall = (part as any).toolCall;
+                    const result = (part as any).result;
+                    const isError = !!(part as any).isError;
+                    if (toolCall?.id && toolCall?.name) {
+                      options.onAfterTool?.({
+                        id: toolCall.id,
+                        type: "function",
+                        function: {
+                          name: toolCall.name,
+                          arguments: JSON.stringify(toolCall.arguments ?? {}),
+                        },
+                        content: typeof result === "string" ? result : "",
+                        isError,
+                        errorMsg: isError
+                          ? typeof result === "string"
+                            ? result
+                            : "Tool execution failed"
+                          : undefined,
+                      });
+                    }
+                    break;
+                  }
                   case "reasoning":
                   case "reasoning-delta": {
                     // AI SDK 6 对 reasoning 的支持；OpenAI 原生用 delta，完整块用 text/textDelta
@@ -311,14 +339,19 @@ class UnifiedClientApi extends LLMApi {
               );
             }
 
-            // 优先使用 SDK 路径捕获的请求/响应调试信息
-            const capturedDebug = getCapturedDebugInfo();
-            const requestDebug = capturedDebug?.request ?? {
-              url: "AI SDK Stream",
+            const requestDebugFromAdapter =
+              typeof (streamResult as any)?.requestDebug === "function"
+                ? (streamResult as any).requestDebug()
+                : undefined;
+            const requestDebug = requestDebugFromAdapter ?? {
+              url: "pi-ai Stream",
               method: "POST",
               headers: {},
             };
-            const responseDebug = capturedDebug?.response;
+            const responseDebug =
+              typeof (streamResult as any)?.responseDebug === "function"
+                ? (streamResult as any).responseDebug()
+                : undefined;
 
             const mockResponse = buildResponseWithMetadata(
               responseId,
@@ -349,14 +382,12 @@ class UnifiedClientApi extends LLMApi {
           result?.providerMetadata,
         );
 
-        // 优先使用 SDK 路径捕获的请求/响应调试信息
-        const capturedDebug = getCapturedDebugInfo();
-        const requestDebug = capturedDebug?.request ?? {
-          url: "AI SDK Stream",
+        const requestDebug = (result as any)?.requestDebug ?? {
+          url: "pi-ai",
           method: "POST",
           headers: {},
         };
-        const responseDebug = capturedDebug?.response;
+        const responseDebug = (result as any)?.responseDebug;
 
         options.onUpdate?.(content, content);
         options.onFinish(

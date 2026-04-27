@@ -48,7 +48,6 @@ import {
   getSessionCompressModelConfig,
   getSessionTopicModelConfig,
 } from "../utils/model-resolver";
-import { getModelCompressThreshold } from "../config/model-config";
 import { getModelStreamConfig } from "../config/model-stream";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -56,6 +55,14 @@ import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { logger } from "../utils/logger";
+import {
+  executeSummaryStream,
+  getCompactionPolicy,
+  buildSummaryPrompt,
+  collectSummaryInputs,
+  isLowValueAssistantMessage,
+  isUserConfirmationMessage,
+} from "../core/compaction";
 
 const localStorage = safeLocalStorage();
 
@@ -330,102 +337,6 @@ function buildUserMessagesText(messages: ChatMessage[]) {
   return lines.join("\n");
 }
 
-function isLowValueAssistantMessage(content: string) {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return true;
-  }
-
-  if (trimmed.length <= 6) {
-    return true;
-  }
-
-  const genericReply =
-    /^(好的|好|可以|没问题|谢谢|不客气|抱歉|了解|明白|收到|欢迎|你好|嗨|嗯|ok|okay)[\s.!?。！？]*$/i;
-
-  return genericReply.test(trimmed);
-}
-
-function isUserConfirmationMessage(content: string) {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  // 排除否定表达
-  if (/(不|别|不要|不是|错|不对|不行|别这样)/i.test(trimmed)) {
-    return false;
-  }
-
-  // 排除疑问句
-  if (/[?？]/.test(trimmed)) {
-    return false;
-  }
-
-  // 排除转折语气
-  if (/(但是|不过|然而|可是|只是)/i.test(trimmed)) {
-    return false;
-  }
-
-  // 必须是简短的确认（避免误判长句）
-  if (trimmed.length > 20) {
-    return false;
-  }
-
-  // 更严格的确认匹配：必须是完整的确认词
-  const confirmation =
-    /^(好的?|可以|行|没问题|确认|对|是的|没错|就这样|按这个|按此|照这个|照此|听你的|继续|ok|okay)[\s.!。！]*$/i;
-
-  return confirmation.test(trimmed);
-}
-
-function buildPromptWithUserMessages(
-  instruction: string,
-  userMessages: string,
-  previousSummary?: string,
-) {
-  let output = instruction;
-
-  if (output.includes("{{previous_summary}}")) {
-    output = output.replace("{{previous_summary}}", previousSummary ?? "");
-  } else if (previousSummary && previousSummary.trim().length > 0) {
-    output = `${output}\n\n已有语义状态：\n${previousSummary}`;
-  }
-
-  if (output.includes("{{user_messages}}")) {
-    return output.replace("{{user_messages}}", userMessages);
-  }
-
-  if (!userMessages) {
-    return output;
-  }
-
-  return `${output}\n\n用户发言：\n${userMessages}`;
-}
-
-function buildSummaryPrompt(
-  instruction: string,
-  userMessages: string,
-  confirmedAssistantMessages: string,
-  previousSummary?: string,
-) {
-  let output = buildPromptWithUserMessages(
-    instruction,
-    userMessages,
-    previousSummary,
-  );
-
-  if (output.includes("{{assistant_messages}}")) {
-    return output.replace("{{assistant_messages}}", confirmedAssistantMessages);
-  }
-
-  if (!confirmedAssistantMessages) {
-    return output;
-  }
-
-  return `${output}\n\n用户确认的助手结论：\n${confirmedAssistantMessages}`;
-}
-
 function buildTopicPrompt(
   instruction: string,
   userMessages: string,
@@ -446,60 +357,6 @@ function buildTopicPrompt(
   }
 
   return output;
-}
-
-function collectSummaryInputs(messages: ChatMessage[], startIndex: number) {
-  const userLines: string[] = [];
-  const confirmedAssistantLines: string[] = [];
-  let userMessageCount = 0;
-  let userTokens = 0;
-  let confirmedAssistantTokens = 0;
-  let pendingAssistant: string | null = null;
-  const rangeStart = Math.max(0, startIndex - 1);
-
-  for (let i = rangeStart; i < messages.length; i++) {
-    const msg = messages[i];
-    if (!msg || msg.isError || msg.role === "system") {
-      continue;
-    }
-    const content = getMessageTextContentWithoutThinking(msg).trim();
-    if (!content) {
-      continue;
-    }
-
-    if (msg.role === "assistant") {
-      pendingAssistant = content;
-      continue;
-    }
-
-    if (msg.role === "user") {
-      if (i >= startIndex) {
-        userLines.push(content);
-        userMessageCount += 1;
-        userTokens += estimateTokenLength(content);
-      }
-
-      if (
-        pendingAssistant &&
-        i >= startIndex &&
-        isUserConfirmationMessage(content) &&
-        !isLowValueAssistantMessage(pendingAssistant)
-      ) {
-        confirmedAssistantLines.push(pendingAssistant);
-        confirmedAssistantTokens += estimateTokenLength(pendingAssistant);
-      }
-
-      pendingAssistant = null;
-    }
-  }
-
-  return {
-    userMessages: userLines.join("\n"),
-    confirmedAssistantMessages: confirmedAssistantLines.join("\n"),
-    userMessageCount,
-    userTokens,
-    confirmedAssistantTokens,
-  };
 }
 
 function getConfirmedAssistantForTitle(messages: ChatMessage[]) {
@@ -2133,7 +1990,12 @@ export const useChatStore = createPersistStore(
           userMessageCount,
           userTokens,
           confirmedAssistantTokens,
-        } = collectSummaryInputs(messages, summaryStartIndex);
+        } = collectSummaryInputs(
+          messages,
+          summaryStartIndex,
+          (msg) => getMessageTextContentWithoutThinking(msg).trim(),
+          estimateTokenLength,
+        );
         const summaryTokens = userTokens + confirmedAssistantTokens;
         const summaryMinUserMessages =
           modelConfig.summaryMinUserMessages ??
@@ -2161,22 +2023,23 @@ export const useChatStore = createPersistStore(
           .filter((msg) => !msg.isError && !msg.isCompressedContextPrompt);
         const contextTokens = countMessages(uncompressedMessages);
 
-        // 条件1：固定阈值
         const fixedThreshold = modelConfig.compressMessageLengthThreshold;
-        const reachedFixedThreshold = contextTokens >= fixedThreshold;
-
-        // 条件2：动态阈值（基于模型上下文窗口）
-        const dynamicThreshold = getModelCompressThreshold(
-          modelConfig.model,
-          modelConfig.compressThresholdRatio,
-        );
-        const reachedDynamicThreshold = contextTokens >= dynamicThreshold;
-
-        // 满足任一条件即触发压缩
-        const shouldCompress =
-          (reachedFixedThreshold || reachedDynamicThreshold) &&
-          userMessageCount >= summaryMinUserMessages &&
-          modelConfig.sendMemory;
+        const compactionDecision = getCompactionPolicy().evaluate({
+          contextTokens,
+          fixedThreshold,
+          model: modelConfig.model,
+          ratio: modelConfig.compressThresholdRatio,
+          userMessageCount,
+          summaryMinUserMessages,
+          sendMemory: modelConfig.sendMemory,
+        });
+        const {
+          dynamicThreshold,
+          reachedFixedThreshold,
+          reachedDynamicThreshold,
+          shouldCompress,
+          approachingThreshold,
+        } = compactionDecision;
 
         // 添加详细的调试日志
         logger.debug("[Summarize] Compression check:", {
@@ -2195,20 +2058,7 @@ export const useChatStore = createPersistStore(
           shouldCompress,
         });
 
-        // 当对话 tokens 接近任一阈值的 80% 时，提示用户可以压缩
-        const approachingThreshold =
-          (contextTokens >= fixedThreshold * 0.8 &&
-            contextTokens < fixedThreshold) ||
-          (contextTokens >= dynamicThreshold * 0.8 &&
-            contextTokens < dynamicThreshold);
-
-        if (
-          !refreshTitle &&
-          approachingThreshold &&
-          userMessageCount >= summaryMinUserMessages &&
-          modelConfig.sendMemory &&
-          !session.isSummarizing
-        ) {
+        if (!refreshTitle && approachingThreshold && !session.isSummarizing) {
           logger.debug(
             "[Summarize] Approaching threshold:",
             contextTokens,
@@ -2286,143 +2136,117 @@ export const useChatStore = createPersistStore(
             confirmedAssistantMessages,
             previousSummary,
           );
-          return await new Promise<boolean>((resolve) => {
-            let resolved = false;
-            const resolveOnce = (ok: boolean) => {
-              if (!resolved) {
-                resolved = true;
-                resolve(ok);
-              }
-            };
-            api.llm.chat({
-              messages: [
-                createMessage({
-                  role: "user",
-                  content: summarizeInput,
-                }),
-              ],
-              config: {
-                ...modelcfg,
-                stream: true,
-                model,
-                providerName,
-              },
-              useResponseApiContext: false,
-              onUpdate(message) {
-                // 使用通用的移除思考内容函数，与优化提示词保持一致
-                const filteredMessage = removeThinkingContent(message);
-                // 使用正确的状态更新方式，确保 UI 同步
-                get().updateTargetSession(session, (s) => {
-                  s.memoryPrompt = filteredMessage;
-                  const target = s.messages.find(
-                    (m) => m.id === compressedMessageId,
-                  );
-                  if (target) {
-                    target.content = filteredMessage;
-                    target.streaming = true;
-                  }
-                });
-              },
-              onFinish(message, responseRes) {
-                // 使用通用的移除思考内容函数，与优化提示词保持一致
-                // 若过滤后内容为空（模型只输出了思考块），回退到原始消息，确保摘要不丢失
-                const filteredMessage =
-                  removeThinkingContent(message) || message;
-
-                if (responseRes?.status === 200) {
-                  const summaryLength = estimateTokenLength(filteredMessage);
-
-                  // 仅记录可疑摘要质量，不直接删除压缩消息，避免用户感知为“压缩结果消失”
-                  if (!forceCompress && summaryTokens > 0) {
-                    if (summaryLength > summaryTokens * 0.8) {
-                      logger.warn(
-                        "[Summarize] Summary seems too long. Summary:",
-                        summaryLength,
-                        "Original:",
-                        summaryTokens,
-                      );
-                    } else if (summaryLength < 50 && summaryTokens > 1000) {
-                      logger.warn(
-                        "[Summarize] Summary seems too short. Summary:",
-                        summaryLength,
-                        "Original:",
-                        summaryTokens,
-                      );
-                    }
-                  }
-
-                  get().updateTargetSession(session, (s) => {
-                    s.mask.modelConfig.sendMemory = true;
-                    s.lastSummarizeIndex = lastSummarizeIndex;
-                    s.memoryPrompt = filteredMessage;
-                    const target = s.messages.find(
-                      (m) => m.id === compressedMessageId,
-                    );
-                    if (target) {
-                      target.content = filteredMessage;
-                      target.streaming = false;
-                      target.isCompressedContextPrompt = true;
-                      // 使用摘要消息在列表中的实际下标，避免 filter 掉旧压缩消息后下标错位导致横幅跑到压缩结果下面
-                      const summaryIndex = s.messages.findIndex(
-                        (m) => m.id === compressedMessageId,
-                      );
-                      s.compressedContextIndex =
-                        summaryIndex >= 0
-                          ? summaryIndex
-                          : Math.max(
-                              s.compressedContextIndex ?? 0,
-                              lastSummarizeIndex,
-                            );
-                    } else {
-                      s.compressedContextIndex = Math.max(
-                        s.compressedContextIndex ?? 0,
-                        lastSummarizeIndex,
-                      );
-                    }
-                    s.isSummarizing = false; // 释放摘要锁
-                    s.compressingContextIndex = undefined;
-                  });
-                  logger.debug(
-                    "[Summarize] Completed for session:",
-                    session.id,
-                    "summary length:",
-                    filteredMessage.length,
-                    "tokens:",
-                    summaryLength,
-                    "compression ratio:",
-                    ((1 - summaryLength / summaryTokens) * 100).toFixed(1) +
-                      "%",
-                  );
-                  resolveOnce(true);
-                } else {
-                  // 请求失败时也要释放锁
-                  get().updateTargetSession(session, (s) => {
-                    s.isSummarizing = false;
-                    s.compressingContextIndex = undefined;
-                    s.messages = s.messages.filter(
-                      (m) => m.id !== compressedMessageId,
-                    );
-                  });
-                  logger.error(
-                    "[Summarize] Failed with status:",
-                    responseRes?.status,
-                  );
-                  resolveOnce(false);
+          const compactionContext = {
+            session,
+            compressedMessageId,
+            summaryTokens,
+            lastSummarizeIndex,
+          };
+          return await executeSummaryStream({
+            api,
+            summarizeInput,
+            modelConfig: modelcfg,
+            model,
+            providerName,
+            sanitizeMessage: removeThinkingContent,
+            onUpdate: (filteredMessage) => {
+              get().updateTargetSession(compactionContext.session, (s) => {
+                s.memoryPrompt = filteredMessage;
+                const target = s.messages.find(
+                  (m) => m.id === compactionContext.compressedMessageId,
+                );
+                if (target) {
+                  target.content = filteredMessage;
+                  target.streaming = true;
                 }
-              },
-              onError(err) {
-                logger.error("[Summarize] Error:", err);
-                // 发生错误时释放摘要锁
-                get().updateTargetSession(session, (s) => {
-                  s.isSummarizing = false;
-                  s.compressingContextIndex = undefined;
-                  s.messages = s.messages.filter(
-                    (m) => m.id !== compressedMessageId,
+              });
+            },
+            onSuccess: (filteredMessage) => {
+              const summaryLength = estimateTokenLength(filteredMessage);
+
+              if (!forceCompress && summaryTokens > 0) {
+                if (summaryLength > summaryTokens * 0.8) {
+                  logger.warn(
+                    "[Summarize] Summary seems too long. Summary:",
+                    summaryLength,
+                    "Original:",
+                    summaryTokens,
                   );
-                });
-                resolveOnce(false);
-              },
-            });
+                } else if (summaryLength < 50 && summaryTokens > 1000) {
+                  logger.warn(
+                    "[Summarize] Summary seems too short. Summary:",
+                    summaryLength,
+                    "Original:",
+                    summaryTokens,
+                  );
+                }
+              }
+
+              get().updateTargetSession(session, (s) => {
+                s.mask.modelConfig.sendMemory = true;
+                s.lastSummarizeIndex = compactionContext.lastSummarizeIndex;
+                s.memoryPrompt = filteredMessage;
+                const target = s.messages.find(
+                  (m) => m.id === compactionContext.compressedMessageId,
+                );
+                if (target) {
+                  target.content = filteredMessage;
+                  target.streaming = false;
+                  target.isCompressedContextPrompt = true;
+                  const summaryIndex = s.messages.findIndex(
+                    (m) => m.id === compactionContext.compressedMessageId,
+                  );
+                  s.compressedContextIndex =
+                    summaryIndex >= 0
+                      ? summaryIndex
+                      : Math.max(
+                          s.compressedContextIndex ?? 0,
+                          compactionContext.lastSummarizeIndex,
+                        );
+                } else {
+                  s.compressedContextIndex = Math.max(
+                    s.compressedContextIndex ?? 0,
+                    compactionContext.lastSummarizeIndex,
+                  );
+                }
+                s.isSummarizing = false;
+                s.compressingContextIndex = undefined;
+              });
+              logger.debug(
+                "[Summarize] Completed for session:",
+                session.id,
+                "summary length:",
+                filteredMessage.length,
+                "tokens:",
+                summaryLength,
+                "compression ratio:",
+                (
+                  (1 - summaryLength / compactionContext.summaryTokens) *
+                  100
+                ).toFixed(1) + "%",
+              );
+              return true;
+            },
+            onFailure: (status) => {
+              get().updateTargetSession(session, (s) => {
+                s.isSummarizing = false;
+                s.compressingContextIndex = undefined;
+                s.messages = s.messages.filter(
+                  (m) => m.id !== compactionContext.compressedMessageId,
+                );
+              });
+              logger.error("[Summarize] Failed with status:", status);
+            },
+            onError: (err) => {
+              logger.error("[Summarize] Error:", err);
+              get().updateTargetSession(session, (s) => {
+                s.isSummarizing = false;
+                s.compressingContextIndex = undefined;
+                s.messages = s.messages.filter(
+                  (m) => m.id !== compactionContext.compressedMessageId,
+                );
+              });
+            },
           });
         }
         return false;

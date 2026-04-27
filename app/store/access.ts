@@ -520,21 +520,8 @@ export const useAccessStore = createPersistStore(
         return nextState;
       });
 
-      // 如果更新了 endpoint 或 apiKey，清除 SDK 缓存
-      if (needsCacheInvalidation) {
-        // 动态导入以避免循环依赖
-        import("../client/sdk-manager")
-          .then(({ clearSDKCache }) => {
-            clearSDKCache(id);
-            console.log(`[Access Store] Cleared SDK cache for provider: ${id}`);
-          })
-          .catch((error) => {
-            console.error(
-              `[Access Store] Failed to clear SDK cache for ${id}:`,
-              error,
-            );
-          });
-      }
+      // pi-ai 路径当前不做 provider SDK 实例缓存，配置更新无需额外失效处理
+      void needsCacheInvalidation;
     },
 
     removeCustomProvider(id: string) {

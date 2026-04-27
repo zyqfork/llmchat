@@ -1,4 +1,4 @@
-import { streamTextWithSDK, generateTextWithSDK } from "./sdk-manager";
+import { resolveLLMAdapter, LLMEngine } from "./llm-adapter";
 import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
 
@@ -32,6 +32,7 @@ export interface UnifiedChatOptions {
   // 添加配置参数，避免在服务器端使用客户端 store
   apiKey?: string;
   baseUrl?: string;
+  engine?: LLMEngine;
 }
 
 // 统一的聊天API响应
@@ -238,6 +239,7 @@ export function unifiedChat(
     systemPrompt,
     useResponseApiContext = true,
     providerName: optionsProviderName,
+    engine: _optionsEngine,
   } = options;
 
   // 优先使用传入的 providerName（标题/摘要等与聊天同配置时一致），否则用当前会话，最后才按模型推断
@@ -438,15 +440,25 @@ export function unifiedChat(
   }
 
   try {
+    const adapter = resolveLLMAdapter("pi-ai");
     if (stream) {
       logger.debug(
         `[Unified API] Starting stream chat with ${providerId}/${model}`,
       );
-      return streamTextWithSDK(providerId, model, requestOptions);
+      return adapter.streamText({
+        providerId,
+        model,
+        options: requestOptions,
+      });
     } else {
       logger.debug(`[Unified API] Starting chat with ${providerId}/${model}`);
-      return generateTextWithSDK(providerId, model, requestOptions).then(
-        (result) => {
+      return adapter
+        .generateText({
+          providerId,
+          model,
+          options: requestOptions,
+        })
+        .then((result) => {
           console.log("Usage object:", result.usage); // 临时调试
           return {
             content: result.text,
@@ -460,8 +472,7 @@ export function unifiedChat(
             finishReason: result.finishReason,
             providerMetadata: result.providerMetadata,
           };
-        },
-      );
+        });
     }
   } catch (error) {
     logger.error(
