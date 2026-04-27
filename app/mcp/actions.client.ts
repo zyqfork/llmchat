@@ -98,14 +98,30 @@ export async function getAvailableClientsCount() {
 // 工具列表缓存
 let cachedAllTools: any[] | null = null;
 let cachedFunctionCallTools: any[] | null = null;
-let toolsCacheVersion = 0;
 
 // 使工具缓存失效
 function invalidateToolsCache() {
   cachedAllTools = null;
   cachedFunctionCallTools = null;
-  toolsCacheVersion++;
-  logger.info(`Tools cache invalidated (version: ${toolsCacheVersion})`);
+}
+
+function toFunctionCallTool(clientId: string, tool: any) {
+  return {
+    type: "function",
+    function: {
+      name: `mcp_${clientId}_${tool.name}`,
+      description:
+        tool.description || `Tool ${tool.name} from MCP server ${clientId}`,
+      parameters: tool.inputSchema || {
+        type: "object",
+        properties: {},
+      },
+    },
+    _mcpMeta: {
+      clientId,
+      toolName: tool.name,
+    },
+  };
 }
 
 export async function getAllTools() {
@@ -140,25 +156,8 @@ export async function getMcpToolsForFunctionCall() {
     const serverCfg = cfg.mcpServers[clientId];
     if (serverCfg?.status === "paused") continue;
 
-    // 转换 MCP 工具格式为 OpenAI Function Call 格式
     status.tools.tools.forEach((tool: any) => {
-      tools.push({
-        type: "function",
-        function: {
-          name: `mcp_${clientId}_${tool.name}`,
-          description:
-            tool.description || `Tool ${tool.name} from MCP server ${clientId}`,
-          parameters: tool.inputSchema || {
-            type: "object",
-            properties: {},
-          },
-        },
-        // 保存原始信息用于调用
-        _mcpMeta: {
-          clientId,
-          toolName: tool.name,
-        },
-      });
+      tools.push(toFunctionCallTool(clientId, tool));
     });
   }
 

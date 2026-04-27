@@ -3135,6 +3135,14 @@
     tailwind-variants "^3.1.1"
     uhtml "^5.0.9"
 
+"@mariozechner/pi-agent-core@0.70.2":
+  version "0.70.2"
+  resolved "https://registry.yarnpkg.com/@mariozechner/pi-agent-core/-/pi-agent-core-0.70.2.tgz#cb37fe6a1515e2d67d6d646fe3127b8f6b260a98"
+  integrity sha512-g1hIdKyDwmQOoBGO0R4OhpemKeMENeK0vE5FJtuQKqEcsdCAkVBgZAK6aZUARYZVxMA718JS6WPLFWoddzjD7g==
+  dependencies:
+    "@mariozechner/pi-ai" "^0.70.2"
+    typebox "^1.1.24"
+
 "@mariozechner/pi-ai@^0.70.0":
   version "0.70.0"
   resolved "https://registry.yarnpkg.com/@mariozechner/pi-ai/-/pi-ai-0.70.0.tgz#15127de55299d42e6227bece0ca5a226edc7b31a"

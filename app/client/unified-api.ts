@@ -1,6 +1,7 @@
 import { resolveLLMAdapter, LLMEngine } from "./llm-adapter";
 import { getAllProviders } from "../constant";
 import { logger } from "../utils/logger";
+import { inferProviderIdByModel } from "./provider-inference";
 
 type ProviderLike = Pick<
   ReturnType<typeof getAllProviders>[number],
@@ -97,38 +98,15 @@ function getProviderIdFromEnabledModels(model: string): string | undefined {
 
 // 根据模型名称获取provider ID - 改进版本
 function getProviderIdFromModel(model: string): string {
-  // 基于模型名称前缀的推断逻辑
-  if (
-    model.startsWith("gpt-") ||
-    model.startsWith("o1-") ||
-    model.startsWith("chatgpt-")
-  ) {
-    return "openai";
-  } else if (model.startsWith("claude-")) {
-    return "anthropic";
-  } else if (model.startsWith("gemini-") || model.startsWith("learnlm-")) {
-    return "google";
-  } else if (model.startsWith("qwen-") || model.includes("qwen")) {
-    return "alibaba";
-  } else if (model.startsWith("moonshot-") || model.startsWith("kimi-")) {
-    return "moonshotai";
-  } else if (model.startsWith("deepseek-")) {
-    return "deepseek";
-  } else if (model.startsWith("grok-")) {
-    return "xai";
-  } else if (model.includes("siliconflow") || model.includes("/")) {
-    return "siliconflow";
-  } else if (model.includes("ollama")) {
-    return "ollama";
+  const inferred = inferProviderIdByModel(model);
+  if (inferred !== "openai") {
+    return inferred;
   }
-
   // 对于无法识别的模型名称，记录警告
   logger.warn(
     `[Unified API] Unknown model pattern: ${model}, defaulting to openai. This may cause routing issues for custom providers.`,
   );
-
-  // 默认返回openai（这可能导致问题，但保持向后兼容）
-  return "openai";
+  return inferred;
 }
 
 // 将 content 规范为 AI SDK 的 CoreMessage 格式（image_url -> image）
@@ -510,28 +488,5 @@ export function isModelAvailable(model: string): boolean {
 }
 
 function normalizeProviderIdByModelPrefix(model: string): string {
-  if (
-    model.startsWith("gpt-") ||
-    model.startsWith("o1-") ||
-    model.startsWith("chatgpt-")
-  ) {
-    return "openai";
-  } else if (model.startsWith("claude-")) {
-    return "anthropic";
-  } else if (model.startsWith("gemini-") || model.startsWith("learnlm-")) {
-    return "google";
-  } else if (model.startsWith("qwen-") || model.includes("qwen")) {
-    return "alibaba";
-  } else if (model.startsWith("moonshot-") || model.startsWith("kimi-")) {
-    return "moonshotai";
-  } else if (model.startsWith("deepseek-")) {
-    return "deepseek";
-  } else if (model.startsWith("grok-")) {
-    return "xai";
-  } else if (model.includes("siliconflow") || model.includes("/")) {
-    return "siliconflow";
-  } else if (model.includes("ollama")) {
-    return "ollama";
-  }
-  return "openai";
+  return inferProviderIdByModel(model);
 }

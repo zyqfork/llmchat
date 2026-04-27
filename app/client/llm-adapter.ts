@@ -1,7 +1,9 @@
 import { logger } from "../utils/logger";
 import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
 import { getAllProviders } from "../constant";
-import { executeMcpAction } from "../mcp/actions.client";
+import { getKnownPiProvider } from "./pi-ai-provider-map";
+import { executeMcpToolCall } from "./mcp-tool-executor";
+import { runAgentLoop } from "@mariozechner/pi-agent-core";
 
 export type LLMEngine = "pi-ai";
 
@@ -32,13 +34,8 @@ type DebugCapture = {
 };
 
 type PiAiModule = {
-  completeSimple: (...args: any[]) => Promise<any>;
   streamSimple: (...args: any[]) => any;
   getModel: (...args: any[]) => any;
-  parseStreamingJson: <T = Record<string, unknown>>(
-    partialJson: string | undefined,
-  ) => T;
-  validateToolArguments: (tool: any, toolCall: any) => any;
 };
 
 let piAiModulePromise: Promise<PiAiModule> | null = null;
@@ -210,17 +207,7 @@ function toPiModel(providerId: string, modelId: string, cfg?: any): any | null {
   const runtimeCfg = cfg || getProviderRuntimeConfig(providerId);
   if (!runtimeCfg?.apiKey) return null;
 
-  const knownProviderMap: Record<string, string> = {
-    openai: "openai",
-    anthropic: "anthropic",
-    google: "google",
-    xai: "xai",
-    groq: "groq",
-    cerebras: "cerebras",
-    openrouter: "openrouter",
-    zai: "zai",
-  };
-  const knownProvider = knownProviderMap[providerId];
+  const knownProvider = getKnownPiProvider(providerId);
   const isCustomProvider = String(providerId || "").startsWith("custom_");
   const baseUrl: string = String(runtimeCfg.baseUrl || "");
   const isOfficialOpenAIHost =
@@ -278,6 +265,23 @@ function toPiModel(providerId: string, modelId: string, cfg?: any): any | null {
   } as any;
 }
 
+function attachBuiltinModelToConfig(
+  piAi: PiAiModule,
+  providerId: string,
+  modelId: string,
+  cfg: any,
+) {
+  const knownProvider = getKnownPiProvider(providerId);
+  if (!knownProvider || !cfg) {
+    return;
+  }
+  try {
+    cfg.builtinModel = piAi.getModel(knownProvider as any, modelId as any);
+  } catch {
+    // ignore and fallback to dynamic model
+  }
+}
+
 function getNormalizedProxyUrl(proxyUrl?: string): string | undefined {
   const normalized = (proxyUrl || "").trim();
   if (normalized) {
@@ -306,17 +310,35 @@ function withProxyModel(model: any, cfg: any): any {
   return applyProxyIfNeeded(model, cfg.apiKey, proxyUrl);
 }
 
-function toPiTools(openAiTools: any[] = []) {
+function toAgentTools(openAiTools: any[] = []) {
   return openAiTools
     .map((tool: any) => {
       const fn = tool?.function;
       if (!fn?.name) return null;
       return {
         name: fn.name,
+        label: fn.name,
         description: fn.description || `Tool ${fn.name}`,
         parameters: fn.parameters || {
           type: "object",
           properties: {},
+        },
+        execute: async (toolCallId: string, args: any) => {
+          const toolExec = await executeMcpToolCall(
+            {
+              id: toolCallId,
+              name: fn.name,
+              arguments: args,
+            },
+            openAiTools,
+          );
+          if (toolExec.isError) {
+            throw new Error(toolExec.content);
+          }
+          return {
+            content: [{ type: "text", text: toolExec.content }],
+            details: toolExec.content,
+          };
         },
       };
     })
@@ -418,79 +440,6 @@ function buildDebugHeaders(
   return headers;
 }
 
-function parseMcpToolMeta(toolName: string, allTools: any[]) {
-  const byMeta = allTools.find((t) => t?.function?.name === toolName)?._mcpMeta;
-  if (byMeta?.clientId && byMeta?.toolName) return byMeta;
-
-  if (!toolName.startsWith("mcp_")) return null;
-  const rest = toolName.slice(4);
-  const splitIdx = rest.indexOf("_");
-  if (splitIdx <= 0) return null;
-  return {
-    clientId: rest.slice(0, splitIdx),
-    toolName: rest.slice(splitIdx + 1),
-  };
-}
-
-async function executeMcpToolCall(toolCall: any, allTools: any[]) {
-  const meta = parseMcpToolMeta(toolCall.name, allTools);
-  if (!meta) {
-    return {
-      isError: true,
-      content: `Unsupported tool: ${toolCall.name}`,
-    };
-  }
-
-  try {
-    const piAi = await getPiAiModule();
-    const toolDef = allTools.find(
-      (t: any) => t?.function?.name === toolCall.name,
-    )?.function;
-    const parsedArguments =
-      typeof toolCall.arguments === "string"
-        ? piAi.parseStreamingJson(toolCall.arguments)
-        : toolCall.arguments || {};
-    const validatedArguments = toolDef
-      ? piAi.validateToolArguments(
-          {
-            name: toolDef.name,
-            description: toolDef.description || `Tool ${toolDef.name}`,
-            parameters: toolDef.parameters || {
-              type: "object",
-              properties: {},
-            },
-          },
-          {
-            ...toolCall,
-            arguments: parsedArguments,
-          },
-        )
-      : parsedArguments;
-
-    const result = await executeMcpAction(meta.clientId, {
-      jsonrpc: "2.0",
-      id: Date.now(),
-      method: "tools/call",
-      params: {
-        name: meta.toolName,
-        arguments: validatedArguments,
-      },
-    } as any);
-    return {
-      isError: false,
-      content:
-        typeof result === "string"
-          ? result
-          : JSON.stringify(result ?? {}, null, 2),
-    };
-  } catch (error) {
-    return {
-      isError: true,
-      content: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
 class PiAiAdapter implements LLMAdapter {
   engine: LLMEngine = "pi-ai";
 
@@ -498,27 +447,7 @@ class PiAiAdapter implements LLMAdapter {
     return (async () => {
       const piAi = await getPiAiModule();
       const cfg = getProviderRuntimeConfig(req.providerId) as any;
-      const knownProviderMap: Record<string, string> = {
-        openai: "openai",
-        anthropic: "anthropic",
-        google: "google",
-        xai: "xai",
-        groq: "groq",
-        cerebras: "cerebras",
-        openrouter: "openrouter",
-        zai: "zai",
-      };
-      const knownProvider = knownProviderMap[req.providerId];
-      if (knownProvider && cfg) {
-        try {
-          cfg.builtinModel = piAi.getModel(
-            knownProvider as any,
-            req.model as any,
-          );
-        } catch {
-          // ignore and fallback to dynamic model
-        }
-      }
+      attachBuiltinModelToConfig(piAi, req.providerId, req.model, cfg);
 
       const model = toPiModel(req.providerId, req.model, cfg);
       if (!cfg?.apiKey || !model) {
@@ -529,21 +458,34 @@ class PiAiAdapter implements LLMAdapter {
 
       const debugCapture: DebugCapture = {};
       const requestModel = withProxyModel(model, cfg);
+      const openAiTools = Array.isArray(req.options?.tools)
+        ? req.options.tools
+        : [];
+      const agentTools = toAgentTools(openAiTools);
       const fullStream = (async function* () {
         const context = toPiContext(req.options?.messages ?? []);
-        const openAiTools = Array.isArray(req.options?.tools)
-          ? req.options.tools
-          : [];
-        const piTools = toPiTools(openAiTools);
-        if (piTools.length > 0) {
-          (context as any).tools = piTools;
-        }
+        const queue: any[] = [];
+        let done = false;
+        let wake: (() => void) | null = null;
+        const push = (event: any) => {
+          queue.push(event);
+          if (wake) {
+            const notify = wake;
+            wake = null;
+            notify();
+          }
+        };
 
-        let loop = 0;
-        while (loop < 6) {
-          loop += 1;
-          const pendingToolCalls: any[] = [];
-          const s = piAi.streamSimple(requestModel, context, {
+        const loopPromise = runAgentLoop(
+          [],
+          {
+            systemPrompt: context.systemPrompt || "",
+            messages: context.messages || [],
+            tools: agentTools as any,
+          },
+          {
+            model: requestModel,
+            convertToLlm: async (messages: any[]) => messages as any[],
             apiKey: cfg.apiKey,
             temperature: req.options?.temperature,
             maxTokens: req.options?.maxTokens,
@@ -574,46 +516,60 @@ class PiAiAdapter implements LLMAdapter {
                 }
               });
             },
+          },
+          async (event: any) => {
+            if (event.type === "message_update") {
+              const assistantEvent = event.assistantMessageEvent;
+              if (assistantEvent?.type === "text_delta") {
+                push({ type: "text-delta", text: assistantEvent.delta });
+              } else if (assistantEvent?.type === "thinking_delta") {
+                push({ type: "reasoning-delta", delta: assistantEvent.delta });
+              } else if (assistantEvent?.type === "toolcall_end") {
+                push({ type: "tool-call", toolCall: assistantEvent.toolCall });
+              }
+            } else if (event.type === "tool_execution_end") {
+              push({
+                type: "tool-result",
+                toolCall: {
+                  id: event.toolCallId,
+                  name: event.toolName,
+                  arguments: event.args,
+                },
+                result:
+                  event.result?.content?.[0]?.text ??
+                  JSON.stringify(event.result ?? {}),
+                isError: !!event.isError,
+              });
+            }
+          },
+          req.options?.abortSignal,
+          piAi.streamSimple as any,
+        )
+          .catch((error) => {
+            push({
+              type: "error",
+              error: error instanceof Error ? error.message : String(error),
+            });
+          })
+          .finally(() => {
+            done = true;
+            if (wake) {
+              const notify = wake;
+              wake = null;
+              notify();
+            }
           });
 
-          for await (const event of s) {
-            if (event.type === "text_delta") {
-              yield { type: "text-delta", text: event.delta };
-            } else if (event.type === "thinking_delta") {
-              yield { type: "reasoning-delta", delta: event.delta };
-            } else if (event.type === "toolcall_end") {
-              pendingToolCalls.push(event.toolCall);
-              yield { type: "tool-call", toolCall: event.toolCall };
-            }
+        while (!done || queue.length > 0) {
+          if (queue.length === 0) {
+            await new Promise<void>((resolve) => {
+              wake = resolve;
+            });
+            continue;
           }
-
-          const finalMessage = await s.result();
-          context.messages.push(finalMessage as any);
-          if (
-            finalMessage.stopReason !== "toolUse" ||
-            pendingToolCalls.length === 0
-          ) {
-            break;
-          }
-
-          for (const call of pendingToolCalls) {
-            const toolExec = await executeMcpToolCall(call, openAiTools);
-            context.messages.push({
-              role: "toolResult",
-              toolCallId: call.id,
-              toolName: call.name,
-              content: [{ type: "text", text: toolExec.content }],
-              isError: toolExec.isError,
-              timestamp: Date.now(),
-            } as any);
-            yield {
-              type: "tool-result",
-              toolCall: call,
-              result: toolExec.content,
-              isError: toolExec.isError,
-            };
-          }
+          yield queue.shift();
         }
+        await loopPromise;
       })();
 
       return {
@@ -630,27 +586,7 @@ class PiAiAdapter implements LLMAdapter {
   async generateText(req: LLMAdapterRequest) {
     const piAi = await getPiAiModule();
     const cfg = getProviderRuntimeConfig(req.providerId) as any;
-    const knownProviderMap: Record<string, string> = {
-      openai: "openai",
-      anthropic: "anthropic",
-      google: "google",
-      xai: "xai",
-      groq: "groq",
-      cerebras: "cerebras",
-      openrouter: "openrouter",
-      zai: "zai",
-    };
-    const knownProvider = knownProviderMap[req.providerId];
-    if (knownProvider && cfg) {
-      try {
-        cfg.builtinModel = piAi.getModel(
-          knownProvider as any,
-          req.model as any,
-        );
-      } catch {
-        // ignore and fallback to dynamic model
-      }
-    }
+    attachBuiltinModelToConfig(piAi, req.providerId, req.model, cfg);
     const model = toPiModel(req.providerId, req.model, cfg);
     if (!cfg?.apiKey || !model) {
       throw new Error(
@@ -662,18 +598,22 @@ class PiAiAdapter implements LLMAdapter {
     const openAiTools = Array.isArray(req.options?.tools)
       ? req.options.tools
       : [];
-    const piTools = toPiTools(openAiTools);
-    if (piTools.length > 0) {
-      (context as any).tools = piTools;
-    }
+    const agentTools = toAgentTools(openAiTools);
 
     let result: any = null;
-    let loop = 0;
     const debugCapture: DebugCapture = {};
     const requestModel = withProxyModel(model, cfg);
-    while (loop < 6) {
-      loop += 1;
-      result = await piAi.completeSimple(requestModel, context, {
+    const generatedMessages: any[] = [];
+    await runAgentLoop(
+      [],
+      {
+        systemPrompt: context.systemPrompt || "",
+        messages: context.messages || [],
+        tools: agentTools as any,
+      },
+      {
+        model: requestModel,
+        convertToLlm: async (messages: any[]) => messages as any[],
         apiKey: cfg.apiKey,
         temperature: req.options?.temperature,
         maxTokens: req.options?.maxTokens,
@@ -704,31 +644,25 @@ class PiAiAdapter implements LLMAdapter {
             }
           });
         },
-      });
-      context.messages.push(result as any);
+      },
+      async (event: any) => {
+        if (
+          event.type === "message_end" &&
+          event.message?.role === "assistant"
+        ) {
+          generatedMessages.push(event.message);
+          result = event.message;
+        }
+      },
+      req.options?.abortSignal,
+      piAi.streamSimple as any,
+    );
 
-      if (result.stopReason !== "toolUse") {
-        break;
-      }
-
-      const toolCalls = (result.content || []).filter(
-        (c: any) => c?.type === "toolCall",
-      );
-      if (toolCalls.length === 0) {
-        break;
-      }
-
-      for (const call of toolCalls) {
-        const toolExec = await executeMcpToolCall(call, openAiTools);
-        context.messages.push({
-          role: "toolResult",
-          toolCallId: call.id,
-          toolName: call.name,
-          content: [{ type: "text", text: toolExec.content }],
-          isError: toolExec.isError,
-          timestamp: Date.now(),
-        } as any);
-      }
+    if (!result && generatedMessages.length > 0) {
+      result = generatedMessages[generatedMessages.length - 1];
+    }
+    if (!result) {
+      throw new Error("[LLM Adapter] No assistant result generated");
     }
 
     const text = result.content
