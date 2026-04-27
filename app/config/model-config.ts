@@ -1,4 +1,4 @@
-import { formatTokenCountCompat } from "../utils/pi-web-ui-compat";
+import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-compat";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
@@ -328,7 +328,7 @@ export function removeCustomContextTokens(modelName: string): void {
  * 格式化Token数显示
  */
 export function formatTokenCount(tokens: number): string {
-  return formatTokenCountCompat(tokens);
+  return formatPiWebUiTokenCount(tokens);
 }
 
 /**

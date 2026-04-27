@@ -12,7 +12,6 @@ import {
   ModelType,
   useAccessStore,
   useChatStore,
-  CustomProviderType,
 } from "../store";
 import { unifiedChat, UnifiedChatOptions } from "./unified-api";
 import { logger } from "../utils/logger";
@@ -466,27 +465,6 @@ class UnifiedClientApi extends LLMApi {
     // 模型列表获取，可以通过统一的端点实现
     return [];
   }
-}
-
-type ProviderName = "openai" | "azure" | "claude" | "palm";
-
-interface Model {
-  name: string;
-  provider: ProviderName;
-  ctxlen: number;
-}
-
-interface ChatProvider {
-  name: ProviderName;
-  apiConfig: {
-    baseUrl: string;
-    apiKey: string;
-    summaryModel: Model;
-  };
-  models: Model[];
-
-  chat: () => void;
-  usage: () => void;
 }
 
 export class ClientApi {

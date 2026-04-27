@@ -55,6 +55,7 @@ import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { logger } from "../utils/logger";
+import { isContextOverflowErrorMessage } from "../utils/pi-ai-overflow-compat";
 import {
   executeSummaryStream,
   getCompactionPolicy,
@@ -310,16 +311,9 @@ function buildConversationTranscript(
     .join("\n");
 }
 
-function buildPromptWithContext(
-  instruction: string,
-  messages: ChatMessage[],
-  includeSystem: boolean,
-) {
-  const transcript = buildConversationTranscript(messages, includeSystem);
-  if (!transcript) {
-    return instruction;
-  }
-  return `${instruction}\n\nConversation:\n${transcript}`;
+function isLikelyContextOverflowError(error: Error, model: string): boolean {
+  void model;
+  return isContextOverflowErrorMessage(error.message || "");
 }
 
 function buildUserMessagesText(messages: ChatMessage[]) {
@@ -1109,11 +1103,16 @@ export const useChatStore = createPersistStore(
           },
           onError(error) {
             const isAborted = error.message?.includes?.("aborted");
+            const isOverflow =
+              !isAborted &&
+              isLikelyContextOverflowError(error, modelConfig.model);
             botMessage.content +=
               "\n\n" +
               prettyObject({
                 error: true,
-                message: error.message,
+                message: isOverflow
+                  ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
+                  : error.message,
               });
             botMessage.streaming = false;
             userMessage.isError = !isAborted;
@@ -1121,6 +1120,17 @@ export const useChatStore = createPersistStore(
             get().updateTargetSession(session, (session) => {
               session.messages = session.messages.concat();
             });
+
+            if (isOverflow) {
+              void get()
+                .summarizeSession(false, session, true)
+                .catch((e) =>
+                  logger.warn(
+                    "[Chat] Auto compaction after overflow failed:",
+                    e,
+                  ),
+                );
+            }
 
             // 标记控制器状态并清理
             if (!isAborted) {
@@ -1223,6 +1233,23 @@ export const useChatStore = createPersistStore(
         });
 
         // 为每个模型发送请求，使用独立的错误处理
+        let autoCompactionTriggered = false;
+        const triggerAutoCompactionOnce = (modelKey: string) => {
+          if (autoCompactionTriggered) return;
+          autoCompactionTriggered = true;
+          logger.warn(
+            `[MultiModel] Context overflow detected on ${modelKey}, triggering auto compaction`,
+          );
+          void get()
+            .summarizeSession(false, session, true)
+            .catch((e) =>
+              logger.warn(
+                "[MultiModel] Auto compaction after overflow failed:",
+                e,
+              ),
+            );
+        };
+
         const promises = multiModelMode.selectedModels.map(async (modelKey) => {
           const modelConfig = modelConfigs[modelKey];
           const botMessage = botMessages[modelKey];
@@ -1404,6 +1431,9 @@ export const useChatStore = createPersistStore(
                 const isAborted =
                   error.message?.includes?.("aborted") ||
                   error.message?.includes?.("AbortError");
+                const isOverflow =
+                  !isAborted &&
+                  isLikelyContextOverflowError(error, modelConfig.model);
 
                 // 只有在非中止错误时才更新消息内容
                 if (!isAborted) {
@@ -1412,7 +1442,9 @@ export const useChatStore = createPersistStore(
                   botMessage.isError = true;
                   botMessage.content = prettyObject({
                     error: true,
-                    message: `模型 ${modelKey} 响应出错: ${error.message}`,
+                    message: isOverflow
+                      ? `模型 ${modelKey} 响应出错: ${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
+                      : `模型 ${modelKey} 响应出错: ${error.message}`,
                   });
 
                   // 立即刷新更新
@@ -1430,6 +1462,10 @@ export const useChatStore = createPersistStore(
 
                   // 标记为完成（虽然有错误）
                   ChatControllerPool.markCompleted(session.id, botMessage.id);
+                }
+
+                if (isOverflow) {
+                  triggerAutoCompactionOnce(modelKey);
                 }
 
                 ChatControllerPool.remove(session.id, botMessage.id);
@@ -1450,15 +1486,21 @@ export const useChatStore = createPersistStore(
               `[MultiModel] Model ${modelKey} request failed:`,
               error,
             );
+            const normalizedError =
+              error instanceof Error ? error : new Error(String(error));
+            const isOverflow = isLikelyContextOverflowError(
+              normalizedError,
+              modelConfig.model,
+            );
 
             // 确保消息状态正确更新
             botMessage.streaming = false;
             botMessage.isError = true;
             botMessage.content = prettyObject({
               error: true,
-              message: `模型 ${modelKey} 请求失败: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
+              message: isOverflow
+                ? `模型 ${modelKey} 请求失败: ${normalizedError.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
+                : `模型 ${modelKey} 请求失败: ${normalizedError.message}`,
             });
 
             // 立即刷新更新
@@ -1478,6 +1520,10 @@ export const useChatStore = createPersistStore(
             });
 
             ChatControllerPool.remove(session.id, botMessage.id);
+
+            if (isOverflow) {
+              triggerAutoCompactionOnce(modelKey);
+            }
 
             // 继续让其他模型运行，不抛出错误
             return null;
@@ -2391,6 +2437,9 @@ export const useChatStore = createPersistStore(
             },
             onError(error) {
               const isAborted = error.message.includes("aborted");
+              const isOverflow =
+                !isAborted &&
+                isLikelyContextOverflowError(error, modelConfig.model);
               let errorMessage: ChatMessage | undefined;
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];
@@ -2399,13 +2448,25 @@ export const useChatStore = createPersistStore(
                   if (!isAborted) {
                     currentMessage.content = prettyObject({
                       error: true,
-                      message: error.message,
+                      message: isOverflow
+                        ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
+                        : error.message,
                     });
                     currentMessage.isError = true;
                   }
                   errorMessage = currentMessage;
                 }
               });
+              if (isOverflow) {
+                void get()
+                  .summarizeSession(false, session, true)
+                  .catch((e) =>
+                    logger.warn(
+                      "[Chat] Auto compaction after overflow failed (retry):",
+                      e,
+                    ),
+                  );
+              }
               if (errorMessage) {
                 get().onNewMessage(errorMessage, session);
               }

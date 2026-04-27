@@ -1,16 +1,35 @@
-import {
-  ServiceProvider,
-  getProviderConfig,
-  getAllProviders,
-} from "../constant";
-import { useAccessStore, CustomProviderType } from "../store/access";
+import { getProviderConfig, getAllProviders } from "../constant";
+import { useAccessStore } from "../store/access";
 import { LLMModel } from "./api";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
 import {
-  isCorsErrorCompat,
-  shouldUseProxyForProviderCompat,
+  isCorsError,
+  shouldUseProxyForProvider,
 } from "../utils/pi-web-ui-compat";
+
+type PiAiModelCatalogModule = {
+  getModels: (provider: string) => Array<{ id: string; name?: string }>;
+};
+
+let piAiCatalogPromise: Promise<PiAiModelCatalogModule> | null = null;
+
+async function loadPiAiCatalog(): Promise<PiAiModelCatalogModule | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  if (!piAiCatalogPromise) {
+    piAiCatalogPromise = import(
+      "@mariozechner/pi-ai"
+    ) as Promise<PiAiModelCatalogModule>;
+  }
+  try {
+    return await piAiCatalogPromise;
+  } catch (error) {
+    logger.warn("[ModelFetcher] Failed to load pi-ai catalog module:", error);
+    return null;
+  }
+}
 
 // 统一的模型响应接口
 export interface ModelFetchResponse {
@@ -23,6 +42,51 @@ export interface ModelFetchResponse {
  * 统一的模型获取服务
  */
 export class ModelFetcher {
+  private static async getModelsFromPiAiCatalog(
+    providerId: string,
+  ): Promise<LLMModel[]> {
+    const providerMap: Record<string, string> = {
+      openai: "openai",
+      anthropic: "anthropic",
+      google: "google",
+      xai: "xai",
+      groq: "groq",
+      cerebras: "cerebras",
+      openrouter: "openrouter",
+      zai: "zai",
+      mistral: "mistral",
+      huggingface: "huggingface",
+      fireworks: "fireworks",
+      minimax: "minimax",
+    };
+    const mappedProvider = providerMap[providerId];
+    if (!mappedProvider) return [];
+    try {
+      const piAiCatalog = await loadPiAiCatalog();
+      if (!piAiCatalog?.getModels) return [];
+      return piAiCatalog
+        .getModels(mappedProvider as any)
+        .map((model: any, index: number) => ({
+          name: model.id,
+          displayName: model.name,
+          available: true,
+          sorted: index,
+          provider: {
+            id: providerId,
+            providerName: providerId,
+            providerType: providerId,
+            sorted: 0,
+          },
+        }));
+    } catch (error) {
+      logger.warn(
+        `[ModelFetcher] Failed to read pi-ai model catalog for ${providerId}:`,
+        error,
+      );
+      return [];
+    }
+  }
+
   /**
    * 从指定服务商获取可用模型列表
    */
@@ -75,7 +139,7 @@ export class ModelFetcher {
         ? (accessStore as any)[providerConfig.storeKeys.apiKey]
         : "";
       const autoUseProxy =
-        !!apiKey && shouldUseProxyForProviderCompat(providerId, String(apiKey));
+        !!apiKey && shouldUseProxyForProvider(providerId, String(apiKey));
       const useProxy = manualUseProxy || autoUseProxy;
 
       if (useProxy) {
@@ -129,7 +193,7 @@ export class ModelFetcher {
     } catch (error) {
       // 如果是网络错误或 API 不存在，尝试直接请求
       if (
-        isCorsErrorCompat(error) ||
+        isCorsError(error) ||
         (error instanceof TypeError && error.message.includes("fetch"))
       ) {
         logger.warn(
@@ -139,6 +203,17 @@ export class ModelFetcher {
         if (providerConfig) {
           return await this.fetchModelsDirectly(providerId, providerConfig);
         }
+      }
+
+      const fallbackModels = await this.getModelsFromPiAiCatalog(providerId);
+      if (fallbackModels.length > 0) {
+        logger.warn(
+          `[ModelFetcher] Falling back to pi-ai catalog for ${providerId} after proxy failure`,
+        );
+        return {
+          models: fallbackModels,
+          success: true,
+        };
       }
 
       const errorMessage =
@@ -175,57 +250,43 @@ export class ModelFetcher {
       const modelsEndpoint = providerConfig.endpoints.models || "models";
       const requestUrl = `${baseUrl}/${modelsEndpoint}`;
 
-      // 构建请求头
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
+      const headers = this.buildAuthHeaders(
+        providerId,
+        providerConfig,
+        String(apiKey || ""),
+      );
 
-      // 根据不同厂商设置认证头
-      if (apiKey) {
-        switch (providerId) {
-          case "openai":
-          case "deepseek":
-          case "moonshotai":
-          case "xai":
-          case "siliconflow":
-          case "zai":
-          case "ollama-cloud":
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            break;
-          case "anthropic":
-            headers["x-api-key"] = apiKey;
-            headers["anthropic-version"] = "2023-06-01";
-            break;
-          case "google":
-            headers["x-goog-api-key"] = apiKey;
-            break;
-          case "alibaba":
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            break;
-          case "azure":
-            headers["api-key"] = apiKey;
-            const apiVersion = (accessStore as any)[
-              providerConfig.storeKeys.apiVersion!
-            ];
-            if (apiVersion) {
-              // Azure 使用查询参数传递 API 版本
-              const url = new URL(requestUrl);
-              url.searchParams.set("api-version", apiVersion);
-              return await this.makeDirectRequest(
-                url.toString(),
-                headers,
-                providerId,
-              );
-            }
-            break;
+      if (providerId === "azure") {
+        const apiVersion = (accessStore as any)[
+          providerConfig.storeKeys.apiVersion!
+        ];
+        if (apiVersion) {
+          const url = new URL(requestUrl);
+          url.searchParams.set("api-version", apiVersion);
+          return await this.makeDirectRequest(
+            url.toString(),
+            headers,
+            providerId,
+          );
         }
       }
 
       return await this.makeDirectRequest(requestUrl, headers, providerId);
     } catch (error) {
+      const fallbackModels = await this.getModelsFromPiAiCatalog(providerId);
+      if (fallbackModels.length > 0) {
+        logger.warn(
+          `[ModelFetcher] Falling back to pi-ai catalog for ${providerId} after direct request failure`,
+        );
+        return {
+          models: fallbackModels,
+          success: true,
+        };
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      const corsHint = isCorsErrorCompat(error)
+      const corsHint = isCorsError(error)
         ? "\n\n检测到可能的跨域(CORS)错误，请尝试开启代理配置。"
         : "";
       return {
@@ -256,95 +317,73 @@ export class ModelFetcher {
 
     const data = await response.json();
 
-    // 标准化不同厂商的响应格式
-    let models: LLMModel[] = [];
-
-    switch (providerId) {
-      case "openai":
-      case "deepseek":
-      case "moonshotai":
-      case "xai":
-      case "siliconflow":
-      case "zai":
-      case "ollama-cloud":
-      case "ollama":
-      case "alibaba":
-        // OpenAI 兼容格式
-        if (data.data && Array.isArray(data.data)) {
-          models = data.data.map((model: any, index: number) => ({
-            name: model.id,
-            available: true,
-            sorted: index,
-            provider: {
-              id: providerId,
-              providerName: providerId,
-              providerType: providerId,
-              sorted: 0,
-            },
-          }));
-        }
-        break;
-
-      case "anthropic":
-        // Anthropic 格式
-        if (data.data && Array.isArray(data.data)) {
-          models = data.data.map((model: any, index: number) => ({
-            name: model.id,
-            available: true,
-            sorted: index,
-            provider: {
-              id: providerId,
-              providerName: providerId,
-              providerType: providerId,
-              sorted: 0,
-            },
-          }));
-        }
-        break;
-
-      case "google":
-        // Google 格式
-        if (data.models && Array.isArray(data.models)) {
-          models = data.models
-            .filter(
-              (model: any) => model.name && model.name.startsWith("models/"),
-            )
-            .map((model: any, index: number) => ({
-              name: model.name.replace("models/", ""),
-              available: true,
-              sorted: index,
-              provider: {
-                id: providerId,
-                providerName: providerId,
-                providerType: providerId,
-                sorted: 0,
-              },
-            }));
-        }
-        break;
-
-      default:
-        // 默认处理
-        if (Array.isArray(data)) {
-          models = data.map((model: any, index: number) => ({
-            name: typeof model === "string" ? model : model.id || model.name,
-            available: true,
-            sorted: index,
-            provider: {
-              id: providerId,
-              providerName: providerId,
-              providerType: providerId,
-              sorted: 0,
-            },
-          }));
-        }
-        break;
-    }
+    const models = this.normalizeModelsResponse(data, providerId);
 
     return {
       models,
       success: true,
     };
+  }
+
+  private static buildAuthHeaders(
+    providerId: string,
+    providerConfig: any,
+    apiKey: string,
+  ): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (!apiKey) {
+      return headers;
+    }
+
+    const authHeaderName = providerConfig?.authHeaderName || "Authorization";
+    headers[authHeaderName] =
+      authHeaderName.toLowerCase() === "authorization"
+        ? `Bearer ${apiKey}`
+        : apiKey;
+
+    if (providerId === "anthropic") {
+      headers["anthropic-version"] = "2023-06-01";
+    }
+
+    return headers;
+  }
+
+  private static normalizeModelsResponse(
+    data: any,
+    providerId: string,
+  ): LLMModel[] {
+    const source = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.models)
+      ? data.models
+      : [];
+
+    return source
+      .map((model: any, index: number) => {
+        const rawName =
+          typeof model === "string" ? model : model?.id || model?.name;
+        if (!rawName) return null;
+        const name =
+          providerId === "google" && String(rawName).startsWith("models/")
+            ? String(rawName).replace("models/", "")
+            : String(rawName);
+        return {
+          name,
+          available: true,
+          sorted: index,
+          provider: {
+            id: providerId,
+            providerName: providerId,
+            providerType: providerId,
+            sorted: 0,
+          },
+        } as LLMModel;
+      })
+      .filter(Boolean) as LLMModel[];
   }
 
   /**
@@ -354,7 +393,6 @@ export class ModelFetcher {
     customProvider: any,
   ): Promise<ModelFetchResponse> {
     try {
-      // 直接使用自定义服务商的配置请求 /models 接口
       const apiKey = customProvider.apiKey;
       const baseUrl = customProvider.endpoint;
 
@@ -369,28 +407,18 @@ export class ModelFetcher {
       // 构建请求 URL - 使用标准的 /models 端点
       const requestUrl = `${baseUrl}/models`;
 
-      // 构建请求头
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      // 根据自定义服务商类型设置认证头
-      switch (customProvider.type) {
-        case "openai":
-          headers["Authorization"] = `Bearer ${apiKey}`;
-          break;
-        case "anthropic":
-          headers["x-api-key"] = apiKey;
-          headers["anthropic-version"] = "2023-06-01";
-          break;
-        case "google":
-          headers["x-goog-api-key"] = apiKey;
-          break;
-        default:
-          // 默认使用 Bearer token
-          headers["Authorization"] = `Bearer ${apiKey}`;
-          break;
-      }
+      const headers = this.buildAuthHeaders(
+        customProvider.id,
+        {
+          authHeaderName:
+            customProvider.type === "anthropic"
+              ? "x-api-key"
+              : customProvider.type === "google"
+              ? "x-goog-api-key"
+              : "Authorization",
+        },
+        apiKey,
+      );
 
       logger.debug(`[Model Fetcher] Fetching models from custom provider:`, {
         providerId: customProvider.id,
@@ -410,8 +438,7 @@ export class ModelFetcher {
 
       const data = await response.json();
 
-      // 解析响应数据
-      const models = this.parseModelsResponse(
+      const models = this.normalizeCustomProviderModelsResponse(
         data,
         customProvider.id,
         customProvider.name,
@@ -524,5 +551,13 @@ export class ModelFetcher {
     });
 
     return models;
+  }
+
+  private static normalizeCustomProviderModelsResponse(
+    data: any,
+    providerId: string,
+    providerName: string,
+  ): LLMModel[] {
+    return this.parseModelsResponse(data, providerId, providerName);
   }
 }

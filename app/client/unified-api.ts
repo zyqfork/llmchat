@@ -226,288 +226,270 @@ function getResponseApiContext(providerId: string, model: string) {
 export function unifiedChat(
   options: UnifiedChatOptions,
 ): Promise<UnifiedChatResponse> | any {
-  const {
-    messages,
-    model,
-    temperature,
-    topP,
-    maxTokens,
-    presencePenalty,
-    frequencyPenalty,
-    stream = false,
-    tools,
-    systemPrompt,
-    useResponseApiContext = true,
-    providerName: optionsProviderName,
-    engine: _optionsEngine,
-  } = options;
+  return (async () => {
+    const {
+      messages,
+      model,
+      temperature,
+      topP,
+      maxTokens,
+      presencePenalty,
+      frequencyPenalty,
+      stream = false,
+      tools,
+      systemPrompt,
+      useResponseApiContext = true,
+      providerName: optionsProviderName,
+      engine: _optionsEngine,
+    } = options;
 
-  // 优先使用传入的 providerName（标题/摘要等与聊天同配置时一致），否则用当前会话，最后才按模型推断
-  let providerId: string;
-  const { normalizeProviderName } = require("./api");
+    // 优先使用传入的 providerName（标题/摘要等与聊天同配置时一致），否则用当前会话，最后才按模型推断
+    let providerId: string;
+    const { normalizeProviderName } = require("./api");
 
-  if (optionsProviderName) {
-    providerId = normalizeProviderName(optionsProviderName);
-    logger.debug(
-      `[Unified API] Using options provider: ${providerId} for model: ${model}`,
-    );
-  } else if (typeof window !== "undefined") {
-    try {
-      const { useChatStore } = require("../store");
-      const chatStore = useChatStore.getState();
-      const currentSession = chatStore.currentSession();
-      const sessionProviderName =
-        currentSession?.mask?.modelConfig?.providerName;
+    if (optionsProviderName) {
+      providerId = normalizeProviderName(optionsProviderName);
+      logger.debug(
+        `[Unified API] Using options provider: ${providerId} for model: ${model}`,
+      );
+    } else if (typeof window !== "undefined") {
+      try {
+        const { useChatStore } = require("../store");
+        const chatStore = useChatStore.getState();
+        const currentSession = chatStore.currentSession();
+        const sessionProviderName =
+          currentSession?.mask?.modelConfig?.providerName;
 
-      if (sessionProviderName) {
-        providerId = normalizeProviderName(sessionProviderName);
-        logger.debug(
-          `[Unified API] Using session provider: ${providerId} for model: ${model}`,
+        if (sessionProviderName) {
+          providerId = normalizeProviderName(sessionProviderName);
+          logger.debug(
+            `[Unified API] Using session provider: ${providerId} for model: ${model}`,
+          );
+        } else {
+          // 优先从「已启用模型」解析厂商，避免 deepseek 等被误判到官方厂商导致请求发错地址
+          const fromEnabled = getProviderIdFromEnabledModels(model);
+          providerId = fromEnabled ?? getProviderIdFromModel(model);
+          logger.debug(
+            `[Unified API] Resolved provider: ${providerId} for model: ${model}`,
+            fromEnabled
+              ? "(from enabled models)"
+              : "(from model name inference)",
+          );
+        }
+      } catch (error) {
+        logger.warn(
+          `[Unified API] Could not get session provider, falling back to enabled models / model inference:`,
+          error,
         );
-      } else {
-        // 优先从「已启用模型」解析厂商，避免 deepseek 等被误判到官方厂商导致请求发错地址
         const fromEnabled = getProviderIdFromEnabledModels(model);
         providerId = fromEnabled ?? getProviderIdFromModel(model);
-        logger.debug(
-          `[Unified API] Resolved provider: ${providerId} for model: ${model}`,
-          fromEnabled ? "(from enabled models)" : "(from model name inference)",
-        );
       }
-    } catch (error) {
-      logger.warn(
-        `[Unified API] Could not get session provider, falling back to enabled models / model inference:`,
-        error,
-      );
+    } else {
       const fromEnabled = getProviderIdFromEnabledModels(model);
       providerId = fromEnabled ?? getProviderIdFromModel(model);
-    }
-  } else {
-    const fromEnabled = getProviderIdFromEnabledModels(model);
-    providerId = fromEnabled ?? getProviderIdFromModel(model);
-    logger.debug(
-      `[Unified API] Server-side provider: ${providerId} for model: ${model}`,
-    );
-  }
-
-  let provider: ProviderLike | undefined = getAllProviders().find(
-    (p) => p.id === providerId,
-  );
-  let customProvider: any = null;
-
-  if (
-    !provider &&
-    providerId.startsWith("custom_") &&
-    typeof window !== "undefined"
-  ) {
-    try {
-      const { useAccessStore } = require("../store/access");
-      const accessStore = useAccessStore.getState();
-      customProvider = accessStore.customProviders.find(
-        (p: any) => p.id === providerId,
-      );
-      if (customProvider) {
-        provider = {
-          id: providerId,
-          name: customProvider.name,
-          sdkType:
-            customProvider.type === "openai"
-              ? "openai-compatible"
-              : customProvider.type,
-          storeKeys: {
-            apiKey: `${providerId}ApiKey`,
-            baseUrl: `${providerId}BaseUrl`,
-            apiType:
-              customProvider.type === "openai"
-                ? `${providerId}ApiType`
-                : undefined,
-          },
-        };
-      }
-    } catch (error) {
-      logger.warn(
-        `[Unified API] Failed to load custom provider: ${providerId}`,
-        error,
+      logger.debug(
+        `[Unified API] Server-side provider: ${providerId} for model: ${model}`,
       );
     }
-  }
 
-  if (!provider) {
-    throw new Error(
-      `Provider not found for model: ${model} (inferred provider: ${providerId})`,
+    let provider: ProviderLike | undefined = getAllProviders().find(
+      (p) => p.id === providerId,
     );
-  }
+    let customProvider: any = null;
 
-  let useResponseApi = false;
-  if (typeof window !== "undefined") {
     if (
-      customProvider?.type === "openai" &&
-      customProvider.config?.useResponseApi !== undefined
+      !provider &&
+      providerId.startsWith("custom_") &&
+      typeof window !== "undefined"
     ) {
-      useResponseApi = customProvider.config.useResponseApi;
-    } else if (provider.storeKeys?.apiType) {
       try {
-        const { useAccessStore } = require("../store");
+        const { useAccessStore } = require("../store/access");
         const accessStore = useAccessStore.getState();
-        useResponseApi =
-          (accessStore as any)[provider.storeKeys.apiType] === "response";
+        customProvider = accessStore.customProviders.find(
+          (p: any) => p.id === providerId,
+        );
+        if (customProvider) {
+          provider = {
+            id: providerId,
+            name: customProvider.name,
+            sdkType:
+              customProvider.type === "openai"
+                ? "openai-compatible"
+                : customProvider.type,
+            storeKeys: {
+              apiKey: `${providerId}ApiKey`,
+              baseUrl: `${providerId}BaseUrl`,
+              apiType:
+                customProvider.type === "openai"
+                  ? `${providerId}ApiType`
+                  : undefined,
+            },
+          };
+        }
       } catch (error) {
-        logger.warn("[Unified API] Failed to read apiType:", error);
-      }
-    }
-  }
-
-  // 准备请求参数
-  const requestOptions: any = {
-    messages: convertMessages(messages),
-    temperature,
-    topP,
-    maxTokens,
-    presencePenalty,
-    frequencyPenalty,
-    providerOptions: options.providerOptions,
-  };
-
-  // 原生 OpenAI 推理模型需要 reasoningSummary 才能返回思考内容
-  if (provider?.sdkType === "openai" && !providerId.startsWith("custom_")) {
-    try {
-      const { getModelCapabilities } = require("../config/model-config");
-      const capabilities = getModelCapabilities(model, undefined);
-      if (capabilities.reasoning) {
-        requestOptions.providerOptions = {
-          ...requestOptions.providerOptions,
-          openai: {
-            ...(requestOptions.providerOptions?.openai ?? {}),
-            reasoningSummary: "auto",
-          },
-        };
-        logger.debug(
-          `[Unified API] Added reasoningSummary for OpenAI reasoning model: ${model}`,
+        logger.warn(
+          `[Unified API] Failed to load custom provider: ${providerId}`,
+          error,
         );
       }
-    } catch (e) {
-      logger.warn("[Unified API] Failed to check model capabilities:", e);
     }
-  }
 
-  // 添加系统提示词
-  if (systemPrompt) {
-    requestOptions.messages.unshift({
-      role: "system",
-      content: systemPrompt,
-    });
-  }
+    if (!provider) {
+      throw new Error(
+        `Provider not found for model: ${model} (inferred provider: ${providerId})`,
+      );
+    }
 
-  // 添加工具调用
-  if (tools && tools.length > 0) {
-    requestOptions.tools = tools;
-  }
-
-  if (useResponseApi) {
-    const { instructions, messages: filteredMessages } =
-      extractSystemInstructions(requestOptions.messages);
-    requestOptions.messages = filteredMessages;
-
-    const context = useResponseApiContext
-      ? (getResponseApiContext(providerId, model) as {
-          previousResponseId?: string;
-        })
-      : {};
-    const previousResponseId = context.previousResponseId;
-
-    if (previousResponseId) {
-      // When using previous_response_id, only send the latest user input.
-      for (let i = requestOptions.messages.length - 1; i >= 0; i -= 1) {
-        const message = requestOptions.messages[i];
-        if (message?.role === "user") {
-          requestOptions.messages = [message];
-          break;
+    let useResponseApi = false;
+    if (typeof window !== "undefined") {
+      if (
+        customProvider?.type === "openai" &&
+        customProvider.config?.useResponseApi !== undefined
+      ) {
+        useResponseApi = customProvider.config.useResponseApi;
+      } else if (provider.storeKeys?.apiType) {
+        try {
+          const { useAccessStore } = require("../store");
+          const accessStore = useAccessStore.getState();
+          useResponseApi =
+            (accessStore as any)[provider.storeKeys.apiType] === "response";
+        } catch (error) {
+          logger.warn("[Unified API] Failed to read apiType:", error);
         }
       }
     }
 
-    if (instructions || previousResponseId) {
-      requestOptions.providerOptions = {
-        ...(requestOptions.providerOptions ?? {}),
-        openai: {
-          ...(requestOptions.providerOptions?.openai ?? {}),
-          ...(instructions
-            ? { instructions, systemMessageMode: "remove" }
-            : {}),
-          ...(previousResponseId ? { previousResponseId } : {}),
-        },
-      };
-    }
-  }
+    // 准备请求参数
+    const requestOptions: any = {
+      messages: convertMessages(messages),
+      temperature,
+      topP,
+      maxTokens,
+      presencePenalty,
+      frequencyPenalty,
+      providerOptions: options.providerOptions,
+    };
 
-  try {
-    const adapter = resolveLLMAdapter("pi-ai");
-    if (stream) {
-      logger.debug(
-        `[Unified API] Starting stream chat with ${providerId}/${model}`,
-      );
-      return adapter.streamText({
-        providerId,
-        model,
-        options: requestOptions,
+    // 原生 OpenAI 推理模型需要 reasoningSummary 才能返回思考内容
+    if (provider?.sdkType === "openai" && !providerId.startsWith("custom_")) {
+      try {
+        const { getModelCapabilities } = require("../config/model-config");
+        const capabilities = getModelCapabilities(model, undefined);
+        if (capabilities.reasoning) {
+          requestOptions.providerOptions = {
+            ...requestOptions.providerOptions,
+            openai: {
+              ...(requestOptions.providerOptions?.openai ?? {}),
+              reasoningSummary: "auto",
+            },
+          };
+          logger.debug(
+            `[Unified API] Added reasoningSummary for OpenAI reasoning model: ${model}`,
+          );
+        }
+      } catch (e) {
+        logger.warn("[Unified API] Failed to check model capabilities:", e);
+      }
+    }
+
+    // 添加系统提示词
+    if (systemPrompt) {
+      requestOptions.messages.unshift({
+        role: "system",
+        content: systemPrompt,
       });
-    } else {
-      logger.debug(`[Unified API] Starting chat with ${providerId}/${model}`);
-      return adapter
-        .generateText({
+    }
+
+    // 添加工具调用
+    if (tools && tools.length > 0) {
+      requestOptions.tools = tools;
+    }
+
+    if (useResponseApi) {
+      const { instructions, messages: filteredMessages } =
+        extractSystemInstructions(requestOptions.messages);
+      requestOptions.messages = filteredMessages;
+
+      const context = useResponseApiContext
+        ? (getResponseApiContext(providerId, model) as {
+            previousResponseId?: string;
+          })
+        : {};
+      const previousResponseId = context.previousResponseId;
+
+      if (previousResponseId) {
+        // When using previous_response_id, only send the latest user input.
+        for (let i = requestOptions.messages.length - 1; i >= 0; i -= 1) {
+          const message = requestOptions.messages[i];
+          if (message?.role === "user") {
+            requestOptions.messages = [message];
+            break;
+          }
+        }
+      }
+
+      if (instructions || previousResponseId) {
+        requestOptions.providerOptions = {
+          ...(requestOptions.providerOptions ?? {}),
+          openai: {
+            ...(requestOptions.providerOptions?.openai ?? {}),
+            ...(instructions
+              ? { instructions, systemMessageMode: "remove" }
+              : {}),
+            ...(previousResponseId ? { previousResponseId } : {}),
+          },
+        };
+      }
+    }
+
+    try {
+      const adapter = resolveLLMAdapter("pi-ai");
+      if (stream) {
+        logger.debug(
+          `[Unified API] Starting stream chat with ${providerId}/${model}`,
+        );
+        return adapter.streamText({
           providerId,
           model,
           options: requestOptions,
-        })
-        .then((result) => {
-          console.log("Usage object:", result.usage); // 临时调试
-          return {
-            content: result.text,
-            usage: result.usage
-              ? {
-                  promptTokens: (result.usage as any).promptTokens || 0,
-                  completionTokens: (result.usage as any).completionTokens || 0,
-                  totalTokens: (result.usage as any).totalTokens || 0,
-                }
-              : undefined,
-            finishReason: result.finishReason,
-            providerMetadata: result.providerMetadata,
-          };
         });
+      } else {
+        logger.debug(`[Unified API] Starting chat with ${providerId}/${model}`);
+        return adapter
+          .generateText({
+            providerId,
+            model,
+            options: requestOptions,
+          })
+          .then((result) => {
+            return {
+              content: result.text,
+              usage: result.usage
+                ? {
+                    promptTokens: (result.usage as any).promptTokens || 0,
+                    completionTokens:
+                      (result.usage as any).completionTokens || 0,
+                    totalTokens: (result.usage as any).totalTokens || 0,
+                  }
+                : undefined,
+              finishReason: result.finishReason,
+              providerMetadata: result.providerMetadata,
+            };
+          });
+      }
+    } catch (error) {
+      logger.error(
+        `[Unified API] Chat failed for ${providerId}/${model}:`,
+        error,
+      );
+      throw error;
     }
-  } catch (error) {
-    logger.error(
-      `[Unified API] Chat failed for ${providerId}/${model}:`,
-      error,
-    );
-    throw error;
-  }
-}
-
-// 检查模型是否支持流式输出
-export function supportsStreaming(model: string): boolean {
-  const providerId = getProviderIdFromModel(model);
-  const provider = getAllProviders().find((p) => p.id === providerId);
-  return provider?.sdkType !== undefined; // 所有SDK都支持流式输出
-}
-
-// 检查模型是否支持工具调用
-export function supportsTools(model: string): boolean {
-  const providerId = getProviderIdFromModel(model);
-  // 这里可以根据具体的模型和provider来判断
-  // 暂时返回true，具体逻辑可以后续完善
-  return true;
-}
-
-// 获取模型的上下文长度
-export function getModelContextLength(model: string): number {
-  // 这里可以从配置中获取模型的上下文长度
-  // 暂时返回一个默认值
-  return 4096;
+  })();
 }
 
 // 验证模型是否可用
 export function isModelAvailable(model: string): boolean {
-  const providerId = getProviderIdFromModel(model);
+  const providerId = normalizeProviderIdByModelPrefix(model);
 
   // 在服务器端环境中，我们无法访问客户端 store
   if (typeof window === "undefined") {
@@ -525,4 +507,31 @@ export function isModelAvailable(model: string): boolean {
     );
     return true; // 如果无法检查，假设可用
   }
+}
+
+function normalizeProviderIdByModelPrefix(model: string): string {
+  if (
+    model.startsWith("gpt-") ||
+    model.startsWith("o1-") ||
+    model.startsWith("chatgpt-")
+  ) {
+    return "openai";
+  } else if (model.startsWith("claude-")) {
+    return "anthropic";
+  } else if (model.startsWith("gemini-") || model.startsWith("learnlm-")) {
+    return "google";
+  } else if (model.startsWith("qwen-") || model.includes("qwen")) {
+    return "alibaba";
+  } else if (model.startsWith("moonshot-") || model.startsWith("kimi-")) {
+    return "moonshotai";
+  } else if (model.startsWith("deepseek-")) {
+    return "deepseek";
+  } else if (model.startsWith("grok-")) {
+    return "xai";
+  } else if (model.includes("siliconflow") || model.includes("/")) {
+    return "siliconflow";
+  } else if (model.includes("ollama")) {
+    return "ollama";
+  }
+  return "openai";
 }

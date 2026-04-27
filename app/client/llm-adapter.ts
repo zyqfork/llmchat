@@ -1,6 +1,5 @@
 import { logger } from "../utils/logger";
-import { completeSimple, streamSimple } from "@mariozechner/pi-ai";
-import type { Context, Model } from "@mariozechner/pi-ai";
+import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
 import { getAllProviders } from "../constant";
 import { executeMcpAction } from "../mcp/actions.client";
 
@@ -31,6 +30,21 @@ type DebugCapture = {
     body?: any;
   };
 };
+
+type PiAiModule = {
+  completeSimple: (...args: any[]) => Promise<any>;
+  streamSimple: (...args: any[]) => any;
+  getModel: (...args: any[]) => any;
+};
+
+let piAiModulePromise: Promise<PiAiModule> | null = null;
+
+function getPiAiModule(): Promise<PiAiModule> {
+  if (!piAiModulePromise) {
+    piAiModulePromise = import("@mariozechner/pi-ai") as Promise<PiAiModule>;
+  }
+  return piAiModulePromise;
+}
 
 async function tryCaptureResponseBody(
   response: unknown,
@@ -96,7 +110,7 @@ function toPiUserContent(content: any): string | any[] {
     .filter(Boolean);
 }
 
-function toPiContext(messages: any[]): Context {
+function toPiContext(messages: any[]): any {
   const normalized = extractSystemPrompt(messages);
   const piMessages: any[] = [];
 
@@ -158,6 +172,8 @@ function getProviderRuntimeConfig(providerId: string) {
         apiKey: custom.apiKey,
         baseUrl: custom.endpoint,
         sdkType: custom.type === "openai" ? "openai-compatible" : custom.type,
+        useProxy: custom.config?.useProxy,
+        proxyUrl: custom.config?.proxyUrl,
         apiType:
           custom.type === "openai"
             ? custom.config?.useResponseApi
@@ -176,6 +192,8 @@ function getProviderRuntimeConfig(providerId: string) {
       apiKey: storeConfig.apiKey,
       baseUrl: storeConfig.baseUrl || provider?.defaultBaseUrl,
       sdkType: provider?.sdkType,
+      useProxy: storeConfig.useProxy,
+      proxyUrl: storeConfig.proxyUrl,
       apiType,
     };
   } catch (error) {
@@ -184,18 +202,56 @@ function getProviderRuntimeConfig(providerId: string) {
   }
 }
 
-function toPiModel(providerId: string, modelId: string): Model<any> | null {
-  const cfg = getProviderRuntimeConfig(providerId);
-  if (!cfg?.apiKey) return null;
+function toPiModel(providerId: string, modelId: string, cfg?: any): any | null {
+  const runtimeCfg = cfg || getProviderRuntimeConfig(providerId);
+  if (!runtimeCfg?.apiKey) return null;
+
+  const knownProviderMap: Record<string, string> = {
+    openai: "openai",
+    anthropic: "anthropic",
+    google: "google",
+    xai: "xai",
+    groq: "groq",
+    cerebras: "cerebras",
+    openrouter: "openrouter",
+    zai: "zai",
+  };
+  const knownProvider = knownProviderMap[providerId];
+  const isCustomProvider = String(providerId || "").startsWith("custom_");
+  const baseUrl: string = String(runtimeCfg.baseUrl || "");
+  const isOfficialOpenAIHost =
+    baseUrl.includes("api.openai.com") || baseUrl.includes("openai.azure.com");
+  const shouldForceSystemRole =
+    runtimeCfg.sdkType === "openai" &&
+    (isCustomProvider || !isOfficialOpenAIHost);
+  if (knownProvider && runtimeCfg?.builtinModel) {
+    try {
+      const builtin = runtimeCfg.builtinModel;
+      return {
+        ...builtin,
+        id: modelId,
+        name: modelId,
+        baseUrl: runtimeCfg.baseUrl || builtin.baseUrl,
+        compat: shouldForceSystemRole
+          ? {
+              ...(builtin.compat || {}),
+              supportsDeveloperRole: false,
+            }
+          : builtin.compat,
+      } as any;
+    } catch {
+      // Fallback to dynamic model construction for unknown model ids.
+    }
+  }
 
   const api =
-    cfg.sdkType === "openai"
-      ? cfg.apiType === "response"
+    runtimeCfg.sdkType === "openai"
+      ? runtimeCfg.apiType === "response"
         ? "openai-responses"
         : "openai-completions"
-      : cfg.sdkType === "anthropic"
+      : runtimeCfg.sdkType === "anthropic"
       ? "anthropic-messages"
-      : cfg.sdkType === "google"
+      : runtimeCfg.sdkType === "google"
       ? "google-generative-ai"
       : "openai-completions";
 
@@ -204,13 +260,46 @@ function toPiModel(providerId: string, modelId: string): Model<any> | null {
     name: modelId,
     api,
     provider: providerId,
-    baseUrl: cfg.baseUrl,
+    baseUrl: runtimeCfg.baseUrl,
     reasoning: true,
     input: ["text", "image"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128000,
     maxTokens: 32768,
-  } as Model<any>;
+    compat: shouldForceSystemRole
+      ? {
+          supportsDeveloperRole: false,
+        }
+      : undefined,
+  } as any;
+}
+
+function getNormalizedProxyUrl(proxyUrl?: string): string | undefined {
+  const normalized = (proxyUrl || "").trim();
+  if (normalized) {
+    return normalized;
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return undefined;
+}
+
+function withProxyModel(model: any, cfg: any): any {
+  const proxyUrl = getNormalizedProxyUrl(cfg?.proxyUrl);
+  if (!proxyUrl || !cfg?.apiKey) {
+    return model;
+  }
+  if (cfg.useProxy) {
+    if (!model.baseUrl) {
+      return model;
+    }
+    return {
+      ...model,
+      baseUrl: `${proxyUrl}/?url=${encodeURIComponent(model.baseUrl)}`,
+    };
+  }
+  return applyProxyIfNeeded(model, cfg.apiKey, proxyUrl);
 }
 
 function toPiTools(openAiTools: any[] = []) {
@@ -377,115 +466,163 @@ class PiAiAdapter implements LLMAdapter {
   engine: LLMEngine = "pi-ai";
 
   streamText(req: LLMAdapterRequest) {
-    const cfg = getProviderRuntimeConfig(req.providerId);
-    const model = toPiModel(req.providerId, req.model);
-    if (!cfg?.apiKey || !model) {
-      throw new Error(
-        `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
-      );
-    }
-
-    const debugCapture: DebugCapture = {};
-    const fullStream = (async function* () {
-      const context = toPiContext(req.options?.messages ?? []);
-      const openAiTools = Array.isArray(req.options?.tools)
-        ? req.options.tools
-        : [];
-      const piTools = toPiTools(openAiTools);
-      if (piTools.length > 0) {
-        (context as any).tools = piTools;
+    return (async () => {
+      const piAi = await getPiAiModule();
+      const cfg = getProviderRuntimeConfig(req.providerId) as any;
+      const knownProviderMap: Record<string, string> = {
+        openai: "openai",
+        anthropic: "anthropic",
+        google: "google",
+        xai: "xai",
+        groq: "groq",
+        cerebras: "cerebras",
+        openrouter: "openrouter",
+        zai: "zai",
+      };
+      const knownProvider = knownProviderMap[req.providerId];
+      if (knownProvider && cfg) {
+        try {
+          cfg.builtinModel = piAi.getModel(
+            knownProvider as any,
+            req.model as any,
+          );
+        } catch {
+          // ignore and fallback to dynamic model
+        }
       }
 
-      let loop = 0;
-      while (loop < 6) {
-        loop += 1;
-        const pendingToolCalls: any[] = [];
-        const s = streamSimple(model, context, {
-          apiKey: cfg.apiKey,
-          temperature: req.options?.temperature,
-          maxTokens: req.options?.maxTokens,
-          signal: req.options?.abortSignal,
-          onPayload: (payload, usedModel) => {
-            debugCapture.request = {
-              url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
-              method: "POST",
-              headers: buildDebugHeaders(
-                req.providerId,
-                cfg.apiKey,
-                usedModel.api,
-                usedModel.headers ?? {},
-              ),
-              body: payload,
-            };
-            return undefined;
-          },
-          onResponse: (response) => {
-            const capturedResponse: NonNullable<DebugCapture["response"]> = {
-              status: response.status,
-              headers: response.headers,
-            };
-            debugCapture.response = capturedResponse;
-            void tryCaptureResponseBody(response).then((body) => {
-              if (typeof body !== "undefined") {
-                capturedResponse.body = body;
-              }
-            });
-          },
-        });
+      const model = toPiModel(req.providerId, req.model, cfg);
+      if (!cfg?.apiKey || !model) {
+        throw new Error(
+          `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
+        );
+      }
 
-        for await (const event of s) {
-          if (event.type === "text_delta") {
-            yield { type: "text-delta", text: event.delta };
-          } else if (event.type === "thinking_delta") {
-            yield { type: "reasoning-delta", delta: event.delta };
-          } else if (event.type === "toolcall_end") {
-            pendingToolCalls.push(event.toolCall);
-            yield { type: "tool-call", toolCall: event.toolCall };
+      const debugCapture: DebugCapture = {};
+      const requestModel = withProxyModel(model, cfg);
+      const fullStream = (async function* () {
+        const context = toPiContext(req.options?.messages ?? []);
+        const openAiTools = Array.isArray(req.options?.tools)
+          ? req.options.tools
+          : [];
+        const piTools = toPiTools(openAiTools);
+        if (piTools.length > 0) {
+          (context as any).tools = piTools;
+        }
+
+        let loop = 0;
+        while (loop < 6) {
+          loop += 1;
+          const pendingToolCalls: any[] = [];
+          const s = piAi.streamSimple(requestModel, context, {
+            apiKey: cfg.apiKey,
+            temperature: req.options?.temperature,
+            maxTokens: req.options?.maxTokens,
+            signal: req.options?.abortSignal,
+            onPayload: (payload: any, usedModel: any) => {
+              debugCapture.request = {
+                url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
+                method: "POST",
+                headers: buildDebugHeaders(
+                  req.providerId,
+                  cfg.apiKey,
+                  usedModel.api,
+                  usedModel.headers ?? {},
+                ),
+                body: payload,
+              };
+              return undefined;
+            },
+            onResponse: (response: any) => {
+              const capturedResponse: NonNullable<DebugCapture["response"]> = {
+                status: response.status,
+                headers: response.headers,
+              };
+              debugCapture.response = capturedResponse;
+              void tryCaptureResponseBody(response).then((body) => {
+                if (typeof body !== "undefined") {
+                  capturedResponse.body = body;
+                }
+              });
+            },
+          });
+
+          for await (const event of s) {
+            if (event.type === "text_delta") {
+              yield { type: "text-delta", text: event.delta };
+            } else if (event.type === "thinking_delta") {
+              yield { type: "reasoning-delta", delta: event.delta };
+            } else if (event.type === "toolcall_end") {
+              pendingToolCalls.push(event.toolCall);
+              yield { type: "tool-call", toolCall: event.toolCall };
+            }
+          }
+
+          const finalMessage = await s.result();
+          context.messages.push(finalMessage as any);
+          if (
+            finalMessage.stopReason !== "toolUse" ||
+            pendingToolCalls.length === 0
+          ) {
+            break;
+          }
+
+          for (const call of pendingToolCalls) {
+            const toolExec = await executeMcpToolCall(call, openAiTools);
+            context.messages.push({
+              role: "toolResult",
+              toolCallId: call.id,
+              toolName: call.name,
+              content: [{ type: "text", text: toolExec.content }],
+              isError: toolExec.isError,
+              timestamp: Date.now(),
+            } as any);
+            yield {
+              type: "tool-result",
+              toolCall: call,
+              result: toolExec.content,
+              isError: toolExec.isError,
+            };
           }
         }
+      })();
 
-        const finalMessage = await s.result();
-        context.messages.push(finalMessage as any);
-        if (
-          finalMessage.stopReason !== "toolUse" ||
-          pendingToolCalls.length === 0
-        ) {
-          break;
-        }
-
-        for (const call of pendingToolCalls) {
-          const toolExec = await executeMcpToolCall(call, openAiTools);
-          context.messages.push({
-            role: "toolResult",
-            toolCallId: call.id,
-            toolName: call.name,
-            content: [{ type: "text", text: toolExec.content }],
-            isError: toolExec.isError,
-            timestamp: Date.now(),
-          } as any);
-          yield {
-            type: "tool-result",
-            toolCall: call,
-            result: toolExec.content,
-            isError: toolExec.isError,
-          };
-        }
-      }
+      return {
+        fullStream,
+        providerMetadata: Promise.resolve({}),
+        content: "",
+        text: "",
+        requestDebug: () => debugCapture.request,
+        responseDebug: () => debugCapture.response,
+      };
     })();
-
-    return {
-      fullStream,
-      providerMetadata: Promise.resolve({}),
-      content: "",
-      text: "",
-      requestDebug: () => debugCapture.request,
-      responseDebug: () => debugCapture.response,
-    };
   }
 
   async generateText(req: LLMAdapterRequest) {
-    const cfg = getProviderRuntimeConfig(req.providerId);
-    const model = toPiModel(req.providerId, req.model);
+    const piAi = await getPiAiModule();
+    const cfg = getProviderRuntimeConfig(req.providerId) as any;
+    const knownProviderMap: Record<string, string> = {
+      openai: "openai",
+      anthropic: "anthropic",
+      google: "google",
+      xai: "xai",
+      groq: "groq",
+      cerebras: "cerebras",
+      openrouter: "openrouter",
+      zai: "zai",
+    };
+    const knownProvider = knownProviderMap[req.providerId];
+    if (knownProvider && cfg) {
+      try {
+        cfg.builtinModel = piAi.getModel(
+          knownProvider as any,
+          req.model as any,
+        );
+      } catch {
+        // ignore and fallback to dynamic model
+      }
+    }
+    const model = toPiModel(req.providerId, req.model, cfg);
     if (!cfg?.apiKey || !model) {
       throw new Error(
         `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
@@ -504,14 +641,15 @@ class PiAiAdapter implements LLMAdapter {
     let result: any = null;
     let loop = 0;
     const debugCapture: DebugCapture = {};
+    const requestModel = withProxyModel(model, cfg);
     while (loop < 6) {
       loop += 1;
-      result = await completeSimple(model, context, {
+      result = await piAi.completeSimple(requestModel, context, {
         apiKey: cfg.apiKey,
         temperature: req.options?.temperature,
         maxTokens: req.options?.maxTokens,
         signal: req.options?.abortSignal,
-        onPayload: (payload, usedModel) => {
+        onPayload: (payload: any, usedModel: any) => {
           debugCapture.request = {
             url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
             method: "POST",
@@ -525,7 +663,7 @@ class PiAiAdapter implements LLMAdapter {
           };
           return undefined;
         },
-        onResponse: (response) => {
+        onResponse: (response: any) => {
           const capturedResponse: NonNullable<DebugCapture["response"]> = {
             status: response.status,
             headers: response.headers,
