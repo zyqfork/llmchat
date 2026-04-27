@@ -8,9 +8,9 @@ import { LLMModel } from "./api";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
 import {
-  isCorsError,
-  shouldUseProxyForProvider,
-} from "@mariozechner/pi-web-ui";
+  isCorsErrorCompat,
+  shouldUseProxyForProviderCompat,
+} from "../utils/pi-web-ui-compat";
 
 // 统一的模型响应接口
 export interface ModelFetchResponse {
@@ -75,7 +75,7 @@ export class ModelFetcher {
         ? (accessStore as any)[providerConfig.storeKeys.apiKey]
         : "";
       const autoUseProxy =
-        !!apiKey && shouldUseProxyForProvider(providerId, String(apiKey));
+        !!apiKey && shouldUseProxyForProviderCompat(providerId, String(apiKey));
       const useProxy = manualUseProxy || autoUseProxy;
 
       if (useProxy) {
@@ -129,7 +129,7 @@ export class ModelFetcher {
     } catch (error) {
       // 如果是网络错误或 API 不存在，尝试直接请求
       if (
-        isCorsError(error) ||
+        isCorsErrorCompat(error) ||
         (error instanceof TypeError && error.message.includes("fetch"))
       ) {
         logger.warn(
@@ -225,7 +225,7 @@ export class ModelFetcher {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      const corsHint = isCorsError(error)
+      const corsHint = isCorsErrorCompat(error)
         ? "\n\n检测到可能的跨域(CORS)错误，请尝试开启代理配置。"
         : "";
       return {
