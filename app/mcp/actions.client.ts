@@ -16,9 +16,11 @@ import {
   removeClient,
 } from "./client";
 import { MCPClientLogger } from "./logger";
+import { getPiSettingsStore } from "../utils/pi-storage";
 
 const logger = new MCPClientLogger("MCP Actions (client)");
 const LS_KEY = "mcp_config";
+const mcpSettingsStore = getPiSettingsStore();
 
 // In-memory runtime state for clients
 const clientsMap = new Map<
@@ -30,33 +32,34 @@ const clientsMap = new Map<
   }
 >();
 
-function readConfig(): McpConfigData {
+async function readConfig(): Promise<McpConfigData> {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { ...DEFAULT_MCP_CONFIG };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_MCP_CONFIG };
-    // shallow validate
-    if (!("mcpServers" in parsed)) return { ...DEFAULT_MCP_CONFIG };
-    return parsed as McpConfigData;
+    const persisted = await mcpSettingsStore.get<McpConfigData>(LS_KEY);
+    if (!persisted || typeof persisted !== "object") {
+      return { ...DEFAULT_MCP_CONFIG };
+    }
+    if (!("mcpServers" in persisted)) {
+      return { ...DEFAULT_MCP_CONFIG };
+    }
+    return persisted;
   } catch (e) {
-    logger.error(`Failed to read local MCP config: ${String(e)}`);
+    logger.error(`Failed to read MCP config from settings store: ${String(e)}`);
     return { ...DEFAULT_MCP_CONFIG };
   }
 }
 
-function writeConfig(cfg: McpConfigData) {
+async function writeConfig(cfg: McpConfigData) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+    await mcpSettingsStore.set(LS_KEY, cfg);
   } catch (e) {
-    logger.error(`Failed to write local MCP config: ${String(e)}`);
+    logger.error(`Failed to write MCP config to settings store: ${String(e)}`);
   }
 }
 
 export async function getClientsStatus(): Promise<
   Record<string, ServerStatusResponse>
 > {
-  const cfg = readConfig();
+  const cfg = await readConfig();
   const result: Record<string, ServerStatusResponse> = {};
   for (const id of Object.keys(cfg.mcpServers)) {
     const serverCfg = cfg.mcpServers[id];
@@ -127,7 +130,7 @@ export async function getMcpToolsForFunctionCall() {
     return cachedFunctionCallTools;
   }
 
-  const cfg = readConfig();
+  const cfg = await readConfig();
   const tools: any[] = [];
 
   for (const [clientId, status] of clientsMap.entries()) {
@@ -215,7 +218,7 @@ async function initializeSingleClient(
 
 export async function initializeMcpSystem() {
   try {
-    const cfg = readConfig();
+    const cfg = await readConfig();
     if (clientsMap.size > 0) {
       logger.info("MCP system already initialized (client)");
       return cfg;
@@ -234,7 +237,7 @@ export async function addMcpServer(
   clientId: string,
   config: ServerConfig,
 ): Promise<McpConfigData> {
-  const current = readConfig();
+  const current = await readConfig();
   const isNew = !(clientId in current.mcpServers);
   if (isNew && !config.status) config.status = "active";
   if (isNew && typeof config.addedAt !== "number") config.addedAt = Date.now();
@@ -242,7 +245,7 @@ export async function addMcpServer(
     ...current,
     mcpServers: { ...current.mcpServers, [clientId]: config },
   };
-  writeConfig(next);
+  await writeConfig(next);
   if (isNew || config.status === "active") {
     await initializeSingleClient(clientId, config);
   }
@@ -250,7 +253,7 @@ export async function addMcpServer(
 }
 
 export async function pauseMcpServer(clientId: string): Promise<McpConfigData> {
-  const current = readConfig();
+  const current = await readConfig();
   const serverCfg = current.mcpServers[clientId];
   if (!serverCfg) throw new Error(`Server ${clientId} not found`);
   const next: McpConfigData = {
@@ -260,7 +263,7 @@ export async function pauseMcpServer(clientId: string): Promise<McpConfigData> {
       [clientId]: { ...serverCfg, status: "paused" },
     },
   };
-  writeConfig(next);
+  await writeConfig(next);
   const runtime = clientsMap.get(clientId);
   if (runtime?.client) {
     await removeClient(runtime.client);
@@ -270,7 +273,7 @@ export async function pauseMcpServer(clientId: string): Promise<McpConfigData> {
 }
 
 export async function resumeMcpServer(clientId: string): Promise<void> {
-  const current = readConfig();
+  const current = await readConfig();
   const serverCfg = current.mcpServers[clientId];
   if (!serverCfg) throw new Error(`Server ${clientId} not found`);
   try {
@@ -284,18 +287,18 @@ export async function resumeMcpServer(clientId: string): Promise<void> {
         [clientId]: { ...serverCfg, status: "active" },
       },
     };
-    writeConfig(next);
+    await writeConfig(next);
   } catch (e) {
     clientsMap.set(clientId, {
       client: null,
       tools: null,
       errorMsg: e instanceof Error ? e.message : String(e),
     });
-    const cur = readConfig();
+    const cur = await readConfig();
     const sc = cur.mcpServers[clientId];
     if (sc) {
       sc.status = "error";
-      writeConfig(cur);
+      await writeConfig(cur);
     }
     throw e;
   }
@@ -304,10 +307,10 @@ export async function resumeMcpServer(clientId: string): Promise<void> {
 export async function removeMcpServer(
   clientId: string,
 ): Promise<McpConfigData> {
-  const current = readConfig();
+  const current = await readConfig();
   const { [clientId]: _omit, ...rest } = current.mcpServers;
   const next: McpConfigData = { ...current, mcpServers: rest };
-  writeConfig(next);
+  await writeConfig(next);
 
   // 立即清理客户端资源
   const runtime = clientsMap.get(clientId);
@@ -326,7 +329,7 @@ export async function removeMcpServer(
 
 // 清理未使用的客户端（防止内存泄漏）
 export async function cleanupUnusedClients() {
-  const cfg = readConfig();
+  const cfg = await readConfig();
   const validIds = new Set(Object.keys(cfg.mcpServers));
 
   const toRemove: string[] = [];
@@ -377,14 +380,14 @@ export async function updateCustomPrompts(
   customToolsPrompt?: string,
   callMode?: "prompt" | "function_call",
 ): Promise<McpConfigData> {
-  const current = readConfig();
+  const current = await readConfig();
   const next: McpConfigData = {
     ...current,
     customSystemPrompt,
     customToolsPrompt,
     callMode: callMode || current.callMode || "prompt",
   };
-  writeConfig(next);
+  await writeConfig(next);
   return next;
 }
 
@@ -429,7 +432,7 @@ export async function restartAllClients(): Promise<McpConfigData> {
     if (runtime.client) await removeClient(runtime.client);
   }
   clientsMap.clear();
-  const cfg = readConfig();
+  const cfg = await readConfig();
   for (const [clientId, serverCfg] of Object.entries(cfg.mcpServers)) {
     await initializeSingleClient(clientId, serverCfg);
   }
@@ -450,5 +453,5 @@ export async function getMcpConfigFromFile(): Promise<McpConfigData> {
 }
 
 export async function updateMcpConfig(config: McpConfigData): Promise<void> {
-  writeConfig(config);
+  await writeConfig(config);
 }

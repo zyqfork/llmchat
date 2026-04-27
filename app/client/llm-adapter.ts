@@ -35,6 +35,10 @@ type PiAiModule = {
   completeSimple: (...args: any[]) => Promise<any>;
   streamSimple: (...args: any[]) => any;
   getModel: (...args: any[]) => any;
+  parseStreamingJson: <T = Record<string, unknown>>(
+    partialJson: string | undefined,
+  ) => T;
+  validateToolArguments: (tool: any, toolCall: any) => any;
 };
 
 let piAiModulePromise: Promise<PiAiModule> | null = null;
@@ -438,13 +442,38 @@ async function executeMcpToolCall(toolCall: any, allTools: any[]) {
   }
 
   try {
+    const piAi = await getPiAiModule();
+    const toolDef = allTools.find(
+      (t: any) => t?.function?.name === toolCall.name,
+    )?.function;
+    const parsedArguments =
+      typeof toolCall.arguments === "string"
+        ? piAi.parseStreamingJson(toolCall.arguments)
+        : toolCall.arguments || {};
+    const validatedArguments = toolDef
+      ? piAi.validateToolArguments(
+          {
+            name: toolDef.name,
+            description: toolDef.description || `Tool ${toolDef.name}`,
+            parameters: toolDef.parameters || {
+              type: "object",
+              properties: {},
+            },
+          },
+          {
+            ...toolCall,
+            arguments: parsedArguments,
+          },
+        )
+      : parsedArguments;
+
     const result = await executeMcpAction(meta.clientId, {
       jsonrpc: "2.0",
       id: Date.now(),
       method: "tools/call",
       params: {
         name: meta.toolName,
-        arguments: toolCall.arguments || {},
+        arguments: validatedArguments,
       },
     } as any);
     return {

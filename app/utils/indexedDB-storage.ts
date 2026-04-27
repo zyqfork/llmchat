@@ -1,59 +1,50 @@
 import { StateStorage } from "zustand/middleware";
-import { get, set, del, clear } from "idb-keyval";
 import { safeLocalStorage } from "@/app/utils";
-import { initSmartStorage } from "./debounced-storage";
-import { initStorageMigration } from "./storage-migration";
+import { getPiSettingsStore } from "./pi-storage";
 
 const localStorage = safeLocalStorage();
 
-class IndexedDBStorage implements StateStorage {
-  public async getItem(name: string): Promise<string | null> {
+class PiSettingsBackedStorage implements StateStorage {
+  private readonly settingsStore = getPiSettingsStore();
+
+  async getItem(name: string): Promise<string | null> {
     try {
-      const value = (await get(name)) || localStorage.getItem(name);
-      return value;
-    } catch (error) {
-      return localStorage.getItem(name);
+      const value = await this.settingsStore.get<string>(name);
+      if (typeof value === "string") {
+        return value;
+      }
+    } catch {
+      // fall through to localStorage fallback
     }
+    return localStorage.getItem(name);
   }
 
-  public async setItem(name: string, value: string): Promise<void> {
+  async setItem(name: string, value: string): Promise<void> {
     try {
-      await set(name, value);
-    } catch (error) {
+      await this.settingsStore.set(name, value);
+      return;
+    } catch {
       localStorage.setItem(name, value);
     }
   }
 
-  public async removeItem(name: string): Promise<void> {
+  async removeItem(name: string): Promise<void> {
     try {
-      await del(name);
-    } catch (error) {
+      await this.settingsStore.delete(name);
+      return;
+    } catch {
       localStorage.removeItem(name);
     }
   }
 
-  public async clear(): Promise<void> {
+  async clear(): Promise<void> {
     try {
-      await clear();
-    } catch (error) {
-      localStorage.clear();
+      await this.settingsStore.clear();
+    } catch {
+      // ignore and still clear fallback storage
     }
+    localStorage.clear();
   }
 }
 
-export const indexedDBStorage = new IndexedDBStorage();
-
-// 初始化智能存储管理器
-export const smartStorageManager = initSmartStorage(indexedDBStorage);
-
-// 初始化存储迁移（应用启动时自动执行）
-if (typeof window !== "undefined") {
-  // 延迟执行，确保页面加载完成
-  setTimeout(() => {
-    import("./logger").then(({ logger }) => {
-      initStorageMigration().catch((error) => {
-        logger.error("[IndexedDB] Migration error:", error);
-      });
-    });
-  }, 1000);
-}
+export const indexedDBStorage = new PiSettingsBackedStorage();

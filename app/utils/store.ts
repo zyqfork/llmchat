@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { combine, persist, createJSONStorage } from "zustand/middleware";
 import { Updater } from "../typing";
 import { deepClone } from "./clone";
-import { smartStorageManager } from "@/app/utils/indexedDB-storage";
+import { indexedDBStorage } from "./indexedDB-storage";
 
 type SecondParam<T> = T extends (
   _f: infer _F,
@@ -34,13 +34,7 @@ export function createPersistStore<T extends object, M>(
   ) => M,
   persistOptions: SecondParam<typeof persist<T & M & MakeUpdater<T>>>,
 ) {
-  // 使用智能存储管理器根据 key 选择存储策略
-  const storageKey = persistOptions.name || "unknown";
-  const selectedStorage = smartStorageManager?.getStorage(storageKey);
-
-  if (selectedStorage) {
-    persistOptions.storage = createJSONStorage(() => selectedStorage);
-  }
+  persistOptions.storage = createJSONStorage(() => indexedDBStorage);
 
   const oldOonRehydrateStorage = persistOptions?.onRehydrateStorage;
   persistOptions.onRehydrateStorage = (state) => {
