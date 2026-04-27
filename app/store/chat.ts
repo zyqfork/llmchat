@@ -2036,6 +2036,13 @@ export const useChatStore = createPersistStore(
               getMessageTextContentWithoutThinking(msg).trim(),
           );
           const summaryStartIndex = compactionSlice.summaryStartIndex;
+          logger.debug("[Summarize] Compaction slice:", {
+            boundaryStartIndex,
+            summaryStartIndex,
+            firstKeptIndex: compactionSlice.firstKeptIndex,
+            isSplitTurn: compactionSlice.isSplitTurn,
+            turnStartIndex: compactionSlice.turnStartIndex,
+          });
 
           const { userMessages, userTokens } = collectSummaryInputs(
             messages,
@@ -2146,35 +2153,44 @@ export const useChatStore = createPersistStore(
               });
             },
             onSuccess: (filteredMessage) => {
-              const summaryLength = estimateTokenLength(filteredMessage);
+              const candidateSummary = (filteredMessage || "").trim();
+              const candidateLength = estimateTokenLength(candidateSummary);
+              const tooLong =
+                !forceCompress &&
+                summaryTokens > 0 &&
+                candidateLength > summaryTokens * 0.8;
+              const tooShort =
+                !forceCompress && summaryTokens > 1000 && candidateLength < 50;
+              const emptySummary = candidateSummary.length === 0;
+              const guardTriggered = tooLong || tooShort || emptySummary;
+              const hasPreviousSummary =
+                !!previousSummary && previousSummary.trim().length > 0;
+              const appliedSummary =
+                guardTriggered && hasPreviousSummary
+                  ? previousSummary!.trim()
+                  : candidateSummary;
+              const summaryLength = estimateTokenLength(appliedSummary);
 
-              if (!forceCompress && summaryTokens > 0) {
-                if (summaryLength > summaryTokens * 0.8) {
-                  logger.warn(
-                    "[Summarize] Summary seems too long. Summary:",
-                    summaryLength,
-                    "Original:",
-                    summaryTokens,
-                  );
-                } else if (summaryLength < 50 && summaryTokens > 1000) {
-                  logger.warn(
-                    "[Summarize] Summary seems too short. Summary:",
-                    summaryLength,
-                    "Original:",
-                    summaryTokens,
-                  );
-                }
+              if (guardTriggered) {
+                logger.warn("[Summarize] Quality guard triggered:", {
+                  emptySummary,
+                  tooShort,
+                  tooLong,
+                  candidateLength,
+                  summaryTokens,
+                  fallbackToPreviousSummary: hasPreviousSummary,
+                });
               }
 
               get().updateTargetSession(session, (s) => {
                 s.mask.modelConfig.sendMemory = true;
                 s.lastSummarizeIndex = compactionContext.lastSummarizeIndex;
-                s.memoryPrompt = filteredMessage;
+                s.memoryPrompt = appliedSummary;
                 const target = s.messages.find(
                   (m) => m.id === compactionContext.compressedMessageId,
                 );
                 if (target) {
-                  target.content = filteredMessage;
+                  target.content = appliedSummary;
                   target.streaming = false;
                   target.isCompressedContextPrompt = true;
                   const summaryIndex = s.messages.findIndex(
@@ -2200,7 +2216,7 @@ export const useChatStore = createPersistStore(
                 "[Summarize] Completed for session:",
                 session.id,
                 "summary length:",
-                filteredMessage.length,
+                appliedSummary.length,
                 "tokens:",
                 summaryLength,
                 "compression ratio:",

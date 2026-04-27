@@ -7,6 +7,10 @@ import { useAccessStore, CustomProviderType } from "../store/access";
 import { LLMModel } from "./api";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
+import {
+  isCorsError,
+  shouldUseProxyForProvider,
+} from "@mariozechner/pi-web-ui";
 
 // 统一的模型响应接口
 export interface ModelFetchResponse {
@@ -64,7 +68,15 @@ export class ModelFetcher {
 
       // 检查是否启用了代理
       const useProxyKey = providerConfig.storeKeys.useProxy;
-      const useProxy = useProxyKey ? (accessStore as any)[useProxyKey] : false;
+      const manualUseProxy = useProxyKey
+        ? (accessStore as any)[useProxyKey]
+        : false;
+      const apiKey = providerConfig.storeKeys.apiKey
+        ? (accessStore as any)[providerConfig.storeKeys.apiKey]
+        : "";
+      const autoUseProxy =
+        !!apiKey && shouldUseProxyForProvider(providerId, String(apiKey));
+      const useProxy = manualUseProxy || autoUseProxy;
 
       if (useProxy) {
         // 使用代理时，通过本地 /api/models 接口
@@ -116,7 +128,10 @@ export class ModelFetcher {
       };
     } catch (error) {
       // 如果是网络错误或 API 不存在，尝试直接请求
-      if (error instanceof TypeError && error.message.includes("fetch")) {
+      if (
+        isCorsError(error) ||
+        (error instanceof TypeError && error.message.includes("fetch"))
+      ) {
         logger.warn(
           `[ModelFetcher] Proxy API fetch failed, falling back to direct request for ${providerId}`,
         );
@@ -210,10 +225,13 @@ export class ModelFetcher {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+      const corsHint = isCorsError(error)
+        ? "\n\n检测到可能的跨域(CORS)错误，请尝试开启代理配置。"
+        : "";
       return {
         models: [],
         success: false,
-        error: `${providerId}模型列表获取失败（直连模式）。\n\n错误详情: ${errorMessage}\n\n如果问题持续存在，建议使用内置模型列表。`,
+        error: `${providerId}模型列表获取失败（直连模式）。\n\n错误详情: ${errorMessage}${corsHint}\n\n如果问题持续存在，建议使用内置模型列表。`,
       };
     }
   }

@@ -1,3 +1,4 @@
+import { formatTokenCount as piFormatTokenCount } from "@mariozechner/pi-web-ui";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
@@ -327,12 +328,8 @@ export function removeCustomContextTokens(modelName: string): void {
  * 格式化Token数显示
  */
 export function formatTokenCount(tokens: number): string {
-  if (tokens >= 1000000) {
-    return `${(tokens / 1000000).toFixed(1)}M`;
-  } else if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(0)}K`;
-  }
-  return tokens.toString();
+  // Reuse pi-web-ui formatter to keep token display behavior consistent.
+  return piFormatTokenCount(tokens);
 }
 
 /**
