@@ -650,9 +650,6 @@ function CompactionPromptEditModal(props: {
               }))
             }
           />
-          <div className={styles["edit-prompt-hint"]}>
-            留空将使用默认模板（pi-mono 原始模板，英文）。
-          </div>
         </div>
       </Modal>
     </div>
@@ -2755,44 +2752,57 @@ export function Settings() {
             onClose={() => setEditingSystemPrompt(null)}
           />
         )}
-        {editingSystemPrompt === "compaction" && (
-          <CompactionPromptEditModal
-            values={{
+        {editingSystemPrompt === "compaction" &&
+          (() => {
+            const localeDefaults = (
+              Locale.Settings.Prompt.SystemPrompts.Summarize as any
+            )?.Defaults;
+            const compactionDefaults = {
               systemPrompt:
-                config.modelConfig.compactionSystemPrompt ||
+                localeDefaults?.SystemPrompt ||
                 DEFAULT_COMPACTION_SYSTEM_PROMPT,
               initialPrompt:
-                config.modelConfig.compactionInitialPrompt ||
+                localeDefaults?.InitialPrompt ||
                 DEFAULT_COMPACTION_INITIAL_PROMPT,
               updatePrompt:
-                config.modelConfig.compactionUpdatePrompt ||
+                localeDefaults?.UpdatePrompt ||
                 DEFAULT_COMPACTION_UPDATE_PROMPT,
-            }}
-            defaults={{
-              systemPrompt: DEFAULT_COMPACTION_SYSTEM_PROMPT,
-              initialPrompt: DEFAULT_COMPACTION_INITIAL_PROMPT,
-              updatePrompt: DEFAULT_COMPACTION_UPDATE_PROMPT,
-            }}
-            onSave={(values) => {
-              updateConfig((config) => {
-                config.modelConfig.compactionSystemPrompt =
-                  values.systemPrompt === DEFAULT_COMPACTION_SYSTEM_PROMPT
-                    ? ""
-                    : values.systemPrompt;
-                config.modelConfig.compactionInitialPrompt =
-                  values.initialPrompt === DEFAULT_COMPACTION_INITIAL_PROMPT
-                    ? ""
-                    : values.initialPrompt;
-                config.modelConfig.compactionUpdatePrompt =
-                  values.updatePrompt === DEFAULT_COMPACTION_UPDATE_PROMPT
-                    ? ""
-                    : values.updatePrompt;
-              });
-              setEditingSystemPrompt(null);
-            }}
-            onClose={() => setEditingSystemPrompt(null)}
-          />
-        )}
+            };
+            return (
+              <CompactionPromptEditModal
+                values={{
+                  systemPrompt:
+                    config.modelConfig.compactionSystemPrompt ||
+                    compactionDefaults.systemPrompt,
+                  initialPrompt:
+                    config.modelConfig.compactionInitialPrompt ||
+                    compactionDefaults.initialPrompt,
+                  updatePrompt:
+                    config.modelConfig.compactionUpdatePrompt ||
+                    compactionDefaults.updatePrompt,
+                }}
+                defaults={compactionDefaults}
+                onSave={(values) => {
+                  updateConfig((config) => {
+                    config.modelConfig.compactionSystemPrompt =
+                      values.systemPrompt === compactionDefaults.systemPrompt
+                        ? ""
+                        : values.systemPrompt;
+                    config.modelConfig.compactionInitialPrompt =
+                      values.initialPrompt === compactionDefaults.initialPrompt
+                        ? ""
+                        : values.initialPrompt;
+                    config.modelConfig.compactionUpdatePrompt =
+                      values.updatePrompt === compactionDefaults.updatePrompt
+                        ? ""
+                        : values.updatePrompt;
+                  });
+                  setEditingSystemPrompt(null);
+                }}
+                onClose={() => setEditingSystemPrompt(null)}
+              />
+            );
+          })()}
       </>
     );
   };

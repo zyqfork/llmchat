@@ -415,6 +415,97 @@ const tw = {
       EditModal: {
         Title: "編輯提示詞",
       },
+      SystemPrompts: {
+        Title: "系統提示詞",
+        SubTitle: "管理內建系統提示詞",
+        OptimizeModel: {
+          Title: "內容優化提示詞",
+          SubTitle: "用於優化使用者輸入內容的提示詞",
+        },
+        Topic: {
+          Title: "標題生成提示詞",
+          SubTitle: "用於自動生成對話標題的提示詞",
+        },
+        Summarize: {
+          Title: "上下文壓縮提示詞",
+          SubTitle: "用於配置上下文壓縮提示詞模板",
+          Defaults: {
+            SystemPrompt: `你是一個上下文摘要助手。你的任務是閱讀使用者與 AI 助手之間的對話，並依指定格式輸出結構化摘要。
+
+不要繼續對話。不要回答對話中的問題。只輸出結構化摘要。`,
+            InitialPrompt: `以上訊息是一段需要摘要的對話。請建立一份結構化上下文檢查點摘要，供另一個 LLM 繼續工作。
+
+請嚴格使用以下格式：
+
+## Goal
+[使用者想完成的目標；若會話包含多個任務，可列多個]
+
+## Constraints & Preferences
+- [使用者提到的限制、偏好或需求]
+- [若無則填 "(none)"]
+
+## Progress
+### Done
+- [x] [已完成的任務/變更]
+
+### In Progress
+- [ ] [進行中的工作]
+
+### Blocked
+- [目前阻塞問題；若無可留空]
+
+## Key Decisions
+- **[決策]**: [簡要原因]
+
+## Next Steps
+1. [依序列出下一步]
+
+## Critical Context
+- [延續工作所需的資料、範例、參考]
+- [若無則填 "(none)"]
+
+內容請保持精簡。務必保留精確的檔案路徑、函式名稱與錯誤訊息。`,
+            UpdatePrompt: `以上訊息是要併入 <previous-summary> 既有摘要中的新增對話內容。
+
+請依新訊息更新既有結構化摘要，規則：
+- 保留既有摘要中的有效資訊
+- 新增新的進度、決策與關鍵上下文
+- 更新 Progress：完成項放到 "Done"，目前工作放在 "In Progress"
+- 依最新狀態更新 "Next Steps"
+- 保留精確的檔案路徑、函式名稱與錯誤訊息
+- 若資訊已不再相關可移除
+
+請嚴格使用以下格式：
+
+## Goal
+[保留既有目標，若任務擴展則補充]
+
+## Constraints & Preferences
+- [保留既有限制並補充新限制]
+
+## Progress
+### Done
+- [x] [包含既有完成項與新完成項]
+
+### In Progress
+- [ ] [依最新進展更新]
+
+### Blocked
+- [目前阻塞；若已解除可移除]
+
+## Key Decisions
+- **[決策]**: [簡要原因]（保留既有並補充新增）
+
+## Next Steps
+1. [依目前狀態更新]
+
+## Critical Context
+- [保留關鍵上下文並補充新增資訊]
+
+內容請保持精簡。務必保留精確的檔案路徑、函式名稱與錯誤訊息。`,
+          },
+        },
+      },
     },
     HistoryCount: {
       Title: "附帶歷史訊息數",
