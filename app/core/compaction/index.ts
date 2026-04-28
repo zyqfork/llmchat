@@ -6,5 +6,9 @@ export {
   buildSummaryPrompt,
   collectCompactionSlice,
   collectSummaryInputs,
+  findLastCompressedMessageIndex,
+  getActiveContextStartIndex,
+  getCompactionBoundaryStartIndex,
+  getPreviousSummaryText,
 } from "./summary-utils";
 export { executeSummaryStream } from "./summary-executor";

@@ -3,6 +3,7 @@ import {
   getModelCapabilities as getModelCapabilitiesFromConfig,
   type ModelCapabilities,
 } from "./config/model-config";
+import { getModels, getProviders } from "@mariozechner/pi-ai";
 
 // 尝试导入生成的配置，如果不存在则使用默认配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
@@ -45,6 +46,11 @@ function getKnowledgeCutoffFromConfig(): Record<string, string> {
 
 // 辅助函数：从生成的配置中获取厂商模型列表
 function getProviderModelsFromConfig(providerId: string): string[] {
+  const piModels = getProviderModelsFromPiCatalog(providerId);
+  if (piModels.length > 0) {
+    return piModels;
+  }
+
   const provider = MODELS_DEV_CONFIG[providerId];
   return provider &&
     typeof provider === "object" &&
@@ -56,6 +62,11 @@ function getProviderModelsFromConfig(providerId: string): string[] {
 
 // 辅助函数：从生成的配置中获取模型上下文长度
 function getModelContextFromConfig(modelId: string): number | undefined {
+  const piModel = findPiModel(modelId);
+  if (piModel?.contextWindow) {
+    return piModel.contextWindow;
+  }
+
   for (const provider of Object.values(MODELS_DEV_CONFIG)) {
     if (
       provider &&
@@ -82,6 +93,11 @@ function getModelContextFromConfig(modelId: string): number | undefined {
 
 // 辅助函数：从生成的配置中判断模型是否支持视觉
 function getModelVisionSupportFromConfig(modelId: string): boolean {
+  const piModel = findPiModel(modelId);
+  if (piModel) {
+    return Array.isArray(piModel.input) && piModel.input.includes("image");
+  }
+
   for (const provider of Object.values(MODELS_DEV_CONFIG)) {
     if (
       provider &&
@@ -105,6 +121,37 @@ function getModelVisionSupportFromConfig(modelId: string): boolean {
     }
   }
   return false;
+}
+
+function getProviderModelsFromPiCatalog(providerId: string): string[] {
+  try {
+    const provider = getProviders().find(
+      (candidate) =>
+        String(candidate).toLowerCase() === String(providerId).toLowerCase(),
+    );
+    if (!provider) return [];
+    return getModels(provider).map((model) => model.id);
+  } catch {
+    return [];
+  }
+}
+
+function findPiModel(
+  modelId: string,
+): ReturnType<typeof getModels>[number] | null {
+  try {
+    const normalized = String(modelId || "").toLowerCase();
+    if (!normalized) return null;
+    for (const provider of getProviders()) {
+      const model = getModels(provider).find(
+        (candidate) => String(candidate.id).toLowerCase() === normalized,
+      );
+      if (model) return model;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 // 辅助函数：从生成的配置中获取模型推理能力

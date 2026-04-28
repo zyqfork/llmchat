@@ -1,30 +1,14 @@
-import { getAllProviders, getProviderConfig } from "../constant";
+import {
+  DEFAULT_MODELS,
+  getAllProviders,
+  getProviderConfig,
+} from "../constant";
 import { useAccessStore } from "../store/access";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
 import { LLMModel } from "./api";
 import { resolvePiProviderId } from "./pi-provider-resolver";
-
-type PiAiModelCatalogModule = {
-  getModels: (provider: string) => Array<{ id: string; name?: string }>;
-};
-
-let piAiCatalogPromise: Promise<PiAiModelCatalogModule> | null = null;
-
-async function loadPiAiCatalog(): Promise<PiAiModelCatalogModule | null> {
-  if (typeof window === "undefined") return null;
-  if (!piAiCatalogPromise) {
-    piAiCatalogPromise = import(
-      "@mariozechner/pi-ai"
-    ) as Promise<PiAiModelCatalogModule>;
-  }
-  try {
-    return await piAiCatalogPromise;
-  } catch (error) {
-    logger.warn("[ModelFetcher] Failed to load pi-ai catalog module:", error);
-    return null;
-  }
-}
+import { getModels } from "@mariozechner/pi-ai";
 
 export interface ModelFetchResponse {
   models: LLMModel[];
@@ -39,22 +23,18 @@ export class ModelFetcher {
     const mappedProvider = await resolvePiProviderId(providerId);
     if (!mappedProvider) return [];
     try {
-      const piAiCatalog = await loadPiAiCatalog();
-      if (!piAiCatalog?.getModels) return [];
-      return piAiCatalog
-        .getModels(mappedProvider as any)
-        .map((model: any, index: number) => ({
-          name: model.id,
-          displayName: model.name,
-          available: true,
-          sorted: index,
-          provider: {
-            id: providerId,
-            providerName: providerId,
-            providerType: providerId,
-            sorted: 0,
-          },
-        }));
+      return getModels(mappedProvider as any).map((model, index: number) => ({
+        name: model.id,
+        displayName: model.name,
+        available: true,
+        sorted: index,
+        provider: {
+          id: providerId,
+          providerName: providerId,
+          providerType: providerId,
+          sorted: 0,
+        },
+      }));
     } catch (error) {
       logger.warn(
         `[ModelFetcher] Failed to read pi-ai model catalog for ${providerId}:`,
@@ -62,6 +42,27 @@ export class ModelFetcher {
       );
       return [];
     }
+  }
+
+  private static getModelsFromLocalCatalog(
+    providerId: string,
+    providerName: string,
+  ): LLMModel[] {
+    return DEFAULT_MODELS.filter(
+      (model) =>
+        model.provider?.id === providerId ||
+        model.provider?.providerName === providerName,
+    ).map((model, index) => ({
+      ...model,
+      available: true,
+      sorted: model.sorted ?? index,
+      provider: {
+        id: providerId,
+        providerName,
+        providerType: providerId,
+        sorted: model.provider?.sorted ?? 0,
+      },
+    }));
   }
 
   static async fetchModels(provider: string): Promise<ModelFetchResponse> {
@@ -103,8 +104,19 @@ export class ModelFetcher {
         return { models: catalogModels, success: true };
       }
 
-      // For providers not covered by pi-ai catalog, keep a direct-request fallback.
-      return await this.fetchProviderModelsDirectly(providerId, providerConfig);
+      const localModels = this.getModelsFromLocalCatalog(
+        providerId,
+        providerConfig.name,
+      );
+      if (localModels.length > 0) {
+        return { models: localModels, success: true };
+      }
+
+      return {
+        models: [],
+        success: false,
+        error: `No model catalog available for provider ${provider}`,
+      };
     } catch (error) {
       logger.error(
         `[ModelFetcher] Failed to fetch models for ${provider}:`,
@@ -118,81 +130,8 @@ export class ModelFetcher {
     }
   }
 
-  private static async fetchProviderModelsDirectly(
-    providerId: string,
-    providerConfig: any,
-  ): Promise<ModelFetchResponse> {
-    try {
-      const accessStore = useAccessStore.getState();
-      const apiKey = (accessStore as any)[providerConfig.storeKeys.apiKey];
-      const baseUrl =
-        (accessStore as any)[providerConfig.storeKeys.baseUrl] ||
-        providerConfig.defaultBaseUrl;
-
-      if (!baseUrl) {
-        throw new Error("Missing provider endpoint URL");
-      }
-      if (!apiKey && providerId !== "ollama") {
-        throw new Error("Missing API key");
-      }
-
-      const endpoint = providerConfig.endpoints?.models || "models";
-      const requestUrl = `${baseUrl}/${endpoint}`;
-      const headers = this.buildAuthHeaders(
-        providerId,
-        providerConfig,
-        String(apiKey || ""),
-      );
-
-      const finalUrl = this.withAzureApiVersionIfNeeded(
-        requestUrl,
-        providerId,
-        providerConfig,
-        accessStore,
-      );
-
-      const response = await fetch(finalUrl, {
-        method: "GET",
-        headers,
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      return {
-        models: this.normalizeModelsResponse(data, providerId, providerId),
-        success: true,
-      };
-    } catch (error) {
-      return {
-        models: [],
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  private static withAzureApiVersionIfNeeded(
-    requestUrl: string,
-    providerId: string,
-    providerConfig: any,
-    accessStore: any,
-  ) {
-    if (providerId !== "azure") return requestUrl;
-    const apiVersionKey = providerConfig.storeKeys?.apiVersion;
-    if (!apiVersionKey) return requestUrl;
-    const apiVersion = accessStore?.[apiVersionKey];
-    if (!apiVersion) return requestUrl;
-    const url = new URL(requestUrl);
-    url.searchParams.set("api-version", apiVersion);
-    return url.toString();
-  }
-
   private static buildAuthHeaders(
-    providerId: string,
-    providerConfig: any,
+    authHeaderName: string,
     apiKey: string,
   ): Record<string, string> {
     const headers: Record<string, string> = {
@@ -200,15 +139,10 @@ export class ModelFetcher {
     };
     if (!apiKey) return headers;
 
-    const authHeaderName = providerConfig?.authHeaderName || "Authorization";
     headers[authHeaderName] =
       authHeaderName.toLowerCase() === "authorization"
         ? `Bearer ${apiKey}`
         : apiKey;
-
-    if (providerId === "anthropic") {
-      headers["anthropic-version"] = "2023-06-01";
-    }
     return headers;
   }
 
@@ -223,15 +157,11 @@ export class ModelFetcher {
 
       const requestUrl = `${baseUrl}/models`;
       const headers = this.buildAuthHeaders(
-        customProvider.id,
-        {
-          authHeaderName:
-            customProvider.type === "anthropic"
-              ? "x-api-key"
-              : customProvider.type === "google"
-              ? "x-goog-api-key"
-              : "Authorization",
-        },
+        customProvider.type === "anthropic"
+          ? "x-api-key"
+          : customProvider.type === "google"
+          ? "x-goog-api-key"
+          : "Authorization",
         apiKey,
       );
 

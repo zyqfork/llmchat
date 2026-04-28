@@ -1,40 +1,18 @@
-import { getClientConfig } from "../config/client";
 import {
   ACCESS_CODE_PREFIX,
-  ModelProvider,
+  DEFAULT_MODELS,
   ServiceProvider,
   getProviderConfig,
   getAllProviders,
 } from "../constant";
-import {
-  ChatMessageTool,
-  ChatMessage,
-  ModelType,
-  useAccessStore,
-  useChatStore,
-} from "../store";
-import { unifiedChat, UnifiedChatOptions } from "./unified-api";
+import { ChatMessageTool, useAccessStore, useChatStore } from "../store";
+import { generateText, streamText } from "./llm-adapter";
+import { resolvePiProviderByModel } from "./pi-provider-resolver";
 import { logger } from "../utils/logger";
 import { ModelSize } from "../typing";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
-
-export const Models = ["gpt-3.5-turbo", "gpt-4"] as const;
-export const TTSModels = ["tts-1", "tts-1-hd"] as const;
-
-// DALL-E 请求参数接口
-export interface DalleRequestPayload {
-  model: string;
-  prompt: string;
-  n?: number;
-  size?: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
-  quality?: "standard" | "hd";
-  style?: "vivid" | "natural";
-  response_format?: "url" | "b64_json";
-  user?: string;
-}
-export type ChatModel = ModelType;
 
 export interface MultimodalContent {
   type: "text" | "image_url";
@@ -42,11 +20,6 @@ export interface MultimodalContent {
   image_url?: {
     url: string;
   };
-}
-
-export interface MultimodalContentForAlibaba {
-  text?: string;
-  image?: string;
 }
 
 export interface RequestMessage {
@@ -64,8 +37,8 @@ export interface LLMConfig {
   presence_penalty?: number;
   frequency_penalty?: number;
   size?: ModelSize;
-  quality?: DalleRequestPayload["quality"];
-  style?: DalleRequestPayload["style"];
+  quality?: "standard" | "hd";
+  style?: "vivid" | "natural";
 }
 
 export interface SpeechOptions {
@@ -81,7 +54,6 @@ export interface ChatOptions {
   messages: RequestMessage[];
   config: LLMConfig;
   tools?: any[]; // MCP tools in OpenAI function call format
-  useResponseApiContext?: boolean;
 
   onUpdate?: (message: string, chunk: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
@@ -89,11 +61,6 @@ export interface ChatOptions {
   onController?: (controller: AbortController) => void;
   onBeforeTool?: (tool: ChatMessageTool) => void;
   onAfterTool?: (tool: ChatMessageTool) => void;
-}
-
-export interface LLMUsage {
-  used: number;
-  total: number;
 }
 
 export interface LLMModel {
@@ -111,6 +78,16 @@ export interface LLMModelProvider {
   providerName: string;
   providerType: string;
   sorted: number;
+}
+
+export interface LLMClient {
+  chat(options: ChatOptions): Promise<void>;
+  speech(options: SpeechOptions): Promise<ArrayBuffer>;
+  models(): Promise<LLMModel[]>;
+}
+
+function isNonArrayObject(value: unknown): value is Record<string, any> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function getResponseApiConversationId(
@@ -170,15 +147,9 @@ function normalizeDebugRequest(
   providerName?: string,
   fallbackBody?: any,
 ) {
-  const raw =
-    requestDebug && typeof requestDebug === "object" ? requestDebug : {};
+  const raw = isNonArrayObject(requestDebug) ? requestDebug : {};
   const body = typeof raw.body !== "undefined" ? raw.body : fallbackBody;
-  const headersFromDebug =
-    raw.headers &&
-    typeof raw.headers === "object" &&
-    !Array.isArray(raw.headers)
-      ? raw.headers
-      : {};
+  const headersFromDebug = isNonArrayObject(raw.headers) ? raw.headers : {};
   const authHeaders = getHeaders(false, { providerName });
 
   const mergedHeaders: Record<string, string> = {
@@ -203,49 +174,106 @@ function normalizeDebugRequest(
   };
 }
 
-export abstract class LLMApi {
-  abstract chat(options: ChatOptions): Promise<void>;
-  abstract speech(options: SpeechOptions): Promise<ArrayBuffer>;
-  abstract models(): Promise<LLMModel[]>;
+function getProviderIdFromEnabledModels(model: string): string | undefined {
+  if (typeof window === "undefined") return undefined;
+
+  try {
+    const accessStore = useAccessStore.getState();
+    const enabledModels = accessStore.enabledModels || {};
+    const enabledProviders = accessStore.enabledProviders || {};
+    const hasEnabledModel = (providerKey: string): boolean => {
+      const list = enabledModels[providerKey];
+      return Array.isArray(list) && list.includes(model);
+    };
+
+    for (const provider of accessStore.customProviders || []) {
+      if (!provider.enabled) continue;
+      if (hasEnabledModel(provider.id)) {
+        return provider.id;
+      }
+    }
+
+    for (const provider of getAllProviders()) {
+      if (!enabledProviders[provider.name]) continue;
+      if (hasEnabledModel(provider.name)) {
+        return provider.id;
+      }
+    }
+  } catch (error) {
+    logger.warn("[API] Could not resolve provider from enabled models:", error);
+  }
+
+  return undefined;
+}
+
+async function getProviderIdFromModel(model: string): Promise<string> {
+  const catalogResolved = await resolvePiProviderByModel(model);
+  if (catalogResolved) {
+    return catalogResolved;
+  }
+
+  logger.warn(
+    `[API] Model ${model} was not found in pi-ai catalog or enabled model settings; defaulting to OpenAI. Set providerName explicitly for custom providers.`,
+  );
+  return ServiceProvider.OpenAI.id;
+}
+
+async function resolveProviderId(model: string, providerName?: string) {
+  if (providerName) {
+    return normalizeProviderName(providerName);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const currentSession = useChatStore.getState().currentSession();
+      const sessionProviderName =
+        currentSession?.mask?.modelConfig?.providerName;
+      if (sessionProviderName) {
+        return normalizeProviderName(sessionProviderName);
+      }
+    } catch (error) {
+      logger.warn("[API] Could not read session provider:", error);
+    }
+  }
+
+  return (
+    getProviderIdFromEnabledModels(model) ??
+    (await getProviderIdFromModel(model))
+  );
 }
 
 /**
  * 统一的客户端 API 实现
  * 替代所有单独的 platform 文件
  */
-class UnifiedClientApi extends LLMApi {
+class UnifiedClientApi {
   async chat(options: ChatOptions): Promise<void> {
     try {
-      // 转换消息格式 - options.messages 已经是 RequestMessage[] 类型
-      const messages = options.messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      const requestOptions: UnifiedChatOptions = {
-        messages,
+      const requestOptions = {
+        messages: options.messages,
         model: options.config.model,
         temperature: options.config.temperature,
-        topP: options.config.top_p,
         maxTokens: options.config.max_tokens,
-        presencePenalty: options.config.presence_penalty,
-        frequencyPenalty: options.config.frequency_penalty,
         stream: options.config.stream,
         tools: options.tools,
-        useResponseApiContext: options.useResponseApiContext,
         providerName: options.config.providerName,
       };
+      const providerId = await resolveProviderId(
+        requestOptions.model,
+        requestOptions.providerName,
+      );
 
       if (options.config.stream) {
         // 处理流式响应
         logger.debug("[Unified Client API] Starting stream chat");
 
-        const streamResult = await unifiedChat(requestOptions);
+        const streamResult = await streamText({
+          providerId,
+          model: requestOptions.model,
+          options: requestOptions,
+        });
 
-        if (
-          streamResult &&
-          (streamResult.fullStream || streamResult.textStream)
-        ) {
+        if (streamResult?.fullStream) {
           let mainContent = ""; // 主回答内容
           let reasoningContent = ""; // 推理/思考内容
 
@@ -274,109 +302,86 @@ class UnifiedClientApi extends LLMApi {
           const reasoningField = capabilities.reasoningField;
 
           try {
-            if (streamResult.fullStream) {
-              for await (const part of streamResult.fullStream) {
-                switch (part.type) {
-                  case "tool-call": {
-                    const toolCall = (part as any).toolCall;
-                    if (toolCall?.id && toolCall?.name) {
-                      options.onBeforeTool?.({
-                        id: toolCall.id,
-                        type: "function",
-                        function: {
-                          name: toolCall.name,
-                          arguments: JSON.stringify(toolCall.arguments ?? {}),
-                        },
-                      });
-                    }
-                    break;
+            for await (const part of streamResult.fullStream) {
+              switch (part.type) {
+                case "tool-call": {
+                  const toolCall = (part as any).toolCall;
+                  if (toolCall?.id && toolCall?.name) {
+                    options.onBeforeTool?.({
+                      id: toolCall.id,
+                      type: "function",
+                      function: {
+                        name: toolCall.name,
+                        arguments: JSON.stringify(toolCall.arguments ?? {}),
+                      },
+                    });
                   }
-                  case "tool-result": {
-                    const toolCall = (part as any).toolCall;
-                    const result = (part as any).result;
-                    const isError = !!(part as any).isError;
-                    if (toolCall?.id && toolCall?.name) {
-                      options.onAfterTool?.({
-                        id: toolCall.id,
-                        type: "function",
-                        function: {
-                          name: toolCall.name,
-                          arguments: JSON.stringify(toolCall.arguments ?? {}),
-                        },
-                        content: typeof result === "string" ? result : "",
-                        isError,
-                        errorMsg: isError
-                          ? typeof result === "string"
-                            ? result
-                            : "Tool execution failed"
-                          : undefined,
-                      });
-                    }
-                    break;
+                  break;
+                }
+                case "tool-result": {
+                  const toolCall = (part as any).toolCall;
+                  const result = (part as any).result;
+                  const isError = !!(part as any).isError;
+                  if (toolCall?.id && toolCall?.name) {
+                    options.onAfterTool?.({
+                      id: toolCall.id,
+                      type: "function",
+                      function: {
+                        name: toolCall.name,
+                        arguments: JSON.stringify(toolCall.arguments ?? {}),
+                      },
+                      content: typeof result === "string" ? result : "",
+                      isError,
+                      errorMsg: isError
+                        ? typeof result === "string"
+                          ? result
+                          : "Tool execution failed"
+                        : undefined,
+                    });
                   }
-                  case "reasoning":
-                  case "reasoning-delta": {
-                    // AI SDK 6 对 reasoning 的支持；OpenAI 原生用 delta，完整块用 text/textDelta
-                    if (capabilities.reasoning) {
-                      const text =
-                        (part as any).delta ??
-                        (part as any).text ??
-                        (part as any).textDelta ??
-                        "";
-                      if (text) {
-                        reasoningContent += text;
-                        pushUpdate(buildDisplayContent());
-                      }
+                  break;
+                }
+                case "reasoning-delta": {
+                  if (capabilities.reasoning) {
+                    const text = (part as any).delta ?? "";
+                    if (text) {
+                      reasoningContent += text;
+                      pushUpdate(buildDisplayContent());
                     }
-                    break;
                   }
-                  case "text-delta": {
-                    // AI SDK 6 内部格式使用 text，provider 原始格式使用 delta
-                    const delta =
-                      (part as any).text ?? (part as any).delta ?? "";
+                  break;
+                }
+                case "text-delta": {
+                  const delta = (part as any).text ?? "";
 
-                    // 若 AI SDK 未原生解析 reasoning，从 rawResponse 中提取（如 OpenAI 兼容 API）
-                    if (capabilities.reasoning) {
-                      const reasoningDelta = extractReasoningContent(
-                        part,
-                        reasoningField,
-                      );
+                  if (capabilities.reasoning) {
+                    const reasoningDelta = extractReasoningContent(
+                      part,
+                      reasoningField,
+                    );
 
-                      if (reasoningDelta) {
-                        reasoningContent += reasoningDelta;
-                        logger.debug(
-                          `[Unified Client API] Reasoning delta: ${reasoningDelta.substring(
-                            0,
-                            50,
-                          )}...`,
-                        );
-                      }
+                    if (reasoningDelta) {
+                      reasoningContent += reasoningDelta;
                     }
-
-                    // delta 可能是主回答内容，也可能是空（当只有 reasoning_content 时）
-                    if (delta) {
-                      mainContent += delta;
-                    }
-
-                    pushUpdate(buildDisplayContent());
-                    break;
                   }
-                  default: {
-                    break;
+
+                  if (delta) {
+                    mainContent += delta;
                   }
+
+                  pushUpdate(buildDisplayContent());
+                  break;
+                }
+                default: {
+                  break;
                 }
               }
+            }
 
-              if (reasoningContent) {
-                logger.debug(
-                  `[Unified Client API] Total reasoning content length: ${reasoningContent.length}`,
-                );
-              }
-            } else {
-              for await (const chunk of streamResult.textStream) {
-                mainContent += chunk;
-                pushUpdate(buildDisplayContent());
-              }
+            if (reasoningContent) {
+              logger.debug(
+                `[Unified Client API] Total reasoning content length: ${reasoningContent.length}`,
+              );
             }
 
             const fullContent = buildDisplayContent();
@@ -423,16 +428,18 @@ class UnifiedClientApi extends LLMApi {
             options.onError?.(streamError as Error);
           }
         } else {
-          const content = streamResult?.content || streamResult?.text || "";
-          options.onUpdate?.(content, content);
-          options.onFinish(content, new Response());
+          options.onFinish("", new Response());
         }
       } else {
         // 处理普通响应
         logger.debug("[Unified Client API] Starting non-stream chat");
 
-        const result = await unifiedChat(requestOptions);
-        const content = result?.content || result?.text || "";
+        const result = await generateText({
+          providerId,
+          model: requestOptions.model,
+          options: requestOptions,
+        });
+        const content = result?.text || "";
         const responseId = getResponseApiConversationId(
           result?.providerMetadata,
         );
@@ -462,43 +469,18 @@ class UnifiedClientApi extends LLMApi {
   }
 
   async models(): Promise<LLMModel[]> {
-    // 模型列表获取，可以通过统一的端点实现
-    return [];
+    return DEFAULT_MODELS as LLMModel[];
   }
 }
 
-export class ClientApi {
-  public llm: LLMApi;
+export type ClientApi = {
+  llm: LLMClient;
+};
 
-  constructor(provider: ModelProvider = ModelProvider.GPT) {
-    // 使用统一的客户端 API，不再区分不同的厂商
-    this.llm = new UnifiedClientApi();
-  }
-
-  config() {}
-
-  prompts() {}
-
-  masks() {}
-
-  // ShareGPT功能已被移除，替换为打印功能
-  async share(messages: ChatMessage[], avatarUrl: string | null = null) {
-    // 打印功能已在UI组件中实现，此方法保留用于兼容性
-    return null;
-  }
-}
-
-export function getBearerToken(
-  apiKey: string,
-  noBearer: boolean = false,
-): string {
-  return validString(apiKey)
+function getBearerToken(apiKey: string, noBearer: boolean = false): string {
+  return apiKey?.length > 0
     ? `${noBearer ? "" : "Bearer "}${apiKey.trim()}`
     : "";
-}
-
-export function validString(x: string): boolean {
-  return x?.length > 0;
 }
 
 export function getHeaders(
@@ -515,62 +497,20 @@ export function getHeaders(
     };
   }
 
-  const clientConfig = getClientConfig();
-
-  function getConfig() {
-    // Use overrideModelConfig if provided (for model testing), otherwise use session config
-    const modelConfig =
-      overrideModelConfig || chatStore.currentSession().mask.modelConfig;
-
-    // 标准化providerName以确保正确匹配
-    const normalizedProviderName = normalizeProviderName(
-      modelConfig.providerName as string,
-    );
-
-    // 获取厂商配置
-    const providerConfig = getProviderConfig(normalizedProviderName);
-
-    // 检查是否是自定义服务商
-    const isCustomProvider =
-      typeof modelConfig.providerName === "string" &&
-      modelConfig.providerName.startsWith("custom_");
-    const customProvider = isCustomProvider
-      ? accessStore.customProviders.find(
-          (p) => p.id === modelConfig.providerName,
-        )
-      : null;
-    const isEnabledAccessControl = accessStore.enabledAccessControl();
-
-    // 动态获取API key
-    const apiKey =
-      isCustomProvider && customProvider
-        ? customProvider.apiKey
-        : accessStore.getProviderApiKey(normalizedProviderName);
-
-    return {
-      providerConfig,
-      isCustomProvider,
-      customProvider,
-      apiKey,
-      isEnabledAccessControl,
-      normalizedProviderName, // 添加这个字段供其他地方使用
-    };
-  }
-
-  function getAuthHeader(): string {
-    const { providerConfig } = getConfig();
-    return providerConfig?.authHeaderName || "Authorization";
-  }
-
-  const {
-    providerConfig,
-    isCustomProvider,
-    customProvider,
-    apiKey,
-    isEnabledAccessControl,
-  } = getConfig();
-
-  const authHeader = getAuthHeader();
+  const modelConfig =
+    overrideModelConfig || chatStore.currentSession().mask.modelConfig;
+  const providerName = normalizeProviderName(
+    modelConfig.providerName as string,
+  );
+  const providerConfig = getProviderConfig(providerName);
+  const isEnabledAccessControl = accessStore.enabledAccessControl();
+  const authHeader = providerConfig?.authHeaderName || "Authorization";
+  const customProvider = providerName.startsWith("custom_")
+    ? accessStore.customProviders.find((p) => p.id === providerName)
+    : null;
+  const apiKey = customProvider
+    ? customProvider.apiKey
+    : accessStore.getProviderApiKey(providerName);
 
   // 判断是否需要特殊的认证处理（非标准 Authorization 头）
   const needsSpecialAuth = !!(
@@ -582,7 +522,7 @@ export function getHeaders(
 
   if (bearerToken) {
     headers[authHeader] = bearerToken;
-  } else if (isEnabledAccessControl && validString(accessStore.accessCode)) {
+  } else if (isEnabledAccessControl && accessStore.accessCode?.length > 0) {
     // 对于需要特殊认证头的厂商，即使使用 access code，也应该使用对应的认证头
     if (needsSpecialAuth) {
       headers[authHeader] = getBearerToken(
@@ -596,23 +536,12 @@ export function getHeaders(
     }
   }
 
-  // 为自定义服务商添加配置信息到请求头
-  if (isCustomProvider && customProvider) {
-    // 使用Base64编码避免非ISO-8859-1字符问题
-    const configJson = JSON.stringify(customProvider);
-    // 使用TextEncoder将UTF-8字符串转换为字节数组，然后转换为Base64
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(configJson);
-    const base64 = btoa(String.fromCharCode(...bytes));
-    headers["x-custom-provider-config"] = base64;
-  }
-
   return headers;
 }
 
-export function getClientApi(provider: string): ClientApi {
+export function getClientApi(_provider: string): ClientApi {
   // 现在所有厂商都使用统一的 API，不需要区分不同的厂商
-  return new ClientApi();
+  return { llm: new UnifiedClientApi() };
 }
 
 // 标准化provider名称，将provider.id转换为ServiceProvider枚举值
@@ -627,41 +556,24 @@ export function normalizeProviderName(provider: string): string {
 
   // 如果是自定义服务商，直接返回自定义服务商的ID，不要映射到内置服务商
   if (provider.startsWith("custom_")) {
-    const { useAccessStore } = require("../store");
-    const accessStore = useAccessStore.getState();
-    const customProvider = accessStore.customProviders.find(
-      (p: any) => p.id === provider,
-    );
-
-    if (customProvider) {
-      // 直接返回自定义服务商的ID，让 SDK Manager 处理
-      logger.debug(`[API] Normalized custom provider: ${provider}`);
-      return provider; // 返回原始的自定义服务商ID
-    }
-  }
-
-  // 创建动态映射表，将provider.id映射到ServiceProvider.id
-  const providerIdMap: Record<string, string> = {};
-  getAllProviders().forEach((provider) => {
-    providerIdMap[provider.id.toLowerCase()] = provider.id;
-  });
-
-  // 如果provider已经是ServiceProvider.id，直接返回
-  const allProviderIds = getAllProviders().map((p) => p.id);
-  if (allProviderIds.includes(provider)) {
     return provider;
   }
 
-  // 如果provider是provider.id格式，转换为ServiceProvider.id
-  const lowerProvider = provider.toLowerCase();
-  const normalizedProvider = providerIdMap[lowerProvider];
+  const providers = getAllProviders();
+  if (providers.some((p) => p.id === provider)) {
+    return provider;
+  }
+
+  const normalizedProvider = providers.find(
+    (p) => p.id.toLowerCase() === provider.toLowerCase(),
+  )?.id;
 
   if (normalizedProvider) {
     return normalizedProvider;
   }
 
   // 默认返回第一个可用的提供商
-  return getAllProviders()[0]?.id || ServiceProvider.OpenAI.id;
+  return providers[0]?.id || ServiceProvider.OpenAI.id;
 }
 
 // 自定义服务商现在直接使用内置的API，不再需要CustomProviderApi

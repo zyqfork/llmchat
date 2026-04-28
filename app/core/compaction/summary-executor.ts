@@ -18,7 +18,6 @@ export interface SummaryChatOptions {
     model: string;
     providerName: string;
   };
-  useResponseApiContext: false;
   onUpdate: (message: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
   onError: (error: Error) => void;
@@ -72,7 +71,6 @@ export async function executeSummaryStream(
         model: params.model,
         providerName: params.providerName,
       },
-      useResponseApiContext: false,
       onUpdate(message: string) {
         const filteredMessage = params.sanitizeMessage(message);
         params.onUpdate(filteredMessage);

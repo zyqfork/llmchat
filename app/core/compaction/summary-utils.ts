@@ -1,6 +1,7 @@
 export interface SummaryInputMessage {
   role: "system" | "user" | "assistant";
   isError?: boolean;
+  isCompressedContextPrompt?: boolean;
   content?: any;
   tools?: Array<{
     id: string;
@@ -19,6 +20,14 @@ export interface SummaryInputResult {
   userMessages: string;
   userMessageCount: number;
   userTokens: number;
+}
+
+export interface CompactionCursorState<T extends SummaryInputMessage> {
+  messages: T[];
+  clearContextIndex?: number;
+  compressedContextIndex?: number;
+  lastSummarizeIndex?: number;
+  memoryPrompt?: string;
 }
 
 const TOOL_RESULT_MAX_CHARS = 2000;
@@ -246,6 +255,65 @@ function hasToolPayload<T extends SummaryInputMessage>(
   if (Array.isArray(message.tools) && message.tools.length > 0) return true;
   const content = getContent(message) || "";
   return hasToolMarkers(content);
+}
+
+export function findLastCompressedMessageIndex<T extends SummaryInputMessage>(
+  messages: T[],
+): number {
+  return messages.reduce(
+    (last, message, index) =>
+      message?.isCompressedContextPrompt ? index : last,
+    -1,
+  );
+}
+
+export function getCompactionBoundaryStartIndex<T extends SummaryInputMessage>(
+  state: CompactionCursorState<T>,
+): number {
+  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
+  if (lastCompressedIndex >= 0) return lastCompressedIndex;
+
+  const compressedContextIndex = state.compressedContextIndex ?? -1;
+  if (compressedContextIndex >= 0) return compressedContextIndex;
+
+  return Math.max(state.lastSummarizeIndex ?? 0, state.clearContextIndex ?? 0);
+}
+
+export function getActiveContextStartIndex<T extends SummaryInputMessage>(
+  state: CompactionCursorState<T>,
+): number {
+  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
+  const compressedOrSummarizedIndex =
+    lastCompressedIndex >= 0
+      ? lastCompressedIndex
+      : (state.compressedContextIndex ?? -1) >= 0
+      ? state.compressedContextIndex!
+      : state.lastSummarizeIndex ?? 0;
+
+  return Math.max(state.clearContextIndex ?? 0, compressedOrSummarizedIndex);
+}
+
+export function getPreviousSummaryText<T extends SummaryInputMessage>(
+  state: CompactionCursorState<T>,
+  getContent: (message: T) => string,
+): string {
+  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
+  const compressedContextIndex = state.compressedContextIndex ?? -1;
+  const summaryIndex =
+    lastCompressedIndex >= 0
+      ? lastCompressedIndex
+      : compressedContextIndex >= 0
+      ? compressedContextIndex
+      : -1;
+
+  if (summaryIndex >= 0) {
+    const message = state.messages[summaryIndex];
+    if (message?.role === "assistant" && message?.isCompressedContextPrompt) {
+      return getContent(message);
+    }
+  }
+
+  return state.memoryPrompt || "";
 }
 
 function findValidCutPoints<T extends SummaryInputMessage>(

@@ -8,6 +8,7 @@ import {
 } from "../../config/model-config";
 import { estimateTokenLength } from "../../utils/token";
 import { getMessageTextContentWithoutThinking } from "../../utils";
+import { getActiveContextStartIndex } from "../../core/compaction";
 import Locale from "../../locales";
 import { showConfirm } from "../ui-lib";
 import styles from "../chat.module.scss";
@@ -20,27 +21,8 @@ export function TokenCounter(props: {
   const [showTooltip, setShowTooltip] = useState(false);
   const chatStore = useChatStore();
 
-  const calculateUsedTokens = () => {
+  const calculateUsedTokens = (effectiveStartIndex: number) => {
     const messages = props.session.messages;
-    const clearContextIndex = props.session.clearContextIndex ?? 0;
-
-    // 找到最后一条压缩消息的位置（与 summarizeSession 保持一致）
-    const lastCompressedIdx = messages.reduce(
-      (last, m, i) => (m.isCompressedContextPrompt ? i : last),
-      -1,
-    );
-    const compressedContextIndex = props.session.compressedContextIndex ?? -1;
-    const lastSummarizeIndex = props.session.lastSummarizeIndex ?? 0;
-
-    // effectiveStartIndex：优先用最后一条压缩消息位置，其次用 compressedContextIndex，再次用 lastSummarizeIndex
-    const effectiveStartIndex = Math.max(
-      clearContextIndex,
-      lastCompressedIdx >= 0
-        ? lastCompressedIdx
-        : compressedContextIndex >= 0
-        ? compressedContextIndex
-        : lastSummarizeIndex,
-    );
 
     // 统计压缩消息之后的新消息（排除压缩消息本身和错误消息）
     const uncompressedTokens = messages
@@ -66,28 +48,14 @@ export function TokenCounter(props: {
     multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
 
   const modelConfig = props.session.mask.modelConfig;
-  const usedTokens = calculateUsedTokens();
+  const effectiveStartIndex = getActiveContextStartIndex(props.session);
+  const usedTokens = calculateUsedTokens(effectiveStartIndex);
   const contextConfig = getModelContextTokens(props.currentModel);
   const maxTokens = contextConfig?.contextTokens;
 
-  // 有效消息：压缩消息之后的非错误、非压缩消息（与 token 统计保持一致的起始点）
-  const _clearContextIndex = props.session.clearContextIndex ?? 0;
-  const _lastCompressedIdx = props.session.messages.reduce(
-    (last, m, i) => (m.isCompressedContextPrompt ? i : last),
-    -1,
-  );
-  const _compressedContextIndex = props.session.compressedContextIndex ?? -1;
-  const _lastSummarizeIndex = props.session.lastSummarizeIndex ?? 0;
-  const _effectiveStartIndex = Math.max(
-    _clearContextIndex,
-    _lastCompressedIdx >= 0
-      ? _lastCompressedIdx
-      : _compressedContextIndex >= 0
-      ? _compressedContextIndex
-      : _lastSummarizeIndex,
-  );
+  // 有效消息：压缩消息之后的非错误、非压缩消息（与摘要逻辑保持一致）
   const currentContextCount = props.session.messages
-    .slice(_effectiveStartIndex)
+    .slice(effectiveStartIndex)
     .filter((m) => !m.isError && !m.isCompressedContextPrompt).length;
   const maxContextCount = modelConfig.historyMessageCount;
 
@@ -102,12 +70,12 @@ export function TokenCounter(props: {
         const modelMessages = multiModelMode.modelMessages[modelKey] || [];
 
         const messagesToCount =
-          _clearContextIndex > 0
+          effectiveStartIndex > 0
             ? modelMessages.filter((msg) => {
                 const originalIndex = props.session.messages.findIndex(
                   (m) => m.id === msg.id,
                 );
-                return originalIndex >= _clearContextIndex;
+                return originalIndex >= effectiveStartIndex;
               })
             : modelMessages;
 

@@ -10,6 +10,7 @@ import {
 import { isVisionModel } from "../constant";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
+import { isContextOverflow } from "@mariozechner/pi-ai";
 import {
   StreamUpdateOptimizer,
   createLightweightMessageUpdate,
@@ -55,13 +56,15 @@ import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { logger } from "../utils/logger";
-import { isContextOverflowErrorMessage } from "../utils/pi-ai-overflow-compat";
 import {
   executeSummaryStream,
   getCompactionPolicy,
   buildSummaryPrompt,
   collectSummaryInputs,
   collectCompactionSlice,
+  getActiveContextStartIndex,
+  getCompactionBoundaryStartIndex,
+  getPreviousSummaryText,
   DEFAULT_COMPACTION_INITIAL_PROMPT,
   DEFAULT_COMPACTION_SYSTEM_PROMPT,
   DEFAULT_COMPACTION_UPDATE_PROMPT,
@@ -326,9 +329,19 @@ function buildConversationTranscript(
     .join("\n");
 }
 
-function isLikelyContextOverflowError(error: Error, model: string): boolean {
-  void model;
-  return isContextOverflowErrorMessage(error.message || "");
+function isLikelyContextOverflowError(error: Error): boolean {
+  return isContextOverflow({
+    stopReason: "error",
+    errorMessage: error.message || "",
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+  } as any);
 }
 
 function buildUserMessagesText(messages: ChatMessage[]) {
@@ -1124,8 +1137,7 @@ export const useChatStore = createPersistStore(
           onError(error) {
             const isAborted = error.message?.includes?.("aborted");
             const isOverflow =
-              !isAborted &&
-              isLikelyContextOverflowError(error, modelConfig.model);
+              !isAborted && isLikelyContextOverflowError(error);
             botMessage.content +=
               "\n\n" +
               prettyObject({
@@ -1455,8 +1467,7 @@ export const useChatStore = createPersistStore(
                   error.message?.includes?.("aborted") ||
                   error.message?.includes?.("AbortError");
                 const isOverflow =
-                  !isAborted &&
-                  isLikelyContextOverflowError(error, modelConfig.model);
+                  !isAborted && isLikelyContextOverflowError(error);
 
                 // 只有在非中止错误时才更新消息内容
                 if (!isAborted) {
@@ -1511,10 +1522,7 @@ export const useChatStore = createPersistStore(
             );
             const normalizedError =
               error instanceof Error ? error : new Error(String(error));
-            const isOverflow = isLikelyContextOverflowError(
-              normalizedError,
-              modelConfig.model,
-            );
+            const isOverflow = isLikelyContextOverflowError(normalizedError);
 
             // 确保消息状态正确更新
             botMessage.streaming = false;
@@ -1612,7 +1620,6 @@ export const useChatStore = createPersistStore(
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
         const clearContextIndex = session.clearContextIndex ?? 0;
-        const compressedContextIndex = session.compressedContextIndex ?? 0;
         const messages = session.messages.slice();
         const totalMessageCount = session.messages.length;
 
@@ -1688,8 +1695,7 @@ export const useChatStore = createPersistStore(
           : shortTermMemoryStartIndex;
         // and if user has cleared history messages, we should exclude the memory too.
         const contextStartIndex = Math.max(
-          clearContextIndex,
-          compressedContextIndex,
+          getActiveContextStartIndex(session),
           memoryStartIndex,
         );
         const maxTokenThreshold = modelConfig.max_tokens;
@@ -1851,7 +1857,6 @@ export const useChatStore = createPersistStore(
             stream: false,
             providerName: topicModelConfig.providerName,
           },
-          useResponseApiContext: false,
           onFinish(message, responseRes) {
             if (responseRes?.status === 200) {
               const filteredMessage = removeThinkingContent(message);
@@ -1969,7 +1974,6 @@ export const useChatStore = createPersistStore(
               stream: false,
               providerName: topicModelConfig.providerName,
             },
-            useResponseApiContext: false,
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
                 // 使用通用的移除思考内容函数，与优化提示词保持一致
@@ -1997,19 +2001,7 @@ export const useChatStore = createPersistStore(
         }
 
         // 第二次及以后压缩：从「最后一条」压缩结果开始，只压缩「该摘要 + 后续消息」（保留历史压缩消息后可能有多条）
-        const lastCompressedIdx = messages.reduce(
-          (last, m, i) => (m?.isCompressedContextPrompt ? i : last),
-          -1,
-        );
-        const boundaryStartIndex =
-          lastCompressedIdx >= 0
-            ? lastCompressedIdx
-            : (session.compressedContextIndex ?? -1) >= 0
-            ? session.compressedContextIndex!
-            : Math.max(
-                session.lastSummarizeIndex,
-                session.clearContextIndex ?? 0,
-              );
+        const boundaryStartIndex = getCompactionBoundaryStartIndex(session);
         const lastSummarizeIndex = session.messages.length;
 
         // 先用完整未压缩边界统计压缩条件，之后再按 keepRecentTokens 切 summary slice
@@ -2029,17 +2021,7 @@ export const useChatStore = createPersistStore(
 
         // 注意：这里不应该使用 getMessagesWithMemory()，因为它会根据 max_tokens 截断消息
         // 我们需要计算所有未压缩的历史消息的实际长度。
-        // effectiveStartIndex 与 summarizeIndex 保持一致的 fallback 逻辑：
-        //   优先用最后一条压缩消息的位置，其次用 compressedContextIndex，
-        //   再其次用 lastSummarizeIndex，最后才是 0。
-        const effectiveStartIndex = Math.max(
-          clearContextIndex,
-          lastCompressedIdx >= 0
-            ? lastCompressedIdx
-            : (session.compressedContextIndex ?? -1) >= 0
-            ? session.compressedContextIndex!
-            : session.lastSummarizeIndex,
-        );
+        const effectiveStartIndex = getActiveContextStartIndex(session);
         const uncompressedMessages = messages
           .slice(effectiveStartIndex)
           .filter((msg) => !msg.isError && !msg.isCompressedContextPrompt);
@@ -2164,24 +2146,10 @@ export const useChatStore = createPersistStore(
           }
 
           // 第二次及以后压缩：用「最后一条压缩结果的 assistant 消息」作为上下文
-          const previousSummary =
-            lastCompressedIdx >= 0
-              ? (() => {
-                  const prevMsg = messages[lastCompressedIdx];
-                  return prevMsg?.role === "assistant" &&
-                    prevMsg?.isCompressedContextPrompt
-                    ? getMessageTextContent(prevMsg)
-                    : session.memoryPrompt;
-                })()
-              : (session.compressedContextIndex ?? -1) >= 0
-              ? (() => {
-                  const prevMsg = messages[session.compressedContextIndex!];
-                  return prevMsg?.role === "assistant" &&
-                    prevMsg?.isCompressedContextPrompt
-                    ? getMessageTextContent(prevMsg)
-                    : session.memoryPrompt;
-                })()
-              : session.memoryPrompt;
+          const previousSummary = getPreviousSummaryText(
+            session,
+            getMessageTextContent,
+          );
 
           // 设置摘要锁，防止并发。保留之前的压缩结果消息，只追加新占位条，便于用户看到每次压缩的横幅
           const compressedMessageId = nanoid();
@@ -2472,8 +2440,7 @@ export const useChatStore = createPersistStore(
             onError(error) {
               const isAborted = error.message.includes("aborted");
               const isOverflow =
-                !isAborted &&
-                isLikelyContextOverflowError(error, modelConfig.model);
+                !isAborted && isLikelyContextOverflowError(error);
               let errorMessage: ChatMessage | undefined;
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];

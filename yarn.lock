@@ -3143,24 +3143,7 @@
     "@mariozechner/pi-ai" "^0.70.2"
     typebox "^1.1.24"
 
-"@mariozechner/pi-ai@^0.70.0":
-  version "0.70.0"
-  resolved "https://registry.yarnpkg.com/@mariozechner/pi-ai/-/pi-ai-0.70.0.tgz#15127de55299d42e6227bece0ca5a226edc7b31a"
-  integrity sha512-lVT9bb0eFkNr5YXvZ5r00TNA5r110fOO8uJV9VLCQ5GdtunWIjcptWitzIjjl2MF0/NDs7Kb2EwZctXQWWP7eA==
-  dependencies:
-    "@anthropic-ai/sdk" "^0.90.0"
-    "@aws-sdk/client-bedrock-runtime" "^3.1030.0"
-    "@google/genai" "^1.40.0"
-    "@mistralai/mistralai" "^2.2.0"
-    chalk "^5.6.2"
-    openai "6.26.0"
-    partial-json "^0.1.7"
-    proxy-agent "^6.5.0"
-    typebox "^1.1.24"
-    undici "^7.19.1"
-    zod-to-json-schema "^3.24.6"
-
-"@mariozechner/pi-ai@^0.70.2":
+"@mariozechner/pi-ai@0.70.2", "@mariozechner/pi-ai@^0.70.2":
   version "0.70.2"
   resolved "https://registry.yarnpkg.com/@mariozechner/pi-ai/-/pi-ai-0.70.2.tgz#61cfd8cfb45964862d7a9e0929f6d1cebd229410"
   integrity sha512-+30LRPjXsXF+oI96DvGWMbdPGeqoLJvadh6UPev7wx2DzhC9FEqXkQcoMZ0usbCm7E9pl8ua8a9s/pQ5ikaUbg==

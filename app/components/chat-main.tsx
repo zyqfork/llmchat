@@ -114,7 +114,6 @@ import { useNavigate } from "react-router-dom";
 import {
   CHAT_PAGE_SIZE,
   DEFAULT_TTS_ENGINE,
-  ModelProvider,
   Path,
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
@@ -763,7 +762,7 @@ export function ChatMain() {
   // 创建专门用于 TTS 的 API 客户端，始终使用 OpenAI TTS 配置
   function createTTSApi(): ClientApi {
     // 始终使用 OpenAI 作为 TTS 提供商，不受当前对话模型影响
-    return new ClientApi(ModelProvider.GPT);
+    return getClientApi(ServiceProvider.OpenAI.id);
   }
 
   async function openaiSpeech(text: string) {

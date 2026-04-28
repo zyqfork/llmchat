@@ -1,22 +1,16 @@
 import { logger } from "../utils/logger";
 import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
 import { getAllProviders } from "../constant";
+import { useAccessStore } from "../store/access";
 import { resolvePiProviderId } from "./pi-provider-resolver";
 import { executeMcpToolCall } from "./mcp-tool-executor";
-import { runAgentLoop } from "@mariozechner/pi-agent-core";
-
-export type LLMEngine = "pi-ai";
+import { completeSimple, getModel, streamSimple } from "@mariozechner/pi-ai";
+import { agentLoop, runAgentLoop } from "@mariozechner/pi-agent-core";
 
 export interface LLMAdapterRequest {
   providerId: string;
   model: string;
   options: any;
-}
-
-export interface LLMAdapter {
-  engine: LLMEngine;
-  streamText(req: LLMAdapterRequest): any;
-  generateText(req: LLMAdapterRequest): Promise<any>;
 }
 
 type DebugCapture = {
@@ -33,47 +27,16 @@ type DebugCapture = {
   };
 };
 
-type PiAiModule = {
-  streamSimple: (...args: any[]) => any;
-  completeSimple: (...args: any[]) => Promise<any>;
-  getModel: (...args: any[]) => any;
+const EMPTY_USAGE = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-let piAiModulePromise: Promise<PiAiModule> | null = null;
-
-function getPiAiModule(): Promise<PiAiModule> {
-  if (!piAiModulePromise) {
-    piAiModulePromise = import("@mariozechner/pi-ai") as Promise<PiAiModule>;
-  }
-  return piAiModulePromise;
-}
-
-async function tryCaptureResponseBody(
-  response: unknown,
-): Promise<any | undefined> {
-  const r = response as any;
-  try {
-    let text: string | undefined;
-    if (
-      typeof r?.clone === "function" &&
-      typeof r?.clone()?.text === "function"
-    ) {
-      text = await r.clone().text();
-    } else if (typeof r?.text === "function") {
-      text = await r.text();
-    } else if (typeof r?.body === "string") {
-      text = r.body;
-    }
-    if (!text) return undefined;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  } catch {
-    return undefined;
-  }
-}
+const passthroughConvertToLlm = async (messages: any[]) => messages as any[];
 
 function extractSystemPrompt(messages: any[]) {
   const systemChunks: string[] = [];
@@ -112,6 +75,31 @@ function toPiUserContent(content: any): string | any[] {
     .filter(Boolean);
 }
 
+function toTextContent(content: any): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part: any) => {
+        if (!part || typeof part !== "object") return "";
+        if (part.type === "text" && typeof part.text === "string") {
+          return part.text;
+        }
+        if (part.type === "image_url" && part.image_url?.url) {
+          return `[image] ${part.image_url.url}`;
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+    if (text) return text;
+  }
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return String(content ?? "");
+  }
+}
+
 function toPiContext(messages: any[]): any {
   const normalized = extractSystemPrompt(messages);
   const piMessages: any[] = [];
@@ -127,24 +115,14 @@ function toPiContext(messages: any[]): any {
     }
 
     if (msg?.role === "assistant") {
-      const text =
-        typeof msg.content === "string"
-          ? msg.content
-          : JSON.stringify(msg.content);
+      const text = toTextContent(msg.content);
       piMessages.push({
         role: "assistant",
         content: [{ type: "text", text: text ?? "" }],
         api: "openai-completions",
         provider: "openai",
         model: "compat-history",
-        usage: {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-          totalTokens: 0,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-        },
+        usage: EMPTY_USAGE,
         stopReason: "stop",
         timestamp: Date.now(),
       });
@@ -157,51 +135,105 @@ function toPiContext(messages: any[]): any {
   };
 }
 
+function getCustomProviderRuntimeConfig(
+  providerId: string,
+  accessStore: any,
+): any | null {
+  const custom = accessStore.getCustomProvider(providerId);
+  if (!custom) return null;
+  const apiTypeKey = `${providerId}ApiType`;
+  return {
+    apiKey: custom.apiKey,
+    baseUrl: custom.endpoint,
+    sdkType: custom.type === "openai" ? "openai-compatible" : custom.type,
+    useProxy: custom.config?.useProxy,
+    proxyUrl: custom.config?.proxyUrl,
+    apiType:
+      custom.type === "openai"
+        ? custom.config?.useResponseApi
+          ? "response"
+          : (accessStore as any)[apiTypeKey] || "chat"
+        : "chat",
+  };
+}
+
+function getBuiltinProviderRuntimeConfig(
+  providerId: string,
+  accessStore: any,
+): any | null {
+  const provider = getAllProviders().find((p) => p.id === providerId);
+  const storeConfig = accessStore.getProviderConfig(providerId);
+  const effectiveConfig = accessStore.getEffectiveProviderConfig(providerId);
+  if (!effectiveConfig?.apiKey) {
+    return null;
+  }
+  let apiType = "chat";
+  if (provider?.storeKeys?.apiType) {
+    apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
+  }
+  return {
+    apiKey: effectiveConfig.apiKey,
+    baseUrl: effectiveConfig.baseUrl || provider?.defaultBaseUrl,
+    sdkType: provider?.sdkType,
+    useProxy: storeConfig.useProxy,
+    proxyUrl: storeConfig.proxyUrl,
+    apiType,
+  };
+}
+
 function getProviderRuntimeConfig(providerId: string) {
   if (typeof window === "undefined") return null;
   try {
-    const { useAccessStore } = require("../store/access");
     const accessStore = useAccessStore.getState();
-    const provider = getAllProviders().find((p) => p.id === providerId);
-
     if (providerId.startsWith("custom_")) {
-      const custom = accessStore.customProviders.find(
-        (p: any) => p.id === providerId,
-      );
-      if (!custom) return null;
-      const apiTypeKey = `${providerId}ApiType`;
-      return {
-        apiKey: custom.apiKey,
-        baseUrl: custom.endpoint,
-        sdkType: custom.type === "openai" ? "openai-compatible" : custom.type,
-        useProxy: custom.config?.useProxy,
-        proxyUrl: custom.config?.proxyUrl,
-        apiType:
-          custom.type === "openai"
-            ? custom.config?.useResponseApi
-              ? "response"
-              : (accessStore as any)[apiTypeKey] || "chat"
-            : "chat",
-      };
+      return getCustomProviderRuntimeConfig(providerId, accessStore);
     }
-
-    const storeConfig = accessStore.getProviderConfig(providerId);
-    let apiType = "chat";
-    if (provider?.storeKeys?.apiType) {
-      apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
-    }
-    return {
-      apiKey: storeConfig.apiKey,
-      baseUrl: storeConfig.baseUrl || provider?.defaultBaseUrl,
-      sdkType: provider?.sdkType,
-      useProxy: storeConfig.useProxy,
-      proxyUrl: storeConfig.proxyUrl,
-      apiType,
-    };
+    return getBuiltinProviderRuntimeConfig(providerId, accessStore);
   } catch (error) {
     logger.warn("[LLM Adapter] Failed to load provider runtime config:", error);
     return null;
   }
+}
+
+function isOpenAIProtocolSdk(sdkType: string): boolean {
+  const normalized = String(sdkType || "").toLowerCase();
+  return (
+    normalized === "openai" ||
+    normalized === "openai-compatible" ||
+    normalized.includes("openai")
+  );
+}
+
+function resolvePiApiType(runtimeCfg: any): string {
+  const sdkType = String(runtimeCfg?.sdkType || "").toLowerCase();
+  if (isOpenAIProtocolSdk(sdkType)) {
+    return runtimeCfg?.apiType === "response"
+      ? "openai-responses"
+      : "openai-completions";
+  }
+  if (sdkType === "anthropic") return "anthropic-messages";
+  if (sdkType === "google") return "google-generative-ai";
+  return "openai-completions";
+}
+
+function resolveCompat(
+  runtimeCfg: any,
+  providerId: string,
+  builtinCompat?: any,
+) {
+  const baseUrl: string = String(runtimeCfg?.baseUrl || "");
+  const isCustomProvider = String(providerId || "").startsWith("custom_");
+  const isOfficialOpenAIHost =
+    baseUrl.includes("api.openai.com") || baseUrl.includes("openai.azure.com");
+  const shouldForceSystemRole =
+    isOpenAIProtocolSdk(runtimeCfg?.sdkType) &&
+    (isCustomProvider || !isOfficialOpenAIHost);
+
+  if (!shouldForceSystemRole) return builtinCompat;
+  return {
+    ...(builtinCompat || {}),
+    supportsDeveloperRole: false,
+  };
 }
 
 function toPiModel(
@@ -212,43 +244,19 @@ function toPiModel(
 ): any | null {
   const runtimeCfg = cfg || getProviderRuntimeConfig(providerId);
   if (!runtimeCfg?.apiKey) return null;
+  const api = resolvePiApiType(runtimeCfg);
 
-  const isCustomProvider = String(providerId || "").startsWith("custom_");
-  const baseUrl: string = String(runtimeCfg.baseUrl || "");
-  const isOfficialOpenAIHost =
-    baseUrl.includes("api.openai.com") || baseUrl.includes("openai.azure.com");
-  const sdkType = String(runtimeCfg.sdkType || "").toLowerCase();
-  const isOpenAIProtocol =
-    sdkType === "openai" ||
-    sdkType === "openai-compatible" ||
-    sdkType.includes("openai");
-  const shouldForceSystemRole =
-    isOpenAIProtocol && (isCustomProvider || !isOfficialOpenAIHost);
-  const api = isOpenAIProtocol
-    ? runtimeCfg.apiType === "response"
-      ? "openai-responses"
-      : "openai-completions"
-    : runtimeCfg.sdkType === "anthropic"
-    ? "anthropic-messages"
-    : runtimeCfg.sdkType === "google"
-    ? "google-generative-ai"
-    : "openai-completions";
-
-  if (knownProvider && runtimeCfg?.builtinModel) {
+  if (knownProvider) {
     try {
-      const builtin = runtimeCfg.builtinModel;
+      const builtin = getModel(knownProvider as any, modelId as any);
+      const compat = resolveCompat(runtimeCfg, providerId, builtin.compat);
       return {
         ...builtin,
         id: modelId,
         name: modelId,
-        api: isOpenAIProtocol ? api : builtin.api,
+        api: isOpenAIProtocolSdk(runtimeCfg?.sdkType) ? api : builtin.api,
         baseUrl: runtimeCfg.baseUrl || builtin.baseUrl,
-        compat: shouldForceSystemRole
-          ? {
-              ...(builtin.compat || {}),
-              supportsDeveloperRole: false,
-            }
-          : builtin.compat,
+        compat,
       } as any;
     } catch {
       // Fallback to dynamic model construction for unknown model ids.
@@ -266,28 +274,8 @@ function toPiModel(
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128000,
     maxTokens: 32768,
-    compat: shouldForceSystemRole
-      ? {
-          supportsDeveloperRole: false,
-        }
-      : undefined,
+    compat: resolveCompat(runtimeCfg, providerId),
   } as any;
-}
-
-function attachBuiltinModelToConfig(
-  piAi: PiAiModule,
-  knownProvider: string | undefined,
-  modelId: string,
-  cfg: any,
-) {
-  if (!knownProvider || !cfg) {
-    return;
-  }
-  try {
-    cfg.builtinModel = piAi.getModel(knownProvider as any, modelId as any);
-  } catch {
-    // ignore and fallback to dynamic model
-  }
 }
 
 function getNormalizedProxyUrl(proxyUrl?: string): string | undefined {
@@ -353,108 +341,6 @@ function toAgentTools(openAiTools: any[] = []) {
     .filter(Boolean);
 }
 
-function trimSlash(url: string) {
-  return url.replace(/\/+$/, "");
-}
-
-function normalizeDebugHeaders(
-  rawHeaders?: Record<string, string> | Headers | Array<[string, string]>,
-) {
-  if (!rawHeaders) return {};
-
-  try {
-    if (typeof Headers !== "undefined" && rawHeaders instanceof Headers) {
-      const normalized: Record<string, string> = {};
-      rawHeaders.forEach((value, key) => {
-        normalized[key] = value;
-      });
-      return normalized;
-    }
-  } catch {
-    // ignore and fallback
-  }
-
-  if (Array.isArray(rawHeaders)) {
-    const normalized: Record<string, string> = {};
-    rawHeaders.forEach(([key, value]) => {
-      if (typeof key === "string") {
-        normalized[key] = String(value ?? "");
-      }
-    });
-    return normalized;
-  }
-
-  return { ...(rawHeaders as Record<string, string>) };
-}
-
-function hasHeader(headers: Record<string, string>, name: string) {
-  const lower = name.toLowerCase();
-  return Object.keys(headers).some((k) => k.toLowerCase() === lower);
-}
-
-function looksLikeFullApiPath(url: string) {
-  return /\/(chat\/completions|responses|messages|models)(\?|$)/.test(url);
-}
-
-function buildDebugRequestUrl(baseUrl: string | undefined, api: string) {
-  const normalized = trimSlash(baseUrl || "");
-  if (!normalized) return "";
-  if (looksLikeFullApiPath(normalized)) return normalized;
-
-  switch (api) {
-    case "openai-responses":
-      return `${normalized}/responses`;
-    case "anthropic-messages":
-      return `${normalized}/messages`;
-    case "google-generative-ai":
-      return `${normalized}/models`;
-    case "openai-completions":
-    default:
-      return `${normalized}/chat/completions`;
-  }
-}
-
-function buildDebugHeaders(
-  providerId: string,
-  apiKey: string,
-  api: string,
-  rawHeaders?: Record<string, string> | Headers | Array<[string, string]>,
-) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...normalizeDebugHeaders(rawHeaders),
-  };
-  if (apiKey) {
-    if (api === "anthropic-messages") {
-      if (!hasHeader(headers, "x-api-key")) {
-        headers["x-api-key"] = apiKey;
-      }
-      if (!hasHeader(headers, "anthropic-version")) {
-        headers["anthropic-version"] = "2023-06-01";
-      }
-    } else if (api === "google-generative-ai") {
-      if (!hasHeader(headers, "x-goog-api-key")) {
-        headers["x-goog-api-key"] = apiKey;
-      }
-    } else {
-      if (!hasHeader(headers, "Authorization")) {
-        headers.Authorization = `Bearer ${apiKey}`;
-      }
-    }
-  }
-  if (!hasHeader(headers, "x-provider-id")) {
-    headers["x-provider-id"] = providerId;
-  }
-  return headers;
-}
-
-function assistantMessageToText(message: any) {
-  return (message?.content || [])
-    .filter((c: any) => c?.type === "text")
-    .map((c: any) => c.text)
-    .join("");
-}
-
 function assistantMessageToProviderMetadata(message: any) {
   if (message?.api !== "openai-responses") {
     return {};
@@ -462,6 +348,25 @@ function assistantMessageToProviderMetadata(message: any) {
 
   return {
     responseId: message?.responseId,
+  };
+}
+
+function assistantMessageToResult(message: any, debugCapture: DebugCapture) {
+  const text = (message?.content || [])
+    .filter((c: any) => c?.type === "text")
+    .map((c: any) => c.text)
+    .join("");
+  return {
+    text,
+    usage: {
+      promptTokens: message?.usage?.input ?? 0,
+      completionTokens: message?.usage?.output ?? 0,
+      totalTokens: message?.usage?.totalTokens ?? 0,
+    },
+    finishReason: message?.stopReason,
+    providerMetadata: assistantMessageToProviderMetadata(message),
+    requestDebug: debugCapture.request,
+    responseDebug: debugCapture.response,
   };
 }
 
@@ -478,13 +383,74 @@ function assistantEventToUnifiedPart(event: any) {
   }
 }
 
+function agentEventToUnifiedPart(event: any) {
+  if (event?.type === "message_update") {
+    return assistantEventToUnifiedPart(event.assistantMessageEvent);
+  }
+
+  if (event?.type === "tool_execution_end") {
+    return {
+      type: "tool-result",
+      toolCall: {
+        id: event.toolCallId,
+        name: event.toolName,
+        arguments: event.args,
+      },
+      result:
+        event.result?.content?.[0]?.text ?? JSON.stringify(event.result ?? {}),
+      isError: !!event.isError,
+    };
+  }
+
+  return undefined;
+}
+
 async function* toUnifiedFullStream(piStream: any) {
-  for await (const event of piStream) {
-    const part = assistantEventToUnifiedPart(event);
-    if (part) {
-      yield part;
+  yield* mapStreamParts(piStream, assistantEventToUnifiedPart);
+}
+
+async function* toUnifiedAgentStream(agentStream: any) {
+  yield* mapStreamParts(agentStream, agentEventToUnifiedPart);
+}
+
+async function* mapStreamParts(stream: any, toPart: (event: any) => any) {
+  for await (const event of stream) {
+    const part = toPart(event);
+    if (part) yield part;
+  }
+}
+
+function lastAssistantMessage(messages: any[] = []) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.role === "assistant") {
+      return message;
     }
   }
+  return undefined;
+}
+
+function buildAgentContext(context: any, tools: any) {
+  return {
+    systemPrompt: context.systemPrompt || "",
+    messages: context.messages || [],
+    tools,
+  };
+}
+
+function buildAgentRunOptions(requestModel: any, streamOptions: any) {
+  return {
+    model: requestModel,
+    convertToLlm: passthroughConvertToLlm,
+    ...streamOptions,
+  };
+}
+
+function buildDebugGetters(debugCapture: DebugCapture) {
+  return {
+    requestDebug: () => debugCapture.request,
+    responseDebug: () => debugCapture.response,
+  };
 }
 
 function buildPiStreamOptions(
@@ -492,26 +458,15 @@ function buildPiStreamOptions(
   cfg: any,
   debugCapture: DebugCapture,
 ) {
-  const providerOptions = req.options?.providerOptions ?? {};
-  const openaiOptions = providerOptions.openai ?? {};
-
   return {
-    ...providerOptions,
-    ...openaiOptions,
     temperature: req.options?.temperature,
     maxTokens: req.options?.maxTokens,
     signal: req.options?.abortSignal,
     apiKey: cfg.apiKey,
     onPayload: (payload: any, usedModel: any) => {
       debugCapture.request = {
-        url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
+        url: usedModel.baseUrl,
         method: "POST",
-        headers: buildDebugHeaders(
-          req.providerId,
-          cfg.apiKey,
-          usedModel.api,
-          usedModel.headers ?? {},
-        ),
         body: payload,
       };
       return undefined;
@@ -522,261 +477,121 @@ function buildPiStreamOptions(
         headers: response.headers,
       };
       debugCapture.response = capturedResponse;
-      void tryCaptureResponseBody(response).then((body) => {
-        if (typeof body !== "undefined") {
-          capturedResponse.body = body;
-        }
-      });
     },
   };
 }
 
-class PiAiAdapter implements LLMAdapter {
-  engine: LLMEngine = "pi-ai";
+async function prepareAdapterRequest(req: LLMAdapterRequest) {
+  const cfg = getProviderRuntimeConfig(req.providerId) as any;
+  const knownProvider = await resolvePiProviderId(req.providerId);
 
-  streamText(req: LLMAdapterRequest) {
-    return (async () => {
-      const piAi = await getPiAiModule();
-      const cfg = getProviderRuntimeConfig(req.providerId) as any;
-      const knownProvider = await resolvePiProviderId(req.providerId);
-      attachBuiltinModelToConfig(piAi, knownProvider, req.model, cfg);
-
-      const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
-      if (!cfg?.apiKey || !model) {
-        throw new Error(
-          `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
-        );
-      }
-
-      const debugCapture: DebugCapture = {};
-      const requestModel = withProxyModel(model, cfg);
-      const openAiTools = Array.isArray(req.options?.tools)
-        ? req.options.tools
-        : [];
-      const agentTools = toAgentTools(openAiTools);
-      const normalizedTools =
-        agentTools.length > 0 ? (agentTools as any) : undefined;
-      const context = toPiContext(req.options?.messages ?? []);
-      const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
-
-      if (!normalizedTools) {
-        const piStream = piAi.streamSimple(
-          requestModel,
-          context,
-          streamOptions,
-        );
-        return {
-          fullStream: toUnifiedFullStream(piStream),
-          providerMetadata: piStream
-            .result()
-            .then(assistantMessageToProviderMetadata)
-            .catch(() => ({})),
-          content: "",
-          text: "",
-          requestDebug: () => debugCapture.request,
-          responseDebug: () => debugCapture.response,
-        };
-      }
-
-      const fullStream = (async function* () {
-        const queue: any[] = [];
-        let done = false;
-        let wake: (() => void) | null = null;
-        const push = (event: any) => {
-          queue.push(event);
-          if (wake) {
-            const notify = wake;
-            wake = null;
-            notify();
-          }
-        };
-
-        const loopPromise = runAgentLoop(
-          [],
-          {
-            systemPrompt: context.systemPrompt || "",
-            messages: context.messages || [],
-            tools: normalizedTools,
-          },
-          {
-            model: requestModel,
-            convertToLlm: async (messages: any[]) => messages as any[],
-            ...streamOptions,
-          },
-          async (event: any) => {
-            if (event.type === "message_update") {
-              const assistantEvent = event.assistantMessageEvent;
-              if (assistantEvent?.type === "text_delta") {
-                push({ type: "text-delta", text: assistantEvent.delta });
-              } else if (assistantEvent?.type === "thinking_delta") {
-                push({ type: "reasoning-delta", delta: assistantEvent.delta });
-              } else if (assistantEvent?.type === "toolcall_end") {
-                push({ type: "tool-call", toolCall: assistantEvent.toolCall });
-              }
-            } else if (event.type === "tool_execution_end") {
-              push({
-                type: "tool-result",
-                toolCall: {
-                  id: event.toolCallId,
-                  name: event.toolName,
-                  arguments: event.args,
-                },
-                result:
-                  event.result?.content?.[0]?.text ??
-                  JSON.stringify(event.result ?? {}),
-                isError: !!event.isError,
-              });
-            }
-          },
-          req.options?.abortSignal,
-          piAi.streamSimple as any,
-        )
-          .catch((error) => {
-            push({
-              type: "error",
-              error: error instanceof Error ? error.message : String(error),
-            });
-          })
-          .finally(() => {
-            done = true;
-            if (wake) {
-              const notify = wake;
-              wake = null;
-              notify();
-            }
-          });
-
-        while (!done || queue.length > 0) {
-          if (queue.length === 0) {
-            await new Promise<void>((resolve) => {
-              wake = resolve;
-            });
-            continue;
-          }
-          yield queue.shift();
-        }
-        await loopPromise;
-      })();
-
-      return {
-        fullStream,
-        providerMetadata: Promise.resolve({}),
-        content: "",
-        text: "",
-        requestDebug: () => debugCapture.request,
-        responseDebug: () => debugCapture.response,
-      };
-    })();
-  }
-
-  async generateText(req: LLMAdapterRequest) {
-    const piAi = await getPiAiModule();
-    const cfg = getProviderRuntimeConfig(req.providerId) as any;
-    const knownProvider = await resolvePiProviderId(req.providerId);
-    attachBuiltinModelToConfig(piAi, knownProvider, req.model, cfg);
-    const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
-    if (!cfg?.apiKey || !model) {
-      throw new Error(
-        `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
-      );
-    }
-
-    const context = toPiContext(req.options?.messages ?? []);
-    const openAiTools = Array.isArray(req.options?.tools)
-      ? req.options.tools
-      : [];
-    const agentTools = toAgentTools(openAiTools);
-    const normalizedTools =
-      agentTools.length > 0 ? (agentTools as any) : undefined;
-
-    let result: any = null;
-    const debugCapture: DebugCapture = {};
-    const requestModel = withProxyModel(model, cfg);
-    const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
-
-    if (!normalizedTools) {
-      const message = await piAi.completeSimple(
-        requestModel,
-        context,
-        streamOptions,
-      );
-
-      return {
-        text: assistantMessageToText(message),
-        usage: {
-          promptTokens: message.usage?.input ?? 0,
-          completionTokens: message.usage?.output ?? 0,
-          totalTokens: message.usage?.totalTokens ?? 0,
-        },
-        finishReason: message.stopReason,
-        providerMetadata: assistantMessageToProviderMetadata(message),
-        requestDebug: debugCapture.request,
-        responseDebug: debugCapture.response,
-      };
-    }
-
-    const generatedMessages: any[] = [];
-    await runAgentLoop(
-      [],
-      {
-        systemPrompt: context.systemPrompt || "",
-        messages: context.messages || [],
-        tools: normalizedTools,
-      },
-      {
-        model: requestModel,
-        convertToLlm: async (messages: any[]) => messages as any[],
-        ...streamOptions,
-      },
-      async (event: any) => {
-        if (
-          event.type === "message_end" &&
-          event.message?.role === "assistant"
-        ) {
-          generatedMessages.push(event.message);
-          result = event.message;
-        }
-      },
-      req.options?.abortSignal,
-      piAi.streamSimple as any,
+  const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
+  if (!cfg?.apiKey || !model) {
+    throw new Error(
+      `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
     );
-
-    if (!result && generatedMessages.length > 0) {
-      result = generatedMessages[generatedMessages.length - 1];
-    }
-    if (!result) {
-      throw new Error("[LLM Adapter] No assistant result generated");
-    }
-
-    const text = result.content
-      .filter((c: any) => c.type === "text")
-      .map((c: any) => c.text)
-      .join("");
-
-    return {
-      text,
-      usage: {
-        promptTokens: result.usage?.input ?? 0,
-        completionTokens: result.usage?.output ?? 0,
-        totalTokens: result.usage?.totalTokens ?? 0,
-      },
-      finishReason: result.stopReason,
-      providerMetadata: {
-        ...assistantMessageToProviderMetadata(result),
-      },
-      requestDebug: debugCapture.request,
-      responseDebug: debugCapture.response,
-    };
   }
+
+  const debugCapture: DebugCapture = {};
+  const context = toPiContext(req.options?.messages ?? []);
+  const openAiTools = Array.isArray(req.options?.tools)
+    ? req.options.tools
+    : [];
+  const agentTools = toAgentTools(openAiTools);
+  const normalizedTools =
+    agentTools.length > 0 ? (agentTools as any) : undefined;
+  const requestModel = withProxyModel(model, cfg);
+  const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
+
+  return {
+    context,
+    normalizedTools,
+    requestModel,
+    streamOptions,
+    debugCapture,
+  };
 }
 
-const piAiAdapter = new PiAiAdapter();
+export function streamText(req: LLMAdapterRequest) {
+  return (async () => {
+    const {
+      context,
+      normalizedTools,
+      requestModel,
+      streamOptions,
+      debugCapture,
+    } = await prepareAdapterRequest(req);
 
-export function resolveLLMAdapter(engine?: string): LLMAdapter {
-  if (engine && engine !== "pi-ai") {
-    logger.warn(
-      `[LLM Adapter] Unsupported engine ${engine}, force using pi-ai`,
+    if (!normalizedTools) {
+      const piStream = streamSimple(requestModel, context, streamOptions);
+      return {
+        fullStream: toUnifiedFullStream(piStream),
+        providerMetadata: piStream
+          .result()
+          .then(assistantMessageToProviderMetadata)
+          .catch(() => ({})),
+        ...buildDebugGetters(debugCapture),
+      };
+    }
+
+    const agentContext = buildAgentContext(context, normalizedTools);
+    const agentOptions = buildAgentRunOptions(requestModel, streamOptions);
+    const agentStream = agentLoop(
+      [],
+      agentContext,
+      agentOptions,
+      req.options?.abortSignal,
+      streamSimple as any,
     );
+
+    return {
+      fullStream: toUnifiedAgentStream(agentStream),
+      providerMetadata: agentStream
+        .result()
+        .then((messages: any[]) =>
+          assistantMessageToProviderMetadata(lastAssistantMessage(messages)),
+        )
+        .catch(() => ({})),
+      ...buildDebugGetters(debugCapture),
+    };
+  })();
+}
+
+export async function generateText(req: LLMAdapterRequest) {
+  const {
+    context,
+    normalizedTools,
+    requestModel,
+    streamOptions,
+    debugCapture,
+  } = await prepareAdapterRequest(req);
+
+  let result: any = null;
+
+  if (!normalizedTools) {
+    const message = await completeSimple(requestModel, context, streamOptions);
+
+    return assistantMessageToResult(message, debugCapture);
   }
-  return piAiAdapter;
+
+  const agentContext = buildAgentContext(context, normalizedTools);
+  const agentOptions = buildAgentRunOptions(requestModel, streamOptions);
+  await runAgentLoop(
+    [],
+    agentContext,
+    agentOptions,
+    async (event: any) => {
+      if (event.type === "message_end" && event.message?.role === "assistant") {
+        result = event.message;
+      }
+    },
+    req.options?.abortSignal,
+    streamSimple as any,
+  );
+
+  if (!result) {
+    throw new Error("[LLM Adapter] No assistant result generated");
+  }
+
+  return assistantMessageToResult(result, debugCapture);
 }

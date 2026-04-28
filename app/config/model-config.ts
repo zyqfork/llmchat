@@ -1,4 +1,5 @@
 import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-compat";
+import { getModels, getProviders } from "@mariozechner/pi-ai";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
@@ -6,7 +7,6 @@ import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-
 
 // 尝试导入生成的配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
-const PI_MODELS_CACHE: Record<string, Record<string, any>> = {};
 
 try {
   const generatedConfig = require("./generated/models-config");
@@ -78,6 +78,11 @@ export interface ModelContextConfig {
  * @returns 模型配置对象或 null
  */
 function findModelInConfig(modelId: string, providerId?: string): any | null {
+  const piModel = findModelInPiCatalog(modelId, providerId);
+  if (piModel) {
+    return piModel;
+  }
+
   // 如果提供了厂商ID，优先在该厂商下查找
   if (providerId) {
     const provider = MODELS_DEV_CONFIG[providerId.toLowerCase()];
@@ -105,17 +110,33 @@ function findModelInConfig(modelId: string, providerId?: string): any | null {
     }
   }
 
-  if (providerId) {
-    const models = PI_MODELS_CACHE[providerId.toLowerCase()];
-    if (models && models[modelId]) {
-      return models[modelId];
-    }
-  }
+  return null;
+}
 
-  for (const models of Object.values(PI_MODELS_CACHE)) {
-    if (models && typeof models === "object" && modelId in models) {
-      return (models as Record<string, any>)[modelId];
+function findModelInPiCatalog(
+  modelId: string,
+  providerId?: string,
+): any | null {
+  try {
+    const normalizedModel = String(modelId || "").toLowerCase();
+    if (!normalizedModel) return null;
+
+    const providers = getProviders();
+    const candidates = providerId
+      ? providers.filter(
+          (provider) =>
+            String(provider).toLowerCase() === String(providerId).toLowerCase(),
+        )
+      : providers;
+
+    for (const provider of candidates) {
+      const model = getModels(provider).find(
+        (candidate) => String(candidate.id).toLowerCase() === normalizedModel,
+      );
+      if (model) return model;
     }
+  } catch {
+    // Fall back to generated config when pi-ai catalog is unavailable.
   }
 
   return null;
