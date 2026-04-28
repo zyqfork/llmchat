@@ -1,5 +1,5 @@
 import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-compat";
-import { getModels, getProviders } from "@mariozechner/pi-ai";
+import { findPiModelById } from "../utils/pi-catalog";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
@@ -117,29 +117,7 @@ function findModelInPiCatalog(
   modelId: string,
   providerId?: string,
 ): any | null {
-  try {
-    const normalizedModel = String(modelId || "").toLowerCase();
-    if (!normalizedModel) return null;
-
-    const providers = getProviders();
-    const candidates = providerId
-      ? providers.filter(
-          (provider) =>
-            String(provider).toLowerCase() === String(providerId).toLowerCase(),
-        )
-      : providers;
-
-    for (const provider of candidates) {
-      const model = getModels(provider).find(
-        (candidate) => String(candidate.id).toLowerCase() === normalizedModel,
-      );
-      if (model) return model;
-    }
-  } catch {
-    // Fall back to generated config when pi-ai catalog is unavailable.
-  }
-
-  return null;
+  return findPiModelById(modelId, providerId) || null;
 }
 
 // ============================================================================

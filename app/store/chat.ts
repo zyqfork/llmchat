@@ -92,6 +92,38 @@ function isResponseApiDebugRequest(reqDebug: any): boolean {
   );
 }
 
+function extractResponseApiConversationId(
+  responseRes: Response | undefined,
+  isResponseApiRequest: boolean,
+): string | undefined {
+  if (!isResponseApiRequest || responseRes?.status !== 200) {
+    return undefined;
+  }
+
+  const providerMetadata = (responseRes as any)?.__providerMetadata;
+  if (providerMetadata && typeof providerMetadata === "object") {
+    const providerResponseId =
+      providerMetadata.openai?.responseId ??
+      providerMetadata.azure?.responseId ??
+      providerMetadata.responseId;
+    if (providerResponseId) {
+      return providerResponseId;
+    }
+  }
+
+  const responseBody = (responseRes as any)?.__responseBody;
+  if (responseBody && typeof responseBody === "object") {
+    return (
+      responseBody.conversation_id ||
+      responseBody.id ||
+      responseBody.response?.id ||
+      responseBody.response?.conversation_id
+    );
+  }
+
+  return undefined;
+}
+
 export type ChatMessageTool = {
   id: string;
   index?: number;
@@ -990,25 +1022,14 @@ export const useChatStore = createPersistStore(
             // 处理 Response API 会话 ID
             let responseApiConversationId: string | undefined;
             try {
-              if (isResponseApiRequest && responseRes?.status === 200) {
-                const responseBody = (responseRes as any)?.__responseBody;
-                logger.debug(
-                  "[Response API] Response body for conversation ID extraction:",
-                  responseBody,
-                );
-                if (responseBody && typeof responseBody === "object") {
-                  // 从响应中提取会话 ID - 尝试多个可能的字段
-                  responseApiConversationId =
-                    responseBody.conversation_id ||
-                    responseBody.id ||
-                    responseBody.response?.id ||
-                    responseBody.response?.conversation_id;
-                  logger.debug(
-                    "[Response API] Extracted conversation ID:",
-                    responseApiConversationId,
-                  );
-                }
-              }
+              responseApiConversationId = extractResponseApiConversationId(
+                responseRes,
+                isResponseApiRequest,
+              );
+              logger.debug(
+                "[Response API] Extracted conversation ID:",
+                responseApiConversationId,
+              );
             } catch (e) {
               logger.warn(
                 "[Response API] Failed to extract conversation ID:",
@@ -1351,24 +1372,14 @@ export const useChatStore = createPersistStore(
                   isResponseApiDebugRequest(reqDebug);
                 let responseApiConversationId: string | undefined;
                 try {
-                  if (isResponseApiRequest && responseRes?.status === 200) {
-                    const responseBody = (responseRes as any)?.__responseBody;
-                    logger.debug(
-                      "[Response API] Response body for conversation ID extraction:",
-                      responseBody,
-                    );
-                    if (responseBody && typeof responseBody === "object") {
-                      responseApiConversationId =
-                        responseBody.conversation_id ||
-                        responseBody.id ||
-                        responseBody.response?.id ||
-                        responseBody.response?.conversation_id;
-                      logger.debug(
-                        "[Response API] Extracted conversation ID:",
-                        responseApiConversationId,
-                      );
-                    }
-                  }
+                  responseApiConversationId = extractResponseApiConversationId(
+                    responseRes,
+                    isResponseApiRequest,
+                  );
+                  logger.debug(
+                    "[Response API] Extracted conversation ID:",
+                    responseApiConversationId,
+                  );
                 } catch (e) {
                   logger.warn(
                     "[Response API] Failed to extract conversation ID:",

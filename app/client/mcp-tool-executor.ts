@@ -1,17 +1,12 @@
 import { executeMcpAction } from "../mcp/actions.client";
 
 function parseMcpToolMeta(toolName: string, allTools: any[]) {
-  const byMeta = allTools.find((t) => t?.function?.name === toolName)?._mcpMeta;
-  if (byMeta?.clientId && byMeta?.toolName) return byMeta;
-
-  if (!toolName.startsWith("mcp_")) return null;
-  const rest = toolName.slice(4);
-  const splitIdx = rest.indexOf("_");
-  if (splitIdx <= 0) return null;
-  return {
-    clientId: rest.slice(0, splitIdx),
-    toolName: rest.slice(splitIdx + 1),
-  };
+  const tool = allTools.find((t) => t?.function?.name === toolName);
+  const byMeta = tool?._mcpMeta;
+  if (byMeta?.clientId && byMeta?.toolName) {
+    return byMeta;
+  }
+  return null;
 }
 
 export async function executeMcpToolCall(toolCall: any, allTools: any[]) {

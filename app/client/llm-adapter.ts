@@ -483,7 +483,7 @@ function buildPiStreamOptions(
 
 async function prepareAdapterRequest(req: LLMAdapterRequest) {
   const cfg = getProviderRuntimeConfig(req.providerId) as any;
-  const knownProvider = await resolvePiProviderId(req.providerId);
+  const knownProvider = resolvePiProviderId(req.providerId);
 
   const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
   if (!cfg?.apiKey || !model) {

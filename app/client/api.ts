@@ -7,12 +7,13 @@ import {
 } from "../constant";
 import { ChatMessageTool, useAccessStore, useChatStore } from "../store";
 import { generateText, streamText } from "./llm-adapter";
-import { resolvePiProviderByModel } from "./pi-provider-resolver";
+import { findPiProviderByModel } from "../utils/pi-catalog";
 import { logger } from "../utils/logger";
-import { ModelSize } from "../typing";
+import { ModelSize, ROLES } from "../typing";
+import type { MessageRole } from "../typing";
 
-export const ROLES = ["system", "user", "assistant"] as const;
-export type MessageRole = (typeof ROLES)[number];
+export { ROLES };
+export type { MessageRole };
 
 export interface MultimodalContent {
   type: "text" | "image_url";
@@ -106,6 +107,7 @@ function getResponseApiConversationId(
 
 function buildResponseWithMetadata(
   responseId?: string,
+  providerMetadata?: any,
   requestDebug?: any,
   responseDebug?: {
     status?: number;
@@ -121,6 +123,9 @@ function buildResponseWithMetadata(
   });
   if (requestDebug) {
     (response as any).__requestDebug = requestDebug;
+  }
+  if (providerMetadata && typeof providerMetadata === "object") {
+    (response as any).__providerMetadata = providerMetadata;
   }
   if (typeof responseDebug?.body !== "undefined") {
     (response as any).__responseBody = responseDebug.body;
@@ -174,6 +179,41 @@ function normalizeDebugRequest(
   };
 }
 
+function getDebugRequestFromResult(result: any): any {
+  if (typeof result?.requestDebug === "function") {
+    return result.requestDebug();
+  }
+  return result?.requestDebug;
+}
+
+function getDebugResponseFromResult(result: any): any {
+  if (typeof result?.responseDebug === "function") {
+    return result.responseDebug();
+  }
+  return result?.responseDebug;
+}
+
+function buildResponseFromResult(
+  result: any,
+  providerName: string | undefined,
+  requestBody: any,
+): Response {
+  const providerMetadata = result?.providerMetadata;
+  const responseId = getResponseApiConversationId(providerMetadata);
+  const requestDebug = normalizeDebugRequest(
+    getDebugRequestFromResult(result),
+    providerName,
+    requestBody,
+  );
+  const responseDebug = getDebugResponseFromResult(result);
+  return buildResponseWithMetadata(
+    responseId,
+    providerMetadata,
+    requestDebug,
+    responseDebug,
+  );
+}
+
 function getProviderIdFromEnabledModels(model: string): string | undefined {
   if (typeof window === "undefined") return undefined;
 
@@ -206,19 +246,18 @@ function getProviderIdFromEnabledModels(model: string): string | undefined {
   return undefined;
 }
 
-async function getProviderIdFromModel(model: string): Promise<string> {
-  const catalogResolved = await resolvePiProviderByModel(model);
-  if (catalogResolved) {
-    return catalogResolved;
+function resolveProviderIdFromModel(model: string): string {
+  const resolved = findPiProviderByModel(model) || ServiceProvider.OpenAI.id;
+  if (resolved !== ServiceProvider.OpenAI.id) {
+    return resolved;
   }
-
   logger.warn(
     `[API] Model ${model} was not found in pi-ai catalog or enabled model settings; defaulting to OpenAI. Set providerName explicitly for custom providers.`,
   );
-  return ServiceProvider.OpenAI.id;
+  return resolved;
 }
 
-async function resolveProviderId(model: string, providerName?: string) {
+function resolveProviderId(model: string, providerName?: string) {
   if (providerName) {
     return normalizeProviderName(providerName);
   }
@@ -236,9 +275,12 @@ async function resolveProviderId(model: string, providerName?: string) {
     }
   }
 
+  return resolveProviderIdFromEnabledOrCatalog(model);
+}
+
+function resolveProviderIdFromEnabledOrCatalog(model: string): string {
   return (
-    getProviderIdFromEnabledModels(model) ??
-    (await getProviderIdFromModel(model))
+    getProviderIdFromEnabledModels(model) ?? resolveProviderIdFromModel(model)
   );
 }
 
@@ -258,7 +300,7 @@ class UnifiedClientApi {
         tools: options.tools,
         providerName: options.config.providerName,
       };
-      const providerId = await resolveProviderId(
+      const providerId = resolveProviderId(
         requestOptions.model,
         requestOptions.providerName,
       );
@@ -386,12 +428,9 @@ class UnifiedClientApi {
 
             const fullContent = buildDisplayContent();
 
-            let responseId: string | undefined;
+            let providerMetadata: any = undefined;
             try {
-              const providerMetadata = await streamResult.providerMetadata;
-              responseId = getResponseApiConversationId(
-                providerMetadata as any,
-              );
+              providerMetadata = await streamResult.providerMetadata;
             } catch (metadataError) {
               logger.warn(
                 "[Unified Client API] Failed to read provider metadata:",
@@ -399,24 +438,13 @@ class UnifiedClientApi {
               );
             }
 
-            const requestDebugFromAdapter =
-              typeof (streamResult as any)?.requestDebug === "function"
-                ? (streamResult as any).requestDebug()
-                : undefined;
-            const requestDebug = normalizeDebugRequest(
-              requestDebugFromAdapter,
+            const mockResponse = buildResponseFromResult(
+              {
+                ...streamResult,
+                providerMetadata,
+              },
               options.config.providerName,
               requestOptions,
-            );
-            const responseDebug =
-              typeof (streamResult as any)?.responseDebug === "function"
-                ? (streamResult as any).responseDebug()
-                : undefined;
-
-            const mockResponse = buildResponseWithMetadata(
-              responseId,
-              requestDebug,
-              responseDebug,
             );
 
             options.onFinish(fullContent, mockResponse);
@@ -440,21 +468,14 @@ class UnifiedClientApi {
           options: requestOptions,
         });
         const content = result?.text || "";
-        const responseId = getResponseApiConversationId(
-          result?.providerMetadata,
-        );
-
-        const requestDebug = normalizeDebugRequest(
-          (result as any)?.requestDebug,
-          options.config.providerName,
-          requestOptions,
-        );
-        const responseDebug = (result as any)?.responseDebug;
-
         options.onUpdate?.(content, content);
         options.onFinish(
           content,
-          buildResponseWithMetadata(responseId, requestDebug, responseDebug),
+          buildResponseFromResult(
+            result,
+            options.config.providerName,
+            requestOptions,
+          ),
         );
       }
     } catch (error) {

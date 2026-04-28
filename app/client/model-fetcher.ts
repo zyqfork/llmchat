@@ -6,9 +6,9 @@ import {
 import { useAccessStore } from "../store/access";
 import { logger } from "../utils/logger";
 import { fetch } from "../utils/fetch";
+import { getPiModelsByProvider } from "../utils/pi-catalog";
 import { LLMModel } from "./api";
 import { resolvePiProviderId } from "./pi-provider-resolver";
-import { getModels } from "@mariozechner/pi-ai";
 
 export interface ModelFetchResponse {
   models: LLMModel[];
@@ -20,21 +20,26 @@ export class ModelFetcher {
   private static async getModelsFromPiAiCatalog(
     providerId: string,
   ): Promise<LLMModel[]> {
-    const mappedProvider = await resolvePiProviderId(providerId);
+    const mappedProvider = resolvePiProviderId(providerId);
     if (!mappedProvider) return [];
     try {
-      return getModels(mappedProvider as any).map((model, index: number) => ({
-        name: model.id,
-        displayName: model.name,
-        available: true,
-        sorted: index,
-        provider: {
-          id: providerId,
-          providerName: providerId,
-          providerType: providerId,
-          sorted: 0,
+      return getPiModelsByProvider(mappedProvider).map(
+        (model, index: number) => {
+          const name = String(model.id);
+          return {
+            name,
+            displayName: model.name || name,
+            available: true,
+            sorted: index,
+            provider: {
+              id: providerId,
+              providerName: providerId,
+              providerType: providerId,
+              sorted: 0,
+            },
+          };
         },
-      }));
+      );
     } catch (error) {
       logger.warn(
         `[ModelFetcher] Failed to read pi-ai model catalog for ${providerId}:`,

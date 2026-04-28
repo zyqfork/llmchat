@@ -1,9 +1,10 @@
 // 导入统一的模型配置
 import {
   getModelCapabilities as getModelCapabilitiesFromConfig,
+  isWebSearchModel as isWebSearchModelFromConfig,
   type ModelCapabilities,
 } from "./config/model-config";
-import { getModels, getProviders } from "@mariozechner/pi-ai";
+import { findPiModelById, getPiModelsByProvider } from "./utils/pi-catalog";
 
 // 尝试导入生成的配置，如果不存在则使用默认配置
 let MODELS_DEV_CONFIG: Record<string, any> = {};
@@ -124,98 +125,13 @@ function getModelVisionSupportFromConfig(modelId: string): boolean {
 }
 
 function getProviderModelsFromPiCatalog(providerId: string): string[] {
-  try {
-    const provider = getProviders().find(
-      (candidate) =>
-        String(candidate).toLowerCase() === String(providerId).toLowerCase(),
-    );
-    if (!provider) return [];
-    return getModels(provider).map((model) => model.id);
-  } catch {
-    return [];
-  }
+  return getPiModelsByProvider(providerId).map((model) => String(model.id));
 }
 
 function findPiModel(
   modelId: string,
-): ReturnType<typeof getModels>[number] | null {
-  try {
-    const normalized = String(modelId || "").toLowerCase();
-    if (!normalized) return null;
-    for (const provider of getProviders()) {
-      const model = getModels(provider).find(
-        (candidate) => String(candidate.id).toLowerCase() === normalized,
-      );
-      if (model) return model;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-// 辅助函数：从生成的配置中获取模型推理能力
-function getModelReasoningSupportFromConfig(modelId: string): boolean {
-  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      const model = provider.models[modelId];
-      if (model && typeof model === "object" && "reasoning" in model) {
-        return Boolean(model.reasoning);
-      }
-    }
-  }
-  return false;
-}
-
-// 辅助函数：从生成的配置中获取模型工具调用能力
-function getModelToolCallSupportFromConfig(modelId: string): boolean {
-  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      const model = provider.models[modelId];
-      if (model && typeof model === "object" && "tool_call" in model) {
-        return Boolean(model.tool_call);
-      }
-    }
-  }
-  return false;
-}
-
-// 辅助函数：从生成的配置中获取模型推理字段类型
-function getModelReasoningFieldFromConfig(modelId: string): string | undefined {
-  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      const model = provider.models[modelId];
-      if (
-        model &&
-        typeof model === "object" &&
-        "interleaved" in model &&
-        model.interleaved &&
-        typeof model.interleaved === "object" &&
-        "field" in model.interleaved
-      ) {
-        return model.interleaved.field as string;
-      }
-    }
-  }
-  return undefined;
+): ReturnType<typeof getPiModelsByProvider>[number] | null {
+  return findPiModelById(modelId);
 }
 
 // 导出模型能力接口
@@ -1262,30 +1178,9 @@ export function isVisionModel(model: string): boolean {
   return getModelVisionSupportFromConfig(model);
 }
 
-// Gemini 搜索模型正则表达式（参考 Cherry Studio）
-// 支持 gemini-2.x 和 gemini-1.5 系列
-export const GEMINI_SEARCH_REGEX = new RegExp("gemini-(2\\.|1\\.5)", "i");
-
 // 检测模型是否支持网络搜索
 export function isWebSearchModel(modelName: string): boolean {
-  // Gemini 2.x 系列模型支持内置搜索
-  if (GEMINI_SEARCH_REGEX.test(modelName)) {
-    return true;
-  }
-
-  // 特定的 Gemini 搜索模型
-  const geminiSearchModels = [
-    "gemini-2.0-flash-search",
-    "gemini-2.0-flash-exp-search",
-    "gemini-2.0-pro-exp-02-05-search",
-  ];
-
-  if (geminiSearchModels.includes(modelName)) {
-    return true;
-  }
-
-  // 其他支持搜索的模型可以在这里添加
-  return false;
+  return isWebSearchModelFromConfig(modelName);
 }
 
 // 使用生成的模型配置创建 DEFAULT_MODELS
