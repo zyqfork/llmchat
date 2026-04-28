@@ -216,9 +216,13 @@ function toPiModel(
   const baseUrl: string = String(runtimeCfg.baseUrl || "");
   const isOfficialOpenAIHost =
     baseUrl.includes("api.openai.com") || baseUrl.includes("openai.azure.com");
+  const sdkType = String(runtimeCfg.sdkType || "").toLowerCase();
+  const isOpenAIProtocol =
+    sdkType === "openai" ||
+    sdkType === "openai-compatible" ||
+    sdkType.includes("openai");
   const shouldForceSystemRole =
-    runtimeCfg.sdkType === "openai" &&
-    (isCustomProvider || !isOfficialOpenAIHost);
+    isOpenAIProtocol && (isCustomProvider || !isOfficialOpenAIHost);
   if (knownProvider && runtimeCfg?.builtinModel) {
     try {
       const builtin = runtimeCfg.builtinModel;
