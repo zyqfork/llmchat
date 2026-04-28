@@ -551,6 +551,7 @@ function buildPiStreamOptions(
       const capturedResponse: NonNullable<DebugCapture["response"]> = {
         status: response.status,
         headers: response.headers,
+        body: (response as any)?.__tauriDebugBody,
       };
       debugCapture.response = capturedResponse;
     },

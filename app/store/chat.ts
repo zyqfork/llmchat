@@ -376,6 +376,13 @@ function isLikelyContextOverflowError(error: Error): boolean {
   } as any);
 }
 
+function formatChatErrorCodeBlock(message: string): string {
+  return `\`\`\`json\n${prettyObject({
+    error: true,
+    message,
+  })}\n\`\`\``;
+}
+
 function buildUserMessagesText(messages: ChatMessage[]) {
   const lines: string[] = [];
 
@@ -1159,14 +1166,11 @@ export const useChatStore = createPersistStore(
             const isAborted = error.message?.includes?.("aborted");
             const isOverflow =
               !isAborted && isLikelyContextOverflowError(error);
-            botMessage.content +=
-              "\n\n" +
-              prettyObject({
-                error: true,
-                message: isOverflow
-                  ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
-                  : error.message,
-              });
+            botMessage.content += `\n\n${formatChatErrorCodeBlock(
+              isOverflow
+                ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
+                : error.message,
+            )}`;
             botMessage.streaming = false;
             userMessage.isError = !isAborted;
             botMessage.isError = !isAborted;
@@ -1485,12 +1489,11 @@ export const useChatStore = createPersistStore(
                   // 确保消息状态正确更新
                   botMessage.streaming = false;
                   botMessage.isError = true;
-                  botMessage.content = prettyObject({
-                    error: true,
-                    message: isOverflow
+                  botMessage.content = formatChatErrorCodeBlock(
+                    isOverflow
                       ? `模型 ${modelKey} 响应出错: ${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
                       : `模型 ${modelKey} 响应出错: ${error.message}`,
-                  });
+                  );
 
                   // 立即刷新更新
                   streamOptimizer.flushUpdates();
@@ -1538,12 +1541,11 @@ export const useChatStore = createPersistStore(
             // 确保消息状态正确更新
             botMessage.streaming = false;
             botMessage.isError = true;
-            botMessage.content = prettyObject({
-              error: true,
-              message: isOverflow
+            botMessage.content = formatChatErrorCodeBlock(
+              isOverflow
                 ? `模型 ${modelKey} 请求失败: ${normalizedError.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
                 : `模型 ${modelKey} 请求失败: ${normalizedError.message}`,
-            });
+            );
 
             // 立即刷新更新
             streamOptimizer.flushUpdates();
@@ -2458,12 +2460,11 @@ export const useChatStore = createPersistStore(
                 if (currentMessage) {
                   currentMessage.streaming = false;
                   if (!isAborted) {
-                    currentMessage.content = prettyObject({
-                      error: true,
-                      message: isOverflow
+                    currentMessage.content = formatChatErrorCodeBlock(
+                      isOverflow
                         ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
                         : error.message,
-                    });
+                    );
                     currentMessage.isError = true;
                   }
                   errorMessage = currentMessage;

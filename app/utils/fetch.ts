@@ -15,6 +15,13 @@ type TauriStreamResponse = {
   headers: Record<string, string>;
 };
 
+type TauriStreamDebugBody = {
+  text: string;
+  complete: boolean;
+  streamError?: string;
+  truncated?: boolean;
+};
+
 /**
  * 请求类型枚举
  */
@@ -103,11 +110,18 @@ export async function fetch(
   });
   const ts = new TransformStream();
   const writer = ts.writable.getWriter();
+  const debugBody: TauriStreamDebugBody = {
+    text: "",
+    complete: false,
+  };
+  const debugDecoder = new TextDecoder();
+  const maxDebugChars = 12000;
 
   let closed = false;
   const close = () => {
     if (closed) return;
     closed = true;
+    debugBody.complete = true;
     unlisten?.();
     writer.ready.then(() => writer.close().catch((e) => logger.error(e)));
   };
@@ -118,11 +132,28 @@ export async function fetch(
 
   unlisten = await listen("stream-response", (e: any) => {
     requestIdPromise.then((request_id) => {
-      const { request_id: rid, chunk, status } = e?.payload || {};
+      const { request_id: rid, chunk, status, error } = e?.payload || {};
       if (request_id !== rid) return;
       if (chunk) {
+        if (debugBody.text.length < maxDebugChars) {
+          const decoded = debugDecoder.decode(new Uint8Array(chunk), {
+            stream: true,
+          });
+          if (decoded) {
+            const rest = maxDebugChars - debugBody.text.length;
+            if (decoded.length > rest) {
+              debugBody.text += decoded.slice(0, rest);
+              debugBody.truncated = true;
+            } else {
+              debugBody.text += decoded;
+            }
+          }
+        }
         writer.ready.then(() => writer.write(new Uint8Array(chunk)));
       } else if (status === 0) {
+        if (typeof error === "string" && error.trim()) {
+          debugBody.streamError = error.trim();
+        }
         close();
       }
     });
@@ -152,6 +183,7 @@ export async function fetch(
       statusText,
       headers: respHeaders,
     });
+    (response as any).__tauriDebugBody = debugBody;
 
     if (status >= 300) {
       setTimeout(close, 100);

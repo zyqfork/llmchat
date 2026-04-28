@@ -45,6 +45,7 @@ pub struct ChunkPayload {
 pub struct EndPayload {
     request_id: u32,
     status: u16,
+    error: Option<String>,
 }
 
 fn build_header_map(headers: &HashMap<String, String>) -> Result<HeaderMap, String> {
@@ -111,6 +112,7 @@ async fn execute_stream_request(
 
     tauri::async_runtime::spawn(async move {
         let mut stream = response.bytes_stream();
+        let mut ended_with_error = false;
 
         while let Some(chunk) = stream.next().await {
             match chunk {
@@ -128,19 +130,31 @@ async fn execute_stream_request(
                 }
                 Err(err) => {
                     println!("[Tauri Fetch] Stream error: {:?}", err);
+                    ended_with_error = true;
+                    let _ = window.emit(
+                        event_name,
+                        EndPayload {
+                            request_id,
+                            status: 0,
+                            error: Some(err.to_string()),
+                        },
+                    );
                     break;
                 }
             }
         }
 
-        if let Err(e) = window.emit(
-            event_name,
-            EndPayload {
-                request_id,
-                status: 0,
-            },
-        ) {
-            println!("[Tauri Fetch] Failed to emit end: {:?}", e);
+        if !ended_with_error {
+            if let Err(e) = window.emit(
+                event_name,
+                EndPayload {
+                    request_id,
+                    status: 0,
+                    error: None,
+                },
+            ) {
+                println!("[Tauri Fetch] Failed to emit end: {:?}", e);
+            }
         }
     });
 

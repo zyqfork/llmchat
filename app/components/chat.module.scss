@@ -1019,19 +1019,85 @@
 }
 
 .chat-message-avatar-typing {
-  animation: chat-avatar-typing-blink 1s ease-in-out infinite;
+  animation: chat-avatar-typing-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: opacity, transform, filter, box-shadow;
+  border-radius: 11px;
+
+  :global(.user-avatar) {
+    border-radius: 11px;
+  }
 }
 
-@keyframes chat-avatar-typing-blink {
+@keyframes chat-avatar-typing-pulse {
   0%,
   100% {
-    opacity: 0.45;
-    transform: scale(0.96);
+    opacity: 0.74;
+    transform: scale(0.98);
+    filter: brightness(0.95) saturate(0.99);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+
+  10% {
+    opacity: 0.8;
+    transform: scale(0.99);
+    filter: brightness(0.98) saturate(1.01);
+    box-shadow: 0 0 0 0.8px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  20% {
+    opacity: 0.86;
+    transform: scale(1);
+    filter: brightness(1) saturate(1.03);
+    box-shadow: 0 0 0 1.4px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+
+  30% {
+    opacity: 0.94;
+    transform: scale(1.01);
+    filter: brightness(1.03) saturate(1.06);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+
+  40% {
+    opacity: 0.98;
+    transform: scale(1.02);
+    filter: brightness(1.06) saturate(1.08);
+    box-shadow: 0 0 0 2.6px color-mix(in srgb, var(--primary) 22%, transparent);
   }
 
   50% {
-    opacity: 1;
+    opacity: 0.98;
+    transform: scale(1.02);
+    filter: brightness(1.08) saturate(1.1);
+    box-shadow: 0 0 0 3.2px color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+
+  60% {
+    opacity: 0.92;
+    transform: scale(1.01);
+    filter: brightness(1.05) saturate(1.07);
+    box-shadow: 0 0 0 3.8px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+
+  70% {
+    opacity: 0.88;
     transform: scale(1);
+    filter: brightness(1.03) saturate(1.05);
+    box-shadow: 0 0 0 3.2px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  80% {
+    opacity: 0.84;
+    transform: scale(0.995);
+    filter: brightness(1) saturate(1.03);
+    box-shadow: 0 0 0 2.2px color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  90% {
+    opacity: 0.8;
+    transform: scale(0.99);
+    filter: brightness(0.97) saturate(1.01);
+    box-shadow: 0 0 0 1.2px color-mix(in srgb, var(--primary) 4%, transparent);
   }
 }
 
