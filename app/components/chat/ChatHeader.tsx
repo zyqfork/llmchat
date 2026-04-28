@@ -14,11 +14,36 @@ import MinIcon from "../../icons/min.svg";
 import MaxIcon from "../../icons/max.svg";
 import Locale from "../../locales";
 import type { ChatSession } from "../../store";
+import { useAccessStore } from "../../store/access";
+import { getAllProviders } from "../../constant";
 import { DEFAULT_TOPIC } from "../../store";
 import { copyToClipboard } from "../../utils";
 import { showToast } from "../ui-lib";
 import { PromptToast } from "./PromptToast";
 import styles from "../chat.module.scss";
+
+function isResponseApiEnabledForSession(session: ChatSession, access: any) {
+  const providerName = session.mask.modelConfig.providerName;
+  if (!providerName) return false;
+
+  const customProvider = access.customProviders?.find(
+    (provider: any) =>
+      provider.id === providerName || provider.name === providerName,
+  );
+  if (customProvider?.type === "openai") {
+    return (
+      access[`${customProvider.id}ApiType`] === "response" ||
+      customProvider.config?.useResponseApi === true
+    );
+  }
+
+  const provider = getAllProviders().find(
+    (provider) =>
+      provider.id === providerName || provider.name === providerName,
+  );
+  const apiTypeKey = provider?.storeKeys?.apiType;
+  return apiTypeKey ? access[apiTypeKey] === "response" : false;
+}
 
 export interface ChatHeaderProps {
   session: ChatSession;
@@ -55,6 +80,16 @@ export function ChatHeader({
   onCompressContext,
   onFullScreenToggle,
 }: ChatHeaderProps) {
+  const showResponseApiConversationId = useAccessStore((access) =>
+    Boolean(
+      session.responseApiConversationId &&
+        isResponseApiEnabledForSession(session, access),
+    ),
+  );
+  const responseApiConversationId = showResponseApiConversationId
+    ? session.responseApiConversationId
+    : undefined;
+
   return (
     <div className="window-header" data-tauri-drag-region>
       {isMobileScreen && (
@@ -99,12 +134,12 @@ export function ChatHeader({
             <span className={styles["chat-assistant-name"]}>
               {session.mask.name}
             </span>
-            {session.responseApiConversationId && (
+            {responseApiConversationId && (
               <span
                 className={styles["response-api-conversation-id"]}
-                title={`Response API 会话 ID: ${session.responseApiConversationId}`}
+                title={`Response API 会话 ID: ${responseApiConversationId}`}
                 onClick={() => {
-                  copyToClipboard(session.responseApiConversationId!);
+                  copyToClipboard(responseApiConversationId);
                   showToast("会话 ID 已复制到剪贴板");
                 }}
                 style={{
@@ -115,7 +150,7 @@ export function ChatHeader({
                   marginLeft: "8px",
                 }}
               >
-                ID: {session.responseApiConversationId.slice(-8)}
+                ID: {responseApiConversationId.slice(-8)}
               </span>
             )}
           </div>

@@ -35,6 +35,7 @@ type DebugCapture = {
 
 type PiAiModule = {
   streamSimple: (...args: any[]) => any;
+  completeSimple: (...args: any[]) => Promise<any>;
   getModel: (...args: any[]) => any;
 };
 
@@ -223,6 +224,16 @@ function toPiModel(
     sdkType.includes("openai");
   const shouldForceSystemRole =
     isOpenAIProtocol && (isCustomProvider || !isOfficialOpenAIHost);
+  const api = isOpenAIProtocol
+    ? runtimeCfg.apiType === "response"
+      ? "openai-responses"
+      : "openai-completions"
+    : runtimeCfg.sdkType === "anthropic"
+    ? "anthropic-messages"
+    : runtimeCfg.sdkType === "google"
+    ? "google-generative-ai"
+    : "openai-completions";
+
   if (knownProvider && runtimeCfg?.builtinModel) {
     try {
       const builtin = runtimeCfg.builtinModel;
@@ -230,6 +241,7 @@ function toPiModel(
         ...builtin,
         id: modelId,
         name: modelId,
+        api: isOpenAIProtocol ? api : builtin.api,
         baseUrl: runtimeCfg.baseUrl || builtin.baseUrl,
         compat: shouldForceSystemRole
           ? {
@@ -242,17 +254,6 @@ function toPiModel(
       // Fallback to dynamic model construction for unknown model ids.
     }
   }
-
-  const api =
-    runtimeCfg.sdkType === "openai"
-      ? runtimeCfg.apiType === "response"
-        ? "openai-responses"
-        : "openai-completions"
-      : runtimeCfg.sdkType === "anthropic"
-      ? "anthropic-messages"
-      : runtimeCfg.sdkType === "google"
-      ? "google-generative-ai"
-      : "openai-completions";
 
   return {
     id: modelId,
@@ -447,6 +448,89 @@ function buildDebugHeaders(
   return headers;
 }
 
+function assistantMessageToText(message: any) {
+  return (message?.content || [])
+    .filter((c: any) => c?.type === "text")
+    .map((c: any) => c.text)
+    .join("");
+}
+
+function assistantMessageToProviderMetadata(message: any) {
+  if (message?.api !== "openai-responses") {
+    return {};
+  }
+
+  return {
+    responseId: message?.responseId,
+  };
+}
+
+function assistantEventToUnifiedPart(event: any) {
+  switch (event?.type) {
+    case "text_delta":
+      return { type: "text-delta", text: event.delta };
+    case "thinking_delta":
+      return { type: "reasoning-delta", delta: event.delta };
+    case "toolcall_end":
+      return { type: "tool-call", toolCall: event.toolCall };
+    default:
+      return undefined;
+  }
+}
+
+async function* toUnifiedFullStream(piStream: any) {
+  for await (const event of piStream) {
+    const part = assistantEventToUnifiedPart(event);
+    if (part) {
+      yield part;
+    }
+  }
+}
+
+function buildPiStreamOptions(
+  req: LLMAdapterRequest,
+  cfg: any,
+  debugCapture: DebugCapture,
+) {
+  const providerOptions = req.options?.providerOptions ?? {};
+  const openaiOptions = providerOptions.openai ?? {};
+
+  return {
+    ...providerOptions,
+    ...openaiOptions,
+    temperature: req.options?.temperature,
+    maxTokens: req.options?.maxTokens,
+    signal: req.options?.abortSignal,
+    apiKey: cfg.apiKey,
+    onPayload: (payload: any, usedModel: any) => {
+      debugCapture.request = {
+        url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
+        method: "POST",
+        headers: buildDebugHeaders(
+          req.providerId,
+          cfg.apiKey,
+          usedModel.api,
+          usedModel.headers ?? {},
+        ),
+        body: payload,
+      };
+      return undefined;
+    },
+    onResponse: (response: any) => {
+      const capturedResponse: NonNullable<DebugCapture["response"]> = {
+        status: response.status,
+        headers: response.headers,
+      };
+      debugCapture.response = capturedResponse;
+      void tryCaptureResponseBody(response).then((body) => {
+        if (typeof body !== "undefined") {
+          capturedResponse.body = body;
+        }
+      });
+    },
+  };
+}
+
 class PiAiAdapter implements LLMAdapter {
   engine: LLMEngine = "pi-ai";
 
@@ -470,8 +554,31 @@ class PiAiAdapter implements LLMAdapter {
         ? req.options.tools
         : [];
       const agentTools = toAgentTools(openAiTools);
+      const normalizedTools =
+        agentTools.length > 0 ? (agentTools as any) : undefined;
+      const context = toPiContext(req.options?.messages ?? []);
+      const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
+
+      if (!normalizedTools) {
+        const piStream = piAi.streamSimple(
+          requestModel,
+          context,
+          streamOptions,
+        );
+        return {
+          fullStream: toUnifiedFullStream(piStream),
+          providerMetadata: piStream
+            .result()
+            .then(assistantMessageToProviderMetadata)
+            .catch(() => ({})),
+          content: "",
+          text: "",
+          requestDebug: () => debugCapture.request,
+          responseDebug: () => debugCapture.response,
+        };
+      }
+
       const fullStream = (async function* () {
-        const context = toPiContext(req.options?.messages ?? []);
         const queue: any[] = [];
         let done = false;
         let wake: (() => void) | null = null;
@@ -489,41 +596,12 @@ class PiAiAdapter implements LLMAdapter {
           {
             systemPrompt: context.systemPrompt || "",
             messages: context.messages || [],
-            tools: agentTools as any,
+            tools: normalizedTools,
           },
           {
             model: requestModel,
             convertToLlm: async (messages: any[]) => messages as any[],
-            apiKey: cfg.apiKey,
-            temperature: req.options?.temperature,
-            maxTokens: req.options?.maxTokens,
-            signal: req.options?.abortSignal,
-            onPayload: (payload: any, usedModel: any) => {
-              debugCapture.request = {
-                url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
-                method: "POST",
-                headers: buildDebugHeaders(
-                  req.providerId,
-                  cfg.apiKey,
-                  usedModel.api,
-                  usedModel.headers ?? {},
-                ),
-                body: payload,
-              };
-              return undefined;
-            },
-            onResponse: (response: any) => {
-              const capturedResponse: NonNullable<DebugCapture["response"]> = {
-                status: response.status,
-                headers: response.headers,
-              };
-              debugCapture.response = capturedResponse;
-              void tryCaptureResponseBody(response).then((body) => {
-                if (typeof body !== "undefined") {
-                  capturedResponse.body = body;
-                }
-              });
-            },
+            ...streamOptions,
           },
           async (event: any) => {
             if (event.type === "message_update") {
@@ -608,51 +686,47 @@ class PiAiAdapter implements LLMAdapter {
       ? req.options.tools
       : [];
     const agentTools = toAgentTools(openAiTools);
+    const normalizedTools =
+      agentTools.length > 0 ? (agentTools as any) : undefined;
 
     let result: any = null;
     const debugCapture: DebugCapture = {};
     const requestModel = withProxyModel(model, cfg);
+    const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
+
+    if (!normalizedTools) {
+      const message = await piAi.completeSimple(
+        requestModel,
+        context,
+        streamOptions,
+      );
+
+      return {
+        text: assistantMessageToText(message),
+        usage: {
+          promptTokens: message.usage?.input ?? 0,
+          completionTokens: message.usage?.output ?? 0,
+          totalTokens: message.usage?.totalTokens ?? 0,
+        },
+        finishReason: message.stopReason,
+        providerMetadata: assistantMessageToProviderMetadata(message),
+        requestDebug: debugCapture.request,
+        responseDebug: debugCapture.response,
+      };
+    }
+
     const generatedMessages: any[] = [];
     await runAgentLoop(
       [],
       {
         systemPrompt: context.systemPrompt || "",
         messages: context.messages || [],
-        tools: agentTools as any,
+        tools: normalizedTools,
       },
       {
         model: requestModel,
         convertToLlm: async (messages: any[]) => messages as any[],
-        apiKey: cfg.apiKey,
-        temperature: req.options?.temperature,
-        maxTokens: req.options?.maxTokens,
-        signal: req.options?.abortSignal,
-        onPayload: (payload: any, usedModel: any) => {
-          debugCapture.request = {
-            url: buildDebugRequestUrl(usedModel.baseUrl, usedModel.api),
-            method: "POST",
-            headers: buildDebugHeaders(
-              req.providerId,
-              cfg.apiKey,
-              usedModel.api,
-              usedModel.headers ?? {},
-            ),
-            body: payload,
-          };
-          return undefined;
-        },
-        onResponse: (response: any) => {
-          const capturedResponse: NonNullable<DebugCapture["response"]> = {
-            status: response.status,
-            headers: response.headers,
-          };
-          debugCapture.response = capturedResponse;
-          void tryCaptureResponseBody(response).then((body) => {
-            if (typeof body !== "undefined") {
-              capturedResponse.body = body;
-            }
-          });
-        },
+        ...streamOptions,
       },
       async (event: any) => {
         if (
@@ -688,7 +762,7 @@ class PiAiAdapter implements LLMAdapter {
       },
       finishReason: result.stopReason,
       providerMetadata: {
-        responseId: result.responseId,
+        ...assistantMessageToProviderMetadata(result),
       },
       requestDebug: debugCapture.request,
       responseDebug: debugCapture.response,

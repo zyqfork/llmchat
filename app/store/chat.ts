@@ -76,6 +76,19 @@ const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 1;
 const TITLE_MAX_OUTPUT_TOKENS = 128;
 const SUMMARY_MAX_OUTPUT_TOKENS = 2048;
 
+function isResponseApiDebugRequest(reqDebug: any): boolean {
+  const url = String(reqDebug?.url || "").toLowerCase();
+  const body = reqDebug?.body;
+
+  return (
+    /\/responses(\?|$)/.test(url) ||
+    (!!body &&
+      typeof body === "object" &&
+      "input" in body &&
+      !("messages" in body))
+  );
+}
+
 export type ChatMessageTool = {
   id: string;
   index?: number;
@@ -953,6 +966,7 @@ export const useChatStore = createPersistStore(
 
             // 收集调试信息
             const reqDebug = (responseRes as any)?.__requestDebug;
+            const isResponseApiRequest = isResponseApiDebugRequest(reqDebug);
             const respHeaders: Record<string, string> = {};
             try {
               responseRes?.headers?.forEach?.((v, k) => {
@@ -963,7 +977,7 @@ export const useChatStore = createPersistStore(
             // 处理 Response API 会话 ID
             let responseApiConversationId: string | undefined;
             try {
-              if (responseRes?.status === 200) {
+              if (isResponseApiRequest && responseRes?.status === 200) {
                 const responseBody = (responseRes as any)?.__responseBody;
                 logger.debug(
                   "[Response API] Response body for conversation ID extraction:",
@@ -990,6 +1004,10 @@ export const useChatStore = createPersistStore(
             }
 
             get().updateTargetSession(session, (session) => {
+              if (!isResponseApiRequest && session.responseApiConversationId) {
+                session.responseApiConversationId = undefined;
+              }
+
               const messageIndex = session.messages.findIndex(
                 (m) => m.id === botMessage.id,
               );
@@ -1316,9 +1334,12 @@ export const useChatStore = createPersistStore(
 
                 // 关键修复：确保消息状态正确更新
                 botMessage.streaming = false;
+                const reqDebug = (responseRes as any)?.__requestDebug;
+                const isResponseApiRequest =
+                  isResponseApiDebugRequest(reqDebug);
                 let responseApiConversationId: string | undefined;
                 try {
-                  if (responseRes?.status === 200) {
+                  if (isResponseApiRequest && responseRes?.status === 200) {
                     const responseBody = (responseRes as any)?.__responseBody;
                     logger.debug(
                       "[Response API] Response body for conversation ID extraction:",

@@ -158,53 +158,6 @@ function convertMessages(messages: SimpleMessage[]): any[] {
   }));
 }
 
-function extractSystemInstructions(messages: SimpleMessage[]) {
-  const systemContents: string[] = [];
-  const filtered: SimpleMessage[] = [];
-
-  messages.forEach((msg) => {
-    if (msg.role === "system") {
-      if (typeof msg.content === "string" && msg.content.trim().length > 0) {
-        systemContents.push(msg.content.trim());
-      }
-      return;
-    }
-    filtered.push(msg);
-  });
-
-  const instructions =
-    systemContents.length > 0 ? systemContents.join("\n") : undefined;
-
-  return { instructions, messages: filtered };
-}
-
-function getResponseApiContext(providerId: string, model: string) {
-  if (typeof window === "undefined") {
-    return {};
-  }
-
-  try {
-    const { useChatStore } = require("../store");
-    const chatStore = useChatStore.getState();
-    const session = chatStore.currentSession();
-
-    let previousResponseId = session.responseApiConversationId;
-
-    if (session.multiModelMode?.enabled) {
-      const modelKey = `${model}@${providerId}`;
-      const modelIds = session.multiModelMode.modelResponseApiConversationIds;
-      if (modelIds?.[modelKey]) {
-        previousResponseId = modelIds[modelKey];
-      }
-    }
-
-    return previousResponseId ? { previousResponseId } : {};
-  } catch (error) {
-    logger.warn("[Unified API] Failed to read Response API context:", error);
-    return {};
-  }
-}
-
 // 统一的聊天API
 export function unifiedChat(
   options: UnifiedChatOptions,
@@ -221,7 +174,6 @@ export function unifiedChat(
       stream = false,
       tools,
       systemPrompt,
-      useResponseApiContext = true,
       providerName: optionsProviderName,
       engine: _optionsEngine,
     } = options;
@@ -278,8 +230,6 @@ export function unifiedChat(
     let provider: ProviderLike | undefined = getAllProviders().find(
       (p) => p.id === providerId,
     );
-    let customProvider: any = null;
-
     if (
       !provider &&
       providerId.startsWith("custom_") &&
@@ -288,7 +238,7 @@ export function unifiedChat(
       try {
         const { useAccessStore } = require("../store/access");
         const accessStore = useAccessStore.getState();
-        customProvider = accessStore.customProviders.find(
+        const customProvider = accessStore.customProviders.find(
           (p: any) => p.id === providerId,
         );
         if (customProvider) {
@@ -321,25 +271,6 @@ export function unifiedChat(
       throw new Error(
         `Provider not found for model: ${model} (inferred provider: ${providerId})`,
       );
-    }
-
-    let useResponseApi = false;
-    if (typeof window !== "undefined") {
-      if (
-        customProvider?.type === "openai" &&
-        customProvider.config?.useResponseApi !== undefined
-      ) {
-        useResponseApi = customProvider.config.useResponseApi;
-      } else if (provider.storeKeys?.apiType) {
-        try {
-          const { useAccessStore } = require("../store");
-          const accessStore = useAccessStore.getState();
-          useResponseApi =
-            (accessStore as any)[provider.storeKeys.apiType] === "response";
-        } catch (error) {
-          logger.warn("[Unified API] Failed to read apiType:", error);
-        }
-      }
     }
 
     // 准备请求参数
@@ -386,43 +317,6 @@ export function unifiedChat(
     // 添加工具调用
     if (tools && tools.length > 0) {
       requestOptions.tools = tools;
-    }
-
-    if (useResponseApi) {
-      const { instructions, messages: filteredMessages } =
-        extractSystemInstructions(requestOptions.messages);
-      requestOptions.messages = filteredMessages;
-
-      const context = useResponseApiContext
-        ? (getResponseApiContext(providerId, model) as {
-            previousResponseId?: string;
-          })
-        : {};
-      const previousResponseId = context.previousResponseId;
-
-      if (previousResponseId) {
-        // When using previous_response_id, only send the latest user input.
-        for (let i = requestOptions.messages.length - 1; i >= 0; i -= 1) {
-          const message = requestOptions.messages[i];
-          if (message?.role === "user") {
-            requestOptions.messages = [message];
-            break;
-          }
-        }
-      }
-
-      if (instructions || previousResponseId) {
-        requestOptions.providerOptions = {
-          ...(requestOptions.providerOptions ?? {}),
-          openai: {
-            ...(requestOptions.providerOptions?.openai ?? {}),
-            ...(instructions
-              ? { instructions, systemMessageMode: "remove" }
-              : {}),
-            ...(previousResponseId ? { previousResponseId } : {}),
-          },
-        };
-      }
     }
 
     try {

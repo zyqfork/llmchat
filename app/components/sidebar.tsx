@@ -305,51 +305,33 @@ export function SideBar(props: { className?: string }) {
     if (await showConfirm(Locale.Home.DeleteAllChats)) {
       const sessions = chatStore.sessions;
       const currentSession = sessions[chatStore.currentSessionIndex];
+      const currentSessionId = currentSession?.id;
 
-      // 保存当前钉住会话的ID
-      const currentPinnedSessionId = currentSession?.pinned
-        ? currentSession.id
-        : null;
+      // 保留规则：所有钉住会话 + 当前正在使用的会话（即使未钉住）
+      const keptSessions = sessions.filter(
+        (session) => session.pinned || session.id === currentSessionId,
+      );
 
-      // 筛选出所有钉住的会话
-      const pinnedSessions = sessions.filter((s) => s.pinned);
-
-      // 如果有钉住的会话，只保留它们
-      if (pinnedSessions.length > 0) {
-        // 清理所有未钉住会话的未完成输入
-        sessions.forEach((session) => {
-          if (!session.pinned) {
-            try {
-              localStorage.removeItem(UNFINISHED_INPUT(session.id));
-            } catch (e) {
-              logger.error("Failed to remove unfinished input:", e);
-            }
+      // 清理被删除会话的未完成输入
+      sessions.forEach((session) => {
+        if (!keptSessions.some((kept) => kept.id === session.id)) {
+          try {
+            localStorage.removeItem(UNFINISHED_INPUT(session.id));
+          } catch (e) {
+            logger.error("Failed to remove unfinished input:", e);
           }
-        });
+        }
+      });
 
-        // 直接调用 store 的 update 方法来批量删除未钉住的会话
-        chatStore.update((state) => {
-          state.sessions = state.sessions.filter((s) => s.pinned);
+      chatStore.update((state) => {
+        state.sessions = keptSessions;
 
-          // 选择合适的会话索引
-          if (currentPinnedSessionId) {
-            // 如果当前打开的是钉住的会话，继续保持打开它
-            const currentPinnedIndex = state.sessions.findIndex(
-              (s) => s.id === currentPinnedSessionId,
-            );
-            state.currentSessionIndex =
-              currentPinnedIndex !== -1 ? currentPinnedIndex : 0;
-          } else {
-            // 如果当前打开的不是钉住的会话，选择第一个钉住的会话
-            state.currentSessionIndex = 0;
-          }
-        });
-        navigate(Path.Chat);
-      } else {
-        // 没有钉住的会话，清空所有并创建新会话
-        chatStore.clearSessions();
-        navigate(Path.Chat);
-      }
+        const activeIndex = state.sessions.findIndex(
+          (session) => session.id === currentSessionId,
+        );
+        state.currentSessionIndex = activeIndex >= 0 ? activeIndex : 0;
+      });
+      navigate(Path.Chat);
 
       showToast(Locale.Home.DeleteAllToast);
     }
