@@ -97,6 +97,10 @@ export function SingleMessage(props: SingleMessageProps) {
 
   const isUser = message.role === "user";
   const isCompressedContextMessage = !!message.isCompressedContextPrompt;
+  const showAvatarTyping =
+    !message?.tools?.length &&
+    !(message as any)?.mcpCalls?.length &&
+    showTyping;
   const [isCompressedExpanded, setIsCompressedExpanded] = useState(false);
 
   useEffect(() => {
@@ -114,7 +118,15 @@ export function SingleMessage(props: SingleMessageProps) {
       >
         <div className={styles["chat-message-container"]}>
           <div className={styles["chat-message-header"]}>
-            <div className={styles["chat-message-avatar"]}>
+            <div
+              className={[
+                styles["chat-message-avatar"],
+                showAvatarTyping ? styles["chat-message-avatar-typing"] : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              title={showAvatarTyping ? Locale.Chat.Typing : undefined}
+            >
               <div className={styles["chat-message-edit"]}>
                 <IconButton
                   icon={<EditIcon />}
@@ -191,7 +203,6 @@ export function SingleMessage(props: SingleMessageProps) {
                 )}
               </div>
             )}
-
             {showActions && (
               <div className={styles["chat-message-actions"]}>
                 <div className={styles["chat-input-actions"]}>
@@ -290,14 +301,6 @@ export function SingleMessage(props: SingleMessageProps) {
               </div>
             )}
           </div>
-
-          {!message?.tools?.length &&
-            !(message as any)?.mcpCalls?.length &&
-            showTyping && (
-              <div className={styles["chat-message-status"]}>
-                {Locale.Chat.Typing}
-              </div>
-            )}
 
           {(() => {
             const mcpCalls: any[] = (message as any).mcpCalls || [];

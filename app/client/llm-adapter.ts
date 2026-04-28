@@ -1,5 +1,6 @@
 import { logger } from "../utils/logger";
 import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
+import { fetch as tauriFetch, FetchType, isTauriApp } from "../utils/fetch";
 import { getAllProviders } from "../constant";
 import { useAccessStore } from "../store/access";
 import { resolvePiProviderId } from "./pi-provider-resolver";
@@ -37,6 +38,74 @@ const EMPTY_USAGE = {
 };
 
 const passthroughConvertToLlm = async (messages: any[]) => messages as any[];
+let originalFetch: typeof globalThis.fetch | null = null;
+let tauriFetchOverrideInstalled = false;
+const tauriFetchBaseUrls = new Set<string>();
+
+function getFetchUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
+function shouldRouteThroughTauriFetch(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  for (const baseUrl of tauriFetchBaseUrls) {
+    if (url.startsWith(baseUrl)) return true;
+  }
+  return false;
+}
+
+async function buildRequestInitForTauriFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<RequestInit | undefined> {
+  if (!(input instanceof Request)) return init;
+
+  const method = init?.method || input.method;
+  let body = init?.body;
+  if (
+    body === undefined &&
+    method !== "GET" &&
+    method !== "HEAD" &&
+    input.body
+  ) {
+    body = await input.clone().arrayBuffer();
+  }
+
+  return {
+    method,
+    headers: init?.headers || input.headers,
+    body,
+    signal: init?.signal || input.signal,
+  };
+}
+
+function installTauriFetchOverride(baseUrl?: string) {
+  if (typeof window === "undefined" || !isTauriApp()) {
+    return;
+  }
+
+  const normalizedBaseUrl = String(baseUrl || "").replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(normalizedBaseUrl)) {
+    tauriFetchBaseUrls.add(normalizedBaseUrl);
+  }
+
+  if (tauriFetchOverrideInstalled) return;
+
+  originalFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = getFetchUrl(input);
+    if (shouldRouteThroughTauriFetch(url)) {
+      const requestInit = await buildRequestInitForTauriFetch(input, init);
+      return tauriFetch(url, requestInit, FetchType.LLM);
+    }
+
+    return originalFetch!(input, init);
+  }) as typeof globalThis.fetch;
+  tauriFetchOverrideInstalled = true;
+  logger.debug("[LLM Adapter] Installed scoped Tauri fetch override for pi-ai");
+}
 
 function extractSystemPrompt(messages: any[]) {
   const systemChunks: string[] = [];
@@ -290,6 +359,10 @@ function getNormalizedProxyUrl(proxyUrl?: string): string | undefined {
 }
 
 function withProxyModel(model: any, cfg: any): any {
+  if (typeof window !== "undefined" && isTauriApp()) {
+    return model;
+  }
+
   const proxyUrl = getNormalizedProxyUrl(cfg?.proxyUrl);
   if (!proxyUrl || !cfg?.apiKey) {
     return model;
@@ -457,7 +530,10 @@ function buildPiStreamOptions(
   req: LLMAdapterRequest,
   cfg: any,
   debugCapture: DebugCapture,
+  requestModel: any,
 ) {
+  installTauriFetchOverride(requestModel?.baseUrl);
+
   return {
     temperature: req.options?.temperature,
     maxTokens: req.options?.maxTokens,
@@ -501,7 +577,12 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
   const normalizedTools =
     agentTools.length > 0 ? (agentTools as any) : undefined;
   const requestModel = withProxyModel(model, cfg);
-  const streamOptions = buildPiStreamOptions(req, cfg, debugCapture);
+  const streamOptions = buildPiStreamOptions(
+    req,
+    cfg,
+    debugCapture,
+    requestModel,
+  );
 
   return {
     context,
