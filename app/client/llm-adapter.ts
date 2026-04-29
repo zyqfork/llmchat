@@ -42,6 +42,30 @@ let originalFetch: typeof globalThis.fetch | null = null;
 let tauriFetchOverrideInstalled = false;
 const tauriFetchBaseUrls = new Set<string>();
 
+// Capture raw HTTP response body for non-OK responses so we can display
+// the original API error JSON to the user instead of the SDK-reformatted string.
+let _capturedErrorResponseBody: string | undefined;
+let _errorCaptureFetchInstalled = false;
+
+function installErrorCaptureFetch() {
+  if (typeof window === "undefined" || _errorCaptureFetchInstalled) return;
+  const prevFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    _capturedErrorResponseBody = undefined;
+    const response = await prevFetch(input, init);
+    if (!response.ok) {
+      try {
+        const cloned = response.clone();
+        _capturedErrorResponseBody = await cloned.text();
+      } catch {
+        _capturedErrorResponseBody = undefined;
+      }
+    }
+    return response;
+  }) as typeof globalThis.fetch;
+  _errorCaptureFetchInstalled = true;
+}
+
 function getFetchUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -490,7 +514,12 @@ async function* mapStreamParts(stream: any, toPart: (event: any) => any) {
   for await (const event of stream) {
     // Handle error events from the pi-ai SDK (e.g. HTTP 403, 429, etc.)
     if (event?.type === "error") {
+      // Prefer the raw response body captured at fetch level (original API JSON),
+      // fall back to the SDK-reformatted error message string.
+      const rawBody = _capturedErrorResponseBody;
+      _capturedErrorResponseBody = undefined;
       const errorMsg =
+        rawBody ||
         event?.error?.errorMessage ||
         event?.reason ||
         "Unknown streaming error from provider";
@@ -541,6 +570,7 @@ function buildPiStreamOptions(
   requestModel: any,
 ) {
   installTauriFetchOverride(requestModel?.baseUrl);
+  installErrorCaptureFetch();
 
   return {
     temperature: req.options?.temperature,

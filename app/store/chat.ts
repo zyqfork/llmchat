@@ -377,7 +377,10 @@ function isLikelyContextOverflowError(error: Error): boolean {
 }
 
 function formatChatErrorCodeBlock(message: string): string {
-  return `⚠️ ${message}`;
+  const content = (message || "").trim();
+  const lang =
+    content.startsWith("{") || content.startsWith("[") ? "json" : "text";
+  return `\`\`\`${lang}\n${content}\n\`\`\``;
 }
 
 function buildUserMessagesText(messages: ChatMessage[]) {
