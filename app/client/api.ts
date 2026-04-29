@@ -449,10 +449,8 @@ class UnifiedClientApi {
 
             options.onFinish(fullContent, mockResponse);
           } catch (streamError) {
-            logger.error(
-              "[Unified Client API] Stream processing error:",
-              streamError,
-            );
+            // Error is handled and displayed in the UI, no need to log to console
+
             options.onError?.(streamError as Error);
           }
         } else {
@@ -479,7 +477,7 @@ class UnifiedClientApi {
         );
       }
     } catch (error) {
-      logger.error("[Unified Client API] Chat failed:", error);
+      // Error is handled and displayed in the UI, no need to log to console
       options.onError?.(error as Error);
     }
   }

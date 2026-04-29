@@ -119,14 +119,9 @@ export function ProviderTooltip({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(Path.Settings);
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("switchToModelService", {
-          detail: { provider: providerName },
-        }),
-      );
-    }, 100);
+    navigate(Path.Settings, {
+      state: { switchToModelService: true, provider: providerName },
+    });
   };
 
   const getTooltipContent = () => {

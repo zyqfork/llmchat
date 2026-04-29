@@ -84,7 +84,7 @@ import {
 import { Prompt, SearchService, usePromptStore } from "../store/prompt";
 import { ErrorBoundary } from "./error";
 import { InputRange } from "./input-range";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarPicker } from "./emoji";
 import { getClientConfig } from "../config/client";
 import { useSyncStore } from "../store/sync";
@@ -1683,6 +1683,7 @@ function MaskManageSection() {
 
 export function Settings() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSystemEmojiPicker, setShowSystemEmojiPicker] = useState(false);
   const [showAssistantEmojiPicker, setShowAssistantEmojiPicker] =
@@ -1702,17 +1703,19 @@ export function Settings() {
 
   // 监听从聊天页面跳转到模型服务配置的事件
   useEffect(() => {
-    const handleSwitchToModelService = (event: CustomEvent) => {
-      const provider = event.detail?.provider;
+    // 兼容通过 React Router state 传参的方式（更可靠，解决了首次加载时事件丢失的问题）
+    if (location.state?.switchToModelService) {
+      const provider = location.state.provider;
+
+      // 清除 state，防止刷新页面再次触发
+      window.history.replaceState({}, document.title);
 
       // 切换到模型服务标签
       setCurrentTab(SettingsTab.ModelService);
 
       if (provider) {
-        logger.debug("Switch to provider config:", provider);
+        logger.debug("Switch to provider config via router state:", provider);
 
-        // 自动展开该厂商的配置（同时处理标准厂商和自定义厂商）
-        // 使用setTimeout确保在标签切换后再展开
         setTimeout(() => {
           setCollapsedProviders((prev) => ({
             ...prev,
@@ -1725,7 +1728,6 @@ export function Settings() {
           }));
         }, 50);
 
-        // 等待展开动画完成后再滚动定位
         setTimeout(() => {
           const providerElement = document.querySelector(
             `[data-provider="${provider}"]`,
@@ -1737,13 +1739,11 @@ export function Settings() {
               block: "start",
             });
 
-            // 添加高亮效果
             providerElement.classList.add(styles["provider-highlight"]);
             setTimeout(() => {
               providerElement.classList.remove(styles["provider-highlight"]);
             }, 1000);
           } else {
-            // 如果第一次没找到，再延迟一次尝试
             setTimeout(() => {
               const retryElement = document.querySelector(
                 `[data-provider="${provider}"]`,
@@ -1761,7 +1761,66 @@ export function Settings() {
               }
             }, 200);
           }
-        }, 400); // 增加延迟，等待展开动画完成
+        }, 400);
+      }
+      return; // 如果处理了 state，就不需要继续注册下面（废弃）的监听器了
+    }
+
+    // 兼容原有的 CustomEvent 方式
+    const handleSwitchToModelService = (event: CustomEvent) => {
+      const provider = event.detail?.provider;
+
+      setCurrentTab(SettingsTab.ModelService);
+
+      if (provider) {
+        logger.debug("Switch to provider config via event:", provider);
+
+        setTimeout(() => {
+          setCollapsedProviders((prev) => ({
+            ...prev,
+            [provider]: false,
+          }));
+
+          setCollapsedCustomProviders((prev) => ({
+            ...prev,
+            [provider]: false,
+          }));
+        }, 50);
+
+        setTimeout(() => {
+          const providerElement = document.querySelector(
+            `[data-provider="${provider}"]`,
+          );
+
+          if (providerElement) {
+            providerElement.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+
+            providerElement.classList.add(styles["provider-highlight"]);
+            setTimeout(() => {
+              providerElement.classList.remove(styles["provider-highlight"]);
+            }, 1000);
+          } else {
+            setTimeout(() => {
+              const retryElement = document.querySelector(
+                `[data-provider="${provider}"]`,
+              );
+              if (retryElement) {
+                retryElement.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+
+                retryElement.classList.add(styles["provider-highlight"]);
+                setTimeout(() => {
+                  retryElement.classList.remove(styles["provider-highlight"]);
+                }, 1000);
+              }
+            }, 200);
+          }
+        }, 400);
       }
     };
 
@@ -1776,7 +1835,7 @@ export function Settings() {
         handleSwitchToModelService as EventListener,
       );
     };
-  }, []);
+  }, [location.state]);
 
   function checkUpdate(force = false) {
     setCheckingUpdate(true);
