@@ -12,6 +12,7 @@ import DeleteIcon from "../../icons/clear.svg";
 import PinIcon from "../../icons/pin.svg";
 import DebugIcon from "../../icons/debug.svg";
 import StopIcon from "../../icons/pause.svg";
+import ArrowIcon from "../../icons/arrow.svg";
 import Locale from "../../locales";
 import { ChatMessage, ChatSession } from "../../store";
 import {
@@ -439,29 +440,23 @@ export function SingleMessage(props: SingleMessageProps) {
                   }
                   onClick={() => setIsCompressedExpanded((v) => !v)}
                 >
-                  <span className={styles["compressed-context-marker"]}>
-                    {Locale.Context.CompressedTag}
-                  </span>
-                  <span className={styles["compressed-context-title"]}>
-                    {Locale.Context.Compressed}
-                  </span>
-                  <span className={styles["compressed-context-action"]}>
-                    {isCompressedExpanded
-                      ? Locale.Context.Collapse
-                      : Locale.Context.Expand}
-                  </span>
                   <span
                     className={[
-                      styles["compressed-context-toggle-arrow"],
+                      styles["compressed-context-toggle-left-arrow"],
                       isCompressedExpanded
-                        ? styles["compressed-context-toggle-arrow-expanded"]
+                        ? styles[
+                            "compressed-context-toggle-left-arrow-expanded"
+                          ]
                         : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     aria-hidden="true"
                   >
-                    ▾
+                    <ArrowIcon />
+                  </span>
+                  <span className={styles["compressed-context-title"]}>
+                    {Locale.Context.Compressed}
                   </span>
                 </button>
                 {isCompressedExpanded && (

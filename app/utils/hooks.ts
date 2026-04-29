@@ -156,6 +156,43 @@ export function useEnabledModels() {
         }
       });
 
+      // 添加手动自定义模型（来自 customModels 配置）
+      const manualCustomModels = allBaseModels.filter((model) => {
+        if (!providerEnabledModels.includes(model.name)) return false;
+        if (!model.provider) return false;
+        const modelProviderId = (model.provider.id || "").toLowerCase();
+        const modelProviderName = (
+          model.provider.providerName || ""
+        ).toLowerCase();
+        const currentProviderId = provider.id.toLowerCase();
+        return (
+          modelProviderId === currentProviderId ||
+          modelProviderName === currentProviderId
+        );
+      });
+
+      manualCustomModels.forEach((customModel) => {
+        const exists = result.some(
+          (existingModel) =>
+            existingModel.name === customModel.name &&
+            existingModel.provider?.id === provider.id,
+        );
+
+        if (!exists) {
+          result.push({
+            ...customModel,
+            available: true,
+            displayName: customModel.displayName || customModel.name,
+            provider: {
+              id: provider.id,
+              providerName: provider.name,
+              providerType: provider.type,
+              sorted: 1000 + provider.created,
+            },
+          } as LLMModel);
+        }
+      });
+
       // 添加从API获取的自定义服务商模型
       const apiModels = apiModelsCache[provider.id] || [];
       apiModels.forEach((apiModel) => {

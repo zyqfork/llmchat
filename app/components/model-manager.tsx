@@ -253,6 +253,20 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         return model.provider.providerName === providerName;
       });
 
+      // 过滤出当前自定义服务商下的手动添加模型
+      const customProviderManualModels = allModels.filter((model) => {
+        if (!model.provider) return false;
+        const modelProviderId = (model.provider.id || "").toLowerCase();
+        const modelProviderName = (
+          model.provider.providerName || ""
+        ).toLowerCase();
+        const currentProviderId = (provider as string).toLowerCase();
+        return (
+          modelProviderId === currentProviderId ||
+          modelProviderName === currentProviderId
+        );
+      });
+
       // 为自定义服务商创建模型副本，使用自定义服务商的ID
       const customProviderModels = baseModels.map((model) => ({
         ...model,
@@ -265,9 +279,13 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
 
       // 如果有API模型，合并API模型和自定义模型
       if (apiModels.length > 0) {
-        // 合并API模型和自定义模型，去重
+        // 合并API模型、基础模型和手动添加模型，去重
         const modelMap = new Map();
-        [...apiModels, ...customProviderModels].forEach((model) => {
+        [
+          ...apiModels,
+          ...customProviderModels,
+          ...customProviderManualModels,
+        ].forEach((model) => {
           const key = `${model.name}@${model.provider?.id}`;
           if (!modelMap.has(key)) {
             modelMap.set(key, model);
@@ -278,8 +296,20 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
         return mergedModels;
       }
 
-      logger.debug("[ModelManager] 自定义服务商模型:", customProviderModels);
-      return customProviderModels;
+      // 没有API模型时，也要包含手动添加模型
+      const modelMap = new Map();
+      [...customProviderModels, ...customProviderManualModels].forEach(
+        (model) => {
+          const key = `${model.name}@${model.provider?.id}`;
+          if (!modelMap.has(key)) {
+            modelMap.set(key, model);
+          }
+        },
+      );
+
+      const mergedModels = Array.from(modelMap.values());
+      logger.debug("[ModelManager] 自定义服务商模型:", mergedModels);
+      return mergedModels;
     } else {
       // 内置服务商的原有逻辑
       const defaultModels = DEFAULT_MODELS.filter(
