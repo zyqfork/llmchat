@@ -378,9 +378,20 @@ function isLikelyContextOverflowError(error: Error): boolean {
 
 function formatChatErrorCodeBlock(message: string): string {
   const content = (message || "").trim();
-  const lang =
-    content.startsWith("{") || content.startsWith("[") ? "json" : "text";
-  return `\`\`\`${lang}\n${content}\n\`\`\``;
+  try {
+    const obj = JSON.parse(content);
+    const errorMsg =
+      obj.error?.message ||
+      obj.message ||
+      (typeof obj.error === "string" ? obj.error : null);
+    if (errorMsg) {
+      return `⚠️ **${errorMsg}**\n\n${prettyObject(obj)}`;
+    }
+    return prettyObject(obj);
+  } catch {
+    // Not a JSON, return as plain text with warning icon
+  }
+  return `⚠️ ${content}`;
 }
 
 function buildUserMessagesText(messages: ChatMessage[]) {
@@ -1175,6 +1186,7 @@ export const useChatStore = createPersistStore(
               ? `${botMessage.content}\n\n${errorText}`
               : errorText;
             botMessage.streaming = false;
+            botMessage.debug = (error as any).debug;
             userMessage.isError = !isAborted;
             botMessage.isError = !isAborted;
             get().updateTargetSession(session, (session) => {

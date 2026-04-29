@@ -6,7 +6,11 @@ import {
   getAllProviders,
 } from "../constant";
 import { ChatMessageTool, useAccessStore, useChatStore } from "../store";
-import { generateText, streamText } from "./llm-adapter";
+import {
+  generateText,
+  streamText,
+  getLastErrorDebugCapture,
+} from "./llm-adapter";
 import { findPiProviderByModel } from "../utils/pi-catalog";
 import { logger } from "../utils/logger";
 import { ModelSize, ROLES } from "../typing";
@@ -290,6 +294,7 @@ function resolveProviderIdFromEnabledOrCatalog(model: string): string {
  */
 class UnifiedClientApi {
   async chat(options: ChatOptions): Promise<void> {
+    const debugCapture: any = {};
     try {
       const requestOptions = {
         messages: options.messages,
@@ -313,6 +318,7 @@ class UnifiedClientApi {
           providerId,
           model: requestOptions.model,
           options: requestOptions,
+          debugCapture,
         });
 
         if (streamResult?.fullStream) {
@@ -448,8 +454,36 @@ class UnifiedClientApi {
             );
 
             options.onFinish(fullContent, mockResponse);
-          } catch (streamError) {
+          } catch (streamError: any) {
             // Error is handled and displayed in the UI, no need to log to console
+
+            // Attach debug info to the error so the UI can show it in the debug panel.
+            // onResponse is NOT called by the OpenAI SDK when an HTTP error occurs
+            // (it throws before the hook fires), so we fall back to the fetch-level
+            // interceptor which captured the URL, status and body at a lower layer.
+            const fetchCapture = getLastErrorDebugCapture();
+            const responseDebug =
+              debugCapture.response ||
+              (fetchCapture.status
+                ? {
+                    status: fetchCapture.status,
+                    body: fetchCapture.body,
+                    headers: {},
+                  }
+                : undefined);
+            const requestDebug = debugCapture.request
+              ? {
+                  ...debugCapture.request,
+                  url: fetchCapture.url || debugCapture.request.url,
+                }
+              : undefined;
+
+            if (requestDebug || responseDebug) {
+              streamError.debug = {
+                request: requestDebug,
+                response: responseDebug,
+              };
+            }
 
             options.onError?.(streamError as Error);
           }
@@ -464,6 +498,7 @@ class UnifiedClientApi {
           providerId,
           model: requestOptions.model,
           options: requestOptions,
+          debugCapture,
         });
         const content = result?.text || "";
         options.onUpdate?.(content, content);
@@ -476,8 +511,28 @@ class UnifiedClientApi {
           ),
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       // Error is handled and displayed in the UI, no need to log to console
+      const fetchCapture = getLastErrorDebugCapture();
+      const responseDebug =
+        debugCapture.response ||
+        (fetchCapture.status
+          ? {
+              status: fetchCapture.status,
+              body: fetchCapture.body,
+              headers: {},
+            }
+          : undefined);
+      const requestDebug = debugCapture.request
+        ? {
+            ...debugCapture.request,
+            url: fetchCapture.url || debugCapture.request.url,
+          }
+        : undefined;
+
+      if (requestDebug || responseDebug) {
+        error.debug = { request: requestDebug, response: responseDebug };
+      }
       options.onError?.(error as Error);
     }
   }

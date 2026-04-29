@@ -12,6 +12,7 @@ export interface LLMAdapterRequest {
   providerId: string;
   model: string;
   options: any;
+  debugCapture?: any;
 }
 
 type DebugCapture = {
@@ -42,24 +43,42 @@ let originalFetch: typeof globalThis.fetch | null = null;
 let tauriFetchOverrideInstalled = false;
 const tauriFetchBaseUrls = new Set<string>();
 
-// Capture raw HTTP response body for non-OK responses so we can display
-// the original API error JSON to the user instead of the SDK-reformatted string.
-let _capturedErrorResponseBody: string | undefined;
+// Capture raw HTTP request URL and response body for non-OK responses
+// so we can display useful debug info even when the SDK throws before onResponse fires.
+type ErrorDebugCapture = {
+  url?: string;
+  status?: number;
+  body?: string;
+};
+let _lastErrorDebug: ErrorDebugCapture = {};
 let _errorCaptureFetchInstalled = false;
+
+export function getLastErrorDebugCapture(): ErrorDebugCapture {
+  return _lastErrorDebug;
+}
 
 function installErrorCaptureFetch() {
   if (typeof window === "undefined" || _errorCaptureFetchInstalled) return;
   const prevFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    _capturedErrorResponseBody = undefined;
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+    _lastErrorDebug = { url };
     const response = await prevFetch(input, init);
     if (!response.ok) {
+      _lastErrorDebug.status = response.status;
       try {
         const cloned = response.clone();
-        _capturedErrorResponseBody = await cloned.text();
+        _lastErrorDebug.body = await cloned.text();
       } catch {
-        _capturedErrorResponseBody = undefined;
+        // ignore
       }
+    } else {
+      _lastErrorDebug = {};
     }
     return response;
   }) as typeof globalThis.fetch;
@@ -516,8 +535,8 @@ async function* mapStreamParts(stream: any, toPart: (event: any) => any) {
     if (event?.type === "error") {
       // Prefer the raw response body captured at fetch level (original API JSON),
       // fall back to the SDK-reformatted error message string.
-      const rawBody = _capturedErrorResponseBody;
-      _capturedErrorResponseBody = undefined;
+      const errorCapture = getLastErrorDebugCapture();
+      const rawBody = errorCapture.body;
       const errorMsg =
         rawBody ||
         event?.error?.errorMessage ||
@@ -578,20 +597,45 @@ function buildPiStreamOptions(
     signal: req.options?.abortSignal,
     apiKey: cfg.apiKey,
     onPayload: (payload: any, usedModel: any) => {
+      // Use the URL captured by the fetch interceptor if available (it has the full path).
+      // Fall back to the model's base URL if the interceptor hasn't fired yet.
+      const errorCapture = getLastErrorDebugCapture();
       debugCapture.request = {
-        url: usedModel.baseUrl,
+        url: errorCapture.url || usedModel.baseUrl,
         method: "POST",
         body: payload,
       };
       return undefined;
     },
     onResponse: (response: any) => {
-      const capturedResponse: NonNullable<DebugCapture["response"]> = {
-        status: response.status,
-        headers: response.headers,
-        body: (response as any)?.__tauriDebugBody,
+      // onResponse fires only when the SDK successfully receives a response header.
+      // For error responses (e.g. 403), the OpenAI SDK may throw BEFORE this hook
+      // fires. In that case, we fall back to _lastErrorDebug captured by the fetch
+      // interceptor, which operates at a lower level.
+      const tauriBody = (response as any)?.__tauriDebugBody;
+      const errorCapture = getLastErrorDebugCapture();
+
+      const body = tauriBody || errorCapture.body || undefined;
+
+      const headers: Record<string, string> = {};
+      try {
+        if (
+          response.headers &&
+          typeof response.headers.forEach === "function"
+        ) {
+          response.headers.forEach((v: string, k: string) => (headers[k] = v));
+        } else if (response.headers) {
+          Object.assign(headers, response.headers);
+        }
+      } catch (e) {
+        // Ignore header extraction errors
+      }
+
+      debugCapture.response = {
+        status: response.status ?? errorCapture.status,
+        headers,
+        body,
       };
-      debugCapture.response = capturedResponse;
     },
   };
 }
@@ -607,7 +651,7 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
     );
   }
 
-  const debugCapture: DebugCapture = {};
+  const debugCapture: DebugCapture = req.debugCapture || {};
   const context = toPiContext(req.options?.messages ?? []);
   const openAiTools = Array.isArray(req.options?.tools)
     ? req.options.tools
