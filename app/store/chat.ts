@@ -377,10 +377,7 @@ function isLikelyContextOverflowError(error: Error): boolean {
 }
 
 function formatChatErrorCodeBlock(message: string): string {
-  return `\`\`\`json\n${prettyObject({
-    error: true,
-    message,
-  })}\n\`\`\``;
+  return `⚠️ ${message}`;
 }
 
 function buildUserMessagesText(messages: ChatMessage[]) {
@@ -1166,15 +1163,33 @@ export const useChatStore = createPersistStore(
             const isAborted = error.message?.includes?.("aborted");
             const isOverflow =
               !isAborted && isLikelyContextOverflowError(error);
-            botMessage.content += `\n\n${formatChatErrorCodeBlock(
+            const errorText = formatChatErrorCodeBlock(
               isOverflow
                 ? `${error.message}\n\n检测到上下文超限，已触发自动上下文压缩。请重试。`
                 : error.message,
-            )}`;
+            );
+            botMessage.content = botMessage.content
+              ? `${botMessage.content}\n\n${errorText}`
+              : errorText;
             botMessage.streaming = false;
             userMessage.isError = !isAborted;
             botMessage.isError = !isAborted;
             get().updateTargetSession(session, (session) => {
+              const messageIndex = session.messages.findIndex(
+                (m) => m.id === botMessage.id,
+              );
+              if (messageIndex >= 0) {
+                session.messages[messageIndex] = { ...botMessage };
+              }
+              const userMessageIndex = session.messages.findIndex(
+                (m) => m.id === userMessage.id,
+              );
+              if (userMessageIndex >= 0) {
+                session.messages[userMessageIndex] = {
+                  ...session.messages[userMessageIndex],
+                  isError: !isAborted,
+                };
+              }
               session.messages = session.messages.concat();
             });
 

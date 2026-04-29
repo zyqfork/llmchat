@@ -488,6 +488,14 @@ async function* toUnifiedAgentStream(agentStream: any) {
 
 async function* mapStreamParts(stream: any, toPart: (event: any) => any) {
   for await (const event of stream) {
+    // Handle error events from the pi-ai SDK (e.g. HTTP 403, 429, etc.)
+    if (event?.type === "error") {
+      const errorMsg =
+        event?.error?.errorMessage ||
+        event?.reason ||
+        "Unknown streaming error from provider";
+      throw new Error(errorMsg);
+    }
     const part = toPart(event);
     if (part) yield part;
   }
