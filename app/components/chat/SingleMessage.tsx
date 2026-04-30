@@ -34,6 +34,8 @@ import { ChatAction } from "./ChatAction";
 import { LLMMessageContent } from "./LLMMessageContent";
 import { ClearContextDivider } from "./ClearContextDivider";
 import { CompressedContextDivider } from "./CompressedContextDivider";
+import { ModelConfigModal } from "../model-config-modal";
+import { saveCustomContextTokens } from "../../config/model-config";
 
 type ChatMessageWithPreview = ChatMessage & { preview?: boolean };
 
@@ -103,12 +105,24 @@ export function SingleMessage(props: SingleMessageProps) {
     !(message as any)?.mcpCalls?.length &&
     showTyping;
   const [isCompressedExpanded, setIsCompressedExpanded] = useState(false);
+  const [showModelConfigModal, setShowModelConfigModal] = useState(false);
+
+  const resolvedModelName = message.model || session.mask.modelConfig.model;
+  const resolvedProvider =
+    message.modelKey?.split("@")[1] ||
+    session.mask.modelConfig.providerName ||
+    "OpenAI";
+  const canQuickConfigModel = !isContext && message.role === "assistant";
 
   useEffect(() => {
     if (isCompressedContextMessage) {
       setIsCompressedExpanded(false);
     }
   }, [isCompressedContextMessage, message.id]);
+
+  useEffect(() => {
+    setShowModelConfigModal(false);
+  }, [message.id]);
 
   return (
     <Fragment key={message.id}>
@@ -171,7 +185,18 @@ export function SingleMessage(props: SingleMessageProps) {
                   </span>
                 ) : message.isMultiModel && message.modelKey ? (
                   <>
-                    {message.model || session.mask.modelConfig.model}
+                    {canQuickConfigModel ? (
+                      <button
+                        type="button"
+                        className={styles["chat-model-name-trigger"]}
+                        onClick={() => setShowModelConfigModal(true)}
+                        title="配置该模型"
+                      >
+                        {resolvedModelName}
+                      </button>
+                    ) : (
+                      resolvedModelName
+                    )}
                     <ProviderTooltip
                       providerName={message.modelKey.split("@")[1]}
                     >
@@ -186,7 +211,18 @@ export function SingleMessage(props: SingleMessageProps) {
                   </>
                 ) : (
                   <>
-                    {message.model || session.mask.modelConfig.model}
+                    {canQuickConfigModel ? (
+                      <button
+                        type="button"
+                        className={styles["chat-model-name-trigger"]}
+                        onClick={() => setShowModelConfigModal(true)}
+                        title="配置该模型"
+                      >
+                        {resolvedModelName}
+                      </button>
+                    ) : (
+                      resolvedModelName
+                    )}
                     <ProviderTooltip
                       providerName={
                         session.mask.modelConfig.providerName || "OpenAI"
@@ -600,6 +636,27 @@ export function SingleMessage(props: SingleMessageProps) {
         shouldShowCompressingContextDivider) && (
         <CompressedContextDivider
           loading={shouldShowCompressingContextDivider}
+        />
+      )}
+      {showModelConfigModal && (
+        <ModelConfigModal
+          modelName={resolvedModelName}
+          provider={resolvedProvider}
+          showCategory={false}
+          onSave={(config) => {
+            const capabilitiesKey = `model_capabilities_${resolvedModelName}`;
+            localStorage.setItem(
+              capabilitiesKey,
+              JSON.stringify(config.capabilities),
+            );
+
+            if (config.contextTokens !== undefined) {
+              saveCustomContextTokens(resolvedModelName, config.contextTokens);
+            }
+
+            setShowModelConfigModal(false);
+          }}
+          onClose={() => setShowModelConfigModal(false)}
         />
       )}
     </Fragment>

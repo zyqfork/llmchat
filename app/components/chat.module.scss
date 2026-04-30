@@ -751,6 +751,28 @@
     gap: 4px;
   }
 
+  .chat-model-name-trigger {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: none;
+    position: relative;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+  }
+
   .chat-model-provider {
     font-size: 10px;
     background: var(--primary);
