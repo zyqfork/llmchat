@@ -31,7 +31,7 @@ export interface SummaryExecutionParams {
   model: string;
   providerName: string;
   onUpdate: (filteredMessage: string) => void;
-  onSuccess: (finalMessage: string, responseStatus?: number) => boolean;
+  onSuccess: (finalMessage: string, responseRes: Response) => boolean;
   onFailure: (responseStatus?: number) => void;
   onError: (error: Error) => void;
   sanitizeMessage: (message: string) => string;
@@ -78,7 +78,7 @@ export async function executeSummaryStream(
       onFinish(message: string, responseRes: Response) {
         const finalMessage = params.sanitizeMessage(message) || message;
         if (responseRes?.status === 200) {
-          const ok = params.onSuccess(finalMessage, responseRes?.status);
+          const ok = params.onSuccess(finalMessage, responseRes);
           resolveOnce(ok);
           return;
         }

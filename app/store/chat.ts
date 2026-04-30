@@ -2243,7 +2243,7 @@ export const useChatStore = createPersistStore(
                 }
               });
             },
-            onSuccess: (filteredMessage) => {
+            onSuccess: (filteredMessage, responseRes) => {
               const candidateSummary = (filteredMessage || "").trim();
               const candidateLength = estimateTokenLength(candidateSummary);
               const tooLong =
@@ -2273,6 +2273,16 @@ export const useChatStore = createPersistStore(
                 });
               }
 
+              const reqDebug = (responseRes as any)?.__requestDebug;
+              const respHeaders: Record<string, string> = {};
+              try {
+                responseRes?.headers?.forEach?.((v, k) => {
+                  respHeaders[k] = v as string;
+                });
+              } catch {
+                /* ignore */
+              }
+
               get().updateTargetSession(session, (s) => {
                 s.mask.modelConfig.sendMemory = true;
                 s.lastSummarizeIndex = compactionContext.lastSummarizeIndex;
@@ -2284,6 +2294,15 @@ export const useChatStore = createPersistStore(
                   target.content = appliedSummary;
                   target.streaming = false;
                   target.isCompressedContextPrompt = true;
+                  target.debug = {
+                    request: reqDebug,
+                    response: {
+                      status: responseRes?.status,
+                      headers: respHeaders,
+                      body:
+                        (responseRes as any)?.__responseBody ?? filteredMessage,
+                    },
+                  };
                   const summaryIndex = s.messages.findIndex(
                     (m) => m.id === compactionContext.compressedMessageId,
                   );
