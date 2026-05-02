@@ -53,7 +53,7 @@ type SingleMessageProps = {
   config: any;
   fontSize: number;
   fontFamily: string;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   totalMessages: number;
   speechStatus: any;
   onEditMessage: (message: ChatMessageWithPreview) => Promise<void>;

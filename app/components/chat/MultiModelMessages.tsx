@@ -35,7 +35,7 @@ type MultiModelMessagesProps = {
   accessStore: any;
   fontSize: number;
   fontFamily: string;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   onUserStop: (messageId: string) => void;
   onResend: (message: ChatMessage) => void;
   renderSingleMessage: (

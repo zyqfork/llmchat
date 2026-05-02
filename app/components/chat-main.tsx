@@ -92,6 +92,7 @@ import { uploadImageAsBase64 } from "@/app/utils/chat";
 import dynamic from "next/dynamic";
 
 import { ChatControllerPool } from "../client/controller";
+import { markdownToTxt } from "markdown-to-txt";
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { usePromptStore } from "../store/prompt";
 import Locale from "../locales";
@@ -774,7 +775,6 @@ export function ChatMain() {
       setSpeechLoading(true);
       ttsPlayer.init();
       let audioBuffer: ArrayBuffer;
-      const { markdownToTxt } = require("markdown-to-txt");
       const textContent = markdownToTxt(text);
 
       if (config.ttsConfig.engine !== DEFAULT_TTS_ENGINE) {

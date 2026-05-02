@@ -98,29 +98,33 @@ async function handleRequest(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { provider: string; path: string[] } },
+  context: { params: Promise<{ provider: string; path: string[] }> },
 ) {
+  const params = await context.params;
   return handleRequest(req, params, "GET");
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { provider: string; path: string[] } },
+  context: { params: Promise<{ provider: string; path: string[] }> },
 ) {
+  const params = await context.params;
   return handleRequest(req, params, "POST");
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { provider: string; path: string[] } },
+  context: { params: Promise<{ provider: string; path: string[] }> },
 ) {
+  const params = await context.params;
   return handleRequest(req, params, "PUT");
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { provider: string; path: string[] } },
+  context: { params: Promise<{ provider: string; path: string[] }> },
 ) {
+  const params = await context.params;
   return handleRequest(req, params, "DELETE");
 }
 

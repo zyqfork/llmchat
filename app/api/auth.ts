@@ -8,14 +8,14 @@ import {
 import { logger } from "../utils/logger";
 
 function getIP(req: NextRequest) {
-  let ip = req.ip ?? req.headers.get("x-real-ip");
+  let ip = req.headers.get("x-real-ip");
   const forwardedFor = req.headers.get("x-forwarded-for");
 
   if (!ip && forwardedFor) {
-    ip = forwardedFor.split(",").at(0) ?? "";
+    ip = forwardedFor.split(",").at(0)?.trim() ?? null;
   }
 
-  return ip;
+  return ip ?? "";
 }
 
 function parseApiKey(bearToken: string) {

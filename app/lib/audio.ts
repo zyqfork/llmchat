@@ -1,7 +1,7 @@
 export class AudioHandler {
   private context: AudioContext;
   private mergeNode: ChannelMergerNode;
-  private analyserData: Uint8Array;
+  private analyserData: Uint8Array<ArrayBuffer>;
   public analyser: AnalyserNode;
   private workletNode: AudioWorkletNode | null = null;
   private stream: MediaStream | null = null;
@@ -19,7 +19,9 @@ export class AudioHandler {
     // using ChannelMergerNode to get merged audio data, and then get analyser data.
     this.mergeNode = new ChannelMergerNode(this.context, { numberOfInputs: 2 });
     this.analyser = new AnalyserNode(this.context, { fftSize: 256 });
-    this.analyserData = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyserData = new Uint8Array(
+      new ArrayBuffer(this.analyser.frequencyBinCount),
+    );
     this.mergeNode.connect(this.analyser);
   }
 

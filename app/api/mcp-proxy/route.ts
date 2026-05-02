@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/app/utils/logger";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const dynamic = "force-static";
 
 export async function GET(req: NextRequest) {
   return handleMCPProxy(req);

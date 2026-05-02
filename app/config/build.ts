@@ -1,5 +1,4 @@
 import tauriConfig from "../../src-tauri/tauri.conf.json";
-import { DEFAULT_INPUT_TEMPLATE } from "../constant";
 
 export const getBuildConfig = () => {
   if (typeof process === "undefined") {
@@ -13,34 +12,19 @@ export const getBuildConfig = () => {
   // Tauri 2.x: version is at root level
   const version = "v" + (tauriConfig.version || "0.0.0");
 
-  const commitInfo = (() => {
-    try {
-      const childProcess = require("child_process");
-      const commitDate: string = childProcess
-        .execSync('git log -1 --format="%at000" --date=unix')
-        .toString()
-        .trim();
-      const commitHash: string = childProcess
-        .execSync('git log --pretty=format:"%H" -n 1')
-        .toString()
-        .trim();
-
-      return { commitDate, commitHash };
-    } catch (e) {
-      // 静默处理，不需要日志
-      return {
-        commitDate: "unknown",
-        commitHash: "unknown",
-      };
-    }
-  })();
+  // Turbopack export mode does not support dynamic require-based module loading.
+  // Allow CI to inject these via environment variables and keep deterministic fallback.
+  const commitInfo = {
+    commitDate: process.env.BUILD_COMMIT_DATE || "unknown",
+    commitHash: process.env.BUILD_COMMIT_HASH || "unknown",
+  };
 
   return {
     version,
     ...commitInfo,
     buildMode,
     isApp,
-    template: DEFAULT_INPUT_TEMPLATE,
+    template: "{{input}}",
   };
 };
 

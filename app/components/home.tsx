@@ -1,6 +1,6 @@
 "use client";
 
-require("../polyfill");
+import "../polyfill";
 
 import { useEffect, useState } from "react";
 import styles from "./home.module.scss";
@@ -28,9 +28,11 @@ import { AuthPage } from "./auth";
 import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
 import { useAccessStore } from "../store";
+import { useChatStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem } from "../mcp/actions.client";
 import { logger } from "../utils/logger";
+import { ChatControllerPool } from "../client/controller";
 
 export function Loading(props: { noLogo?: boolean }) {
   return (
@@ -340,11 +342,9 @@ export function Home() {
     initMcp();
 
     // 清理孤立的未完成输入数据
-    const { useChatStore } = require("../store");
     useChatStore.getState().cleanOrphanedUnfinishedInputs();
 
     // 定期清理过期的网络请求控制器，防止内存泄漏
-    const { ChatControllerPool } = require("../client/controller");
     const cleanupInterval = setInterval(
       () => {
         ChatControllerPool.cleanupExpiredControllers();

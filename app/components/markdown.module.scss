@@ -1,85 +1,81 @@
 .search-collapse {
-  :global {
-    .ant-collapse-item {
-      border: var(--border-in-light) !important;
-      border-radius: 12px !important;
-      background-color: var(--white) !important;
-      margin-bottom: 10px !important;
-      box-shadow: var(--card-shadow) !important;
-      transition: all 0.2s ease !important;
+  :global(.ant-collapse-item) {
+    border: var(--border-in-light) !important;
+    border-radius: 12px !important;
+    background-color: var(--white) !important;
+    margin-bottom: 10px !important;
+    box-shadow: var(--card-shadow) !important;
+    transition: all 0.2s ease !important;
+  }
 
-      &:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-      }
-    }
+  :global(.ant-collapse-item:hover) {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  }
 
-    .ant-collapse-header {
-      color: var(--black) !important;
-      font-weight: 600 !important;
-      font-size: 14px !important;
-      padding: 10px 16px !important;
-      align-items: center !important;
-      transition: all 0.2s ease !important;
-      border-radius: 12px !important;
+  :global(.ant-collapse-header) {
+    color: var(--black) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    padding: 10px 16px !important;
+    align-items: center !important;
+    transition: all 0.2s ease !important;
+    border-radius: 12px !important;
+  }
 
-      &:hover {
-        background-color: var(--gray-50) !important;
-      }
+  :global(.ant-collapse-header:hover) {
+    background-color: var(--gray-50) !important;
+  }
 
-      .ant-collapse-expand-icon {
-        color: var(--primary) !important;
-        transition: transform 0.2s ease !important;
-      }
-    }
+  :global(.ant-collapse-header .ant-collapse-expand-icon) {
+    color: var(--primary) !important;
+    transition: transform 0.2s ease !important;
+  }
 
-    .ant-collapse-content {
-      background-color: transparent !important;
-      border-top: 1px solid var(--gray-200) !important;
+  :global(.ant-collapse-content) {
+    background-color: transparent !important;
+    border-top: 1px solid var(--gray-200) !important;
+  }
 
-      .ant-collapse-content-box {
-        padding: 12px 16px !important;
-        font-size: var(--text-sm);
-        color: var(--black);
-        opacity: 0.85;
-        line-height: 1.6;
-      }
-    }
+  :global(.ant-collapse-content .ant-collapse-content-box) {
+    padding: 12px 16px !important;
+    font-size: var(--text-sm);
+    color: var(--black);
+    opacity: 0.85;
+    line-height: 1.6;
   }
 }
 
 // Think Collapse styles 
 .think-collapse {
   font-size: var(--text-sm);
-  :global {
-    .ant-collapse-item {
-      border: var(--border-in-light) !important;
-      border-radius: 10px !important;
-      background-color: var(--white) !important;
-      margin-bottom: 8px !important;
-    }
+  :global(.ant-collapse-item) {
+    border: var(--border-in-light) !important;
+    border-radius: 10px !important;
+    background-color: var(--white) !important;
+    margin-bottom: 8px !important;
+  }
 
-    .ant-collapse-header {
-      color: var(--black) !important;
-      font-weight: bold !important;
-      padding: 6px 12px !important;
-      align-items: center !important;
-      transition: all 0.3s ease !important;
+  :global(.ant-collapse-header) {
+    color: var(--black) !important;
+    font-weight: bold !important;
+    padding: 6px 12px !important;
+    align-items: center !important;
+    transition: all 0.3s ease !important;
+  }
 
-      .ant-collapse-expand-icon {
-        color: var(--primary) !important;
-      }
-    }
+  :global(.ant-collapse-header .ant-collapse-expand-icon) {
+    color: var(--primary) !important;
+  }
 
-    .ant-collapse-content {
-      background-color: transparent !important;
-      border-top: 1px solid var(--border-in-light) !important;
+  :global(.ant-collapse-content) {
+    background-color: transparent !important;
+    border-top: 1px solid var(--border-in-light) !important;
+  }
 
-      .ant-collapse-content-box {
-        padding: 8px 12px !important;
-        color: var(--black);
-        opacity: 0.8;
-      }
-    }
+  :global(.ant-collapse-content .ant-collapse-content-box) {
+    padding: 8px 12px !important;
+    color: var(--black);
+    opacity: 0.8;
   }
 }
 
@@ -104,15 +100,13 @@
 .disabled {
   opacity: 0.9;
   pointer-events: none;
-  
-  :global {
-    .ant-collapse-item {
-      border: none !important;
-      background-color: transparent !important;
-    }
-    
-    .ant-collapse-header {
-      padding: 6px 0px !important;
-    }
+
+  :global(.ant-collapse-item) {
+    border: none !important;
+    background-color: transparent !important;
+  }
+
+  :global(.ant-collapse-header) {
+    padding: 6px 0px !important;
   }
 }

@@ -41,6 +41,7 @@ import { normalizeProviderName, LLMModel } from "../client/api";
 import {
   getModelCompressThreshold,
   getModelContextTokens,
+  saveCustomContextTokens,
 } from "../config/model-config";
 import { ModelConfigModal } from "./model-config-modal";
 
@@ -3609,9 +3610,6 @@ export function Settings() {
 
             // 保存上下文Token数配置
             if (config.contextTokens !== undefined) {
-              const {
-                saveCustomContextTokens,
-              } = require("../config/model-config");
               saveCustomContextTokens(modelName, config.contextTokens);
             }
 

@@ -127,7 +127,9 @@ export function useMemoizedComputation<T, R>(
     // 限制缓存大小
     if (cache.current.size >= cacheSize) {
       const firstKey = cache.current.keys().next().value;
-      cache.current.delete(firstKey);
+      if (firstKey !== undefined) {
+        cache.current.delete(firstKey);
+      }
     }
 
     cache.current.set(key, computed);

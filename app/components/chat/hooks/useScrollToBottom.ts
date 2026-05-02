@@ -2,7 +2,7 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../../../store";
 
 export function useScrollToBottom(
-  scrollRef: RefObject<HTMLDivElement>,
+  scrollRef: RefObject<HTMLDivElement | null>,
   detach: boolean = false,
   messages: ChatMessage[],
   initialAutoScroll: boolean = true,

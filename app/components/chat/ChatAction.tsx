@@ -4,7 +4,7 @@ import styles from "../chat.module.scss";
 
 export function ChatAction(props: {
   text: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
   onClick: () => void;
   dataAttribute?: string;
   active?: boolean;

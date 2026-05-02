@@ -1,18 +1,18 @@
-import webpack from "webpack";
 import path from "path";
-import crypto from "crypto";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
-const disableChunk = false;
 // 检查是否是调试构建
 const isDebugBuild = process.env.DEBUG_BUILD === "true";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 根据构建模式决定是否启用压缩
-  swcMinify: !isDebugBuild,
+  // 避免本机其他目录的 package-lock.json 被误判为 workspace 根（Next 15 文件追踪）
+  outputFileTracingRoot: path.join(__dirname),
 
-  // 编译器优化
+  // 编译器优化（Next 15 默认使用 SWC 压缩，不再使用 swcMinify 选项）
   compiler: {
     // 生产环境移除 console（保留 error 和 warn），调试模式不移除
     removeConsole:
@@ -25,7 +25,6 @@ const nextConfig = {
 
   // 实验性功能
   experimental: {
-    forceSwcTransforms: true,
     // 优化包导入（减少打包体积）
     optimizePackageImports: [
       "@lobehub/icons",
@@ -46,118 +45,54 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
-  webpack(config, { dev, isServer }) {
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: [
-        {
-          loader: "@svgr/webpack",
-          options: {
-            svgoConfig: {
-              plugins: [
-                {
-                  name: "preset-default",
-                  params: {
-                    overrides: {
-                      // 保留 viewBox 属性，防止 SVG 缩放问题
-                      removeViewBox: false,
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: [
+          {
+            loader: "@svgr/webpack",
+            options: {
+              svgoConfig: {
+                plugins: [
+                  {
+                    name: "preset-default",
+                    params: {
+                      overrides: {
+                        removeViewBox: false,
+                      },
                     },
                   },
-                },
-                // 为每个 SVG 文件中的 ID 添加唯一前缀，避免多个 SVG 在同一页面时 ID 冲突
-                {
-                  name: "prefixIds",
-                  params: {
-                    prefixIds: true,
-                    prefixClassNames: true,
+                  {
+                    name: "prefixIds",
+                    params: {
+                      prefixIds: true,
+                      prefixClassNames: true,
+                    },
                   },
-                },
-              ],
+                ],
+              },
             },
           },
-        },
-      ],
-    });
-
-    if (disableChunk) {
-      config.plugins.push(
-        new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
-      );
-    }
-
-    config.resolve.fallback = {
-      child_process: false,
-    };
-
-    if (mode === "export") {
-      // In static export builds, alias server-action module to a client-safe stub
-      config.resolve.alias = {
-        ...(config.resolve.alias || {}),
-        "../mcp/actions": path.resolve("app/mcp/actions.client.ts"),
-        "app/mcp/actions": path.resolve("app/mcp/actions.client.ts"),
-      };
-    }
-
-    // Ignore optional native deps used by ws in rt-client
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      bufferutil: false,
-      "utf-8-validate": false,
-    };
-
-    // 生产环境优化
-    if (!dev && !isServer) {
-      config.optimization = {
-        ...config.optimization,
-        // 根据构建模式决定是否压缩
-        minimize: !isDebugBuild,
-        moduleIds: "deterministic",
-        runtimeChunk: "single",
-        splitChunks: {
-          chunks: "all",
-          cacheGroups: {
-            default: false,
-            vendors: false,
-            // React 框架代码单独打包
-            framework: {
-              name: "framework",
-              chunks: "all",
-              test: /[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
-              priority: 40,
-              enforce: true,
-            },
-            // 大型库单独打包
-            lib: {
-              test(module) {
-                return (
-                  module.size() > 160000 &&
-                  /node_modules[/\\]/.test(module.identifier())
-                );
-              },
-              name(module) {
-                const hash = crypto
-                  .createHash("sha1")
-                  .update(module.identifier())
-                  .digest("hex")
-                  .substring(0, 8);
-                return `lib-${hash}`;
-              },
-              priority: 30,
-              minChunks: 1,
-              reuseExistingChunk: true,
-            },
-            // 公共组件
-            commons: {
-              name: "commons",
-              minChunks: 2,
-              priority: 20,
-            },
-          },
-        },
-      };
-    }
-
-    return config;
+        ],
+        as: "*.js",
+      },
+    },
+    resolveAlias: {
+      ...(mode === "export"
+        ? {
+            "../mcp/actions": "./app/mcp/actions.client.ts",
+            "app/mcp/actions": "./app/mcp/actions.client.ts",
+          }
+        : {}),
+      "@mariozechner/pi-ai/dist/env-api-keys":
+        "./app/shims/pi-ai-env-api-keys.ts",
+      "@mariozechner/pi-ai/dist/env-api-keys.js":
+        "./app/shims/pi-ai-env-api-keys.ts",
+      bufferutil: "./app/shims/empty-module.ts",
+      "utf-8-validate": "./app/shims/empty-module.ts",
+      child_process: "./app/shims/empty-module.ts",
+      "node:child_process": "./app/shims/empty-module.ts",
+    },
   },
   output: mode,
 };

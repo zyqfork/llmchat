@@ -129,8 +129,9 @@ const ThinkCollapse = ({
       if (typeof node === "string") return node;
       if (typeof node === "number") return String(node);
       if (React.isValidElement(node)) {
-        if (node.props.children) {
-          return getTextContent(node.props.children);
+        const element = node as React.ReactElement<{ children?: React.ReactNode }>;
+        if (element.props?.children) {
+          return getTextContent(element.props.children);
         }
       }
       if (Array.isArray(node)) {
@@ -492,152 +493,6 @@ function formatThinkText(
   return { thinkText: "", remainText: text };
 }
 
-function _MarkDownContent(props: {
-  content: string;
-  thinkingTime?: number;
-  fontSize?: number;
-  status?: boolean;
-  isUserMessage?: boolean;
-}) {
-  // 预处理base64图片，将长base64 URL替换为占位符
-  const { processedContent, imageMap } = useMemo(() => {
-    const originalContent = tryWrapHtmlCode(escapeBrackets(props.content));
-    const { thinkText, remainText } = formatThinkText(
-      originalContent,
-      props.thinkingTime,
-    );
-    let content = thinkText + remainText;
-
-    const imageMap = new Map<string, string>();
-    let imageCounter = 0;
-
-    // 匹配 ![alt](data:image/...;base64,...) 格式的长base64图片
-    content = content.replace(
-      /!\[([^\]]*)\]\(data:image\/([^;]+);base64,([A-Za-z0-9+/=]+)\)/g,
-      (match, alt, format, base64Data) => {
-        // 只处理长度超过1000字符的base64数据
-        if (base64Data.length > 1000) {
-          imageCounter++;
-          const placeholder = `BASE64_IMAGE_${imageCounter}`;
-          const fullDataUrl = `data:image/${format};base64,${base64Data}`;
-          imageMap.set(placeholder, fullDataUrl);
-          return `![${alt || "image"}](${placeholder})`;
-        }
-        return match; // 短的base64保持原样
-      },
-    );
-
-    return { processedContent: content, imageMap };
-  }, [props.content, props.thinkingTime]);
-
-  // 对于用户消息，直接原样渲染内容，不做任何Markdown处理
-  if (props.isUserMessage) {
-    return (
-      <div
-        className="user-message-content"
-        style={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          overflowWrap: "break-word", // +1
-          tabSize: 4,
-        }}
-      >
-        {props.content}
-      </div>
-    );
-  }
-
-  // 对于AI消息，使用原有的Markdown处理逻辑
-  const rehypePlugins = [
-    RehypeRaw,
-    RehypeKatex as any,
-    [rehypeSanitize, sanitizeOptions],
-    [
-      RehypeHighlight,
-      {
-        detect: false,
-        ignoreMissing: true,
-      },
-    ],
-  ];
-
-  return (
-    <ReactMarkdown
-      remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
-      rehypePlugins={rehypePlugins}
-      components={
-        {
-          pre: PreCode,
-          code: CustomCode,
-          p: (pProps: any) => <p {...pProps} dir="auto" />,
-          img: (imgProps: any) => {
-            const { src, alt, ...otherProps } = imgProps;
-
-            // 检查是否是我们的占位符
-            let actualSrc = src;
-            if (src && imageMap.has(src)) {
-              actualSrc = imageMap.get(src);
-            }
-
-            // 处理base64图片或普通图片URL
-            if (actualSrc) {
-              return (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  {...otherProps}
-                  src={actualSrc}
-                  alt={alt || "image"}
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => showImageModal(actualSrc)}
-                />
-              );
-            }
-            return <span>{alt || "[Image]"}</span>;
-          },
-          thinkcollapse: ({
-            title,
-            children,
-          }: {
-            title: string;
-            children: React.ReactNode;
-          }) => (
-            <ThinkCollapse title={title} fontSize={props.fontSize}>
-              {children}
-            </ThinkCollapse>
-          ),
-          a: (aProps: any) => {
-            const href = aProps.href || "";
-            if (/\.(aac|mp3|opus|wav)$/.test(href)) {
-              return (
-                <figure>
-                  <audio controls src={href}></audio>
-                </figure>
-              );
-            }
-            if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
-              return (
-                <video controls width="99.9%">
-                  <source src={href} />
-                </video>
-              );
-            }
-            const isInternal = /^\/#/i.test(href);
-            const target = isInternal ? "_self" : aProps.target ?? "_blank";
-            return <a {...aProps} target={target} />;
-          },
-        } as any
-      }
-    >
-      {processedContent}
-    </ReactMarkdown>
-  );
-}
-
 // 优化MarkdownContent组件，增加内容缓存和增量更新
 const MarkdownContent = React.memo(function MarkdownContent({
   content,
@@ -771,7 +626,7 @@ export function Markdown(
     loading?: boolean;
     fontSize?: number;
     fontFamily?: string;
-    parentRef?: RefObject<HTMLDivElement>;
+    parentRef?: RefObject<HTMLDivElement | null>;
     defaultShow?: boolean;
     thinkingTime?: number;
     status?: boolean;

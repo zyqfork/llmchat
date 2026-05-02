@@ -1,5 +1,6 @@
-@import "./animation.scss";
-@import "./window.scss";
+@use "sass:meta";
+@use "./animation.scss" as *;
+@use "./window.scss" as *;
 
 @mixin light {
   --theme: light;
@@ -525,4 +526,4 @@ pre {
 }
 
 // 导入配色方案（必须在最后，以便覆盖默认配色）
-@import "./color-schemes.scss";
+@include meta.load-css("./color-schemes.scss");

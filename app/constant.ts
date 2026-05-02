@@ -5,18 +5,9 @@ import {
   type ModelCapabilities,
 } from "./config/model-config";
 import { findPiModelById, getPiModelsByProvider } from "./utils/pi-catalog";
+import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./config/generated/models-config";
 
-// 尝试导入生成的配置，如果不存在则使用默认配置
-let MODELS_DEV_CONFIG: Record<string, any> = {};
-
-try {
-  const generatedConfig = require("./config/generated/models-config");
-  MODELS_DEV_CONFIG = generatedConfig.MODELS_DEV_CONFIG || {};
-} catch (error) {
-  console.warn(
-    "Generated models config not found, using fallback configuration",
-  );
-}
+const MODELS_DEV_CONFIG: Record<string, any> = GENERATED_MODELS_DEV_CONFIG || {};
 
 // 辅助函数：从生成的配置中获取知识截止日期
 function getKnowledgeCutoffFromConfig(): Record<string, string> {
@@ -1148,21 +1139,7 @@ export const DEFAULT_TTS_VOICES = [
 
 // 动态生成视觉模型检测函数，基于 models-config.ts 中的配置
 export function isVisionModel(model: string): boolean {
-  // 首先检查环境变量中的自定义视觉模型列表
   if (typeof window !== "undefined") {
-    try {
-      const { useAccessStore } = require("./store");
-      const visionModels = useAccessStore.getState().visionModels;
-      const envVisionModels = visionModels
-        ?.split(",")
-        .map((m: string) => m.trim());
-      if (envVisionModels?.includes(model)) {
-        return true;
-      }
-    } catch (error) {
-      // 静默处理错误，继续使用其他检测方法
-    }
-
     try {
       // 与模型能力配置面板保持一致：支持读取 localStorage 中手动勾选的能力
       const capabilities = getModelCapabilitiesFromConfig(model);

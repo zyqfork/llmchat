@@ -12,7 +12,7 @@ export function LLMMessageContent(props: {
   loading?: boolean;
   fontSize?: number;
   fontFamily?: string;
-  parentRef?: RefObject<HTMLDivElement>;
+  parentRef?: RefObject<HTMLDivElement | null>;
   defaultShow?: boolean;
 }) {
   const {

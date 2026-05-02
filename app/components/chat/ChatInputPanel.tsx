@@ -37,7 +37,7 @@ type ChatInputPanelProps = {
   setCouldStop: React.Dispatch<React.SetStateAction<boolean>>;
   optimizePrompt: () => Promise<void>;
   toggleMultiModelMode: () => void;
-  inputRef: React.RefObject<HTMLTextAreaElement>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
   submitKey: string;
   inputRows: number;
   autoFocus: boolean;

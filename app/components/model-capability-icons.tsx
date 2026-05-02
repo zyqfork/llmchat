@@ -9,7 +9,7 @@ function CapabilityTooltip({
 }: {
   show: boolean;
   text: string;
-  targetRef: React.RefObject<HTMLDivElement>;
+  targetRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
 

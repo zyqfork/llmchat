@@ -45,7 +45,7 @@ import { getMaskEffectiveModel } from "../utils/model-resolver";
 import { useNavigate } from "react-router-dom";
 
 import chatStyle from "./chat.module.scss";
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import {
   copyToClipboard,
   downloadAs,
@@ -129,7 +129,7 @@ export function MaskAvatar(props: {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
-  extraListItems?: JSX.Element;
+  extraListItems?: ReactNode;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
   isSessionConfig?: boolean; // 新增参数，标识是否为会话配置

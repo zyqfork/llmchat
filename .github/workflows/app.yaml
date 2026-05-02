@@ -116,11 +116,71 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.config.tauri_args }}
 
+  build-electron:
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: ubuntu-24.04
+            artifact_name: electron-linux
+            command: yarn electron:build --linux AppImage
+            artifact_glob: dist/*.AppImage
+          - os: windows-latest
+            artifact_name: electron-windows
+            command: yarn electron:build --win nsis
+            artifact_glob: dist/*.exe
+          - os: macos-latest
+            artifact_name: electron-macos
+            command: yarn electron:build --mac dmg
+            artifact_glob: dist/*.dmg
+
+    runs-on: ${{ matrix.config.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          cache: "yarn"
+
+      - name: install Linux packaging dependencies (ubuntu only)
+        if: startsWith(matrix.config.os, 'ubuntu-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: install frontend dependencies
+        run: yarn install
+
+      - name: build electron app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ${{ matrix.config.command }}
+
+      - name: upload electron artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.config.artifact_name }}
+          path: ${{ matrix.config.artifact_glob }}
+          if-no-files-found: error
+
+      - name: upload electron to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.config.artifact_glob }}
+
   publish-release:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs: [create-release, build-tauri]
+    needs: [create-release, build-tauri, build-electron]
 
     steps:
       - name: publish release

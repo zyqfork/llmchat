@@ -1,5 +1,6 @@
 import { useMemo, useEffect } from "react";
 import { useAccessStore, useAppConfig, CustomProviderType } from "../store";
+import { DEFAULT_MODELS, ServiceProvider } from "../constant";
 import { collectModelsWithDefaultModel } from "./model";
 import { LLMModel } from "../client/api";
 
@@ -263,8 +264,6 @@ export function useEnabledModels() {
 
 // 根据服务商类型获取基础模型列表
 function getBaseModelsForProviderType(type: string): LLMModel[] {
-  const { DEFAULT_MODELS, ServiceProvider } = require("../constant");
-
   // 根据自定义厂商类型映射到对应的内置厂商
   const typeToProviderMap: Record<CustomProviderType, string> = {
     openai: ServiceProvider.OpenAI.name,

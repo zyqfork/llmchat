@@ -1,5 +1,7 @@
 // 404 页面不需要导入 locales
 
+import Link from "next/link";
+
 export default function NotFound() {
   return (
     <div style={{
@@ -16,19 +18,19 @@ export default function NotFound() {
       <p style={{ fontSize: '1rem', color: '#666', margin: '10px 0' }}>
         抱歉，您访问的页面不存在。
       </p>
-      <a 
-        href="/" 
+      <Link
+        href="/"
         style={{
-          marginTop: '20px',
-          padding: '10px 20px',
-          backgroundColor: '#007bff',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '5px'
+          marginTop: "20px",
+          padding: "10px 20px",
+          backgroundColor: "#007bff",
+          color: "white",
+          textDecoration: "none",
+          borderRadius: "5px",
         }}
       >
         返回首页
-      </a>
+      </Link>
     </div>
   );
 }

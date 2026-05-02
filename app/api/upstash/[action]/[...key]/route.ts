@@ -3,8 +3,9 @@ import { logger } from "@/app/utils/logger";
 
 async function handle(
   req: NextRequest,
-  { params }: { params: { action: string; key: string[] } },
+  context: { params: Promise<{ action: string; key: string[] }> },
 ) {
+  const params = await context.params;
   const requestUrl = new URL(req.url);
   const endpoint = requestUrl.searchParams.get("endpoint");
 
@@ -71,4 +72,12 @@ export const POST = handle;
 export const GET = handle;
 export const OPTIONS = handle;
 
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const dynamic = "force-static";
+
+export async function generateStaticParams() {
+  return [
+    { action: "get", key: ["placeholder"] },
+    { action: "set", key: ["placeholder"] },
+  ];
+}

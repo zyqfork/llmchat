@@ -36,4 +36,5 @@ async function handle(req: NextRequest) {
 }
 
 export const POST = handle;
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const dynamic = "force-static";

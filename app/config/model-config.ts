@@ -1,19 +1,12 @@
 import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-compat";
 import { findPiModelById } from "../utils/pi-catalog";
+import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/models-config";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
  */
 
-// 尝试导入生成的配置
-let MODELS_DEV_CONFIG: Record<string, any> = {};
-
-try {
-  const generatedConfig = require("./generated/models-config");
-  MODELS_DEV_CONFIG = generatedConfig.MODELS_DEV_CONFIG || {};
-} catch (error) {
-  console.warn("Generated models config not found");
-}
+const MODELS_DEV_CONFIG: Record<string, any> = GENERATED_MODELS_DEV_CONFIG || {};
 
 // ============================================================================
 // 类型定义

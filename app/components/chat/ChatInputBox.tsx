@@ -9,7 +9,7 @@ import { IconButton } from "../button";
 import { DeleteImageButton } from "./DeleteImageButton";
 
 type ChatInputBoxProps = {
-  inputRef: React.RefObject<HTMLTextAreaElement>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
   userInput: string;
   submitKey: string;
   inputRows: number;

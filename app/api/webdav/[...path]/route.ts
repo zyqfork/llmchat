@@ -16,8 +16,9 @@ const normalizeUrl = (url: string) => {
 
 async function handle(
   req: NextRequest,
-  { params }: { params: { path: string[] } },
+  context: { params: Promise<{ path: string[] }> },
 ) {
+  const params = await context.params;
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
   }
@@ -161,4 +162,9 @@ export const PUT = handle;
 export const GET = handle;
 export const OPTIONS = handle;
 
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const dynamic = "force-static";
+
+export async function generateStaticParams() {
+  return [{ path: ["placeholder"] }];
+}
