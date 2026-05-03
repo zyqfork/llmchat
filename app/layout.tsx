@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-page-custom-font */
 import "./styles/globals.scss";
 import "./styles/markdown.scss";
 import "./styles/highlight.scss";
@@ -29,11 +28,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isExport = getClientConfig()?.buildMode === "export";
+  const cfg = getClientConfig();
+  // 与 next.config `assetPrefix` 一致：App 静态包在 file:// 下需相对 public 资源路径
+  const publicBase = cfg?.buildMode === "export" && cfg?.isApp ? "./" : "/";
   return (
     <html lang="en">
       <head>
-        <meta name="config" content={JSON.stringify(getClientConfig())} />
+        <meta name="config" content={JSON.stringify(cfg)} />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -41,10 +42,10 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <link
           rel="manifest"
-          href="/site.webmanifest"
+          href={`${publicBase}site.webmanifest`}
           crossOrigin="use-credentials"
         ></link>
-        <script src="/serviceWorkerRegister.js" defer></script>
+        <script src={`${publicBase}serviceWorkerRegister.js`} defer></script>
       </head>
       <body>{children}</body>
     </html>

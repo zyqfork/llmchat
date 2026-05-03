@@ -70,7 +70,7 @@ export const MessageItem = React.memo(
         return message.content;
       }
       return getMessageTextContent(message);
-    }, [message.content]);
+    }, [message]);
 
     // 处理思考模型的内容
     const processedContent = useMemo(() => {

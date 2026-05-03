@@ -857,12 +857,16 @@ export function ChatMain() {
       Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
   );
 
-  function setMsgRenderIndex(newIndex: number) {
-    newIndex = Math.min(renderMessages.length - CHAT_PAGE_SIZE, newIndex);
-    newIndex = Math.max(0, newIndex);
-    msgRenderIndexRef.current = newIndex;
-    _setMsgRenderIndex(newIndex);
-  }
+  const msgRenderIndexRef = useRef(msgRenderIndex);
+  const setMsgRenderIndex = useCallback(
+    (newIndex: number) => {
+      newIndex = Math.min(renderMessages.length - CHAT_PAGE_SIZE, newIndex);
+      newIndex = Math.max(0, newIndex);
+      msgRenderIndexRef.current = newIndex;
+      _setMsgRenderIndex(newIndex);
+    },
+    [renderMessages.length],
+  );
 
   const messages = useMemo(() => {
     const endRenderIndex = Math.min(
@@ -953,13 +957,11 @@ export function ChatMain() {
   }, [isMultiModel, messages]);
 
   const scrollPagingStateRef = useRef({ lastTop: 0, lastSwitchAt: 0 });
-  const msgRenderIndexRef = useRef(msgRenderIndex);
 
   useEffect(() => {
     msgRenderIndexRef.current = msgRenderIndex;
   }, [msgRenderIndex]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const saved =
       sessionScrollStateMap.get(session.id) ??
@@ -1085,7 +1087,7 @@ export function ChatMain() {
   };
 
   /** 直接定位到最底部（不带动画） */
-  function scrollToBottom() {
+  const scrollToBottom = useCallback(() => {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     cancelPendingAutoScroll();
     const dom = scrollRef.current;
@@ -1093,9 +1095,14 @@ export function ChatMain() {
       const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
       dom.scrollTop = maxTop;
     }
-  }
+  }, [
+    renderMessages.length,
+    cancelPendingAutoScroll,
+    setMsgRenderIndex,
+    scrollRef,
+  ]);
 
-  function jumpToBottom() {
+  const jumpToBottom = useCallback(() => {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     cancelPendingAutoScroll();
     const dom = scrollRef.current;
@@ -1103,13 +1110,20 @@ export function ChatMain() {
       const maxTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
       dom.scrollTop = maxTop;
     }
-  }
+  }, [
+    renderMessages.length,
+    cancelPendingAutoScroll,
+    setMsgRenderIndex,
+    scrollRef,
+  ]);
 
   // 发送消息后，等用户消息（及可能的 bot 占位）写入列表并渲染，直接定位到底部
   const prevMessagesLengthRef = useRef(session.messages.length);
+  // 仅在切换会话时重置「发送后滚动」状态；若把 session.messages.length 加入依赖会在每条消息时误触发
   useEffect(() => {
     prevMessagesLengthRef.current = session.messages.length;
     scrollAfterUserSendRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally session.id only
   }, [session.id]);
   useEffect(() => {
     if (!scrollAfterUserSendRef.current) return;
@@ -1125,7 +1139,12 @@ export function ChatMain() {
         dom.scrollTop = maxTop;
       }
     });
-  }, [session.messages.length, renderMessages.length]);
+  }, [
+    session.messages.length,
+    renderMessages.length,
+    cancelPendingAutoScroll,
+    setMsgRenderIndex,
+  ]);
 
   // 有预览内容时（输入/粘贴大段文字），将预览气泡定位到底部可见
   useEffect(() => {
@@ -1133,7 +1152,7 @@ export function ChatMain() {
     requestAnimationFrame(() => {
       jumpToBottom();
     });
-  }, [config.sendPreviewBubble, debouncedPreviewInput]);
+  }, [config.sendPreviewBubble, debouncedPreviewInput, jumpToBottom]);
 
   const handleInputFocusOrClick = () => {
     if (hitBottom) {

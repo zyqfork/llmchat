@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import styles from "./ui-lib.module.scss";
 import LoadingIcon from "../icons/three-dots.svg";
 import CloseIcon from "../icons/close.svg";
@@ -518,8 +517,8 @@ export function Selector<T>(props: {
     Array.isArray(props.defaultSelectedValue)
       ? props.defaultSelectedValue
       : props.defaultSelectedValue !== undefined
-      ? [props.defaultSelectedValue]
-      : [],
+        ? [props.defaultSelectedValue]
+        : [],
   );
 
   const handleSelection = (e: MouseEvent, value: T) => {
@@ -639,6 +638,7 @@ export function ModelSelectorModal<T>(props: {
 
   // 关键：使用 useMemo 来重新计算模型信息，确保配置更新时重新渲染
   const modelGroupsWithUpdatedInfo = useMemo(() => {
+    void configUpdateCounter; // modelConfigUpdated 时 bump，拉取最新能力/上下文 token
     return props.groups.map((group) => ({
       ...group,
       items: group.items.map((item) => {

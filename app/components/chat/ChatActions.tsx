@@ -239,6 +239,7 @@ export function ChatActions(props: {
   }, [models, currentModel, currentProviderName]);
 
   const modelGroups = useMemo(() => {
+    void modelConfigUpdateCounter; // 依赖 modelConfigUpdated 事件 bump，刷新上下文 token 等展示
     const groupedModels: Record<string, any[]> = {};
 
     models.forEach((model) => {

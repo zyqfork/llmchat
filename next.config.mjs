@@ -6,11 +6,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
 // 检查是否是调试构建
 const isDebugBuild = process.env.DEBUG_BUILD === "true";
+// Electron / 本地 file:// 打开静态包时，绝对路径 `/_next/...` 会指向磁盘根目录，必须用相对资源前缀
+const isAppExport =
+  mode === "export" && process.env.BUILD_APP === "1";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 避免本机其他目录的 package-lock.json 被误判为 workspace 根（Next 15 文件追踪）
   outputFileTracingRoot: path.join(__dirname),
+
+  ...(isAppExport ? { assetPrefix: "." } : {}),
 
   // 编译器优化（Next 15 默认使用 SWC 压缩，不再使用 swcMinify 选项）
   compiler: {

@@ -81,7 +81,14 @@ export function useScrollToBottom(
     };
     followRafRef.current = requestAnimationFrame(tick);
     return cancelPendingAutoScroll;
-  }, [forceFollow, scrollTrigger, scrollDomToBottom, autoScroll, detach]);
+  }, [
+    forceFollow,
+    scrollTrigger,
+    scrollDomToBottom,
+    autoScroll,
+    detach,
+    cancelPendingAutoScroll,
+  ]);
 
   const lastMessagesLength = useRef(messages.length);
   useEffect(() => {
