@@ -31,6 +31,7 @@ import { useAccessStore } from "../store";
 import { useChatStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem } from "../mcp/actions.client";
+import { isCorsError } from "@mariozechner/pi-web-ui/utils/proxy-utils";
 import { logger } from "../utils/logger";
 import { ChatControllerPool } from "../client/controller";
 
@@ -310,8 +311,11 @@ export function useLoadData() {
       } catch (e) {
         // 静默处理获取失败，避免控制台大量错误日志
         // 用户可以在模型管理界面手动获取
+        const suffix = isCorsError(e)
+          ? " 可能是跨域/CORS，请检查控制台代理或同源配置。"
+          : "";
         logger.warn(
-          "[Config] Failed to fetch models, will use cached models. Error:",
+          `[Config] Failed to fetch models, will use cached models.${suffix} Error:`,
           e instanceof Error ? e.message : e,
         );
       }

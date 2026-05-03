@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { ServiceProvider, DEFAULT_MODELS } from "../constant";
 import { useAccessStore, CustomProviderType } from "../store/access";
-import { LLMModel } from "../client/api";
-import { ModelFetcher } from "../client/model-fetcher";
+import { fetchModels, LLMModel } from "../client/api";
 import { showToast } from "./ui-lib";
 import { ModelConfigModal } from "./model-config-modal";
 import styles from "./model-manager.module.scss";
@@ -397,7 +396,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     store.setModelsFetchStatus(provider, "loading");
 
     try {
-      const result = await ModelFetcher.fetchModels(provider);
+      const result = await fetchModels(provider);
 
       if (result.success) {
         setApiModels(result.models);

@@ -4,33 +4,100 @@ import {
   isWebSearchModel as isWebSearchModelFromConfig,
   type ModelCapabilities,
 } from "./config/model-config";
-import { findPiModelById, getPiModelsByProvider } from "./utils/pi-catalog";
+import { findPiModelById, getPiModelsByProvider } from "./utils/pi-ai-resolver";
 import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./config/generated/models-config";
+import type {
+  GeneratedModelConfig,
+  GeneratedProviderConfig,
+  ModelsDevConfigMap,
+} from "./config/models-dev-types";
 
-const MODELS_DEV_CONFIG: Record<string, any> = GENERATED_MODELS_DEV_CONFIG || {};
+const MODELS_DEV_CONFIG: ModelsDevConfigMap =
+  (GENERATED_MODELS_DEV_CONFIG as unknown as ModelsDevConfigMap) || {};
+
+function getProviderModelsMap(
+  provider: unknown,
+): Readonly<Record<string, GeneratedModelConfig>> | null {
+  if (
+    !provider ||
+    typeof provider !== "object" ||
+    !("models" in provider) ||
+    !(provider as any).models
+  ) {
+    return null;
+  }
+  return (provider as GeneratedProviderConfig).models || null;
+}
+
+function getGeneratedProviderById(providerId: string): unknown {
+  const normalizedProviderId = String(providerId || "").toLowerCase();
+  return (
+    MODELS_DEV_CONFIG[normalizedProviderId] ??
+    MODELS_DEV_CONFIG[String(providerId || "")]
+  );
+}
+
+function findModelInGeneratedConfig(
+  modelId: string,
+): GeneratedModelConfig | null {
+  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
+    const models = getProviderModelsMap(provider);
+    if (!models) continue;
+    if (models[modelId]) return models[modelId];
+  }
+  return null;
+}
+
+function getGeneratedModelContextWindow(
+  model: GeneratedModelConfig | null,
+): number | undefined {
+  if (
+    !model ||
+    typeof model !== "object" ||
+    !("limit" in model) ||
+    !model.limit ||
+    typeof model.limit !== "object" ||
+    !("context" in model.limit)
+  ) {
+    return undefined;
+  }
+  return model.limit.context as number;
+}
+
+function getGeneratedModelInputModalities(
+  model: GeneratedModelConfig | null,
+): readonly string[] | undefined {
+  if (
+    !model ||
+    typeof model !== "object" ||
+    !("modalities" in model) ||
+    !model.modalities ||
+    typeof model.modalities !== "object" ||
+    !("input" in model.modalities) ||
+    !Array.isArray(model.modalities.input)
+  ) {
+    return undefined;
+  }
+  return model.modalities.input as readonly string[];
+}
 
 // 辅助函数：从生成的配置中获取知识截止日期
 function getKnowledgeCutoffFromConfig(): Record<string, string> {
   const cutoffDates: Record<string, string> = {};
 
   Object.values(MODELS_DEV_CONFIG).forEach((provider) => {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models
-    ) {
-      Object.entries(provider.models).forEach(([modelId, modelData]) => {
-        if (
-          modelData &&
-          typeof modelData === "object" &&
-          "knowledge" in modelData &&
-          modelData.knowledge
-        ) {
-          cutoffDates[modelId] = modelData.knowledge as string;
-        }
-      });
-    }
+    const models = getProviderModelsMap(provider);
+    if (!models) return;
+    Object.entries(models).forEach(([modelId, modelData]) => {
+      if (
+        modelData &&
+        typeof modelData === "object" &&
+        "knowledge" in modelData &&
+        modelData.knowledge
+      ) {
+        cutoffDates[modelId] = modelData.knowledge as string;
+      }
+    });
   });
 
   return cutoffDates;
@@ -38,91 +105,40 @@ function getKnowledgeCutoffFromConfig(): Record<string, string> {
 
 // 辅助函数：从生成的配置中获取厂商模型列表
 function getProviderModelsFromConfig(providerId: string): string[] {
-  const piModels = getProviderModelsFromPiCatalog(providerId);
+  const piModels = getPiModelsByProvider(providerId).map((model) =>
+    String(model.id),
+  );
   if (piModels.length > 0) {
     return piModels;
   }
 
-  const provider = MODELS_DEV_CONFIG[providerId];
-  return provider &&
-    typeof provider === "object" &&
-    "models" in provider &&
-    provider.models
-    ? Object.keys(provider.models)
-    : [];
+  const providerModels = getProviderModelsMap(
+    getGeneratedProviderById(providerId),
+  );
+  return providerModels ? Object.keys(providerModels) : [];
 }
 
 // 辅助函数：从生成的配置中获取模型上下文长度
 function getModelContextFromConfig(modelId: string): number | undefined {
-  const piModel = findPiModel(modelId);
+  const piModel = findPiModelById(modelId);
   if (piModel?.contextWindow) {
     return piModel.contextWindow;
   }
 
-  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      const model = provider.models[modelId];
-      if (
-        model &&
-        typeof model === "object" &&
-        "limit" in model &&
-        model.limit &&
-        typeof model.limit === "object" &&
-        "context" in model.limit
-      ) {
-        return model.limit.context as number;
-      }
-    }
-  }
-  return undefined;
+  const model = findModelInGeneratedConfig(modelId);
+  return getGeneratedModelContextWindow(model);
 }
 
 // 辅助函数：从生成的配置中判断模型是否支持视觉
 function getModelVisionSupportFromConfig(modelId: string): boolean {
-  const piModel = findPiModel(modelId);
+  const piModel = findPiModelById(modelId);
   if (piModel) {
     return Array.isArray(piModel.input) && piModel.input.includes("image");
   }
 
-  for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      const model = provider.models[modelId];
-      if (
-        model &&
-        typeof model === "object" &&
-        "modalities" in model &&
-        model.modalities &&
-        typeof model.modalities === "object" &&
-        "input" in model.modalities
-      ) {
-        const input = model.modalities.input;
-        return Array.isArray(input) && input.includes("image");
-      }
-    }
-  }
-  return false;
-}
-
-function getProviderModelsFromPiCatalog(providerId: string): string[] {
-  return getPiModelsByProvider(providerId).map((model) => String(model.id));
-}
-
-function findPiModel(
-  modelId: string,
-): ReturnType<typeof getPiModelsByProvider>[number] | null {
-  return findPiModelById(modelId);
+  const model = findModelInGeneratedConfig(modelId);
+  const inputModalities = getGeneratedModelInputModalities(model);
+  return Array.isArray(inputModalities) && inputModalities.includes("image");
 }
 
 // 导出模型能力接口
@@ -135,11 +151,6 @@ export function getModelCapabilities(
   providerName?: string,
 ): ModelCapabilities {
   return getModelCapabilitiesFromConfig(modelName, providerName);
-}
-
-// 辅助函数：获取厂商模型列表（直接使用生成的配置）
-function getProviderModels(providerId: string): string[] {
-  return getProviderModelsFromConfig(providerId);
 }
 
 export const OWNER = "zyqfork";
@@ -1170,7 +1181,7 @@ export const DEFAULT_MODELS = (() => {
 
   // 遍历所有 ServiceProvider 配置
   getAllProviders().forEach((provider, providerIndex) => {
-    const providerModels = getProviderModels(provider.id);
+    const providerModels = getProviderModelsFromConfig(provider.id);
 
     providerModels.forEach((modelName: string) => {
       models.push({

@@ -9,6 +9,18 @@ export default defineConfig([
   ...nextVitals,
   {
     rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@mariozechner/pi-web-ui",
+              message:
+                "请使用子路径导入（如 @mariozechner/pi-web-ui/utils/format），避免根入口在服务端牵出 pdfjs。",
+            },
+          ],
+        },
+      ],
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/refs": "off",
       "react-hooks/immutability": "off",

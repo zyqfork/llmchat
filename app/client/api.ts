@@ -11,10 +11,12 @@ import {
   streamText,
   getLastErrorDebugCapture,
 } from "./llm-adapter";
-import { findPiProviderByModel } from "../utils/pi-catalog";
 import { logger } from "../utils/logger";
+import { findPiProviderByModel } from "../utils/pi-ai-resolver";
 import { ModelSize, ROLES } from "../typing";
 import type { MessageRole } from "../typing";
+export { fetchModels } from "./model-service";
+export type { ModelFetchResponse } from "./model-service";
 
 export { ROLES };
 export type { MessageRole };

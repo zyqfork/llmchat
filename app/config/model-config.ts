@@ -1,13 +1,23 @@
-import { formatTokenCount as formatPiWebUiTokenCount } from "@mariozechner/pi-web-ui/utils/format";
-import { findPiModelById } from "../utils/pi-catalog";
+import {
+  formatTokenCount as formatPiWebUiTokenCount,
+  formatCost,
+  formatModelCost,
+  formatUsage,
+} from "@mariozechner/pi-web-ui/utils/format";
+import { findPiModelById } from "../utils/pi-ai-resolver";
 import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/models-config";
+import type {
+  GeneratedModelConfig,
+  GeneratedProviderConfig,
+  ModelsDevConfigMap,
+} from "./models-dev-types";
 /**
  * 模型配置统一管理
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
  */
 
-const MODELS_DEV_CONFIG: Record<string, any> =
-  GENERATED_MODELS_DEV_CONFIG || {};
+const MODELS_DEV_CONFIG: ModelsDevConfigMap =
+  (GENERATED_MODELS_DEV_CONFIG as unknown as ModelsDevConfigMap) || {};
 
 // ============================================================================
 // 类型定义
@@ -71,49 +81,36 @@ export interface ModelContextConfig {
  * @param providerId 可选的厂商ID，如果提供则优先在该厂商下查找
  * @returns 模型配置对象或 null
  */
-function findModelInConfig(modelId: string, providerId?: string): any | null {
-  const piModel = findModelInPiCatalog(modelId, providerId);
+function getProviderModels(
+  provider: GeneratedProviderConfig | undefined,
+): Record<string, GeneratedModelConfig> | null {
+  return provider?.models || null;
+}
+
+function findModelInConfig(
+  modelId: string,
+  providerId?: string,
+): GeneratedModelConfig | null {
+  const piModel = findPiModelById(modelId, providerId);
   if (piModel) {
-    return piModel;
+    return piModel as unknown as GeneratedModelConfig;
   }
 
   // 如果提供了厂商ID，优先在该厂商下查找
   if (providerId) {
     const provider = MODELS_DEV_CONFIG[providerId.toLowerCase()];
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      return provider.models[modelId];
-    }
+    const models = getProviderModels(provider);
+    if (models?.[modelId]) return models[modelId];
   }
 
   // 如果没有提供厂商ID，或在指定厂商下没找到，则遍历所有厂商查找
   for (const provider of Object.values(MODELS_DEV_CONFIG)) {
-    if (
-      provider &&
-      typeof provider === "object" &&
-      "models" in provider &&
-      provider.models &&
-      provider.models[modelId]
-    ) {
-      return provider.models[modelId];
-    }
+    const models = getProviderModels(provider);
+    if (models?.[modelId]) return models[modelId];
   }
 
   return null;
 }
-
-function findModelInPiCatalog(
-  modelId: string,
-  providerId?: string,
-): any | null {
-  return findPiModelById(modelId, providerId) || null;
-}
-
 // ============================================================================
 // 模型能力相关函数
 // ============================================================================
@@ -357,6 +354,9 @@ export function removeCustomContextTokens(modelName: string): void {
 export function formatTokenCount(tokens: number): string {
   return formatPiWebUiTokenCount(tokens);
 }
+
+/** 与 pi-web-ui 同源的费用/用量格式化 */
+export { formatCost, formatModelCost, formatUsage };
 
 /**
  * 根据模型的上下文Token数自动计算压缩阈值
