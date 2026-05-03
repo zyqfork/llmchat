@@ -218,12 +218,13 @@ const cn = {
     Title: "分享聊天记录",
     Copy: "全部复制",
     Download: "下载文件",
+    DownloadPdf: "导出 PDF",
     Share: "打印聊天记录",
     MessageFromYou: "用户",
     MessageFromChatGPT: "ChatGPT",
     Format: {
       Title: "导出格式",
-      SubTitle: "可以导出 Markdown 文本或者 PNG 图片",
+      SubTitle: "可导出 Markdown、PNG 图片；预览中可另存为 PDF",
     },
     IncludeContext: {
       Title: "包含助手上下文",
@@ -235,6 +236,7 @@ const cn = {
     },
     Image: {
       Toast: "正在生成截图",
+      ToastPdf: "正在生成 PDF",
       Modal: "长按或右键保存图片",
     },
     Artifacts: {

@@ -1,5 +1,5 @@
 import { logger } from "../utils/logger";
-import { applyProxyIfNeeded } from "../utils/pi-web-ui-compat";
+import { applyProxyIfNeeded } from "@mariozechner/pi-web-ui/utils/proxy-utils";
 import { fetch as tauriFetch, FetchType, isTauriApp } from "../utils/fetch";
 import { getAllProviders } from "../constant";
 import { useAccessStore } from "../store/access";
@@ -65,8 +65,8 @@ function installErrorCaptureFetch() {
       typeof input === "string"
         ? input
         : input instanceof URL
-        ? input.toString()
-        : (input as Request).url;
+          ? input.toString()
+          : (input as Request).url;
     _lastErrorDebug = { url };
     const response = await prevFetch(input, init);
     if (!response.ok) {

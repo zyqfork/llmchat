@@ -225,6 +225,7 @@ const en: LocaleType = {
     Title: "Export Messages",
     Copy: "Copy All",
     Download: "Download",
+    DownloadPdf: "Export PDF",
     MessageFromYou: "Message From You",
     MessageFromChatGPT: "Message From ChatGPT",
     Share: "Print Chat History",
@@ -242,6 +243,7 @@ const en: LocaleType = {
     },
     Image: {
       Toast: "Capturing Image...",
+      ToastPdf: "Generating PDF...",
       Modal: "Long press or right click to save image",
     },
     Artifacts: {

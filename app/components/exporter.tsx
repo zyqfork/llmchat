@@ -44,6 +44,7 @@ import { MaskAvatar } from "./mask";
 import { getMaskEffectiveModel } from "../utils/model-resolver";
 import clsx from "clsx";
 import { logger } from "../utils/logger";
+import { pngDataUrlToChatSharePdfBlob } from "../utils/export-chat-share-pdf";
 
 // 模型图标 SVG 字符串（用于打印功能）
 const MODEL_ICON_SVGS: Record<string, string> = {
@@ -391,6 +392,9 @@ export function RenderExport(props: {
 export function PreviewActions(props: {
   download: () => void;
   copy: () => void;
+  /** 与「下载图片」同一预览，导出为多页 PDF */
+  downloadPdf?: () => void;
+  pdfLoading?: boolean;
   showCopy?: boolean;
   messages?: ChatMessage[];
 }) {
@@ -900,6 +904,15 @@ export function PreviewActions(props: {
           icon={<DownloadIcon />}
           onClick={props.download}
         ></IconButton>
+        {props.downloadPdf && (
+          <IconButton
+            text={Locale.Export.DownloadPdf}
+            bordered
+            shadow
+            icon={props.pdfLoading ? <LoadingIcon /> : <DownloadIcon />}
+            onClick={props.downloadPdf}
+          ></IconButton>
+        )}
         <IconButton
           text="打印"
           bordered
@@ -1046,6 +1059,7 @@ export function ImagePreviewer(props: {
   };
 
   const isMobile = useMobileScreen();
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const download = async () => {
     showToast(Locale.Export.Image.Toast);
@@ -1111,6 +1125,73 @@ export function ImagePreviewer(props: {
     }
   };
 
+  const downloadPdf = async () => {
+    showToast(Locale.Export.Image.ToastPdf);
+    const dom = previewRef.current;
+    if (!dom) return;
+
+    const isApp = getClientConfig()?.isApp;
+    setPdfLoading(true);
+
+    try {
+      const pngDataUrl = await toPng(dom, {
+        skipFonts: true,
+        style: {},
+        filter: (node) => {
+          if (node instanceof HTMLLinkElement) return false;
+          return true;
+        },
+      });
+      if (!pngDataUrl) return;
+
+      const blob = await pngDataUrlToChatSharePdfBlob(pngDataUrl);
+      const safeName = `${props.topic.replace(/[/\\?%*:|"<>]/g, "_")}.pdf`;
+
+      if (isApp && window.__TAURI__) {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const fs = await import("@tauri-apps/plugin-fs");
+
+        const result = await save({
+          defaultPath: safeName,
+          filters: [
+            { name: "PDF", extensions: ["pdf"] },
+            { name: "All Files", extensions: ["*"] },
+          ],
+        });
+
+        if (result !== null) {
+          const buffer = await blob.arrayBuffer();
+          await fs.writeFile(result, new Uint8Array(buffer));
+          showToast(Locale.Download.Success);
+        } else {
+          showToast(Locale.Download.Failed);
+        }
+      } else if (isMobile) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = safeName;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(Locale.Download.Success);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = safeName;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast(Locale.Download.Success);
+        refreshPreview();
+      }
+    } catch (error) {
+      logger.error("[Export PDF]", error);
+      showToast(Locale.Download.Failed);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const refreshPreview = () => {
     const dom = previewRef.current;
     if (dom) {
@@ -1123,6 +1204,8 @@ export function ImagePreviewer(props: {
       <PreviewActions
         copy={copy}
         download={download}
+        downloadPdf={downloadPdf}
+        pdfLoading={pdfLoading}
         showCopy={!isMobile}
         messages={props.messages}
       />

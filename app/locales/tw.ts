@@ -213,6 +213,7 @@ const tw = {
     Title: "將聊天記錄匯出為 Markdown",
     Copy: "複製全部",
     Download: "下載檔案",
+    DownloadPdf: "匯出 PDF",
     Share: "列印聊天記錄",
     MessageFromYou: "來自您的訊息",
     MessageFromChatGPT: "來自 ChatGPT 的訊息",
@@ -230,6 +231,7 @@ const tw = {
     },
     Image: {
       Toast: "正在產生截圖",
+      ToastPdf: "正在產生 PDF",
       Modal: "長按或按右鍵儲存圖片",
     },
     Artifacts: {

@@ -1,4 +1,4 @@
-import { formatTokenCount as formatPiWebUiTokenCount } from "../utils/pi-web-ui-compat";
+import { formatTokenCount as formatPiWebUiTokenCount } from "@mariozechner/pi-web-ui/utils/format";
 import { findPiModelById } from "../utils/pi-catalog";
 import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/models-config";
 /**
@@ -6,7 +6,8 @@ import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/mo
  * 基于 models-config.ts 提供统一的模型能力和上下文配置接口
  */
 
-const MODELS_DEV_CONFIG: Record<string, any> = GENERATED_MODELS_DEV_CONFIG || {};
+const MODELS_DEV_CONFIG: Record<string, any> =
+  GENERATED_MODELS_DEV_CONFIG || {};
 
 // ============================================================================
 // 类型定义
@@ -176,8 +177,8 @@ export function getModelCapabilities(
     const inputModalities = Array.isArray(model.modalities?.input)
       ? model.modalities.input
       : Array.isArray(model.input)
-      ? model.input
-      : [];
+        ? model.input
+        : [];
 
     // 视觉能力：检查输入模态是否包含 image
     if (inputModalities.includes("image")) {
