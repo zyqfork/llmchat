@@ -449,7 +449,12 @@ function toAgentTools(openAiTools: any[] = []) {
           }
           return {
             content: [{ type: "text", text: toolExec.content }],
-            details: toolExec.content,
+            details: {
+              text: toolExec.content,
+              args,
+              mcpPayload: toolExec.mcpPayload,
+              mcpMeta: toolExec.mcpMeta,
+            },
           };
         },
       };
@@ -499,18 +504,44 @@ function assistantEventToUnifiedPart(event: any) {
   }
 }
 
+function extractToolCallArgs(payload: any): any {
+  if (!payload || typeof payload !== "object") return undefined;
+  const candidates = [
+    payload.arguments,
+    payload.args,
+    payload.input,
+    payload.parameters,
+    payload.toolArguments,
+    payload.tool_args,
+    payload.tool_input,
+  ];
+  return candidates.find((item) => item !== undefined);
+}
+
 function agentEventToUnifiedPart(event: any) {
   if (event?.type === "message_update") {
     return assistantEventToUnifiedPart(event.assistantMessageEvent);
   }
 
   if (event?.type === "tool_execution_end") {
+    const rawToolCall = event.toolCall || {};
+    const resultDetails = event.result?.details;
+    const mergedArgs =
+      extractToolCallArgs(rawToolCall) ??
+      extractToolCallArgs(event) ??
+      resultDetails?.args ??
+      resultDetails?.mcpPayload?.params?.arguments ??
+      event.result?.args ??
+      event.result?.arguments;
+
     return {
       type: "tool-result",
       toolCall: {
-        id: event.toolCallId,
-        name: event.toolName,
-        arguments: event.args,
+        id: event.toolCallId || rawToolCall.id,
+        name: event.toolName || rawToolCall.name,
+        arguments: mergedArgs,
+        mcpPayload: resultDetails?.mcpPayload,
+        mcpMeta: resultDetails?.mcpMeta,
       },
       result:
         event.result?.content?.[0]?.text ?? JSON.stringify(event.result ?? {}),

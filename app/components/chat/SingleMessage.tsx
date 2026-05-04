@@ -124,6 +124,194 @@ export function SingleMessage(props: SingleMessageProps) {
     setShowModelConfigModal(false);
   }, [message.id]);
 
+  const parseMaybeJson = (value: any) => {
+    if (value == null) return {};
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  };
+
+  const formatJson = (value: any) => {
+    if (typeof value === "string") return value;
+    return JSON.stringify(value ?? {}, null, 2);
+  };
+
+  const parseFunctionToolName = (tool: any) => {
+    const meta = tool?.mcpMeta;
+    if (meta?.clientId || meta?.toolName) {
+      return {
+        clientName: meta.clientId || "",
+        toolName: meta.toolName || tool?.function?.name || "",
+      };
+    }
+
+    const fullName = tool?.function?.name || "";
+    if (fullName.startsWith("mcp_")) {
+      const withoutPrefix = fullName.slice(4);
+      const firstUnderscoreIndex = withoutPrefix.indexOf("_");
+      if (firstUnderscoreIndex >= 0) {
+        return {
+          clientName: withoutPrefix.substring(0, firstUnderscoreIndex),
+          toolName: withoutPrefix.substring(firstUnderscoreIndex + 1),
+        };
+      }
+    }
+
+    return {
+      clientName: "",
+      toolName: fullName,
+    };
+  };
+
+  const mcpToolItems = [
+    ...((message?.tools || []) as any[]).map((tool, idx) => {
+      const { clientName, toolName } = parseFunctionToolName(tool);
+      const parsedArgs = parseMaybeJson(tool?.function?.arguments);
+      const payload = tool?.mcpPayload || {
+        method: "tools/call",
+        params: {
+          name: toolName || tool?.function?.name || "unknown_tool",
+          arguments: parsedArgs,
+        },
+      };
+      return {
+        id: tool.id || `func:${idx}`,
+        source: "function",
+        toolName,
+        clientName,
+        arguments: payload?.params?.arguments ?? parsedArgs,
+        payload,
+        contentOffset: tool.contentOffset ?? 0,
+      };
+    }),
+    ...(((message as any).mcpCalls || []) as any[]).map((call, idx) => {
+      const payload =
+        parseMaybeJson(call.parsed) ||
+        parseMaybeJson(call.rawJson) ||
+        undefined;
+      return {
+        id: `mcp:${idx}`,
+        source: "mcp",
+        toolName: call.toolName,
+        clientName: call.clientId,
+        arguments:
+          call.args !== undefined
+            ? parseMaybeJson(call.args)
+            : (payload?.params?.arguments ?? {}),
+        payload,
+        contentOffset: call.contentOffset ?? 0,
+      };
+    }),
+  ];
+
+  const renderMcpToolCard = (item: any) => (
+    <details key={item.id} className={styles["mcp-tool-call"]}>
+      <summary>
+        <span className={styles["mcp-tool-call-title"]}>
+          {item.clientName}
+          {item.toolName ? ` / ${item.toolName}` : ""}
+        </span>
+        <span className={styles["mcp-tool-call-desc"]}>
+          {item.source === "function" ? "Function" : "MCP"}
+        </span>
+      </summary>
+      <div className={styles["mcp-tool-call-body"]}>
+        <div className={styles["mcp-tool-call-line"]}>
+          <span className={styles["mcp-tool-call-key"]}>arguments</span>
+          <pre className={styles["mcp-tool-call-value"]}>
+            <code>{formatJson(item.arguments)}</code>
+          </pre>
+        </div>
+        {item.payload && (
+          <div className={styles["mcp-tool-call-line"]}>
+            <span className={styles["mcp-tool-call-key"]}>payload</span>
+            <pre className={styles["mcp-tool-call-value"]}>
+              <code>{formatJson(item.payload)}</code>
+            </pre>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+
+  const getDisplayContent = (contentOverride?: string) => {
+    const messageContent =
+      contentOverride ??
+      (typeof message.content === "string"
+        ? message.content
+        : getMessageTextContent(message));
+    const isThinking = isThinkingModel(message.model);
+    const shouldWrap = !message.streaming && isThinking;
+    return shouldWrap ? wrapThinkingPart(messageContent) : messageContent;
+  };
+
+  const renderLlmContent = (content: string, key: string) => (
+    <LLMMessageContent
+      key={key}
+      content={content}
+      isStreamFinished={!message.streaming && !message.preview}
+      loading={
+        (message.preview || message.streaming) &&
+        (!message.content ||
+          (typeof message.content === "string" && message.content.length === 0))
+      }
+      fontSize={fontSize}
+      fontFamily={fontFamily}
+      parentRef={scrollRef}
+      defaultShow={index >= totalMessages - 6}
+    />
+  );
+
+  const renderTimelineContent = () => {
+    const rawContent =
+      typeof message.content === "string"
+        ? message.content
+        : getMessageTextContent(message);
+
+    if (mcpToolItems.length === 0) {
+      return renderLlmContent(getDisplayContent(rawContent), "done");
+    }
+
+    const sortedItems = [...mcpToolItems].sort(
+      (a, b) => (a.contentOffset ?? 0) - (b.contentOffset ?? 0),
+    );
+    const nodes: React.ReactNode[] = [];
+    let cursor = 0;
+
+    sortedItems.forEach((item, idx) => {
+      const offset = Math.max(
+        cursor,
+        Math.min(Number(item.contentOffset ?? 0), rawContent.length),
+      );
+      const before = rawContent.slice(cursor, offset);
+      if (before.trim()) {
+        nodes.push(
+          <div className={styles["mcp-timeline-text"]} key={`text:${idx}`}>
+            {renderLlmContent(getDisplayContent(before), `text:${idx}`)}
+          </div>,
+        );
+      }
+      nodes.push(renderMcpToolCard(item));
+      cursor = offset;
+    });
+
+    const rest = rawContent.slice(cursor);
+    if (rest.trim() || nodes.length === 0) {
+      nodes.push(
+        <div className={styles["mcp-timeline-text"]} key="text:rest">
+          {renderLlmContent(getDisplayContent(rest), "text:rest")}
+        </div>,
+      );
+    }
+
+    return <div className={styles["mcp-timeline"]}>{nodes}</div>;
+  };
+
   return (
     <Fragment key={message.id}>
       <div
@@ -155,8 +343,8 @@ export function SingleMessage(props: SingleMessageProps) {
                     message.role === "system"
                       ? config.systemAvatar
                       : message.role === "assistant"
-                      ? config.assistantAvatar
-                      : config.avatar
+                        ? config.assistantAvatar
+                        : config.avatar
                   }
                 />
               ) : isUser ? (
@@ -340,108 +528,127 @@ export function SingleMessage(props: SingleMessageProps) {
           </div>
 
           {(() => {
-            const mcpCalls: any[] = (message as any).mcpCalls || [];
-            const functionTools: any[] = message?.tools || [];
+            const mcpCalls: any[] = [];
+            const functionTools: any[] = [];
+            const parseMaybeJson = (value: any) => {
+              if (value == null) return {};
+              if (typeof value === "string") {
+                try {
+                  return JSON.parse(value);
+                } catch {
+                  return value;
+                }
+              }
+              return value;
+            };
+            const formatJson = (value: any) => {
+              if (typeof value === "string") return value;
+              return JSON.stringify(value ?? {}, null, 2);
+            };
+            const parseFunctionToolName = (tool: any) => {
+              const meta = tool?.mcpMeta;
+              if (meta?.clientId || meta?.toolName) {
+                return {
+                  clientName: meta.clientId || "",
+                  toolName: meta.toolName || tool?.function?.name || "",
+                };
+              }
+
+              const fullName = tool?.function?.name || "";
+              if (fullName.startsWith("mcp_")) {
+                const withoutPrefix = fullName.slice(4);
+                const firstUnderscoreIndex = withoutPrefix.indexOf("_");
+                if (firstUnderscoreIndex >= 0) {
+                  return {
+                    clientName: withoutPrefix.substring(
+                      0,
+                      firstUnderscoreIndex,
+                    ),
+                    toolName: withoutPrefix.substring(firstUnderscoreIndex + 1),
+                  };
+                }
+              }
+
+              return {
+                clientName: "",
+                toolName: fullName,
+              };
+            };
             const unified = [
               ...functionTools.map((tool, idx) => {
-                const fullName = tool?.function?.name || "";
-                let toolName = fullName;
-                let clientName = "";
-                if (fullName.includes("__")) {
-                  const parts = fullName.split("__");
-                  if (parts.length >= 2) {
-                    clientName = parts[0];
-                    toolName = parts.slice(1).join("__");
-                  }
-                } else if (fullName.includes("_")) {
-                  const firstUnderscoreIndex = fullName.indexOf("_");
-                  clientName = fullName.substring(0, firstUnderscoreIndex);
-                  toolName = fullName.substring(firstUnderscoreIndex + 1);
-                } else if (fullName.includes("-")) {
-                  const firstDashIndex = fullName.indexOf("-");
-                  clientName = fullName.substring(0, firstDashIndex);
-                  toolName = fullName.substring(firstDashIndex + 1);
-                }
+                const { clientName, toolName } = parseFunctionToolName(tool);
+                const parsedArgs = parseMaybeJson(tool?.function?.arguments);
+                const payload = tool?.mcpPayload || {
+                  method: "tools/call",
+                  params: {
+                    name: toolName || tool?.function?.name || "unknown_tool",
+                    arguments: parsedArgs,
+                  },
+                };
                 return {
                   id: tool.id || `func:${idx}`,
                   source: "function",
                   toolName,
                   clientName,
-                  raw: tool,
+                  arguments: payload?.params?.arguments ?? parsedArgs,
+                  payload,
                 };
               }),
-              ...mcpCalls.map((call, idx) => ({
-                id: `mcp:${idx}`,
-                source: "mcp",
-                toolName: call.toolName,
-                clientName: call.clientId,
-                raw: call,
-              })),
+              ...mcpCalls.map((call, idx) => {
+                const payload =
+                  parseMaybeJson(call.parsed) ||
+                  parseMaybeJson(call.rawJson) ||
+                  undefined;
+                return {
+                  id: `mcp:${idx}`,
+                  source: "mcp",
+                  toolName: call.toolName,
+                  clientName: call.clientId,
+                  arguments:
+                    call.args !== undefined
+                      ? parseMaybeJson(call.args)
+                      : (payload?.params?.arguments ?? {}),
+                  payload,
+                };
+              }),
             ];
             if (unified.length === 0) return null;
 
             return (
               <div className={styles["mcp-tool-calls"]}>
-                {unified.map((item) => {
-                  if (item.source === "function") {
-                    const t = item.raw;
-                    let parsedArgs: any = t?.function?.arguments;
-                    try {
-                      parsedArgs = parsedArgs ? JSON.parse(parsedArgs) : {};
-                    } catch {}
-                    return (
-                      <details
-                        key={item.id}
-                        className={styles["mcp-tool-call"]}
-                      >
-                        <summary>
-                          <span className={styles["mcp-tool-call-title"]}>
-                            {item.clientName}
-                            {item.toolName ? ` / ${item.toolName}` : ""}
-                          </span>
-                          <span className={styles["mcp-tool-call-desc"]}>
-                            {item.source === "function" ? "Function" : "MCP"}
-                          </span>
-                        </summary>
-                        <div className={styles["mcp-tool-call-body"]}>
-                          <div className={styles["mcp-tool-call-line"]}>
-                            <span className={styles["mcp-tool-call-key"]}>
-                              args
-                            </span>
-                            <pre className={styles["mcp-tool-call-value"]}>
-                              {JSON.stringify(parsedArgs, null, 2)}
-                            </pre>
-                          </div>
-                        </div>
-                      </details>
-                    );
-                  }
-
-                  const c = item.raw;
-                  return (
-                    <details key={item.id} className={styles["mcp-tool-call"]}>
-                      <summary>
-                        <span className={styles["mcp-tool-call-title"]}>
-                          {item.clientName}
-                          {item.toolName ? ` / ${item.toolName}` : ""}
+                {unified.map((item) => (
+                  <details key={item.id} className={styles["mcp-tool-call"]}>
+                    <summary>
+                      <span className={styles["mcp-tool-call-title"]}>
+                        {item.clientName}
+                        {item.toolName ? ` / ${item.toolName}` : ""}
+                      </span>
+                      <span className={styles["mcp-tool-call-desc"]}>
+                        {item.source === "function" ? "Function" : "MCP"}
+                      </span>
+                    </summary>
+                    <div className={styles["mcp-tool-call-body"]}>
+                      <div className={styles["mcp-tool-call-line"]}>
+                        <span className={styles["mcp-tool-call-key"]}>
+                          arguments
                         </span>
-                        <span className={styles["mcp-tool-call-desc"]}>
-                          MCP
-                        </span>
-                      </summary>
-                      <div className={styles["mcp-tool-call-body"]}>
+                        <pre className={styles["mcp-tool-call-value"]}>
+                          <code>{formatJson(item.arguments)}</code>
+                        </pre>
+                      </div>
+                      {item.payload && (
                         <div className={styles["mcp-tool-call-line"]}>
                           <span className={styles["mcp-tool-call-key"]}>
-                            args
+                            payload
                           </span>
                           <pre className={styles["mcp-tool-call-value"]}>
-                            {JSON.stringify(c.args, null, 2)}
+                            <code>{formatJson(item.payload)}</code>
                           </pre>
                         </div>
-                      </div>
-                    </details>
-                  );
-                })}
+                      )}
+                    </div>
+                  </details>
+                ))}
               </div>
             );
           })()}
@@ -525,32 +732,7 @@ export function SingleMessage(props: SingleMessageProps) {
                 )}
               </div>
             ) : (
-              <LLMMessageContent
-                key={message.streaming ? "loading" : "done"}
-                content={(() => {
-                  const messageContent =
-                    typeof message.content === "string"
-                      ? message.content
-                      : getMessageTextContent(message);
-                  const isThinking = isThinkingModel(message.model);
-                  const shouldWrap = !message.streaming && isThinking;
-                  if (shouldWrap) {
-                    return wrapThinkingPart(messageContent);
-                  }
-                  return messageContent;
-                })()}
-                isStreamFinished={!message.streaming && !message.preview}
-                loading={
-                  (message.preview || message.streaming) &&
-                  (!message.content ||
-                    (typeof message.content === "string" &&
-                      message.content.length === 0))
-                }
-                fontSize={fontSize}
-                fontFamily={fontFamily}
-                parentRef={scrollRef}
-                defaultShow={index >= totalMessages - 6}
-              />
+              renderTimelineContent()
             )}
             {getMessageImages(message).length === 1 && (
               <div

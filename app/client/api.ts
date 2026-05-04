@@ -351,19 +351,48 @@ class UnifiedClientApi {
           );
           const reasoningField = capabilities.reasoningField;
 
+          const normalizeToolCallArguments = (toolCall: any, part?: any) => {
+            const candidates = [
+              toolCall?.arguments,
+              toolCall?.args,
+              toolCall?.input,
+              toolCall?.parameters,
+              part?.args,
+              part?.arguments,
+              part?.input,
+              part?.toolArgs,
+            ];
+            const raw = candidates.find((c) => c !== undefined);
+            if (raw === undefined || raw === null) return {};
+
+            if (typeof raw === "string") {
+              try {
+                return JSON.parse(raw);
+              } catch {
+                // Keep raw string if provider emits non-JSON text arguments.
+                return raw;
+              }
+            }
+
+            return raw;
+          };
+
           try {
             for await (const part of streamResult.fullStream) {
               switch (part.type) {
                 case "tool-call": {
                   const toolCall = (part as any).toolCall;
                   if (toolCall?.id && toolCall?.name) {
+                    const args = normalizeToolCallArguments(toolCall, part);
                     options.onBeforeTool?.({
                       id: toolCall.id,
                       type: "function",
                       function: {
                         name: toolCall.name,
-                        arguments: JSON.stringify(toolCall.arguments ?? {}),
+                        arguments: JSON.stringify(args),
                       },
+                      mcpPayload: toolCall.mcpPayload,
+                      mcpMeta: toolCall.mcpMeta,
                     });
                   }
                   break;
@@ -373,13 +402,16 @@ class UnifiedClientApi {
                   const result = (part as any).result;
                   const isError = !!(part as any).isError;
                   if (toolCall?.id && toolCall?.name) {
+                    const args = normalizeToolCallArguments(toolCall, part);
                     options.onAfterTool?.({
                       id: toolCall.id,
                       type: "function",
                       function: {
                         name: toolCall.name,
-                        arguments: JSON.stringify(toolCall.arguments ?? {}),
+                        arguments: JSON.stringify(args),
                       },
+                      mcpPayload: toolCall.mcpPayload,
+                      mcpMeta: toolCall.mcpMeta,
                       content: typeof result === "string" ? result : "",
                       isError,
                       errorMsg: isError

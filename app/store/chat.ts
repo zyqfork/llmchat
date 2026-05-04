@@ -127,10 +127,16 @@ function extractResponseApiConversationId(
 export type ChatMessageTool = {
   id: string;
   index?: number;
+  contentOffset?: number;
   type?: string;
   function?: {
     name: string;
     arguments?: string;
+  };
+  mcpPayload?: any;
+  mcpMeta?: {
+    clientId?: string;
+    toolName?: string;
   };
   content?: string;
   isError?: boolean;
@@ -1128,20 +1134,26 @@ export const useChatStore = createPersistStore(
           },
           onBeforeTool(tool: ChatMessageTool) {
             // 将工具追加到当前会话消息中（而不是只修改局部引用），避免被后续流式内容覆盖
+            const toolWithOffset = {
+              ...tool,
+              contentOffset: getMessageTextContent(botMessage).length,
+            };
             get().updateTargetSession(session, (session) => {
               const messageIndex = session.messages.findIndex(
                 (m) => m.id === botMessage.id,
               );
               if (messageIndex >= 0) {
                 const current = session.messages[messageIndex];
-                const newTools = [...(current.tools || []), tool];
+                const newTools = [...(current.tools || []), toolWithOffset];
                 const updated = { ...current, tools: newTools } as any;
                 session.messages[messageIndex] = updated;
                 // 同步本地引用，保证后续 onAfterTool 能正确更新
                 botMessage.tools = newTools;
               } else {
                 // 兜底：如果未找到，仍然写入本地引用并触发一次刷新
-                (botMessage.tools = botMessage?.tools || []).push(tool);
+                (botMessage.tools = botMessage?.tools || []).push(
+                  toolWithOffset,
+                );
               }
             });
           },
@@ -1156,9 +1168,21 @@ export const useChatStore = createPersistStore(
                 const tools = [...(current.tools || [])];
                 const idx = tools.findIndex((t) => t.id === tool.id);
                 if (idx >= 0) {
-                  tools[idx] = { ...tool } as any;
+                  tools[idx] = {
+                    ...tools[idx],
+                    ...tool,
+                    contentOffset:
+                      tools[idx].contentOffset ??
+                      tool.contentOffset ??
+                      getMessageTextContent(botMessage).length,
+                  } as any;
                 } else {
-                  tools.push({ ...tool } as any);
+                  tools.push({
+                    ...tool,
+                    contentOffset:
+                      tool.contentOffset ??
+                      getMessageTextContent(botMessage).length,
+                  } as any);
                 }
                 const updated = { ...current, tools };
                 session.messages[messageIndex] = updated as any;

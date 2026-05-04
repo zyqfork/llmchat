@@ -15,6 +15,7 @@ export async function executeMcpToolCall(toolCall: any, allTools: any[]) {
     return {
       isError: true,
       content: `Unsupported tool: ${toolCall.name}`,
+      mcpPayload: null,
     };
   }
 
@@ -24,7 +25,7 @@ export async function executeMcpToolCall(toolCall: any, allTools: any[]) {
         ? JSON.parse(toolCall.arguments || "{}")
         : toolCall.arguments || {};
 
-    const result = await executeMcpAction(meta.clientId, {
+    const mcpPayload = {
       jsonrpc: "2.0",
       id: Date.now(),
       method: "tools/call",
@@ -32,18 +33,25 @@ export async function executeMcpToolCall(toolCall: any, allTools: any[]) {
         name: meta.toolName,
         arguments: parsedArguments,
       },
-    } as any);
+    } as any;
+    const result = await executeMcpAction(meta.clientId, mcpPayload);
     return {
       isError: false,
       content:
         typeof result === "string"
           ? result
           : JSON.stringify(result ?? {}, null, 2),
+      mcpPayload,
+      mcpMeta: {
+        clientId: meta.clientId,
+        toolName: meta.toolName,
+      },
     };
   } catch (error) {
     return {
       isError: true,
       content: error instanceof Error ? error.message : String(error),
+      mcpPayload: null,
     };
   }
 }

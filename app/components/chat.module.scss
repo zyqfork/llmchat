@@ -1953,10 +1953,24 @@
 
 // MCP 工具调用展示样式
 .mcp-tool-calls {
-  margin-top: 12px;
+  margin: 12px 0 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.mcp-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-timeline-text {
+  display: block;
+}
+
+.mcp-tool-calls + .chat-message-item {
+  margin-top: 14px;
 }
 
 .mcp-tool-call {
@@ -2001,6 +2015,60 @@
       background-color: rgba(59, 130, 246, 0.08);
       border-bottom: 1px solid rgba(59, 130, 246, 0.15);
     }
+  }
+}
+
+.mcp-tool-call-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-tool-call-desc {
+  flex: 0 0 auto;
+  color: var(--black);
+  opacity: 0.55;
+  font-size: 12px;
+}
+
+.mcp-tool-call-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.mcp-tool-call-line {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcp-tool-call-key {
+  color: var(--black);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.mcp-tool-call-value {
+  margin: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: #1a1b26;
+  overflow-x: auto;
+  color: #cbd2ea;
+  font-size: 12px;
+  line-height: 1.45;
+
+  code {
+    display: block;
+    color: inherit;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
   }
 }
 
@@ -2049,6 +2117,11 @@
     code {
       color: #cbd2ea;
     }
+  }
+
+  .mcp-tool-call-desc,
+  .mcp-tool-call-key {
+    color: var(--white);
   }
 }
 

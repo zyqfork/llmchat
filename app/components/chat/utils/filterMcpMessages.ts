@@ -3,107 +3,172 @@
  */
 import type { ChatMessage } from "@/app/store";
 
+type ExtractedMcpCall = {
+  toolName: string;
+  clientId: string;
+  contentOffset?: number;
+  method?: string;
+  args?: unknown;
+  parsed?: unknown;
+  rawJson: string;
+};
+
+type ParsedAssistantMcpMessage = {
+  cleanContent: string;
+  mcpCalls: ExtractedMcpCall[];
+  hasMcp: boolean;
+};
+
+function getTextContent(message: ChatMessage): string {
+  return typeof message.content === "string"
+    ? message.content
+    : Array.isArray(message.content)
+      ? message.content.map((c) => (c.type === "text" ? c.text : "")).join("")
+      : "";
+}
+
+function stripMcpBlocks(content: string): string {
+  return content.replace(/```json:mcp:[\s\S]*?```/g, "").trim();
+}
+
+function dedupeMcpCalls(calls: ExtractedMcpCall[]) {
+  const seen = new Set<string>();
+  return calls.filter((c) => {
+    const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function parseAssistantMcpMessage(
+  message: ChatMessage,
+): ParsedAssistantMcpMessage {
+  const content = getTextContent(message);
+
+  if (!content.includes("```json:mcp:")) {
+    return {
+      cleanContent: content.trim(),
+      mcpCalls: Array.isArray((message as any).mcpCalls)
+        ? (message as any).mcpCalls
+        : [],
+      hasMcp: Array.isArray((message as any).mcpCalls)
+        ? (message as any).mcpCalls.length > 0
+        : false,
+    };
+  }
+
+  const mcpMatches = Array.from(
+    content.matchAll(/```json:mcp:([^\s]+)\s*\n([\s\S]*?)```/g),
+  );
+  const mcpCalls: ExtractedMcpCall[] = [];
+
+  mcpMatches.forEach((match) => {
+    try {
+      const clientId = match[1];
+      const rawJson = match[2];
+      const mcpData = JSON.parse(rawJson);
+      const toolName = mcpData.params?.name || "工具";
+      const args = mcpData.params?.arguments ?? {};
+      const contentBeforeCall = stripMcpBlocks(content.slice(0, match.index));
+      mcpCalls.push({
+        toolName,
+        clientId,
+        contentOffset: contentBeforeCall.length,
+        method: mcpData.method,
+        args,
+        parsed: mcpData,
+        rawJson,
+      });
+    } catch (e) {
+      // ignore parse error
+    }
+  });
+
+  return {
+    cleanContent: stripMcpBlocks(content),
+    mcpCalls: dedupeMcpCalls(mcpCalls),
+    hasMcp: mcpCalls.length > 0,
+  };
+}
+
+function joinAssistantContent(left: string, right: string) {
+  if (!left.trim()) return right.trim();
+  if (!right.trim()) return left.trim();
+  return `${left.trim()}\n\n${right.trim()}`;
+}
+
 export function filterMcpMessages(messages: ChatMessage[]): ChatMessage[] {
   // 1) 先过滤掉 isMcpResponse（原始工具响应）
   const visible = messages.filter((m) => !m.isMcpResponse);
 
-  // 2) 逐条处理，抽取 ```json:mcp:<clientId> ... ``` 代码块，必要时把它们合并到下一条助手消息
+  // 2) 逐条处理，抽取 ```json:mcp:<clientId> ... ``` 代码块，并把提示词模式的一组 MCP 链路合并成同一条助手消息
   const result: ChatMessage[] = [];
+  let pendingAssistant: ChatMessage | null = null;
+  let pendingContent = "";
+  let pendingMcpCalls: ExtractedMcpCall[] = [];
+
+  const flushPendingAssistant = () => {
+    if (!pendingAssistant) return;
+    result.push({
+      ...(pendingAssistant as any),
+      content: pendingContent.trim(),
+      mcpCalls: dedupeMcpCalls(pendingMcpCalls),
+    } as any);
+    pendingAssistant = null;
+    pendingContent = "";
+    pendingMcpCalls = [];
+  };
 
   for (let i = 0; i < visible.length; i++) {
     const m = visible[i];
 
     // 压缩上下文消息直接透传，避免被 MCP 清洗逻辑误处理
     if (m.isCompressedContextPrompt) {
+      flushPendingAssistant();
       result.push(m);
       continue;
     }
 
     // 仅处理助手消息
     if (m.role !== "assistant") {
+      flushPendingAssistant();
       result.push(m);
       continue;
     }
 
-    // 读取纯文本内容
-    const content =
-      typeof m.content === "string"
-        ? m.content
-        : Array.isArray(m.content)
-        ? m.content.map((c) => (c.type === "text" ? c.text : "")).join("")
-        : "";
+    const parsed = parseAssistantMcpMessage(m);
+    const shouldMergeIntoPending = !!pendingAssistant;
 
-    // 无 mcp 代码块，直接保留
-    if (!content.includes("```json:mcp:")) {
+    // 无 MCP 且不在 MCP 链路中，直接保留普通助手消息
+    if (!parsed.hasMcp && !shouldMergeIntoPending) {
       result.push(m);
       continue;
     }
 
-    // 提取 MCP 调用信息
-    const mcpMatches = Array.from(
-      content.matchAll(/```json:mcp:(\w+)\s*\n([\s\S]*?)```/g),
+    if (!pendingAssistant) {
+      pendingAssistant = { ...(m as any), content: "" } as any;
+    }
+
+    const pendingLength = pendingContent.trim().length;
+    pendingMcpCalls.push(
+      ...parsed.mcpCalls.map((call) => ({
+        ...call,
+        contentOffset:
+          pendingLength +
+          (pendingLength > 0 && (call.contentOffset ?? 0) > 0 ? 2 : 0) +
+          (call.contentOffset ?? 0),
+      })),
     );
-    let mcpCalls: Array<{
-      toolName: string;
-      clientId: string;
-      rawJson: string;
-    }> = [];
-    mcpMatches.forEach((match) => {
-      try {
-        const clientId = match[1];
-        const rawJson = match[2];
-        const mcpData = JSON.parse(rawJson);
-        const toolName = mcpData.params?.name || "工具";
-        mcpCalls.push({ toolName, clientId, rawJson });
-      } catch (e) {
-        // ignore parse error
-      }
-    });
-    // 去重：防止同一流式回复多次出现相同的 MCP 调用块
-    const seen = new Set<string>();
-    mcpCalls = mcpCalls.filter((c) => {
-      const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    pendingContent = joinAssistantContent(pendingContent, parsed.cleanContent);
 
-    // 移除代码块，保留其余内容
-    const cleanContent = content.replace(/```json:mcp:[\s\S]*?```/g, "").trim();
-
-    // 如果当前这条消息在提示词模式下纯粹是“调用工具声明”（清理后没有内容），
-    // 则将 mcpCalls 合并到下一条助手消息的 mcpCalls 中，并丢弃本条，避免出现两条消息。
-    if (!cleanContent) {
-      // 向后查找下一条助手消息
-      let merged = false;
-      for (let j = i + 1; j < visible.length; j++) {
-        const next = visible[j];
-        if (next.role === "assistant") {
-          const nextAny: any = next as any;
-          const exist = Array.isArray(nextAny.mcpCalls) ? nextAny.mcpCalls : [];
-          // 合并并去重
-          const combined = [...exist, ...mcpCalls];
-          const seen2 = new Set<string>();
-          nextAny.mcpCalls = combined.filter((c: any) => {
-            const key = `${c.clientId}|${c.toolName}|${c.rawJson}`;
-            if (seen2.has(key)) return false;
-            seen2.add(key);
-            return true;
-          });
-          merged = true;
-          break;
-        }
-      }
-      if (!merged) {
-        // 若没有下一条助手消息，则把本条保留为“空内容+mcpCalls”，但前端将仅通过左上角徽标显示
-        result.push({ ...(m as any), content: "", mcpCalls } as any);
-      }
-      continue;
+    // 若当前 assistant 没有 MCP，说明这是工具链后的最终回答，合并后即可结束这一组链路。
+    if (!parsed.hasMcp) {
+      flushPendingAssistant();
     }
-
-    // 否则，保留本条消息，内容为清理后文本，并附带 mcpCalls
-    result.push({ ...(m as any), content: cleanContent, mcpCalls } as any);
   }
+
+  flushPendingAssistant();
 
   return result;
 }
