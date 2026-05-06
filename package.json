@@ -162,6 +162,10 @@
     },
     "asar": true,
     "publish": null,
+    "artifactName": "${productName}-electron-${version}-${os}-${arch}.${ext}",
+    "deb": {
+      "packageName": "llmchat-electron"
+    },
     "win": {
       "target": [
         {
@@ -175,7 +179,12 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
       "category": "public.app-category.developer-tools"
     },

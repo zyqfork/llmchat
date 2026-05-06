@@ -124,16 +124,24 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - os: ubuntu-24.04
-            artifact_name: electron-linux
-            command: yarn electron:build --linux AppImage
-            artifact_glob: dist/*.AppImage
+          - os: ubuntu-22.04
+            artifact_name: electron-linux-amd64
+            command: yarn electron:build --linux AppImage deb
+            artifact_glob: |
+              dist/*.AppImage
+              dist/*.deb
+          - os: ubuntu-24.04-arm
+            artifact_name: electron-linux-arm64
+            command: yarn electron:build --linux AppImage deb
+            artifact_glob: |
+              dist/*.AppImage
+              dist/*.deb
           - os: windows-latest
             artifact_name: electron-windows
             command: yarn electron:build --win nsis
             artifact_glob: dist/*.exe
           - os: macos-latest
-            artifact_name: electron-macos
+            artifact_name: electron-macos-universal
             command: yarn electron:build --mac dmg
             artifact_glob: dist/*.dmg
 
