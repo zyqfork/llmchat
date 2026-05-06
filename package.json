@@ -193,7 +193,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Development"
+      "category": "Development",
+      "maintainer": "zyqfork <zyqfork@users.noreply.github.com>"
     }
   },
   "packageManager": "yarn@1.22.19"
