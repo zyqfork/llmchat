@@ -6,6 +6,13 @@ import { resolvePiProviderId } from "../utils/pi-ai-resolver";
 import { useAccessStore } from "../store/access";
 import { executeMcpToolCall } from "./mcp-tool-executor";
 import { completeSimple, getModel, streamSimple } from "@mariozechner/pi-ai";
+import type {
+  Context,
+  ImageContent,
+  Message,
+  TextContent,
+} from "@mariozechner/pi-ai";
+import { transformMessages } from "@mariozechner/pi-ai/providers/transform-messages";
 import { agentLoop, runAgentLoop } from "@mariozechner/pi-agent-core";
 
 export interface LLMAdapterRequest {
@@ -168,23 +175,46 @@ function extractSystemPrompt(messages: any[]) {
   };
 }
 
-function toPiUserContent(content: any): string | any[] {
+function dataUrlToPiImageContent(url: string): ImageContent | undefined {
+  const match = url.match(/^data:([^;,]+);base64,(.*)$/i);
+  if (!match) return undefined;
+
+  const [, mimeType, data] = match;
+  if (!mimeType || !data) return undefined;
+
+  return {
+    type: "image",
+    mimeType,
+    data,
+  };
+}
+
+function isPiUserContentPart(
+  part: TextContent | ImageContent | undefined,
+): part is TextContent | ImageContent {
+  return !!part;
+}
+
+function toPiUserContent(
+  content: any,
+): string | (TextContent | ImageContent)[] {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return String(content ?? "");
 
-  return content
+  const parts = content
     .map((part: any) => {
       if (!part || typeof part !== "object") return undefined;
       if (part.type === "text" && typeof part.text === "string") {
-        return { type: "text", text: part.text };
+        return { type: "text", text: part.text } satisfies TextContent;
       }
       if (part.type === "image_url" && part.image_url?.url) {
-        // Keep text-only compatibility by downgrading unknown image format.
-        return { type: "text", text: `[image] ${part.image_url.url}` };
+        return dataUrlToPiImageContent(part.image_url.url);
       }
       return undefined;
     })
-    .filter(Boolean);
+    .filter(isPiUserContentPart);
+
+  return parts.length > 0 ? parts : "";
 }
 
 function toTextContent(content: any): string {
@@ -212,9 +242,12 @@ function toTextContent(content: any): string {
   }
 }
 
-function toPiContext(messages: any[]): any {
+function toPiContext(
+  messages: any[],
+  model: Parameters<typeof transformMessages>[1],
+): Context {
   const normalized = extractSystemPrompt(messages);
-  const piMessages: any[] = [];
+  const piMessages: Message[] = [];
 
   for (const msg of normalized.messages) {
     if (msg?.role === "user") {
@@ -243,7 +276,10 @@ function toPiContext(messages: any[]): any {
 
   return {
     systemPrompt: normalized.systemPrompt,
-    messages: piMessages,
+    messages: transformMessages(
+      piMessages as Parameters<typeof transformMessages>[0],
+      model as Parameters<typeof transformMessages>[1],
+    ),
   };
 }
 
@@ -683,7 +719,7 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
   }
 
   const debugCapture: DebugCapture = req.debugCapture || {};
-  const context = toPiContext(req.options?.messages ?? []);
+  const context = toPiContext(req.options?.messages ?? [], model);
   const openAiTools = Array.isArray(req.options?.tools)
     ? req.options.tools
     : [];
