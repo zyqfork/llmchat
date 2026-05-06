@@ -16,8 +16,8 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ fromJson(steps.create-release.outputs.result).id }}
-      release_tag: ${{ fromJson(steps.create-release.outputs.result).tag }}
+      release_id: ${{ steps.create-release.outputs.release_id }}
+      release_tag: ${{ steps.create-release.outputs.release_tag }}
 
     steps:
       - uses: actions/checkout@v3
@@ -53,7 +53,8 @@ jobs:
               })
               data = response.data
             }
-            return JSON.stringify({ id: data.id, tag: data.tag_name })
+            core.setOutput("release_id", String(data.id))
+            core.setOutput("release_tag", data.tag_name)
 
   build-tauri:
     needs: create-release
