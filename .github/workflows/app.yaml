@@ -3,10 +3,10 @@ name: Release App
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: Branch to build (manual trigger only)
+      release_tag:
+        description: Release tag to upload artifacts to (manual trigger only; empty means latest release)
         required: false
-        default: main
+        default: ""
   release:
     types: [published]
 
@@ -16,12 +16,13 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ steps.create-release.outputs.result }}
+      release_id: ${{ fromJson(steps.create-release.outputs.result).id }}
+      release_tag: ${{ fromJson(steps.create-release.outputs.result).tag }}
 
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+          ref: ${{ github.ref }}
       - name: setup node
         uses: actions/setup-node@v3
         with:
@@ -33,13 +34,26 @@ jobs:
       - name: create release
         id: create-release
         uses: actions/github-script@v6
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
         with:
           script: |
-            const { data } = await github.rest.repos.getLatestRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            })
-            return data.id
+            let data
+            if (process.env.RELEASE_TAG) {
+              const response = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: process.env.RELEASE_TAG,
+              })
+              data = response.data
+            } else {
+              const response = await github.rest.repos.getLatestRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              })
+              data = response.data
+            }
+            return JSON.stringify({ id: data.id, tag: data.tag_name })
 
   build-tauri:
     needs: create-release
@@ -74,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+          ref: ${{ github.ref }}
 
       - name: setup node
         uses: actions/setup-node@v3
@@ -149,7 +163,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+          ref: ${{ github.ref }}
 
       - name: setup node
         uses: actions/setup-node@v3
@@ -179,9 +193,9 @@ jobs:
           if-no-files-found: error
 
       - name: upload electron to release
-        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.create-release.outputs.release_tag }}
           files: ${{ matrix.config.artifact_glob }}
 
   publish-release:
