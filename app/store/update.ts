@@ -5,6 +5,7 @@ import { clientUpdate } from "../utils";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import Locale from "../locales";
 import { logger } from "../utils/logger";
+import { fetch as appFetch, FetchType } from "../utils/fetch";
 
 const ONE_MINUTE = 60 * 1000;
 const isApp = !!getClientConfig()?.isApp;
@@ -41,7 +42,9 @@ type VersionType = "date" | "tag";
 async function getVersion(type: VersionType) {
   try {
     if (type === "date") {
-      const data = (await (await fetch(FETCH_COMMIT_URL)).json()) as {
+      const data = (await (
+        await appFetch(FETCH_COMMIT_URL, undefined, FetchType.Sync)
+      ).json()) as {
         commit: {
           author: { name: string; date: string };
         };
@@ -60,7 +63,9 @@ async function getVersion(type: VersionType) {
       const remoteId = new Date(remoteCommitTime).getTime().toString();
       return remoteId;
     } else if (type === "tag") {
-      const data = (await (await fetch(FETCH_TAG_URL)).json()) as {
+      const data = (await (
+        await appFetch(FETCH_TAG_URL, undefined, FetchType.Sync)
+      ).json()) as {
         commit: { sha: string; url: string };
         name: string;
       }[];

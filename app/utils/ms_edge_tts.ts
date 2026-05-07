@@ -2,6 +2,7 @@
 import { Buffer } from "buffer";
 import { randomBytes } from "crypto";
 import { Readable } from "stream";
+import { fetch as appFetch, FetchType } from "./fetch";
 
 // Modified according to https://github.com/Migushthe2nd/MsEdgeTTS
 
@@ -258,7 +259,7 @@ export class MsEdgeTTS {
   //   });
   // }
   getVoices(): Promise<Voice[]> {
-    return fetch(MsEdgeTTS.VOICES_URL)
+    return appFetch(MsEdgeTTS.VOICES_URL, undefined, FetchType.Sync)
       .then((response) => {
         if (!response.ok) {
           throw new Error("Network response was not ok");

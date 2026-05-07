@@ -11,6 +11,10 @@ import {
   QWEN_REALTIME_VOICES,
   QwenVoice,
 } from "@/app/lib/qwen-realtime-client";
+import {
+  QWEN_ASR_REALTIME_MODELS,
+  isQwenAsrRealtimeModel,
+} from "@/app/lib/qwen-asr-realtime-client";
 
 const providers = [
   { value: ServiceProvider.OpenAI.id, label: "OpenAI" },
@@ -65,6 +69,9 @@ export function RealtimeConfigList(props: {
     </>
   );
 
+  const qwenModel = props.realtimeConfig?.qwen?.model ?? "";
+  const qwenIsAsr = isQwenAsrRealtimeModel(qwenModel);
+
   const qwenConfigComponent = isQwen && (
     <>
       <ListItem
@@ -73,40 +80,73 @@ export function RealtimeConfigList(props: {
       >
         <Select
           aria-label={Locale.Settings.Realtime.Qwen.Model.Title}
-          value={props.realtimeConfig?.qwen?.model}
+          value={qwenModel}
           onChange={(e) => {
             props.updateConfig(
               (config) => (config.qwen.model = e.target.value),
             );
           }}
         >
-          {QWEN_REALTIME_MODELS.map((v, i) => (
-            <option value={v} key={i}>
-              {v}
-            </option>
-          ))}
+          <optgroup label={Locale.Settings.Realtime.Qwen.ModelGroupAsr}>
+            {QWEN_ASR_REALTIME_MODELS.map((v, i) => (
+              <option value={v} key={`asr-${i}`}>
+                {v}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label={Locale.Settings.Realtime.Qwen.ModelGroupTts}>
+            {QWEN_REALTIME_MODELS.map((v, i) => (
+              <option value={v} key={`tts-${i}`}>
+                {v}
+              </option>
+            ))}
+          </optgroup>
         </Select>
       </ListItem>
-      <ListItem
-        title={Locale.Settings.Realtime.Qwen.Voice.Title}
-        subTitle={Locale.Settings.Realtime.Qwen.Voice.SubTitle}
-      >
-        <Select
-          aria-label={Locale.Settings.Realtime.Qwen.Voice.Title}
-          value={props.realtimeConfig?.qwen?.voice}
-          onChange={(e) => {
-            props.updateConfig(
-              (config) => (config.qwen.voice = e.target.value as QwenVoice),
-            );
-          }}
+      {qwenIsAsr && (
+        <ListItem
+          title={Locale.Settings.Realtime.Qwen.AsrLanguage.Title}
+          subTitle={Locale.Settings.Realtime.Qwen.AsrLanguage.SubTitle}
         >
-          {QWEN_REALTIME_VOICES.map((v, i) => (
-            <option value={v.value} key={i}>
-              {v.label} - {v.description}
-            </option>
-          ))}
-        </Select>
-      </ListItem>
+          <Select
+            aria-label={Locale.Settings.Realtime.Qwen.AsrLanguage.Title}
+            value={props.realtimeConfig?.qwen?.asrLanguage ?? "zh"}
+            onChange={(e) => {
+              props.updateConfig(
+                (config) => (config.qwen.asrLanguage = e.target.value),
+              );
+            }}
+          >
+            <option value="zh">中文 (zh)</option>
+            <option value="en">English (en)</option>
+            <option value="ja">日本語 (ja)</option>
+            <option value="ko">한국어 (ko)</option>
+            <option value="yue">粤语 (yue)</option>
+          </Select>
+        </ListItem>
+      )}
+      {!qwenIsAsr && (
+        <ListItem
+          title={Locale.Settings.Realtime.Qwen.Voice.Title}
+          subTitle={Locale.Settings.Realtime.Qwen.Voice.SubTitle}
+        >
+          <Select
+            aria-label={Locale.Settings.Realtime.Qwen.Voice.Title}
+            value={props.realtimeConfig?.qwen?.voice}
+            onChange={(e) => {
+              props.updateConfig(
+                (config) => (config.qwen.voice = e.target.value as QwenVoice),
+              );
+            }}
+          >
+            {QWEN_REALTIME_VOICES.map((v, i) => (
+              <option value={v.value} key={i}>
+                {v.label} - {v.description}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+      )}
       <ListItem
         title={Locale.Settings.Realtime.Qwen.Region.Title}
         subTitle={Locale.Settings.Realtime.Qwen.Region.SubTitle}

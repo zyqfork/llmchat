@@ -1168,9 +1168,15 @@ Keep each section concise. Preserve exact file paths, function names, and error 
         },
       },
       Qwen: {
+        ModelGroupAsr: "Realtime speech recognition (ASR)",
+        ModelGroupTts: "Realtime speech synthesis (TTS)",
         Model: {
           Title: "Qwen Model",
-          SubTitle: "Select Qwen realtime TTS model",
+          SubTitle: "Choose ASR or TTS realtime model",
+        },
+        AsrLanguage: {
+          Title: "ASR language",
+          SubTitle: "Primary language for realtime recognition",
         },
         Voice: {
           Title: "Voice",

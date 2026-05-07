@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod fetch;  // 统一的 fetch 模块
+mod ws;
 
 fn main() {
   tauri::Builder::default()
@@ -13,7 +14,12 @@ fn main() {
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_updater::Builder::new().build())
-    .invoke_handler(tauri::generate_handler![fetch::tauri_fetch])
+    .invoke_handler(tauri::generate_handler![
+      fetch::tauri_fetch,
+      ws::tauri_ws_connect,
+      ws::tauri_ws_send_text,
+      ws::tauri_ws_close
+    ])
     .setup(|_app| {
       // 只在启用 debug-devtools feature 时打开开发者工具
       #[cfg(feature = "debug-devtools")]

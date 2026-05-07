@@ -932,9 +932,15 @@ const tw = {
         },
       },
       Qwen: {
+        ModelGroupAsr: "即時語音辨識 (ASR)",
+        ModelGroupTts: "即時語音合成 (TTS)",
         Model: {
           Title: "通義千問模型",
-          SubTitle: "選擇通義千問即時語音模型",
+          SubTitle: "選擇即時語音辨識或即時語音合成模型",
+        },
+        AsrLanguage: {
+          Title: "辨識語言",
+          SubTitle: "即時語音辨識主語言",
         },
         Voice: {
           Title: "音色",

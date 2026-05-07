@@ -1,3 +1,8 @@
+export type AudioHandlerOptions = {
+  /** 录音与 AudioContext 采样率；通义 ASR 需 16000 */
+  recordingSampleRate?: number;
+};
+
 export class AudioHandler {
   private context: AudioContext;
   private mergeNode: ChannelMergerNode;
@@ -7,14 +12,15 @@ export class AudioHandler {
   private stream: MediaStream | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private recordBuffer: Int16Array[] = [];
-  private readonly sampleRate = 24000;
+  private readonly sampleRate: number;
 
   private nextPlayTime: number = 0;
   private isPlaying: boolean = false;
   private playbackQueue: AudioBufferSourceNode[] = [];
   private playBuffer: Int16Array[] = [];
 
-  constructor() {
+  constructor(options?: AudioHandlerOptions) {
+    this.sampleRate = options?.recordingSampleRate ?? 24000;
     this.context = new AudioContext({ sampleRate: this.sampleRate });
     // using ChannelMergerNode to get merged audio data, and then get analyser data.
     this.mergeNode = new ChannelMergerNode(this.context, { numberOfInputs: 2 });
@@ -78,7 +84,10 @@ export class AudioHandler {
       this.source.connect(this.mergeNode, 0, 0);
       this.workletNode.connect(this.context.destination);
 
-      this.workletNode.port.postMessage({ command: "START_RECORDING" });
+      this.workletNode.port.postMessage({
+        command: "START_RECORDING",
+        sampleRate: this.sampleRate,
+      });
     } catch (error) {
       // 静默处理错误，避免在生产环境输出过多日志
       throw error;

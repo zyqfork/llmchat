@@ -3,12 +3,15 @@ class AudioRecorderProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.isRecording = false;
-    this.bufferSize = 2400; // 100ms at 24kHz
+    this.bufferSize = 2400; // default ~100ms at 24kHz (overridden on START_RECORDING)
     this.currentBuffer = [];
 
     this.port.onmessage = (event) => {
       if (event.data.command === "START_RECORDING") {
         this.isRecording = true;
+        const sr = event.data.sampleRate || 24000;
+        // ~100ms of samples per chunk
+        this.bufferSize = Math.max(256, Math.floor(sr / 10));
       } else if (event.data.command === "STOP_RECORDING") {
         this.isRecording = false;
 

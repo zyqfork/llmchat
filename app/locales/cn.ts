@@ -1145,9 +1145,15 @@ const cn = {
         },
       },
       Qwen: {
+        ModelGroupAsr: "实时语音识别 (ASR)",
+        ModelGroupTts: "实时语音合成 (TTS)",
         Model: {
           Title: "通义千问模型",
-          SubTitle: "选择通义千问实时语音模型",
+          SubTitle: "选择实时语音识别或实时语音合成模型",
+        },
+        AsrLanguage: {
+          Title: "识别语言",
+          SubTitle: "实时语音识别主语言（可按场景切换）",
         },
         Voice: {
           Title: "音色",

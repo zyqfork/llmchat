@@ -126,9 +126,11 @@ export const DEFAULT_CONFIG = {
       deployment: "",
     },
     qwen: {
-      model: "qwen3-tts-flash-realtime",
+      model: "qwen3-asr-flash-realtime",
       voice: "Cherry" as QwenVoice,
       region: "beijing" as "beijing" | "singapore",
+      /** 通义实时语音识别语言（如 zh、en） */
+      asrLanguage: "zh",
     },
     temperature: 0.9,
     voice: "alloy" as Voice,
@@ -327,7 +329,7 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.template =
           state.modelConfig.template !== DEFAULT_INPUT_TEMPLATE
             ? state.modelConfig.template
-            : config?.template ?? DEFAULT_INPUT_TEMPLATE;
+            : (config?.template ?? DEFAULT_INPUT_TEMPLATE);
       }
 
       if (version < 4.1) {

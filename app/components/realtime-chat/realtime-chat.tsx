@@ -23,7 +23,12 @@ import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
 import { ServiceProvider } from "@/app/constant";
 import { QwenRealtimeClient } from "@/app/lib/qwen-realtime-client";
+import {
+  QwenAsrRealtimeClient,
+  isQwenAsrRealtimeModel,
+} from "@/app/lib/qwen-asr-realtime-client";
 import { logger } from "@/app/utils/logger";
+import { installDesktopWebSocketOverride } from "@/app/utils/desktop-websocket";
 
 interface RealtimeChatProps {
   onClose?: () => void;
@@ -49,8 +54,11 @@ export function RealtimeChat({
 
   const clientRef = useRef<RTClient | null>(null);
   const qwenClientRef = useRef<QwenRealtimeClient | null>(null);
+  const qwenAsrClientRef = useRef<QwenAsrRealtimeClient | null>(null);
   const audioHandlerRef = useRef<AudioHandler | null>(null);
   const initRef = useRef(false);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   // 通义千问 TTS 音频播放相关
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -69,9 +77,11 @@ export function RealtimeChat({
 
   // 通义千问配置
   const qwenModel =
-    config.realtimeConfig.qwen?.model || "qwen3-tts-flash-realtime";
+    config.realtimeConfig.qwen?.model || "qwen3-asr-flash-realtime";
   const qwenVoice = config.realtimeConfig.qwen?.voice || "Cherry";
   const qwenRegion = config.realtimeConfig.qwen?.region || "beijing";
+  const isQwenAsr = isQwen && isQwenAsrRealtimeModel(qwenModel);
+  const isQwenTts = isQwen && !isQwenAsrRealtimeModel(qwenModel);
 
   // 播放 PCM 音频数据
   const playPcmAudio = useCallback(async (audioData: ArrayBuffer) => {
@@ -115,7 +125,93 @@ export function RealtimeChat({
     isPlayingRef.current = false;
   }, [playPcmAudio]);
 
-  const handleConnectQwen = async () => {
+  const disconnectQwenAsr = async () => {
+    if (!qwenAsrClientRef.current) return;
+    try {
+      if (qwenAsrClientRef.current.isReady()) {
+        qwenAsrClientRef.current.finishSession();
+      }
+      qwenAsrClientRef.current.close();
+      qwenAsrClientRef.current = null;
+      setIsConnected(false);
+    } catch (error) {
+      logger.error("Qwen ASR disconnect failed:", error);
+    }
+  };
+
+  const handleConnectQwenAsr = async () => {
+    if (isConnecting) return;
+    if (!isConnected) {
+      try {
+        setIsConnecting(true);
+        setStatus("Connecting to Qwen ASR...");
+        const asrLang = config.realtimeConfig.qwen?.asrLanguage ?? "zh";
+        qwenAsrClientRef.current = new QwenAsrRealtimeClient(
+          {
+            model: qwenModel,
+            apiKey,
+            region: qwenRegion as "beijing" | "singapore",
+            language: asrLang,
+            useServerVad: useVAD,
+          },
+          {
+            onOpen: () => {
+              logger.debug("[QwenASR] Connected");
+            },
+            onClose: (code, reason) => {
+              logger.debug("[QwenASR] Disconnected:", code, reason);
+              setIsConnected(false);
+              setStatus("Disconnected");
+            },
+            onPartialTranscript: (text) => setStatus(text),
+            onFinalTranscript: (transcript) => {
+              const target = sessionRef.current;
+              const userMessage = createMessage({
+                role: "user",
+                content: transcript,
+              });
+              chatStore.updateTargetSession(target, (sess) => {
+                sess.messages = sess.messages.concat([userMessage]);
+              });
+              setStatus("");
+            },
+            onError: (error) => {
+              logger.error("[QwenASR] Error:", error);
+              setStatus(`Error: ${error.message}`);
+            },
+          },
+        );
+        await qwenAsrClientRef.current.connect();
+        await Promise.race([
+          qwenAsrClientRef.current.waitForSessionConfigured(),
+          new Promise<void>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "等待服务端确认会话超时（未收到 session 确认，请检查网络与 API Key）",
+                  ),
+                ),
+              10000,
+            ),
+          ),
+        ]);
+        setIsConnected(true);
+        setStatus("");
+      } catch (error) {
+        logger.error("Qwen ASR connection failed:", error);
+        const msg =
+          error instanceof Error ? error.message : "Connection failed";
+        setStatus(msg);
+      } finally {
+        setIsConnecting(false);
+      }
+    } else {
+      await disconnectQwenAsr();
+    }
+  };
+
+  const handleConnectQwenTts = async () => {
     if (isConnecting) return;
     if (!isConnected) {
       try {
@@ -170,11 +266,11 @@ export function RealtimeChat({
         setIsConnecting(false);
       }
     } else {
-      await disconnectQwen();
+      await disconnectQwenTts();
     }
   };
 
-  const disconnectQwen = async () => {
+  const disconnectQwenTts = async () => {
     if (qwenClientRef.current) {
       try {
         qwenClientRef.current.close();
@@ -187,8 +283,24 @@ export function RealtimeChat({
   };
 
   const handleConnect = async () => {
-    if (isQwen) {
-      return handleConnectQwen();
+    // 兼容旧配置：Realtime Chat 里误选了通义 TTS 模型时，自动回退到 ASR 模型
+    if (isQwenTts) {
+      const current = config.realtimeConfig.qwen?.model ?? "";
+      if (current.includes("-tts-")) {
+        config.update((cfg) => {
+          if (!cfg.realtimeConfig.qwen) return;
+          cfg.realtimeConfig.qwen.model = "qwen3-asr-flash-realtime";
+        });
+        setStatus("已自动切换为通义实时ASR模型，请重试连接");
+        return;
+      }
+    }
+
+    if (isQwenAsr) {
+      return handleConnectQwenAsr();
+    }
+    if (isQwenTts) {
+      return handleConnectQwenTts();
     }
 
     if (isConnecting) return;
@@ -231,9 +343,8 @@ export function RealtimeChat({
   };
 
   const disconnect = async () => {
-    if (isQwen) {
-      return disconnectQwen();
-    }
+    await disconnectQwenAsr();
+    await disconnectQwenTts();
 
     if (clientRef.current) {
       try {
@@ -351,9 +462,40 @@ export function RealtimeChat({
   }, [handleInputAudio, handleResponse]);
 
   const toggleRecording = useCallback(async () => {
-    // 通义千问模式下，录音功能暂不支持（TTS only）
-    if (isQwen) {
-      // 对于通义千问，我们可以发送测试文本
+    if (isQwenAsr) {
+      if (!isRecording && qwenAsrClientRef.current?.isReady()) {
+        try {
+          if (!audioHandlerRef.current) {
+            audioHandlerRef.current = new AudioHandler({
+              recordingSampleRate: 16000,
+            });
+            await audioHandlerRef.current.initialize();
+          }
+          await audioHandlerRef.current.startRecording((chunk) => {
+            qwenAsrClientRef.current?.appendPcmChunk(chunk);
+          });
+          setIsRecording(true);
+          onStartVoice?.();
+        } catch (error) {
+          logger.error("Failed to start Qwen ASR recording:", error);
+        }
+      } else if (isRecording && audioHandlerRef.current) {
+        try {
+          audioHandlerRef.current.stopRecording();
+          if (!useVAD) {
+            qwenAsrClientRef.current?.commitAudioBuffer();
+          }
+          setIsRecording(false);
+          onPausedVoice?.();
+        } catch (error) {
+          logger.error("Failed to stop Qwen ASR recording:", error);
+        }
+      }
+      return;
+    }
+
+    // 通义千问 TTS：演示向服务端提交文本
+    if (isQwenTts) {
       if (qwenClientRef.current?.isReady()) {
         qwenClientRef.current.appendText("你好，这是一个测试消息。");
       }
@@ -386,9 +528,18 @@ export function RealtimeChat({
         logger.error("Failed to stop recording:", error);
       }
     }
-  }, [isRecording, useVAD, handleInputAudio, isQwen]);
+  }, [
+    isRecording,
+    useVAD,
+    handleInputAudio,
+    isQwenAsr,
+    isQwenTts,
+    onStartVoice,
+    onPausedVoice,
+  ]);
 
   useEffect(() => {
+    installDesktopWebSocketOverride();
     // 防止重复初始化
     if (initRef.current) return;
     initRef.current = true;
@@ -398,9 +549,13 @@ export function RealtimeChat({
         const handler = new AudioHandler();
         await handler.initialize();
         audioHandlerRef.current = handler;
+      } else if (isQwenAsr) {
+        const handler = new AudioHandler({ recordingSampleRate: 16000 });
+        await handler.initialize();
+        audioHandlerRef.current = handler;
       }
       await handleConnect();
-      if (!isQwen) {
+      if (!isQwen || isQwenAsr) {
         await toggleRecording();
       }
     };
@@ -426,7 +581,7 @@ export function RealtimeChat({
   useEffect(() => {
     let animationFrameId: number;
 
-    if (isConnected && isRecording && !isQwen) {
+    if (isConnected && isRecording && (!isQwen || isQwenAsr)) {
       const animationFrame = () => {
         if (audioHandlerRef.current) {
           const freqData = audioHandlerRef.current.getByteFrequencyData();
@@ -445,7 +600,7 @@ export function RealtimeChat({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isConnected, isRecording, isQwen]);
+  }, [isConnected, isRecording, isQwen, isQwenAsr]);
 
   // update session params
   useEffect(() => {
@@ -471,12 +626,12 @@ export function RealtimeChat({
     <div className={styles["realtime-chat"]}>
       <div
         className={clsx(styles["circle-mic"], {
-          [styles["pulse"]]: isRecording || (isQwen && isConnected),
+          [styles["pulse"]]: isRecording || (isQwenTts && isConnected),
         })}
       >
         <VoicePrint
           frequencies={frequencies}
-          isActive={isRecording || (isQwen && isConnected)}
+          isActive={isRecording || (isQwenTts && isConnected)}
         />
       </div>
 

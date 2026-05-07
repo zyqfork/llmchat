@@ -31,11 +31,31 @@ export enum FetchType {
   Sync = "sync", // 云同步请求
 }
 
-/**
- * 检测是否在 Tauri 环境中运行
- */
+export enum DesktopRuntime {
+  Browser = "browser",
+  Tauri = "tauri",
+  Electron = "electron",
+}
+
+export function getDesktopRuntime(): DesktopRuntime {
+  if (typeof window === "undefined") {
+    return DesktopRuntime.Browser;
+  }
+  if ((window as any).__TAURI__) {
+    return DesktopRuntime.Tauri;
+  }
+  if (window.electronApp?.isElectron) {
+    return DesktopRuntime.Electron;
+  }
+  return DesktopRuntime.Browser;
+}
+
 export function isTauriApp(): boolean {
-  return typeof window !== "undefined" && !!(window as any).__TAURI__;
+  return getDesktopRuntime() === DesktopRuntime.Tauri;
+}
+
+export function isElectronApp(): boolean {
+  return getDesktopRuntime() === DesktopRuntime.Electron;
 }
 
 /**
@@ -68,13 +88,15 @@ export async function fetch(
   options?: RequestInit,
   fetchType?: FetchType,
 ): Promise<Response> {
-  if (!isTauriApp()) {
+  const runtime = getDesktopRuntime();
+  if (runtime === DesktopRuntime.Browser) {
     return window.fetch(url, options);
   }
 
   const type = fetchType || detectFetchType(url);
+  const runtimeLabel = runtime === DesktopRuntime.Tauri ? "Tauri" : "Electron";
   logger.debug(
-    `[Tauri Fetch ${type.toUpperCase()}] ${options?.method || "GET"} ${url}`,
+    `[${runtimeLabel} Fetch ${type.toUpperCase()}] ${options?.method || "GET"} ${url}`,
   );
 
   const {
@@ -99,9 +121,6 @@ export async function fetch(
       bodyBytes = Array.from(body);
     }
   }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  const { listen } = await import("@tauri-apps/api/event");
 
   let unlisten: (() => void) | undefined;
   let resolveRequestId!: (id: number) => void;
@@ -130,9 +149,9 @@ export async function fetch(
     signal.addEventListener("abort", () => close());
   }
 
-  unlisten = await listen("stream-response", (e: any) => {
+  const onStreamPayload = (payload: any) => {
     requestIdPromise.then((request_id) => {
-      const { request_id: rid, chunk, status, error } = e?.payload || {};
+      const { request_id: rid, chunk, status, error } = payload || {};
       if (request_id !== rid) return;
       if (chunk) {
         if (debugBody.text.length < maxDebugChars) {
@@ -157,18 +176,41 @@ export async function fetch(
         close();
       }
     });
-  });
+  };
 
   const timeoutSecs = type === FetchType.Sync ? 60 : 300;
 
   try {
-    const res: TauriStreamResponse = await invoke("tauri_fetch", {
-      method: method.toUpperCase(),
-      url,
-      headers,
-      body: bodyBytes,
-      timeout_secs: timeoutSecs,
-    });
+    let res: TauriStreamResponse;
+    if (runtime === DesktopRuntime.Tauri) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen("stream-response", (e: any) =>
+        onStreamPayload(e?.payload),
+      );
+      res = await invoke("tauri_fetch", {
+        method: method.toUpperCase(),
+        url,
+        headers,
+        body: bodyBytes,
+        timeout_secs: timeoutSecs,
+      });
+    } else if (
+      runtime === DesktopRuntime.Electron &&
+      window.electronApp?.invokeFetch &&
+      window.electronApp?.onStreamResponse
+    ) {
+      unlisten = window.electronApp.onStreamResponse(onStreamPayload);
+      res = await window.electronApp.invokeFetch({
+        method: method.toUpperCase(),
+        url,
+        headers,
+        body: bodyBytes,
+        timeout_secs: timeoutSecs,
+      });
+    } else {
+      throw new Error("Electron fetch bridge is unavailable");
+    }
 
     const {
       request_id,
@@ -191,7 +233,7 @@ export async function fetch(
 
     return response;
   } catch (e) {
-    logger.error(`[Tauri Fetch ${type.toUpperCase()}] Error:`, e);
+    logger.error(`[${runtimeLabel} Fetch ${type.toUpperCase()}] Error:`, e);
     close();
     return new Response("", { status: 599 });
   }
@@ -205,8 +247,8 @@ export function getProxyUrl(
   configuredProxyUrl?: string,
 ): string {
   if (!useProxy) return "";
-  if (isTauriApp()) {
-    logger.debug("[Tauri Fetch] Using Rust backend proxy");
+  if (getDesktopRuntime() !== DesktopRuntime.Browser) {
+    logger.debug("[Desktop Fetch] Using native backend proxy");
     return "";
   }
   return configuredProxyUrl && configuredProxyUrl.length > 0
