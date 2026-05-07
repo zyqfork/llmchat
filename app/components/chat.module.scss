@@ -70,6 +70,8 @@
   justify-content: space-between; // 保持两端对齐
   align-items: center;
   gap: 5px;
+  padding: 4px; // 为按钮 box-shadow 留出渲染空间，防止被裁切
+  overflow: visible; // 确保 box-shadow 和 tooltip 不被裁切
   margin-bottom: 0px; // 增加底部间距，确保换行后与输入框有合适距离
 
   &-end {
@@ -1370,6 +1372,7 @@
   flex-direction: column;
   border-top: var(--border-in-light);
   box-shadow: var(--card-shadow);
+  overflow: visible; // 确保图标的 box-shadow 和 tooltip 不被面板裁切
 
   .chat-input-actions {
     margin-bottom: 10px;
@@ -1884,8 +1887,11 @@
   .chat-input-actions {
     flex-wrap: nowrap;
     overflow-x: auto;
+    overflow-y: visible; // 保持垂直方向不裁切
     justify-content: flex-start;
     margin-bottom: 6px; // 移动端稍微减少间距
+    padding-top: 4px; // 为鼠标悬停时的 tooltip/shadow 留出空间
+    padding-bottom: 4px; // 为底部 box-shadow 留出空间
 
     -ms-overflow-style: none;
     /* IE and Edge */
@@ -1927,8 +1933,11 @@
   .chat-input-actions {
     flex-wrap: nowrap; // 移动端使用横向滚动，不换行
     overflow-x: auto;
+    overflow-y: visible; // 保持垂直方向不裁切
     justify-content: space-between; // 保持两端对齐
     margin-bottom: 6px;
+    padding-top: 4px; // 为鼠标悬停时的 tooltip/shadow 留出空间
+    padding-bottom: 4px; // 为底部 box-shadow 留出空间
 
     -ms-overflow-style: none;
     /* IE and Edge */

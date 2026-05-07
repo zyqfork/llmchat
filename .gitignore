@@ -58,3 +58,5 @@ qdrant*
 .claude
 
 /dist/
+/.tmp-*
+/.junie/
