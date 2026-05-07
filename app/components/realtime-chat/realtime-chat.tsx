@@ -31,6 +31,15 @@ function nextVoiceTurnId() {
   return `vt_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
+/** 用户气泡插在末尾时，仍要把助手 transcript 接到「最后一个流式助手」上，而非只看 last */
+function findLastStreamingAssistantIndex(turns: OmniVoiceTurn[]): number {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i];
+    if (t?.role === "assistant" && t.isStreaming) return i;
+  }
+  return -1;
+}
+
 type OmniVoiceTurn = {
   id: string;
   role: "user" | "assistant";
@@ -126,8 +135,8 @@ export function RealtimeChat({
             modalities: ["text", "audio"],
             transcriptionLanguage:
               config.realtimeConfig.qwen?.asrLanguage ?? "zh",
-            vadThreshold: 0.68,
-            vadSilenceDurationMs: 1250,
+            vadThreshold: 0.5,
+            vadSilenceDurationMs: 800,
             vadPrefixPaddingMs: 450,
           },
           {
@@ -182,25 +191,28 @@ export function RealtimeChat({
             },
             onResponseCreated: () => {
               omniPlaybackPrimedRef.current = false;
-              setVoiceTurns((prev) => [
-                ...prev,
-                {
+              setVoiceTurns((prev) => {
+                const next = [...prev];
+                const stale = findLastStreamingAssistantIndex(next);
+                if (stale >= 0) {
+                  next[stale] = { ...next[stale]!, isStreaming: false };
+                }
+                next.push({
                   id: nextVoiceTurnId(),
                   role: "assistant",
                   content: "",
                   isStreaming: true,
-                },
-              ]);
+                });
+                return next;
+              });
             },
             onAssistantTranscriptDelta: (delta) => {
               setVoiceTurns((prev) => {
                 const next = [...prev];
-                const last = next[next.length - 1];
-                if (last?.role === "assistant" && last.isStreaming) {
-                  next[next.length - 1] = {
-                    ...last,
-                    content: last.content + delta,
-                  };
+                const idx = findLastStreamingAssistantIndex(next);
+                if (idx >= 0) {
+                  const cur = next[idx]!;
+                  next[idx] = { ...cur, content: cur.content + delta };
                   return next;
                 }
                 next.push({
@@ -216,11 +228,12 @@ export function RealtimeChat({
               const trimmed = full.trim();
               setVoiceTurns((prev) => {
                 const next = [...prev];
-                const last = next[next.length - 1];
-                if (last?.role === "assistant" && last.isStreaming) {
-                  next[next.length - 1] = {
-                    ...last,
-                    content: trimmed || last.content,
+                const idx = findLastStreamingAssistantIndex(next);
+                if (idx >= 0) {
+                  const cur = next[idx]!;
+                  next[idx] = {
+                    ...cur,
+                    content: trimmed || cur.content,
                     isStreaming: false,
                   };
                 }
@@ -518,20 +531,28 @@ export function RealtimeChat({
         const handler = new AudioHandler();
         await handler.initialize();
         audioHandlerRef.current = handler;
+        await handleConnect();
       } else if (isQwenOmni) {
-        const handler = new AudioHandler({
-          recordingSampleRate: 16000,
-          preferVoiceIsolation: true,
-        });
-        await handler.initialize();
-        audioHandlerRef.current = handler;
-        const playHandler = new AudioHandler({
-          recordingSampleRate: 24000,
-        });
-        await playHandler.initialize();
-        omniPlaybackHandlerRef.current = playHandler;
+        // 与 WebSocket 建连并行，缩短打开面板后首轮语音前的串行等待
+        await Promise.all([
+          (async () => {
+            const handler = new AudioHandler({
+              recordingSampleRate: 16000,
+              preferVoiceIsolation: true,
+            });
+            await handler.initialize();
+            audioHandlerRef.current = handler;
+            const playHandler = new AudioHandler({
+              recordingSampleRate: 24000,
+            });
+            await playHandler.initialize();
+            omniPlaybackHandlerRef.current = playHandler;
+          })(),
+          handleConnect(),
+        ]);
+      } else {
+        await handleConnect();
       }
-      await handleConnect();
       if (!isQwen || isQwenOmni) {
         await toggleRecording();
       }

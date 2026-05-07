@@ -3,15 +3,15 @@ class AudioRecorderProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.isRecording = false;
-    this.bufferSize = 2400; // default ~100ms at 24kHz (overridden on START_RECORDING)
+    this.bufferSize = 1200; // overridden on START_RECORDING (~50ms at 24kHz)
     this.currentBuffer = [];
 
     this.port.onmessage = (event) => {
       if (event.data.command === "START_RECORDING") {
         this.isRecording = true;
         const sr = event.data.sampleRate || 24000;
-        // ~100ms of samples per chunk
-        this.bufferSize = Math.max(256, Math.floor(sr / 10));
+        // ~50ms / chunk：首轮 PCM 更快送达 realtime（原 ~100ms）；过小会增加 send 次数
+        this.bufferSize = Math.max(256, Math.floor(sr / 20));
       } else if (event.data.command === "STOP_RECORDING") {
         this.isRecording = false;
 

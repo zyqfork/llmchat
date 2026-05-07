@@ -27,9 +27,9 @@ export interface QwenOmniRealtimeConfig {
   instructions?: string;
   /** 用户语音转写主语言（与百炼 SDK transcription_params.language 一致） */
   transcriptionLanguage?: string;
-  /** VAD 阈值，略调高可减少环境人声误触发（semantic_vad 推荐约 0.6–0.75） */
+  /** VAD 阈值；官方示例多为 0.5，嘈杂环境可调高（如 0.65–0.75） */
   vadThreshold?: number;
-  /** 判停静音时长（毫秒），略加长可减少旁人插话切断轮次 */
+  /** 判停静音时长（毫秒），官方示例多为 800；加长可减少旁人插话误切段 */
   vadSilenceDurationMs?: number;
   vadPrefixPaddingMs?: number;
 }
@@ -185,7 +185,7 @@ export class QwenOmniRealtimeClient {
             (message.session as { id?: string } | undefined)?.id ?? null;
           logger.debug("[QwenOmni] Session created:", this.sessionId);
           this.callbacks.onSessionCreated?.(this.sessionId || "");
-          this.notifySessionConfigured();
+          // 就绪以 session.updated 为准：表示服务端已对 session.update 校验并生效后再送音频更稳
           break;
 
         case "session.updated":
@@ -306,14 +306,14 @@ export class QwenOmniRealtimeClient {
   private sendSessionUpdate() {
     const vadKind = this.vadType();
     const defaultThreshold =
-      vadKind === "semantic_vad" ? 0.68 : Math.max(0.35, 0.2);
+      vadKind === "semantic_vad" ? 0.5 : Math.max(0.35, 0.2);
     const turn_detection =
       this.config.useServerVad !== false
         ? {
             type: vadKind,
             threshold: this.config.vadThreshold ?? defaultThreshold,
             prefix_padding_ms: this.config.vadPrefixPaddingMs ?? 450,
-            silence_duration_ms: this.config.vadSilenceDurationMs ?? 1250,
+            silence_duration_ms: this.config.vadSilenceDurationMs ?? 800,
           }
         : null;
 

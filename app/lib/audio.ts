@@ -45,6 +45,11 @@ export class AudioHandler {
 
   async initialize() {
     await this.context.audioWorklet.addModule("/audio-processor.js");
+    try {
+      await this.context.resume();
+    } catch {
+      /* 无用户手势时可能仍为 suspended，startRecording 内会再 resume */
+    }
   }
 
   async startRecording(onChunk: (chunk: Uint8Array) => void) {
