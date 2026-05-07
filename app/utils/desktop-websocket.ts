@@ -25,7 +25,22 @@ function createCloseEvent(code?: number, reason?: string): CloseEvent {
   return new CloseEvent("close", { code: code || 1000, reason: reason || "" });
 }
 
-function extractDesktopAuth(protocols: string[]): {
+function isDashScopeRealtimeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const h = u.hostname.toLowerCase();
+    return (
+      h === "dashscope.aliyuncs.com" || h === "dashscope-intl.aliyuncs.com"
+    );
+  } catch {
+    return /dashscope(-intl)?\.aliyuncs\.com/i.test(url);
+  }
+}
+
+function extractDesktopAuth(
+  protocols: string[],
+  wsUrl: string,
+): {
   protocols: string[];
   headers: Record<string, string>;
 } {
@@ -37,7 +52,10 @@ function extractDesktopAuth(protocols: string[]): {
       const key = p.slice("api-key.".length).trim();
       if (key) {
         headers.Authorization = `Bearer ${key}`;
-        headers["OpenAI-Beta"] = "realtime=v1";
+        // OpenAI Realtime 兼容头；百炼 DashScope 原生 WS 仅使用 Bearer（见官方 SDK）
+        if (!isDashScopeRealtimeUrl(wsUrl)) {
+          headers["OpenAI-Beta"] = "realtime=v1";
+        }
       }
       continue;
     }
@@ -88,7 +106,7 @@ export class DesktopWebSocket {
 
   private async connect(url: string, protocols: string[]) {
     const runtime = getDesktopRuntime();
-    const extracted = extractDesktopAuth(protocols);
+    const extracted = extractDesktopAuth(protocols, url);
     const headers = extracted.headers;
     const useProtocols =
       headers.Authorization || headers.authorization ? [] : extracted.protocols;

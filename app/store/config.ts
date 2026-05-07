@@ -126,7 +126,7 @@ export const DEFAULT_CONFIG = {
       deployment: "",
     },
     qwen: {
-      model: "qwen3-asr-flash-realtime",
+      model: "qwen3.5-omni-plus-realtime",
       voice: "Cherry" as QwenVoice,
       region: "beijing" as "beijing" | "singapore",
       /** 通义实时语音识别语言（如 zh、en） */
@@ -266,7 +266,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.9,
+    version: 5.0,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -393,6 +393,18 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.compactionSystemPrompt = "";
         state.modelConfig.compactionInitialPrompt = "";
         state.modelConfig.compactionUpdatePrompt = "";
+      }
+
+      if (version < 5.0) {
+        const rtc = state.realtimeConfig;
+        if (
+          rtc?.provider === ServiceProvider.Alibaba.id &&
+          rtc.qwen?.model &&
+          (!rtc.qwen.model.includes("omni") ||
+            !rtc.qwen.model.includes("realtime"))
+        ) {
+          rtc.qwen.model = DEFAULT_CONFIG.realtimeConfig.qwen.model;
+        }
       }
 
       return state as any;

@@ -933,14 +933,18 @@ const tw = {
       },
       Qwen: {
         ModelGroupAsr: "即時語音辨識 (ASR)",
+        ModelGroupOmni: "全模態即時對話 (Omni)",
         ModelGroupTts: "即時語音合成 (TTS)",
         Model: {
-          Title: "通義千問模型",
-          SubTitle: "選擇即時語音辨識或即時語音合成模型",
+          Title: "即時語音模型 (Omni)",
+          SubTitle: "語音輸入與語音回覆，可同時顯示助手朗讀對應文字",
         },
         AsrLanguage: {
-          Title: "辨識語言",
-          SubTitle: "即時語音辨識主語言",
+          Title: "語音辨識語言",
+          SubTitle: "將你的語音轉成文字時使用的語言",
+        },
+        OmniLanguage: {
+          SubTitle: "語音輸入轉寫主語言（與 Omni 連線設定一致）",
         },
         Voice: {
           Title: "音色",
@@ -956,6 +960,11 @@ const tw = {
       Temperature: {
         Title: "隨機性 (temperature)",
         SubTitle: "值越大，回應越隨機",
+      },
+      LiveTranscript: {
+        You: "你說",
+        Assistant: "助手",
+        Hint: "Omni 可同時播放語音並顯示助手回覆文字（與朗讀內容對應）。",
       },
     },
   },

@@ -7,6 +7,7 @@
 import { logger } from "@/app/utils/logger";
 
 export type QwenVoice =
+  | "Tina" // Qwen3.5-Omni-Realtime 文档默认音色
   | "Cherry" // 芊悦 - 阳光积极、亲切自然小姐姐
   | "Serena" // 苏瑶 - 温柔小姐姐
   | "Ethan" // 晨煦 - 标准普通话，阳光、温暖
@@ -274,12 +275,17 @@ export const QWEN_REALTIME_MODELS = [
   "qwen3-tts-vd-realtime-2025-12-16", // 声音设计
 ];
 
+export function isQwenTtsRealtimeModel(model: string): boolean {
+  return model.includes("-tts-") && model.includes("realtime");
+}
+
 // 通义千问实时语音音色列表
 export const QWEN_REALTIME_VOICES: {
   value: QwenVoice;
   label: string;
   description: string;
 }[] = [
+  { value: "Tina", label: "甜甜 Tina", description: "Qwen3.5 Omni 默认" },
   { value: "Cherry", label: "芊悦", description: "阳光积极、亲切自然小姐姐" },
   { value: "Serena", label: "苏瑶", description: "温柔小姐姐" },
   { value: "Ethan", label: "晨煦", description: "标准普通话，阳光、温暖" },

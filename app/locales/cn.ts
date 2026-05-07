@@ -1146,14 +1146,18 @@ const cn = {
       },
       Qwen: {
         ModelGroupAsr: "实时语音识别 (ASR)",
+        ModelGroupOmni: "全模态实时对话 (Omni)",
         ModelGroupTts: "实时语音合成 (TTS)",
         Model: {
-          Title: "通义千问模型",
-          SubTitle: "选择实时语音识别或实时语音合成模型",
+          Title: "实时语音模型 (Omni)",
+          SubTitle: "语音输入与语音回复，可同时返回助手朗读对应的文字",
         },
         AsrLanguage: {
-          Title: "识别语言",
-          SubTitle: "实时语音识别主语言（可按场景切换）",
+          Title: "语音识别语言",
+          SubTitle: "你说的话转成文字时使用的语言",
+        },
+        OmniLanguage: {
+          SubTitle: "语音输入转写的主语言（与 Omni session 一致）",
         },
         Voice: {
           Title: "音色",
@@ -1169,6 +1173,11 @@ const cn = {
       Temperature: {
         Title: "随机性 (temperature)",
         SubTitle: "值越大，回复越随机",
+      },
+      LiveTranscript: {
+        You: "你说",
+        Assistant: "助手",
+        Hint: "Omni 模式下可同时收听语音并显示助手回复文字（与朗读内容对应）。",
       },
     },
   },

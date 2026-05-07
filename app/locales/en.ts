@@ -1169,18 +1169,23 @@ Keep each section concise. Preserve exact file paths, function names, and error 
       },
       Qwen: {
         ModelGroupAsr: "Realtime speech recognition (ASR)",
+        ModelGroupOmni: "Omni realtime chat",
         ModelGroupTts: "Realtime speech synthesis (TTS)",
         Model: {
-          Title: "Qwen Model",
-          SubTitle: "Choose ASR or TTS realtime model",
+          Title: "Realtime voice model (Omni)",
+          SubTitle:
+            "Voice in and voice out; assistant speech can include matching text",
         },
         AsrLanguage: {
-          Title: "ASR language",
-          SubTitle: "Primary language for realtime recognition",
+          Title: "Speech recognition language",
+          SubTitle: "Language used when your speech is transcribed",
+        },
+        OmniLanguage: {
+          SubTitle: "Primary language for input transcription (Omni session)",
         },
         Voice: {
           Title: "Voice",
-          SubTitle: "Select Qwen TTS voice",
+          SubTitle: "Select Qwen voice",
         },
         Region: {
           Title: "Region",
@@ -1192,6 +1197,11 @@ Keep each section concise. Preserve exact file paths, function names, and error 
       Temperature: {
         Title: "Randomness (temperature)",
         SubTitle: "Higher values result in more random responses",
+      },
+      LiveTranscript: {
+        You: "You",
+        Assistant: "Assistant",
+        Hint: "Omni can play audio and stream the spoken reply as text.",
       },
     },
   },

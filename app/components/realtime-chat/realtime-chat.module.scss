@@ -1,13 +1,62 @@
 .realtime-chat {
   width: 100%;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 20px;
+  padding: 16px 20px 88px;
   box-sizing: border-box;
+
+  .transcript-panel {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    max-height: min(42vh, 340px);
+    overflow-y: auto;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--second);
+    box-sizing: border-box;
+    text-align: left;
+  }
+
+  .transcript-hint {
+    font-size: 12px;
+    opacity: 0.72;
+    margin: 0 0 10px;
+    line-height: 1.45;
+  }
+
+  .transcript-block {
+    margin-bottom: 10px;
+
+    &:last-of-type {
+      margin-bottom: 0;
+    }
+  }
+
+  .transcript-label {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.85;
+    margin-bottom: 4px;
+  }
+
+  .transcript-body {
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .transcript-anchor {
+    height: 1px;
+    width: 100%;
+  }
+
   .circle-mic {
     width: 150px;
     height: 150px;
