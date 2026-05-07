@@ -27,6 +27,17 @@ import { QwenOmniRealtimeClient } from "@/app/lib/qwen-omni-realtime-client";
 import { logger } from "@/app/utils/logger";
 import { installDesktopWebSocketOverride } from "@/app/utils/desktop-websocket";
 
+function nextVoiceTurnId() {
+  return `vt_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+type OmniVoiceTurn = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  isStreaming?: boolean;
+};
+
 interface RealtimeChatProps {
   onClose?: () => void;
   onStartVoice?: () => void;
@@ -48,22 +59,15 @@ export function RealtimeChat({
   const [modality, setModality] = useState("audio");
   const [useVAD, setUseVAD] = useState(true);
   const [frequencies, setFrequencies] = useState<Uint8Array | undefined>();
-  const [liveUserTranscript, setLiveUserTranscript] = useState("");
-  const [liveAssistantTranscript, setLiveAssistantTranscript] = useState("");
+  const [voiceTurns, setVoiceTurns] = useState<OmniVoiceTurn[]>([]);
 
   const clientRef = useRef<RTClient | null>(null);
   const qwenOmniClientRef = useRef<QwenOmniRealtimeClient | null>(null);
   const omniPlaybackHandlerRef = useRef<AudioHandler | null>(null);
-  const omniAssistantMsgRef = useRef<ReturnType<typeof createMessage> | null>(
-    null,
-  );
   const omniPlaybackPrimedRef = useRef(false);
   const audioHandlerRef = useRef<AudioHandler | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
-  const sessionRef = useRef(session);
-  sessionRef.current = session;
-
   const temperature = config.realtimeConfig.temperature;
   const apiKey = config.realtimeConfig.apiKey;
   const model = config.realtimeConfig.model;
@@ -79,12 +83,16 @@ export function RealtimeChat({
     config.realtimeConfig.qwen?.model || "qwen3.5-omni-plus-realtime";
   const qwenVoice = config.realtimeConfig.qwen?.voice || "Cherry";
   const qwenRegion = config.realtimeConfig.qwen?.region || "beijing";
+  const qwenRegionLabel =
+    qwenRegion === "singapore"
+      ? Locale.Settings.Realtime.Qwen.Region.Singapore
+      : Locale.Settings.Realtime.Qwen.Region.Beijing;
   const isQwenOmni = isQwen;
 
   useEffect(() => {
     if (!isQwenOmni) return;
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [isQwenOmni, liveUserTranscript, liveAssistantTranscript]);
+  }, [isQwenOmni, voiceTurns]);
 
   const disconnectQwenOmni = async () => {
     if (!qwenOmniClientRef.current) return;
@@ -94,10 +102,8 @@ export function RealtimeChat({
       }
       qwenOmniClientRef.current.close();
       qwenOmniClientRef.current = null;
-      omniAssistantMsgRef.current = null;
       omniPlaybackPrimedRef.current = false;
-      setLiveUserTranscript("");
-      setLiveAssistantTranscript("");
+      setVoiceTurns([]);
       setIsConnected(false);
     } catch (error) {
       logger.error("Qwen Omni disconnect failed:", error);
@@ -120,6 +126,9 @@ export function RealtimeChat({
             modalities: ["text", "audio"],
             transcriptionLanguage:
               config.realtimeConfig.qwen?.asrLanguage ?? "zh",
+            vadThreshold: 0.68,
+            vadSilenceDurationMs: 1250,
+            vadPrefixPaddingMs: 450,
           },
           {
             onOpen: () => {
@@ -128,65 +137,94 @@ export function RealtimeChat({
             onClose: (code, reason) => {
               logger.debug("[QwenOmni] Disconnected:", code, reason);
               setIsConnected(false);
-              setLiveUserTranscript("");
-              setLiveAssistantTranscript("");
+              setVoiceTurns([]);
               setStatus("Disconnected");
             },
             onPartialUserTranscript: (text) => {
-              setLiveUserTranscript(text);
+              setVoiceTurns((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === "user" && last.isStreaming) {
+                  next[next.length - 1] = { ...last, content: text };
+                  return next;
+                }
+                next.push({
+                  id: nextVoiceTurnId(),
+                  role: "user",
+                  content: text,
+                  isStreaming: true,
+                });
+                return next;
+              });
               setStatus("");
             },
             onUserTranscriptCompleted: (transcript) => {
-              const target = sessionRef.current;
-              const userMessage = createMessage({
-                role: "user",
-                content: transcript,
+              setVoiceTurns((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === "user" && last.isStreaming) {
+                  next[next.length - 1] = {
+                    ...last,
+                    content: transcript,
+                    isStreaming: false,
+                  };
+                  return next;
+                }
+                next.push({
+                  id: nextVoiceTurnId(),
+                  role: "user",
+                  content: transcript,
+                  isStreaming: false,
+                });
+                return next;
               });
-              chatStore.updateTargetSession(target, (sess) => {
-                sess.messages = sess.messages.concat([userMessage]);
-              });
-              setLiveUserTranscript("");
               setStatus("");
             },
             onResponseCreated: () => {
               omniPlaybackPrimedRef.current = false;
-              setLiveAssistantTranscript("");
-              const botMessage = createMessage({
-                role: "assistant",
-                content: "",
-              });
-              omniAssistantMsgRef.current = botMessage;
-              chatStore.updateTargetSession(sessionRef.current, (sess) => {
-                sess.messages = sess.messages.concat([botMessage]);
-              });
-            },
-            onAssistantTranscriptDelta: (delta) => {
-              setLiveAssistantTranscript((prev) => prev + delta);
-              let m = omniAssistantMsgRef.current;
-              if (!m) {
-                const botMessage = createMessage({
+              setVoiceTurns((prev) => [
+                ...prev,
+                {
+                  id: nextVoiceTurnId(),
                   role: "assistant",
                   content: "",
+                  isStreaming: true,
+                },
+              ]);
+            },
+            onAssistantTranscriptDelta: (delta) => {
+              setVoiceTurns((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === "assistant" && last.isStreaming) {
+                  next[next.length - 1] = {
+                    ...last,
+                    content: last.content + delta,
+                  };
+                  return next;
+                }
+                next.push({
+                  id: nextVoiceTurnId(),
+                  role: "assistant",
+                  content: delta,
+                  isStreaming: true,
                 });
-                omniAssistantMsgRef.current = botMessage;
-                m = botMessage;
-                chatStore.updateTargetSession(sessionRef.current, (sess) => {
-                  sess.messages = sess.messages.concat([botMessage]);
-                });
-              }
-              m.content += delta;
-              chatStore.updateTargetSession(sessionRef.current, (sess) => {
-                sess.messages = sess.messages.concat();
+                return next;
               });
             },
             onAssistantTranscriptDone: (full) => {
               const trimmed = full.trim();
-              if (trimmed) setLiveAssistantTranscript(trimmed);
-              const m = omniAssistantMsgRef.current;
-              if (!m || !trimmed) return;
-              m.content = trimmed;
-              chatStore.updateTargetSession(sessionRef.current, (sess) => {
-                sess.messages = sess.messages.concat();
+              setVoiceTurns((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === "assistant" && last.isStreaming) {
+                  next[next.length - 1] = {
+                    ...last,
+                    content: trimmed || last.content,
+                    isStreaming: false,
+                  };
+                }
+                return next;
               });
             },
             onAssistantAudioDelta: (pcm) => {
@@ -196,28 +234,9 @@ export function RealtimeChat({
               }
               omniPlaybackHandlerRef.current?.playChunk(pcm);
             },
+            // 勿在 response.done 时 stop：服务端结束早于本地排程播放完会截断语音。
             onResponseDone: () => {
-              const botMessage = omniAssistantMsgRef.current;
-              omniAssistantMsgRef.current = null;
               omniPlaybackPrimedRef.current = false;
-              if (botMessage && omniPlaybackHandlerRef.current) {
-                try {
-                  const blob = omniPlaybackHandlerRef.current.savePlayFile();
-                  if (blob && blob.size > 88) {
-                    uploadImage(blob).then((audio_url) => {
-                      botMessage.audio_url = audio_url;
-                      chatStore.updateTargetSession(
-                        sessionRef.current,
-                        (sess) => {
-                          sess.messages = sess.messages.concat();
-                        },
-                      );
-                    });
-                  }
-                } finally {
-                  omniPlaybackHandlerRef.current.stopStreamingPlayback();
-                }
-              }
             },
             onError: (error) => {
               logger.error("[QwenOmni] Error:", error);
@@ -426,6 +445,7 @@ export function RealtimeChat({
           if (!audioHandlerRef.current) {
             audioHandlerRef.current = new AudioHandler({
               recordingSampleRate: 16000,
+              preferVoiceIsolation: true,
             });
             await audioHandlerRef.current.initialize();
           }
@@ -499,7 +519,10 @@ export function RealtimeChat({
         await handler.initialize();
         audioHandlerRef.current = handler;
       } else if (isQwenOmni) {
-        const handler = new AudioHandler({ recordingSampleRate: 16000 });
+        const handler = new AudioHandler({
+          recordingSampleRate: 16000,
+          preferVoiceIsolation: true,
+        });
         await handler.initialize();
         audioHandlerRef.current = handler;
         const playHandler = new AudioHandler({
@@ -577,27 +600,56 @@ export function RealtimeChat({
   return (
     <div className={styles["realtime-chat"]}>
       {isQwenOmni && (
-        <div className={styles["transcript-panel"]} aria-live="polite">
+        <div className={styles["transcript-panel"]}>
+          <div className={styles["voice-log-meta"]}>
+            <span className={styles["voice-log-chip"]}>
+              {Locale.Settings.Realtime.LiveTranscript.ModelBadge}: {qwenModel}
+            </span>
+            <span className={styles["voice-log-chip"]}>
+              {Locale.Settings.Realtime.LiveTranscript.RegionBadge}:{" "}
+              {qwenRegionLabel}
+            </span>
+          </div>
           <p className={styles["transcript-hint"]}>
-            {Locale.Settings.Realtime.LiveTranscript.Hint}
+            {Locale.Settings.Realtime.LiveTranscript.Hint}{" "}
+            {Locale.Settings.Realtime.LiveTranscript.SessionIsolationHint}
           </p>
-          <div className={styles["transcript-block"]}>
-            <div className={styles["transcript-label"]}>
-              {Locale.Settings.Realtime.LiveTranscript.You}
-            </div>
-            <div className={styles["transcript-body"]}>
-              {liveUserTranscript || (isRecording ? "\u00a0" : "\u2014")}
-            </div>
+          <div className={styles["voice-log-scroll"]} aria-live="polite">
+            {voiceTurns.length === 0 ? (
+              <div className={styles["voice-log-empty"]}>
+                {isRecording
+                  ? Locale.Settings.Realtime.LiveTranscript.You + " …"
+                  : "\u2014"}
+              </div>
+            ) : (
+              voiceTurns.map((turn) => (
+                <div
+                  key={turn.id}
+                  className={clsx(
+                    styles["voice-turn"],
+                    turn.role === "user"
+                      ? styles["voice-turn-user"]
+                      : styles["voice-turn-assistant"],
+                    turn.isStreaming && styles["voice-turn-streaming"],
+                  )}
+                >
+                  <div className={styles["voice-turn-role"]}>
+                    {turn.role === "user"
+                      ? Locale.Settings.Realtime.LiveTranscript.You
+                      : Locale.Settings.Realtime.LiveTranscript.Assistant}
+                    {turn.isStreaming ? " …" : ""}
+                  </div>
+                  <div className={styles["voice-turn-text"]}>
+                    {turn.content || (turn.isStreaming ? "\u22ef" : "\u2014")}
+                  </div>
+                </div>
+              ))
+            )}
+            <div
+              ref={transcriptEndRef}
+              className={styles["transcript-anchor"]}
+            />
           </div>
-          <div className={styles["transcript-block"]}>
-            <div className={styles["transcript-label"]}>
-              {Locale.Settings.Realtime.LiveTranscript.Assistant}
-            </div>
-            <div className={styles["transcript-body"]}>
-              {liveAssistantTranscript || "\u2014"}
-            </div>
-          </div>
-          <div ref={transcriptEndRef} className={styles["transcript-anchor"]} />
         </div>
       )}
       <div

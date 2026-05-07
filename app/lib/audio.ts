@@ -1,6 +1,11 @@
 export type AudioHandlerOptions = {
   /** 录音与 AudioContext 采样率；通义 ASR 需 16000 */
   recordingSampleRate?: number;
+  /**
+   * 在支持的浏览器（如新版 Chrome）启用 voiceIsolation，弱化非主讲人声。
+   * 若设备不支持则自动忽略。
+   */
+  preferVoiceIsolation?: boolean;
 };
 
 export class AudioHandler {
@@ -13,6 +18,7 @@ export class AudioHandler {
   private source: MediaStreamAudioSourceNode | null = null;
   private recordBuffer: Int16Array[] = [];
   private readonly sampleRate: number;
+  private readonly preferVoiceIsolation: boolean;
 
   private nextPlayTime: number = 0;
   private isPlaying: boolean = false;
@@ -21,6 +27,7 @@ export class AudioHandler {
 
   constructor(options?: AudioHandlerOptions) {
     this.sampleRate = options?.recordingSampleRate ?? 24000;
+    this.preferVoiceIsolation = options?.preferVoiceIsolation ?? false;
     this.context = new AudioContext({ sampleRate: this.sampleRate });
     // using ChannelMergerNode to get merged audio data, and then get analyser data.
     this.mergeNode = new ChannelMergerNode(this.context, { numberOfInputs: 2 });
@@ -46,13 +53,28 @@ export class AudioHandler {
         await this.initialize();
       }
 
+      const audioConstraints: MediaTrackConstraints & {
+        voiceIsolation?: boolean;
+      } = {
+        channelCount: 1,
+        sampleRate: this.sampleRate,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      if (this.preferVoiceIsolation) {
+        try {
+          const sup = navigator.mediaDevices.getSupportedConstraints();
+          if ("voiceIsolation" in sup && sup.voiceIsolation) {
+            audioConstraints.voiceIsolation = true;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
       this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: this.sampleRate,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
+        audio: audioConstraints,
       });
 
       await this.context.resume();
@@ -120,7 +142,13 @@ export class AudioHandler {
   playChunk(chunk: Uint8Array) {
     if (!this.isPlaying) return;
 
-    const int16Data = new Int16Array(chunk.buffer);
+    const sampleCount = chunk.byteLength >> 1;
+    if (sampleCount <= 0) return;
+    const int16Data = new Int16Array(
+      chunk.buffer,
+      chunk.byteOffset,
+      sampleCount,
+    );
     // @ts-ignore
     this.playBuffer.push.apply(this.playBuffer, int16Data); // save playBuffer
 

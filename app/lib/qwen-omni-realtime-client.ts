@@ -27,6 +27,11 @@ export interface QwenOmniRealtimeConfig {
   instructions?: string;
   /** 用户语音转写主语言（与百炼 SDK transcription_params.language 一致） */
   transcriptionLanguage?: string;
+  /** VAD 阈值，略调高可减少环境人声误触发（semantic_vad 推荐约 0.6–0.75） */
+  vadThreshold?: number;
+  /** 判停静音时长（毫秒），略加长可减少旁人插话切断轮次 */
+  vadSilenceDurationMs?: number;
+  vadPrefixPaddingMs?: number;
 }
 
 export interface QwenOmniRealtimeCallbacks {
@@ -299,13 +304,16 @@ export class QwenOmniRealtimeClient {
   }
 
   private sendSessionUpdate() {
+    const vadKind = this.vadType();
+    const defaultThreshold =
+      vadKind === "semantic_vad" ? 0.68 : Math.max(0.35, 0.2);
     const turn_detection =
       this.config.useServerVad !== false
         ? {
-            type: this.vadType(),
-            threshold: this.vadType() === "semantic_vad" ? 0.5 : 0.2,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 800,
+            type: vadKind,
+            threshold: this.config.vadThreshold ?? defaultThreshold,
+            prefix_padding_ms: this.config.vadPrefixPaddingMs ?? 450,
+            silence_duration_ms: this.config.vadSilenceDurationMs ?? 1250,
           }
         : null;
 

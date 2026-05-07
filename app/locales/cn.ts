@@ -1177,7 +1177,11 @@ const cn = {
       LiveTranscript: {
         You: "你说",
         Assistant: "助手",
-        Hint: "Omni 模式下可同时收听语音并显示助手回复文字（与朗读内容对应）。",
+        Hint: "Omni 可同时返回朗读语音与对应文字（音频脚本）。",
+        SessionIsolationHint:
+          "以下记录在面板内滚动浏览；关闭实时语音后不会写入左侧会话列表（仅文本聊天留在会话中）。",
+        ModelBadge: "实时模型",
+        RegionBadge: "线路",
       },
     },
   },

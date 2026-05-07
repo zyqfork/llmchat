@@ -964,7 +964,11 @@ const tw = {
       LiveTranscript: {
         You: "你說",
         Assistant: "助手",
-        Hint: "Omni 可同時播放語音並顯示助手回覆文字（與朗讀內容對應）。",
+        Hint: "Omni 可同時輸出朗讀語音與對應文字（音頻腳本）。",
+        SessionIsolationHint:
+          "以下紀錄僅在此面板捲動瀏覽；關閉即時語音後不會寫入左側會話（僅保留文字聊天）。",
+        ModelBadge: "即時模型",
+        RegionBadge: "線路",
       },
     },
   },

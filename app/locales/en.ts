@@ -1201,7 +1201,11 @@ Keep each section concise. Preserve exact file paths, function names, and error 
       LiveTranscript: {
         You: "You",
         Assistant: "Assistant",
-        Hint: "Omni can play audio and stream the spoken reply as text.",
+        Hint: "Omni can stream spoken audio plus matching transcript text.",
+        SessionIsolationHint:
+          "This log stays inside the voice panel; closing realtime voice does not add these turns to the main chat transcript.",
+        ModelBadge: "Realtime model",
+        RegionBadge: "Route",
       },
     },
   },
