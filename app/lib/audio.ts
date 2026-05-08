@@ -6,6 +6,10 @@ export type AudioHandlerOptions = {
    * 若设备不支持则自动忽略。
    */
   preferVoiceIsolation?: boolean;
+  /**
+   * 上行静音门控：短时能量 + 前滚缓冲；未检测到人声时不往 WebSocket 送 PCM。
+   */
+  uplinkSpeechGate?: boolean;
 };
 
 export class AudioHandler {
@@ -25,9 +29,17 @@ export class AudioHandler {
   private playbackQueue: AudioBufferSourceNode[] = [];
   private playBuffer: Int16Array[] = [];
 
+  private readonly uplinkSpeechGate: boolean;
+  private uplinkGateOpen = false;
+  private uplinkVoicedStreak = 0;
+  private uplinkSilenceAfterSpeech = 0;
+  private uplinkPreRoll: Uint8Array[] = [];
+  private readonly uplinkPreRollMaxChunks = 12;
+
   constructor(options?: AudioHandlerOptions) {
     this.sampleRate = options?.recordingSampleRate ?? 24000;
     this.preferVoiceIsolation = options?.preferVoiceIsolation ?? false;
+    this.uplinkSpeechGate = options?.uplinkSpeechGate ?? false;
     this.context = new AudioContext({ sampleRate: this.sampleRate });
     // using ChannelMergerNode to get merged audio data, and then get analyser data.
     this.mergeNode = new ChannelMergerNode(this.context, { numberOfInputs: 2 });
@@ -36,6 +48,78 @@ export class AudioHandler {
       new ArrayBuffer(this.analyser.frequencyBinCount),
     );
     this.mergeNode.connect(this.analyser);
+  }
+
+  private resetUplinkGate() {
+    this.uplinkGateOpen = false;
+    this.uplinkVoicedStreak = 0;
+    this.uplinkSilenceAfterSpeech = 0;
+    this.uplinkPreRoll = [];
+  }
+
+  private pushUplinkPreRollSnapshot(uint8Data: Uint8Array) {
+    const snapshot = new Uint8Array(uint8Data.byteLength);
+    snapshot.set(uint8Data);
+    this.uplinkPreRoll.push(snapshot);
+    if (this.uplinkPreRoll.length > this.uplinkPreRollMaxChunks) {
+      this.uplinkPreRoll.shift();
+    }
+  }
+
+  /** Int16 PCM 块 RMS，归一化到约 0～1 */
+  private static pcmChunkRmsNorm(int16: Int16Array): number {
+    if (int16.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < int16.length; i++) {
+      const v = int16[i]! / 32768;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / int16.length);
+  }
+
+  /**
+   * 是否向服务端上传本块 PCM（本地 recordBuffer 始终完整保存）。
+   * ~50ms/块 @16kHz：约 2 块有声打开闸门；约 14 块静音关闭（衔接服务端判停）。
+   */
+  private shouldUplinkPcmChunk(int16: Int16Array): boolean {
+    const rmsThreshold = 0.018;
+    const openVoicedChunks = 2;
+    const hangoverSilentChunks = 14;
+
+    const voiced = AudioHandler.pcmChunkRmsNorm(int16) >= rmsThreshold;
+
+    if (!this.uplinkGateOpen) {
+      this.pushUplinkPreRollSnapshot(
+        new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength),
+      );
+
+      if (voiced) {
+        this.uplinkVoicedStreak++;
+        if (this.uplinkVoicedStreak >= openVoicedChunks) {
+          this.uplinkGateOpen = true;
+          this.uplinkVoicedStreak = 0;
+          this.uplinkSilenceAfterSpeech = 0;
+          return true;
+        }
+      } else {
+        this.uplinkVoicedStreak = 0;
+      }
+      return false;
+    }
+
+    if (voiced) {
+      this.uplinkSilenceAfterSpeech = 0;
+    } else {
+      this.uplinkSilenceAfterSpeech++;
+      if (this.uplinkSilenceAfterSpeech > hangoverSilentChunks) {
+        this.uplinkGateOpen = false;
+        this.uplinkSilenceAfterSpeech = 0;
+        this.uplinkVoicedStreak = 0;
+        this.uplinkPreRoll = [];
+        return false;
+      }
+    }
+    return true;
   }
 
   getByteFrequencyData() {
@@ -83,6 +167,7 @@ export class AudioHandler {
       });
 
       await this.context.resume();
+      this.resetUplinkGate();
       this.source = this.context.createMediaStreamSource(this.stream);
       this.workletNode = new AudioWorkletNode(
         this.context,
@@ -99,11 +184,40 @@ export class AudioHandler {
             int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
           }
 
-          const uint8Data = new Uint8Array(int16Data.buffer);
-          onChunk(uint8Data);
-          // save recordBuffer
+          const uint8Data = new Uint8Array(
+            int16Data.buffer,
+            int16Data.byteOffset,
+            int16Data.byteLength,
+          );
+          // save recordBuffer（全量，便于导出）
           // @ts-ignore
           this.recordBuffer.push.apply(this.recordBuffer, int16Data);
+
+          if (!this.uplinkSpeechGate) {
+            onChunk(uint8Data);
+            return;
+          }
+
+          const wasGateClosed = !this.uplinkGateOpen;
+          const sendNow = this.shouldUplinkPcmChunk(int16Data);
+
+          if (!sendNow) {
+            return;
+          }
+
+          if (
+            wasGateClosed &&
+            this.uplinkGateOpen &&
+            this.uplinkPreRoll.length > 0
+          ) {
+            for (const past of this.uplinkPreRoll) {
+              onChunk(past);
+            }
+            this.uplinkPreRoll = [];
+            return;
+          }
+
+          onChunk(uint8Data);
         }
       };
 
@@ -131,6 +245,7 @@ export class AudioHandler {
     this.workletNode.disconnect();
     this.source.disconnect();
     this.stream.getTracks().forEach((track) => track.stop());
+    this.resetUplinkGate();
   }
   startStreamingPlayback() {
     this.isPlaying = true;

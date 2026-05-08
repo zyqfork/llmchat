@@ -539,6 +539,7 @@ export function RealtimeChat({
             const handler = new AudioHandler({
               recordingSampleRate: 16000,
               preferVoiceIsolation: true,
+              uplinkSpeechGate: true,
             });
             await handler.initialize();
             audioHandlerRef.current = handler;
