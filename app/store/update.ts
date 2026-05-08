@@ -1,7 +1,7 @@
 import { FETCH_COMMIT_URL, FETCH_TAG_URL, StoreKey } from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
-import { clientUpdate } from "../utils";
+import { clientUpdate, normalizeReleaseTagVersion } from "../utils";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import Locale from "../locales";
 import { logger } from "../utils/logger";
@@ -150,7 +150,11 @@ export const useUpdateStore = createPersistStore(
             }
 
             if (granted) {
-              if (version === remoteId) {
+              const same =
+                normalizeReleaseTagVersion(version) !== "" &&
+                normalizeReleaseTagVersion(version) ===
+                  normalizeReleaseTagVersion(validRemoteId);
+              if (same) {
                 // Show a notification using Tauri
                 await sendNotification({
                   title: "NextChat",

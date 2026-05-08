@@ -30,9 +30,8 @@ export function trimTopic(topic: string) {
 export async function copyToClipboard(text: string) {
   try {
     if (window.__TAURI__) {
-      const { writeText } = await import(
-        "@tauri-apps/plugin-clipboard-manager"
-      );
+      const { writeText } =
+        await import("@tauri-apps/plugin-clipboard-manager");
       await writeText(text);
     } else {
       await navigator.clipboard.writeText(text);
@@ -482,6 +481,30 @@ export async function clientUpdate() {
     logger.error("[Check Update Error]", e);
     showToast(Locale.Settings.Update.Failed);
   }
+}
+
+/** 将 v2.19 / 2.19.0 / v2.20-beta 等与 GitHub Release tag 对齐后再做 semver 比较 */
+export function normalizeReleaseTagVersion(raw: string): string {
+  if (!raw || typeof raw !== "string") {
+    return "";
+  }
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === "unknown") {
+    return "";
+  }
+  const withoutV = trimmed.replace(/^v/i, "");
+  const prereleaseSep = withoutV.search(/[-+]/);
+  const core =
+    prereleaseSep === -1 ? withoutV : withoutV.slice(0, prereleaseSep);
+  const suffix = prereleaseSep === -1 ? "" : withoutV.slice(prereleaseSep);
+  const parts = core.split(".").filter((p) => p !== "");
+  if (parts.length === 0) {
+    return "";
+  }
+  const maj = parts[0];
+  const min = parts[1] ?? "0";
+  const pat = parts[2] ?? "0";
+  return `${maj}.${min}.${pat}${suffix}`;
 }
 
 // https://gist.github.com/iwill/a83038623ba4fef6abb9efca87ae9ccb

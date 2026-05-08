@@ -20,6 +20,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+ARG BUILD_APP_VERSION=
+ENV BUILD_APP_VERSION=$BUILD_APP_VERSION
+
 RUN yarn build
 
 FROM base AS runner

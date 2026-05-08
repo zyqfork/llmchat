@@ -9,8 +9,14 @@ export const getBuildConfig = () => {
 
   const buildMode = process.env.BUILD_MODE || "standalone";
   const isApp = process.env.BUILD_APP === "1";
-  // Tauri 2.x: version is at root level
-  const version = "v" + (tauriConfig.version || "0.0.0");
+  const envTag = process.env.BUILD_APP_VERSION?.trim();
+  // Docker / CI：与 Git Release tag 对齐；否则读 Tauri 配置（桌面构建）
+  const version =
+    envTag && envTag.length > 0
+      ? envTag.startsWith("v")
+        ? envTag
+        : `v${envTag}`
+      : "v" + (tauriConfig.version || "0.0.0");
 
   // Turbopack export mode does not support dynamic require-based module loading.
   // Allow CI to inject these via environment variables and keep deterministic fallback.

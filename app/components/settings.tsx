@@ -64,7 +64,12 @@ import Locale, {
   changeLang,
   getLang,
 } from "../locales";
-import { copyToClipboard, clientUpdate, semverCompare } from "../utils";
+import {
+  copyToClipboard,
+  clientUpdate,
+  normalizeReleaseTagVersion,
+  semverCompare,
+} from "../utils";
 import { logger } from "../utils/logger";
 import { groupBy } from "lodash-es";
 import Link from "next/link";
@@ -1697,9 +1702,16 @@ export function Settings() {
 
   const updateStore = useUpdateStore();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const currentVersion = updateStore.formatVersion(updateStore.version);
-  const remoteId = updateStore.formatVersion(updateStore.remoteVersion);
-  const hasNewVersion = semverCompare(currentVersion, remoteId) === -1;
+  const displayVersion = updateStore.formatVersion(updateStore.version);
+  const displayRemoteVersion = updateStore.formatVersion(
+    updateStore.remoteVersion,
+  );
+  const normCurrent = normalizeReleaseTagVersion(displayVersion);
+  const normRemote = normalizeReleaseTagVersion(displayRemoteVersion);
+  const hasNewVersion =
+    normCurrent !== "" &&
+    normRemote !== "" &&
+    semverCompare(normCurrent, normRemote) === -1;
   const updateUrl = getClientConfig()?.isApp ? RELEASE_URL : UPDATE_URL;
 
   // 监听从聊天页面跳转到模型服务配置的事件
@@ -2365,13 +2377,15 @@ export function Settings() {
         </ListItem>
 
         <ListItem
-          title={Locale.Settings.Update.Version(currentVersion ?? "unknown")}
+          title={Locale.Settings.Update.Version(displayVersion ?? "unknown")}
           subTitle={
             checkingUpdate
               ? Locale.Settings.Update.IsChecking
               : hasNewVersion
-              ? Locale.Settings.Update.FoundUpdate(remoteId ?? "ERROR")
-              : Locale.Settings.Update.IsLatest
+                ? Locale.Settings.Update.FoundUpdate(
+                    displayRemoteVersion || "unknown",
+                  )
+                : Locale.Settings.Update.IsLatest
           }
         >
           {checkingUpdate ? (
@@ -3049,7 +3063,7 @@ export function Settings() {
                   )?.enabled || false
                 : accessStore.enabledProviders?.[config.provider] || false;
               const isCollapsed = config.isCustom
-                ? collapsedCustomProviders[config.provider as string] ?? true
+                ? (collapsedCustomProviders[config.provider as string] ?? true)
                 : collapsedProviders[config.provider] || false;
 
               return (

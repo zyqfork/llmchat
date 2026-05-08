@@ -28,9 +28,6 @@ jobs:
         with:
           node-version: 18
 
-      - name: get version
-        run: echo "PACKAGE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').package.version")" >> $GITHUB_ENV
-
       - name: create release
         id: create-release
         uses: actions/github-script@v6
@@ -89,13 +86,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.create-release.outputs.release_tag }}
 
       - name: setup node
         uses: actions/setup-node@v3
         with:
           node-version: 22
           cache: 'yarn'
+
+      - name: sync version from release tag
+        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -164,13 +164,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.create-release.outputs.release_tag }}
 
       - name: setup node
         uses: actions/setup-node@v3
         with:
           node-version: 22
           cache: "yarn"
+
+      - name: sync version from release tag
+        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
 
       - name: install Linux packaging dependencies (ubuntu only)
         if: startsWith(matrix.config.os, 'ubuntu-')

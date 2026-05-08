@@ -7,6 +7,10 @@ on:
         description: Branch to build (manual trigger only)
         required: false
         default: main
+      release_tag:
+        description: Optional Git tag (e.g. v2.19) to embed as app version for update detection in web/Docker
+        required: false
+        default: ""
   release:
     types: [published]
 
@@ -15,6 +19,8 @@ jobs:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      DOCKER_APP_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
@@ -54,4 +60,5 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
-            
+            BUILD_APP_VERSION=${{ env.DOCKER_APP_VERSION }}
+
