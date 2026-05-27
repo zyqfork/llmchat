@@ -8,6 +8,7 @@ const {
   nativeTheme,
   Tray,
   Menu,
+  net,
 } = require("electron");
 
 const isDev = !app.isPackaged;
@@ -29,6 +30,115 @@ function normalizeHeaders(headers) {
     }
   }
   return output;
+}
+
+/** 将 Node fetch 底层错误（含 cause.code）格式化为可读信息 */
+function formatFetchError(error) {
+  const parts = [];
+  if (error?.message) parts.push(error.message);
+  const cause = error?.cause;
+  if (cause) {
+    if (cause.code && !parts.some((p) => p.includes(cause.code))) {
+      parts.push(cause.code);
+    }
+    if (
+      cause.message &&
+      cause.message !== error.message &&
+      !parts.includes(cause.message)
+    ) {
+      parts.push(cause.message);
+    }
+  }
+  return parts.length > 0 ? parts.join(" — ") : String(error);
+}
+
+function normalizeResponseHeaders(rawHeaders) {
+  const output = {};
+  if (!rawHeaders || typeof rawHeaders !== "object") return output;
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    output[key] = Array.isArray(value) ? value.join(", ") : String(value);
+  }
+  return output;
+}
+
+function sendStreamEnd(webContents, requestId, error) {
+  if (webContents.isDestroyed()) return;
+  webContents.send("electron-stream-response", {
+    request_id: requestId,
+    status: 0,
+    error: error ?? null,
+  });
+}
+
+/**
+ * 使用 Chromium net 栈代理请求（与渲染进程浏览器一致），避免 Node fetch + BoringSSL 的 ALPN/TLS 兼容问题。
+ */
+function electronNetFetch(webContents, payload, requestId) {
+  const timeoutMs = (payload.timeout_secs || 300) * 1000;
+  const method = payload.method || "GET";
+  const headers = normalizeHeaders(payload.headers);
+  const body =
+    payload.body && payload.body.length > 0
+      ? Buffer.from(payload.body)
+      : null;
+
+  return new Promise((resolve, reject) => {
+    let headerResolved = false;
+    const request = net.request({
+      method,
+      url: payload.url,
+      headers,
+    });
+
+    const timeoutId = setTimeout(() => {
+      request.abort();
+      if (!headerResolved) {
+        reject(new Error("Request timeout"));
+      }
+    }, timeoutMs);
+
+    const clearTimer = () => clearTimeout(timeoutId);
+
+    request.on("response", (response) => {
+      headerResolved = true;
+      resolve({
+        request_id: requestId,
+        status: response.statusCode,
+        status_text: response.statusMessage || "OK",
+        headers: normalizeResponseHeaders(response.headers),
+      });
+
+      response.on("data", (chunk) => {
+        if (webContents.isDestroyed()) return;
+        webContents.send("electron-stream-response", {
+          request_id: requestId,
+          chunk: Array.from(chunk),
+        });
+      });
+
+      response.on("end", () => {
+        clearTimer();
+        sendStreamEnd(webContents, requestId, null);
+      });
+
+      response.on("error", (err) => {
+        clearTimer();
+        sendStreamEnd(webContents, requestId, String(err));
+      });
+    });
+
+    request.on("error", (err) => {
+      clearTimer();
+      if (!headerResolved) {
+        reject(new Error(`Request failed: ${formatFetchError(err)}`));
+        return;
+      }
+      sendStreamEnd(webContents, requestId, String(err));
+    });
+
+    if (body) request.write(body);
+    request.end();
+  });
 }
 
 function focusMainWindow() {
@@ -79,59 +189,9 @@ if (process.platform === "darwin") {
   });
 }
 
-ipcMain.handle("electron-fetch", async (event, payload) => {
+ipcMain.handle("electron-fetch", (event, payload) => {
   const requestId = requestCounter++;
-  const webContents = event.sender;
-
-  try {
-    const response = await fetch(payload.url, {
-      method: payload.method || "GET",
-      headers: normalizeHeaders(payload.headers),
-      body:
-        payload.body && payload.body.length > 0
-          ? Buffer.from(payload.body)
-          : undefined,
-      signal: AbortSignal.timeout((payload.timeout_secs || 300) * 1000),
-    });
-
-    const headers = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    (async () => {
-      try {
-        if (response.body) {
-          for await (const chunk of response.body) {
-            webContents.send("electron-stream-response", {
-              request_id: requestId,
-              chunk: Array.from(chunk),
-            });
-          }
-        }
-        webContents.send("electron-stream-response", {
-          request_id: requestId,
-          status: 0,
-          error: null,
-        });
-      } catch (streamError) {
-        webContents.send("electron-stream-response", {
-          request_id: requestId,
-          status: 0,
-          error: String(streamError),
-        });
-      }
-    })();
-
-    return {
-      request_id: requestId,
-      status: response.status,
-      status_text: response.statusText || "OK",
-      headers,
-    };
-  } catch (error) {
-    throw new Error(`Request failed: ${String(error)}`);
-  }
+  return electronNetFetch(event.sender, payload, requestId);
 });
 
 ipcMain.handle("electron-ws-connect", async (event, payload) => {
@@ -185,6 +245,18 @@ ipcMain.handle("electron-ws-send", async (_event, payload) => {
   socket.send(payload.data);
   return true;
 });
+
+function broadcastNativeThemeUpdate() {
+  const shouldUseDarkColors = nativeTheme.shouldUseDarkColors;
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && win.webContents) {
+      win.webContents.send(
+        "electron-native-theme-updated",
+        shouldUseDarkColors,
+      );
+    }
+  }
+}
 
 ipcMain.handle("electron-set-native-theme", async (_event, theme) => {
   if (theme === "system" || theme == null) {
@@ -310,10 +382,17 @@ function createMainWindow() {
 
   mainWindow.webContents.once("did-finish-load", () => {
     process.argv.forEach(handleDeepLinkArg);
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(
+        "electron-native-theme-updated",
+        nativeTheme.shouldUseDarkColors,
+      );
+    }
   });
 }
 
 app.whenReady().then(() => {
+  nativeTheme.on("updated", broadcastNativeThemeUpdate);
   registerProtocol();
   const iconPath = getAppIconPath();
   setupTray(iconPath);

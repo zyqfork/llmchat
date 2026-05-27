@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, nativeTheme } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronApp", {
   isElectron: true,
@@ -35,9 +35,11 @@ contextBridge.exposeInMainWorld("electronApp", {
   setNativeTheme: (theme) =>
     ipcRenderer.invoke("electron-set-native-theme", theme),
   onNativeThemeChanged: (listener) => {
-    const wrapped = () => listener(nativeTheme.shouldUseDarkColors);
-    nativeTheme.on("updated", wrapped);
-    return () => nativeTheme.off("updated", wrapped);
+    const wrapped = (_event, shouldUseDarkColors) =>
+      listener(shouldUseDarkColors);
+    ipcRenderer.on("electron-native-theme-updated", wrapped);
+    return () =>
+      ipcRenderer.removeListener("electron-native-theme-updated", wrapped);
   },
   openExternal: (url) => ipcRenderer.invoke("electron-open-external", url),
   onDeepLink: (listener) => {

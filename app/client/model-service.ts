@@ -164,8 +164,17 @@ function getCustomProviderAuthHeader(providerType: string): string {
   return CUSTOM_PROVIDER_AUTH_HEADER[providerType] || "Authorization";
 }
 
+function normalizeCustomProviderEndpoint(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) throw new Error("Missing endpoint URL");
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
 function buildCustomProviderModelsUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/models`;
+  return `${normalizeCustomProviderEndpoint(baseUrl).replace(/\/+$/, "")}/models`;
 }
 
 function getCustomProviderRequestConfig(customProvider: CustomProvider): {
@@ -194,7 +203,16 @@ async function fetchCustomModelsPayload(
     headers: request.headers,
   });
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    let detail = response.statusText || "";
+    try {
+      const text = (await response.text()).trim();
+      if (text) detail = text.length > 500 ? `${text.slice(0, 500)}…` : text;
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      detail ? `HTTP ${response.status}: ${detail}` : `HTTP ${response.status}`,
+    );
   }
   return (await response.json()) as CustomModelsPayload;
 }
@@ -211,7 +229,10 @@ async function fetchCustomProviderModels(
       ),
     );
   } catch (error) {
-    logger.error("[ModelFetch] Failed to fetch custom provider models:", error);
+    logger.warn(
+      `[ModelFetch] Failed to fetch custom provider models (${customProvider.name || customProvider.id}):`,
+      error,
+    );
     return modelFetchFailure(error);
   }
 }

@@ -229,9 +229,17 @@ export async function fetch(
 
     return response;
   } catch (e) {
-    logger.error(`[${runtimeLabel} Fetch ${type.toUpperCase()}] Error:`, e);
+    const message =
+      e instanceof Error ? e.message : `Network request failed: ${String(e)}`;
+    logger.warn(
+      `[${runtimeLabel} Fetch ${type.toUpperCase()}] ${message}`,
+      url,
+    );
     close();
-    return new Response("", { status: 599 });
+    return new Response(message, {
+      status: 599,
+      statusText: "Network Error",
+    });
   }
 }
 

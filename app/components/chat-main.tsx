@@ -1683,10 +1683,14 @@ export function ChatMain() {
                       (!nextMsg &&
                         i + 1 === compressingInRender &&
                         !!session.isSummarizing);
-                    return renderSingleMessage(msg as RenderMessage, i, {
-                      showCompressedDividerAfter,
-                      showCompressingDividerAfter,
-                    });
+                    return (
+                      <Fragment key={msg.id ?? `msg-${i}`}>
+                        {renderSingleMessage(msg as RenderMessage, i, {
+                          showCompressedDividerAfter,
+                          showCompressingDividerAfter,
+                        })}
+                      </Fragment>
+                    );
                   })}
                 </>
               )}

@@ -313,7 +313,7 @@ export function SingleMessage(props: SingleMessageProps) {
   };
 
   return (
-    <Fragment key={message.id}>
+    <Fragment>
       <div
         className={
           isUser ? styles["chat-message-user"] : styles["chat-message"]

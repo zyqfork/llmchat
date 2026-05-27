@@ -62,7 +62,11 @@ export async function watchNativeSystemTheme(
   }
 
   if (isElectronApp() && window.electronApp?.onNativeThemeChanged) {
-    return window.electronApp.onNativeThemeChanged(() => onChange());
+    try {
+      return window.electronApp.onNativeThemeChanged(() => onChange());
+    } catch (e) {
+      logger.debug("[Desktop] Electron onNativeThemeChanged failed:", e);
+    }
   }
 
   return undefined;

@@ -235,10 +235,14 @@ export function MultiModelMessages(props: MultiModelMessagesProps) {
           !!nextMsg?.isCompressedContextPrompt &&
           !!nextMsg?.streaming &&
           !!session.isSummarizing;
-        return renderSingleMessage(message, i, {
-          showCompressedDividerAfter,
-          showCompressingDividerAfter,
-        });
+        return (
+          <React.Fragment key={message.id ?? `msg-${i}`}>
+            {renderSingleMessage(message, i, {
+              showCompressedDividerAfter,
+              showCompressingDividerAfter,
+            })}
+          </React.Fragment>
+        );
       })}
     </>
   );
