@@ -330,13 +330,6 @@ export function SingleMessage(props: SingleMessageProps) {
                 .join(" ")}
               title={showAvatarTyping ? Locale.Chat.Typing : undefined}
             >
-              <div className={styles["chat-message-edit"]}>
-                <IconButton
-                  icon={<EditIcon />}
-                  aria={Locale.Chat.Actions.Edit}
-                  onClick={async () => onEditMessage(message)}
-                ></IconButton>
-              </div>
               {isContext ? (
                 <Avatar
                   avatar={
@@ -364,6 +357,13 @@ export function SingleMessage(props: SingleMessageProps) {
                   )}
                 </>
               )}
+              <div className={styles["chat-message-edit"]}>
+                <IconButton
+                  icon={<EditIcon />}
+                  aria={Locale.Chat.Actions.Edit}
+                  onClick={async () => onEditMessage(message)}
+                ></IconButton>
+              </div>
             </div>
             {(!isUser || (isContext && message.role !== "user")) && (
               <div className={styles["chat-model-name"]}>

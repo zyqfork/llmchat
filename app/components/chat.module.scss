@@ -999,6 +999,7 @@
   &:hover {
     .chat-message-edit {
       opacity: 0.9;
+      pointer-events: auto;
     }
 
     .chat-message-actions {
@@ -1018,18 +1019,24 @@
 
   .chat-message-edit {
     position: absolute;
-    height: 100%;
-    width: 100%;
+    inset: 0;
+    z-index: 2;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
-    transition: all ease 0.3s;
+    pointer-events: none;
+    transition: opacity ease 0.3s;
 
     button {
       padding: 7px;
     }
+  }
+
+  &:hover .chat-message-edit {
+    opacity: 0.9;
+    pointer-events: auto;
   }
 
   /* Specific styles for iOS devices */
