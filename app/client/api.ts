@@ -61,6 +61,7 @@ export interface ChatOptions {
   messages: RequestMessage[];
   config: LLMConfig;
   tools?: any[]; // MCP tools in OpenAI function call format
+  previousResponseId?: string;
 
   onUpdate?: (message: string, chunk: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
@@ -306,6 +307,7 @@ class UnifiedClientApi {
         stream: options.config.stream,
         tools: options.tools,
         providerName: options.config.providerName,
+        previousResponseId: options.previousResponseId,
       };
       const providerId = resolveProviderId(
         requestOptions.model,

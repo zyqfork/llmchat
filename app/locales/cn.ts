@@ -681,6 +681,14 @@ const cn = {
           SubTitle: "启用后使用 Response API 进行模型调用",
         },
 
+        ResponseStatefulMode: {
+          Title: "多轮模式",
+          SubTitle:
+            "有状态模式通过 previous_response_id 续聊，无状态模式每次发送完整历史",
+          Stateless: "无状态",
+          Stateful: "有状态",
+        },
+
         ApiPath: {
           Title: "API 路径",
           SubTitle: "API 端点路径，可自定义",

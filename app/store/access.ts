@@ -79,6 +79,9 @@ function createProviderFieldsState(): Record<string, any> {
     if (storeKeys.apiPath) {
       state[storeKeys.apiPath] = "";
     }
+    if (storeKeys.responseStateful) {
+      state[storeKeys.responseStateful] = false;
+    }
     if (storeKeys.useProxy) {
       state[storeKeys.useProxy] = false;
     }
@@ -118,6 +121,7 @@ export interface CustomProvider {
   config?: {
     // OpenAI类型的特定配置
     useResponseApi?: boolean;
+    useResponseStateful?: boolean;
     apiPath?: string;
     useProxy?: boolean;
     proxyUrl?: string;
@@ -450,11 +454,14 @@ export const useAccessStore = createPersistStore(
         // 如果是 OpenAI 类型的自定义服务商，初始化相关设置
         if (newProvider.type === "openai") {
           const apiTypeKey = `${newProvider.id}ApiType`;
+          const responseStatefulKey = `${newProvider.id}ResponseStateful`;
           // 根据配置决定默认 API 类型
           const defaultApiType = newProvider.config?.useResponseApi
             ? "response"
             : "chat";
           (newState as any)[apiTypeKey] = defaultApiType;
+          (newState as any)[responseStatefulKey] =
+            newProvider.config?.useResponseStateful === true;
 
           logger.debug(
             `[Access Store] Initialized API type for custom OpenAI provider:`,
@@ -510,10 +517,15 @@ export const useAccessStore = createPersistStore(
 
         if (updatedProvider?.type === "openai") {
           const apiTypeKey = `${id}ApiType`;
+          const responseStatefulKey = `${id}ResponseStateful`;
           if (updatedProvider.config?.useResponseApi !== undefined) {
             nextState[apiTypeKey] = updatedProvider.config.useResponseApi
               ? "response"
               : "chat";
+          }
+          if (updatedProvider.config?.useResponseStateful !== undefined) {
+            nextState[responseStatefulKey] =
+              updatedProvider.config.useResponseStateful === true;
           }
         }
 

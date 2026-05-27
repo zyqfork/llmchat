@@ -15,35 +15,15 @@ import MaxIcon from "../../icons/max.svg";
 import Locale from "../../locales";
 import type { ChatSession } from "../../store";
 import { useAccessStore } from "../../store/access";
-import { getAllProviders } from "../../constant";
 import { DEFAULT_TOPIC } from "../../store";
 import { copyToClipboard } from "../../utils";
+import {
+  isResponseApiEnabled,
+  isResponseStatefulEnabled,
+} from "../../utils/response-api";
 import { showToast } from "../ui-lib";
 import { PromptToast } from "./PromptToast";
 import styles from "../chat.module.scss";
-
-function isResponseApiEnabledForSession(session: ChatSession, access: any) {
-  const providerName = session.mask.modelConfig.providerName;
-  if (!providerName) return false;
-
-  const customProvider = access.customProviders?.find(
-    (provider: any) =>
-      provider.id === providerName || provider.name === providerName,
-  );
-  if (customProvider?.type === "openai") {
-    return (
-      access[`${customProvider.id}ApiType`] === "response" ||
-      customProvider.config?.useResponseApi === true
-    );
-  }
-
-  const provider = getAllProviders().find(
-    (provider) =>
-      provider.id === providerName || provider.name === providerName,
-  );
-  const apiTypeKey = provider?.storeKeys?.apiType;
-  return apiTypeKey ? access[apiTypeKey] === "response" : false;
-}
 
 export interface ChatHeaderProps {
   session: ChatSession;
@@ -80,12 +60,14 @@ export function ChatHeader({
   onCompressContext,
   onFullScreenToggle,
 }: ChatHeaderProps) {
-  const showResponseApiConversationId = useAccessStore((access) =>
-    Boolean(
+  const showResponseApiConversationId = useAccessStore((access) => {
+    const providerName = session.mask.modelConfig.providerName;
+    return Boolean(
       session.responseApiConversationId &&
-        isResponseApiEnabledForSession(session, access),
-    ),
-  );
+      isResponseApiEnabled(providerName, access) &&
+      isResponseStatefulEnabled(providerName, access),
+    );
+  });
   const responseApiConversationId = showResponseApiConversationId
     ? session.responseApiConversationId
     : undefined;

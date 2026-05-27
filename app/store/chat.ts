@@ -11,6 +11,7 @@ import { isVisionModel } from "../constant";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import { isContextOverflow } from "@mariozechner/pi-ai";
+import { isResponseStatefulEnabled } from "../utils/response-api";
 import {
   StreamUpdateOptimizer,
   createLightweightMessageUpdate,
@@ -1012,12 +1013,21 @@ export const useChatStore = createPersistStore(
 
         // 获取 MCP 工具（如果启用了 Function Call 模式）
         const mcpTools = await get().getMcpTools();
+        const accessState = useAccessStore.getState();
+        const responseStateful = isResponseStatefulEnabled(
+          modelConfig.providerName,
+          accessState,
+        );
+        const previousResponseId = responseStateful
+          ? session.responseApiConversationId
+          : undefined;
 
         // make request
         api.llm.chat({
           messages: sendMessages,
           config: { ...modelConfig, stream: shouldStream },
           tools: mcpTools.length > 0 ? mcpTools : undefined,
+          previousResponseId,
           onUpdate(message) {
             // 只有在流式模式下才更新 streaming 状态
             if (shouldStream) {
@@ -1075,8 +1085,17 @@ export const useChatStore = createPersistStore(
                 (m) => m.id === botMessage.id,
               );
 
-              // 保存 Response API 会话 ID
-              if (responseApiConversationId) {
+              const shouldPersistResponseId =
+                isResponseApiRequest &&
+                responseStateful &&
+                !!responseApiConversationId;
+
+              if (!responseStateful && session.responseApiConversationId) {
+                session.responseApiConversationId = undefined;
+              }
+
+              // 保存 Response API 会话 ID（仅有状态模式）
+              if (shouldPersistResponseId) {
                 if (!session.responseApiConversationId) {
                   session.responseApiConversationId = responseApiConversationId;
                   logger.debug(
@@ -1101,7 +1120,7 @@ export const useChatStore = createPersistStore(
                     session.responseApiConversationId,
                   );
                 }
-              } else {
+              } else if (responseStateful) {
                 logger.debug(
                   "[Response API] No conversation ID found in response",
                 );
@@ -1398,6 +1417,14 @@ export const useChatStore = createPersistStore(
 
           // 获取 MCP 工具（如果启用了 Function Call 模式）
           const mcpTools = await get().getMcpTools();
+          const accessState = useAccessStore.getState();
+          const responseStateful = isResponseStatefulEnabled(
+            modelConfig.providerName,
+            accessState,
+          );
+          const previousResponseId = responseStateful
+            ? multiModelMode.modelResponseApiConversationIds?.[modelKey]
+            : undefined;
 
           // 读取模型的流式配置，默认为 true（流式）
           const shouldStream = getModelStreamConfig(modelConfig.model);
@@ -1407,6 +1434,7 @@ export const useChatStore = createPersistStore(
               messages: recentMessages,
               config: { ...modelConfig, stream: shouldStream },
               tools: mcpTools.length > 0 ? mcpTools : undefined,
+              previousResponseId,
               onUpdate(message) {
                 botMessage.streaming = true;
                 if (message) {
@@ -1450,7 +1478,7 @@ export const useChatStore = createPersistStore(
                   );
                 }
 
-                if (responseApiConversationId) {
+                if (responseApiConversationId && responseStateful) {
                   const responseId = responseApiConversationId;
                   get().updateTargetSession(session, (session) => {
                     const multiModelMode = session.multiModelMode;
@@ -1462,6 +1490,16 @@ export const useChatStore = createPersistStore(
                     }
                     multiModelMode.modelResponseApiConversationIds[modelKey] =
                       responseId;
+                  });
+                } else if (!responseStateful) {
+                  get().updateTargetSession(session, (session) => {
+                    const multiModelMode = session.multiModelMode;
+                    if (!multiModelMode?.modelResponseApiConversationIds) {
+                      return;
+                    }
+                    delete multiModelMode.modelResponseApiConversationIds[
+                      modelKey
+                    ];
                   });
                 }
 

@@ -13,6 +13,7 @@ import type {
   TextContent,
 } from "@mariozechner/pi-ai";
 import { transformMessages } from "@mariozechner/pi-ai/providers/transform-messages";
+import { applyStatefulResponsesPayload } from "../utils/response-api";
 import { agentLoop, runAgentLoop } from "@mariozechner/pi-agent-core";
 
 export interface LLMAdapterRequest {
@@ -290,6 +291,10 @@ function getCustomProviderRuntimeConfig(
   const custom = accessStore.getCustomProvider(providerId);
   if (!custom) return null;
   const apiTypeKey = `${providerId}ApiType`;
+  const isResponseApi =
+    custom.type === "openai" &&
+    (custom.config?.useResponseApi === true ||
+      (accessStore as any)[apiTypeKey] === "response");
   return {
     apiKey: custom.apiKey,
     baseUrl: custom.endpoint,
@@ -302,6 +307,10 @@ function getCustomProviderRuntimeConfig(
           ? "response"
           : (accessStore as any)[apiTypeKey] || "chat"
         : "chat",
+    responseStateful:
+      isResponseApi &&
+      (custom.config?.useResponseStateful === true ||
+        (accessStore as any)[`${providerId}ResponseStateful`] === true),
   };
 }
 
@@ -319,6 +328,7 @@ function getBuiltinProviderRuntimeConfig(
   if (provider?.storeKeys?.apiType) {
     apiType = (accessStore as any)[provider.storeKeys.apiType] || "chat";
   }
+  const responseStatefulKey = provider?.storeKeys?.responseStateful;
   return {
     apiKey: effectiveConfig.apiKey,
     baseUrl: effectiveConfig.baseUrl || provider?.defaultBaseUrl,
@@ -326,6 +336,9 @@ function getBuiltinProviderRuntimeConfig(
     useProxy: storeConfig.useProxy,
     proxyUrl: storeConfig.proxyUrl,
     apiType,
+    responseStateful: responseStatefulKey
+      ? (accessStore as any)[responseStatefulKey] === true
+      : false,
   };
 }
 
@@ -664,15 +677,20 @@ function buildPiStreamOptions(
     signal: req.options?.abortSignal,
     apiKey: cfg.apiKey,
     onPayload: (payload: any, usedModel: any) => {
-      // Use the URL captured by the fetch interceptor if available (it has the full path).
-      // Fall back to the model's base URL if the interceptor hasn't fired yet.
       const errorCapture = getLastErrorDebugCapture();
+      let nextPayload = payload;
+      if (cfg.apiType === "response" && cfg.responseStateful) {
+        nextPayload = applyStatefulResponsesPayload(payload, {
+          previousResponseId: req.options?.previousResponseId,
+          hasTools: Array.isArray(payload?.tools) && payload.tools.length > 0,
+        });
+      }
       debugCapture.request = {
         url: errorCapture.url || usedModel.baseUrl,
         method: "POST",
-        body: payload,
+        body: nextPayload,
       };
-      return undefined;
+      return nextPayload;
     },
     onResponse: (response: any) => {
       // onResponse fires only when the SDK successfully receives a response header.

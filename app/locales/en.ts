@@ -699,6 +699,14 @@ Keep each section concise. Preserve exact file paths, function names, and error 
           SubTitle: "When enabled, use Response API for model calls",
         },
 
+        ResponseStatefulMode: {
+          Title: "Multi-turn Mode",
+          SubTitle:
+            "Stateful mode chains via previous_response_id; stateless sends full history each turn",
+          Stateless: "Stateless",
+          Stateful: "Stateful",
+        },
+
         ApiPath: {
           Title: "API Path",
           SubTitle: "API endpoint path, customizable",

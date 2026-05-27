@@ -134,6 +134,7 @@ interface AddCustomProviderModalProps {
     enabled: boolean;
     config?: {
       useResponseApi?: boolean;
+      useResponseStateful?: boolean;
       apiPath?: string;
       useProxy?: boolean;
       proxyUrl?: string;
@@ -155,6 +156,7 @@ function AddCustomProviderModal({
     endpoint: "",
     // OpenAI 兼容服务商的额外配置
     useResponseApi: false,
+    useResponseStateful: false,
     apiPath: "",
     useProxy: false,
     proxyUrl: "",
@@ -220,6 +222,7 @@ function AddCustomProviderModal({
         // 添加额外的配置信息
         config: {
           useResponseApi: formData.useResponseApi,
+          useResponseStateful: formData.useResponseStateful,
           apiPath: formData.apiPath.trim() || undefined,
           useProxy: formData.useProxy,
           proxyUrl: formData.proxyUrl.trim() || undefined,
@@ -256,7 +259,13 @@ function AddCustomProviderModal({
 
   // 当 Response API 选项改变时，自动更新 API 路径（如果用户没有手动修改过）
   const handleResponseApiChange = (useResponseApi: boolean) => {
-    const newFormData = { ...formData, useResponseApi };
+    const newFormData = {
+      ...formData,
+      useResponseApi,
+      useResponseStateful: useResponseApi
+        ? formData.useResponseStateful
+        : false,
+    };
 
     // 如果 API 路径为空或者是默认值，则自动更新
     const currentDefaultPath = formData.useResponseApi
@@ -353,6 +362,44 @@ function AddCustomProviderModal({
                   onChange={(e) => handleResponseApiChange(e.target.checked)}
                 />
               </ListItem>
+
+              {formData.useResponseApi && (
+                <ListItem
+                  title={
+                    Locale.Settings.Access.OpenAI.ResponseStatefulMode.Title
+                  }
+                  subTitle={
+                    Locale.Settings.Access.OpenAI.ResponseStatefulMode.SubTitle
+                  }
+                >
+                  <Select
+                    value={
+                      formData.useResponseStateful ? "stateful" : "stateless"
+                    }
+                    align="left"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        useResponseStateful:
+                          e.currentTarget.value === "stateful",
+                      })
+                    }
+                  >
+                    <option value="stateless">
+                      {
+                        Locale.Settings.Access.OpenAI.ResponseStatefulMode
+                          .Stateless
+                      }
+                    </option>
+                    <option value="stateful">
+                      {
+                        Locale.Settings.Access.OpenAI.ResponseStatefulMode
+                          .Stateful
+                      }
+                    </option>
+                  </Select>
+                </ListItem>
+              )}
 
               <ListItem title="API 路径" subTitle="API 端点路径，可自定义">
                 <input
@@ -2058,6 +2105,44 @@ export function Settings() {
           </ListItem>
         )}
 
+        {ui.showResponseApi &&
+          storeKeys.apiType &&
+          storeKeys.responseStateful &&
+          (accessStore as any)[storeKeys.apiType!] === "response" && (
+            <ListItem
+              title={Locale.Settings.Access.OpenAI.ResponseStatefulMode.Title}
+              subTitle={
+                Locale.Settings.Access.OpenAI.ResponseStatefulMode.SubTitle
+              }
+            >
+              <Select
+                aria-label={
+                  Locale.Settings.Access.OpenAI.ResponseStatefulMode.Title
+                }
+                value={
+                  (accessStore as any)[storeKeys.responseStateful!]
+                    ? "stateful"
+                    : "stateless"
+                }
+                align="left"
+                onChange={(e) => {
+                  accessStore.update(
+                    (access) =>
+                      ((access as any)[storeKeys.responseStateful!] =
+                        e.currentTarget.value === "stateful"),
+                  );
+                }}
+              >
+                <option value="stateless">
+                  {Locale.Settings.Access.OpenAI.ResponseStatefulMode.Stateless}
+                </option>
+                <option value="stateful">
+                  {Locale.Settings.Access.OpenAI.ResponseStatefulMode.Stateful}
+                </option>
+              </Select>
+            </ListItem>
+          )}
+
         {/* API 路径配置 */}
         {ui.showApiPath !== false && storeKeys.apiPath && (
           <ListItem
@@ -2925,6 +3010,9 @@ export function Settings() {
                 onChange={(e) => {
                   const newConfig = { ...customProvider.config };
                   newConfig.useResponseApi = e.target.checked;
+                  if (!e.target.checked) {
+                    newConfig.useResponseStateful = false;
+                  }
                   // 自动更新 API 路径
                   if (
                     !newConfig.apiPath ||
@@ -2946,6 +3034,48 @@ export function Settings() {
                 }}
               />
             </ListItem>
+
+            {(customProvider.config?.useResponseApi ||
+              (accessStore as any)[`${customProvider.id}ApiType`] ===
+                "response") && (
+              <ListItem
+                title={Locale.Settings.Access.OpenAI.ResponseStatefulMode.Title}
+                subTitle={
+                  Locale.Settings.Access.OpenAI.ResponseStatefulMode.SubTitle
+                }
+              >
+                <Select
+                  value={
+                    customProvider.config?.useResponseStateful
+                      ? "stateful"
+                      : "stateless"
+                  }
+                  align="left"
+                  onChange={(e) => {
+                    const newConfig = {
+                      ...customProvider.config,
+                      useResponseStateful: e.currentTarget.value === "stateful",
+                    };
+                    accessStore.updateCustomProvider(customProvider.id, {
+                      config: newConfig,
+                    });
+                  }}
+                >
+                  <option value="stateless">
+                    {
+                      Locale.Settings.Access.OpenAI.ResponseStatefulMode
+                        .Stateless
+                    }
+                  </option>
+                  <option value="stateful">
+                    {
+                      Locale.Settings.Access.OpenAI.ResponseStatefulMode
+                        .Stateful
+                    }
+                  </option>
+                </Select>
+              </ListItem>
+            )}
 
             <ListItem title="API 路径" subTitle="API 路径配置，留空使用默认">
               <input

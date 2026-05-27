@@ -623,6 +623,7 @@ export interface ProviderConfig {
     baseUrl: string;
     apiType?: string;
     apiPath?: string;
+    responseStateful?: string;
     useProxy?: string;
     proxyUrl?: string;
     apiVersion?: string;
@@ -661,6 +662,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "openaiUrl",
       apiType: "openaiApiType",
       apiPath: "openaiApiPath",
+      responseStateful: "openaiResponseStateful",
       useProxy: "openaiUseProxy",
       proxyUrl: "openaiProxyUrl",
     },
@@ -784,6 +786,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "alibabaUrl",
       apiType: "alibabaApiType",
       apiPath: "alibabaApiPath",
+      responseStateful: "alibabaResponseStateful",
       useProxy: "alibabaUseProxy",
       proxyUrl: "alibabaProxyUrl",
     },
@@ -815,6 +818,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "moonshotUrl",
       apiType: "moonshotApiType",
       apiPath: "moonshotApiPath",
+      responseStateful: "moonshotResponseStateful",
       useProxy: "moonshotUseProxy",
       proxyUrl: "moonshotProxyUrl",
     },
@@ -846,6 +850,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "xaiUrl",
       apiType: "xaiApiType",
       apiPath: "xaiApiPath",
+      responseStateful: "xaiResponseStateful",
       useProxy: "xaiUseProxy",
       proxyUrl: "xaiProxyUrl",
     },
@@ -877,6 +882,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "deepseekUrl",
       apiType: "deepseekApiType",
       apiPath: "deepseekApiPath",
+      responseStateful: "deepseekResponseStateful",
       useProxy: "deepseekUseProxy",
       proxyUrl: "deepseekProxyUrl",
     },
@@ -908,6 +914,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "siliconflowUrl",
       apiType: "siliconflowApiType",
       apiPath: "siliconflowApiPath",
+      responseStateful: "siliconflowResponseStateful",
       useProxy: "siliconflowUseProxy",
       proxyUrl: "siliconflowProxyUrl",
     },
@@ -969,6 +976,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
       baseUrl: "zaiUrl",
       apiType: "zaiApiType",
       apiPath: "zaiApiPath",
+      responseStateful: "zaiResponseStateful",
       useProxy: "zaiUseProxy",
       proxyUrl: "zaiProxyUrl",
     },
