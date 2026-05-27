@@ -44,17 +44,11 @@ fn main() {
       fetch::tauri_fetch,
       ws::tauri_ws_connect,
       ws::tauri_ws_send_text,
-      ws::tauri_ws_close
+      ws::tauri_ws_close,
+      desktop::toggle_devtools
     ])
     .setup(|app| {
       desktop::setup(app)?;
-      #[cfg(feature = "debug-devtools")]
-      {
-        if let Some(window) = app.get_webview_window("main") {
-          window.open_devtools();
-          println!("Developer tools opened");
-        }
-      }
       Ok(())
     });
 

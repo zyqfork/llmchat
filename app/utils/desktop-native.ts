@@ -26,6 +26,43 @@ function isMacOS(): boolean {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
 }
 
+/** 开发模式（tauri dev / export:dev 连 localhost）不拦截右键，便于调试 */
+function isDesktopDevMode(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return (
+    process.env.NODE_ENV === "development" ||
+    host === "localhost" ||
+    host === "127.0.0.1"
+  );
+}
+
+/** 保留系统右键菜单的区域（复制文本等） */
+function shouldAllowContextMenu(target: EventTarget | null): boolean {
+  if (isEditableTarget(target)) return true;
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest(
+      ".chat-message, .markdown-body, [data-allow-context-menu], [data-desktop-drop-zone]",
+    ),
+  );
+}
+
+async function toggleDevtools() {
+  const runtime = getDesktopRuntime();
+  if (runtime === DesktopRuntime.Tauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("toggle_devtools");
+    return;
+  }
+  if (
+    runtime === DesktopRuntime.Electron &&
+    window.electronApp?.toggleDevTools
+  ) {
+    await window.electronApp.toggleDevTools();
+  }
+}
+
 /** 桌面客户端（Tauri / Electron）DOM 级原生体验增强 */
 export function installDesktopNativeEnhancements() {
   if (typeof window === "undefined" || installed) return;
@@ -68,9 +105,24 @@ export function installDesktopNativeEnhancements() {
   });
 
   document.addEventListener("contextmenu", (e) => {
-    if (isEditableTarget(e.target)) return;
+    if (isDesktopDevMode()) return;
+    if (shouldAllowContextMenu(e.target)) return;
     e.preventDefault();
   });
+
+  // 开发调试：F12 或 Ctrl/Cmd+Shift+I 开关 DevTools
+  if (isDesktopDevMode()) {
+    document.addEventListener("keydown", (e) => {
+      const key = e.key.toLowerCase();
+      if (
+        key === "f12" ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && key === "i")
+      ) {
+        e.preventDefault();
+        void toggleDevtools();
+      }
+    });
+  }
 
   document.addEventListener("dragover", (e) => {
     if (!e.dataTransfer?.types.includes("Files")) return;

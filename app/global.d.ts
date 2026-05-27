@@ -69,5 +69,6 @@ declare interface Window {
     ) => () => void;
     openExternal?: (url: string) => Promise<void>;
     onDeepLink?: (listener: (url: string) => void) => () => void;
+    toggleDevTools?: () => Promise<void>;
   };
 }

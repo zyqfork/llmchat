@@ -227,10 +227,6 @@ export async function fetch(
     });
     (response as any).__tauriDebugBody = debugBody;
 
-    if (status >= 300) {
-      setTimeout(close, 100);
-    }
-
     return response;
   } catch (e) {
     logger.error(`[${runtimeLabel} Fetch ${type.toUpperCase()}] Error:`, e);

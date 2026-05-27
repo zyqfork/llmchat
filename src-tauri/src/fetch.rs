@@ -4,13 +4,13 @@
  * 请求头与超时由前端传入，后端只负责发请求并以事件流式回传 body。
  */
 
-use std::time::Duration;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::Duration;
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
+use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::Client;
-use reqwest::header::{HeaderName, HeaderMap};
 use tauri::Emitter;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -20,7 +20,6 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
     Client::builder()
         .redirect(reqwest::redirect::Policy::limited(3))
         .connect_timeout(Duration::new(10, 0))
-        // 连接池配置：对短请求（同步/模型列表）减少握手开销，对长连接（SSE）保持稳定
         .pool_idle_timeout(Duration::new(90, 0))
         .pool_max_idle_per_host(32)
         .build()
@@ -52,8 +51,11 @@ fn build_header_map(headers: &HashMap<String, String>) -> Result<HeaderMap, Stri
     let mut header_map = HeaderMap::new();
     for (key, value) in headers {
         header_map.insert(
-            key.parse::<HeaderName>().map_err(|e| format!("Invalid header name: {}", e))?,
-            value.parse().map_err(|e| format!("Invalid header value: {}", e))?,
+            key.parse::<HeaderName>()
+                .map_err(|e| format!("Invalid header name: {}", e))?,
+            value
+                .parse()
+                .map_err(|e| format!("Invalid header value: {}", e))?,
         );
     }
     Ok(header_map)
@@ -108,7 +110,12 @@ async fn execute_stream_request(
         );
     }
 
-    let status = response.status().as_u16();
+    let status = response.status();
+    let status_code = status.as_u16();
+    let status_text = status
+        .canonical_reason()
+        .unwrap_or("Unknown Status")
+        .to_string();
 
     tauri::async_runtime::spawn(async move {
         let mut stream = response.bytes_stream();
@@ -145,23 +152,21 @@ async fn execute_stream_request(
         }
 
         if !ended_with_error {
-            if let Err(e) = window.emit(
+            let _ = window.emit(
                 event_name,
                 EndPayload {
                     request_id,
                     status: 0,
                     error: None,
                 },
-            ) {
-                println!("[Tauri Fetch] Failed to emit end: {:?}", e);
-            }
+            );
         }
     });
 
     Ok(StreamResponse {
         request_id,
-        status,
-        status_text: "OK".to_string(),
+        status: status_code,
+        status_text,
         headers: resp_headers,
     })
 }

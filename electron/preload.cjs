@@ -45,4 +45,5 @@ contextBridge.exposeInMainWorld("electronApp", {
     ipcRenderer.on("electron-deep-link", wrapped);
     return () => ipcRenderer.removeListener("electron-deep-link", wrapped);
   },
+  toggleDevTools: () => ipcRenderer.invoke("electron-toggle-devtools"),
 });

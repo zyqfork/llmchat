@@ -104,6 +104,15 @@ fn setup_global_shortcuts(app: &mut tauri::App) -> Result<(), Box<dyn std::error
   Ok(())
 }
 
+#[tauri::command]
+pub fn toggle_devtools(window: tauri::WebviewWindow) {
+  if window.is_devtools_open() {
+    window.close_devtools();
+  } else {
+    window.open_devtools();
+  }
+}
+
 pub fn handle_second_instance(app: &AppHandle, argv: &[String]) {
   focus_main_window_from_plugin(app);
   for arg in argv {

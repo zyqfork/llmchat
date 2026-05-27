@@ -208,6 +208,14 @@ ipcMain.handle("electron-open-external", async (_event, url) => {
   await shell.openExternal(url);
 });
 
+ipcMain.handle("electron-toggle-devtools", (event) => {
+  if (event.sender.isDevToolsOpened()) {
+    event.sender.closeDevTools();
+  } else {
+    event.sender.openDevTools();
+  }
+});
+
 function getAppIconPath() {
   const iconsDir = isDev
     ? path.join(__dirname, "..", "src-tauri", "icons")
