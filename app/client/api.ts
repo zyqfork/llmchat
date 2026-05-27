@@ -62,6 +62,8 @@ export interface ChatOptions {
   config: LLMConfig;
   tools?: any[]; // MCP tools in OpenAI function call format
   previousResponseId?: string;
+  /** 辅助请求（压缩/标题/优化等）应设为 true，避免走有状态 Responses 链 */
+  disableResponseStateful?: boolean;
 
   onUpdate?: (message: string, chunk: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
@@ -308,6 +310,7 @@ class UnifiedClientApi {
         tools: options.tools,
         providerName: options.config.providerName,
         previousResponseId: options.previousResponseId,
+        disableResponseStateful: options.disableResponseStateful,
       };
       const providerId = resolveProviderId(
         requestOptions.model,

@@ -516,6 +516,7 @@ export function ChatMain() {
           stream: true,
           providerName: optimizeModelConfig.providerName,
         },
+        disableResponseStateful: true,
         onUpdate: (message: string) => {
           // 去除思考内容，只保留优化后的提示词
           const cleanedMessage = removeThinkingContent(message);

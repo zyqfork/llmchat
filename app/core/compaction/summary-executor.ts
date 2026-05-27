@@ -18,6 +18,7 @@ export interface SummaryChatOptions {
     model: string;
     providerName: string;
   };
+  disableResponseStateful?: boolean;
   onUpdate: (message: string) => void;
   onFinish: (message: string, responseRes: Response) => void;
   onError: (error: Error) => void;
@@ -71,6 +72,7 @@ export async function executeSummaryStream(
         model: params.model,
         providerName: params.providerName,
       },
+      disableResponseStateful: true,
       onUpdate(message: string) {
         const filteredMessage = params.sanitizeMessage(message);
         params.onUpdate(filteredMessage);

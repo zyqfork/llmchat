@@ -679,7 +679,11 @@ function buildPiStreamOptions(
     onPayload: (payload: any, usedModel: any) => {
       const errorCapture = getLastErrorDebugCapture();
       let nextPayload = payload;
-      if (cfg.apiType === "response" && cfg.responseStateful) {
+      if (
+        cfg.apiType === "response" &&
+        cfg.responseStateful &&
+        !req.options?.disableResponseStateful
+      ) {
         nextPayload = applyStatefulResponsesPayload(payload, {
           previousResponseId: req.options?.previousResponseId,
           hasTools: Array.isArray(payload?.tools) && payload.tools.length > 0,

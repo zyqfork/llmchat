@@ -1967,6 +1967,7 @@ export const useChatStore = createPersistStore(
             stream: false,
             providerName: topicModelConfig.providerName,
           },
+          disableResponseStateful: true,
           onFinish(message, responseRes) {
             if (responseRes?.status === 200) {
               const filteredMessage = removeThinkingContent(message);
@@ -2084,6 +2085,7 @@ export const useChatStore = createPersistStore(
               stream: false,
               providerName: topicModelConfig.providerName,
             },
+            disableResponseStateful: true,
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
                 // 使用通用的移除思考内容函数，与优化提示词保持一致
@@ -2354,6 +2356,14 @@ export const useChatStore = createPersistStore(
                 s.mask.modelConfig.sendMemory = true;
                 s.lastSummarizeIndex = compactionContext.lastSummarizeIndex;
                 s.memoryPrompt = appliedSummary;
+                if (
+                  isResponseStatefulEnabled(
+                    providerName,
+                    useAccessStore.getState(),
+                  )
+                ) {
+                  s.responseApiConversationId = undefined;
+                }
                 const target = s.messages.find(
                   (m) => m.id === compactionContext.compressedMessageId,
                 );
