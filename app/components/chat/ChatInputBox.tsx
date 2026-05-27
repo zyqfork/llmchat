@@ -49,6 +49,7 @@ export function ChatInputBox(props: ChatInputBoxProps) {
         [styles["chat-input-panel-inner-attach"]]: attachImages.length !== 0,
       })}
       htmlFor="chat-input"
+      data-desktop-drop-zone
     >
       <textarea
         id="chat-input"

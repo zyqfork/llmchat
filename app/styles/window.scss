@@ -8,6 +8,42 @@
   align-items: center;
 }
 
+// Tauri / Electron 无边框标题栏：可拖拽区域与可点击控件分离
+html.desktop-app {
+  overscroll-behavior: none;
+
+  [data-tauri-drag-region] {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .window-action-button,
+  .window-header button,
+  .window-header a,
+  .window-header input,
+  .window-header textarea,
+  .window-header select,
+  .window-header [role="button"] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  // 仅 Tauri Overlay 标题栏需为交通灯留白（Electron 使用系统标题栏，勿加 padding）
+  &.desktop-tauri.desktop-macos .window-header {
+    padding-left: 78px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
 .window-header-title {
   max-width: calc(100% - 100px);
   overflow: hidden;

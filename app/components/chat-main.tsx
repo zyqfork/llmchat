@@ -88,6 +88,7 @@ import {
 import { isVisionModel, isWebSearchModel } from "../constant";
 
 import { uploadImageAsBase64 } from "@/app/utils/chat";
+import { isDesktopApp } from "@/app/utils/desktop";
 
 import dynamic from "next/dynamic";
 
@@ -1196,7 +1197,7 @@ export function ChatMain() {
   const [showPromptModal, setShowPromptModal] = useState(false);
 
   const autoFocus = !isMobileScreen; // wont auto focus on mobile screen
-  const showMaxIcon = !isMobileScreen && !getClientConfig()?.isApp;
+  const showMaxIcon = !isMobileScreen && !isDesktopApp();
 
   useCommand({
     fill: setUserInput,
@@ -1268,47 +1269,57 @@ export function ChatMain() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePaste = useCallback(
-    async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const appendImagesFromFiles = useCallback(
+    async (files: FileList | File[]) => {
       const currentModel = chatStore.currentSession().mask.modelConfig.model;
-      if (!isVisionModel(currentModel)) {
-        return;
-      }
-      const items = (event.clipboardData || window.clipboardData).items;
-      for (const item of items) {
-        if (item.kind === "file" && item.type.startsWith("image/")) {
-          event.preventDefault();
-          const file = item.getAsFile();
-          if (file) {
-            const images: string[] = [];
-            images.push(...attachImages);
-            images.push(
-              ...(await new Promise<string[]>((res, rej) => {
-                setUploading(true);
-                const imagesData: string[] = [];
-                uploadImageAsBase64(file)
-                  .then((dataUrl) => {
-                    imagesData.push(dataUrl);
-                    setUploading(false);
-                    res(imagesData);
-                  })
-                  .catch((e) => {
-                    setUploading(false);
-                    rej(e);
-                  });
-              })),
-            );
-            const imagesLength = images.length;
+      if (!isVisionModel(currentModel)) return;
 
-            if (imagesLength > 3) {
-              images.splice(3, imagesLength - 3);
-            }
-            setAttachImages(images);
-          }
+      const fileList = Array.from(files).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (fileList.length === 0) return;
+
+      setUploading(true);
+      try {
+        const uploaded: string[] = [];
+        for (const file of fileList) {
+          if (uploaded.length + attachImages.length >= 3) break;
+          uploaded.push(await uploadImageAsBase64(file));
         }
+        const merged = [...attachImages, ...uploaded].slice(0, 3);
+        setAttachImages(merged);
+      } finally {
+        setUploading(false);
       }
     },
     [attachImages, chatStore],
+  );
+
+  const handlePaste = useCallback(
+    async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = (event.clipboardData || window.clipboardData).items;
+      const imageFiles: File[] = [];
+      for (const item of items) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length === 0) return;
+      event.preventDefault();
+      await appendImagesFromFiles(imageFiles);
+    },
+    [appendImagesFromFiles],
+  );
+
+  const handleDrop = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>) => {
+      if (!event.dataTransfer.files?.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      await appendImagesFromFiles(event.dataTransfer.files);
+    },
+    [appendImagesFromFiles],
   );
 
   async function uploadImage() {
@@ -1719,6 +1730,7 @@ export function ChatMain() {
               onInputKeyDown={onInputKeyDown}
               onInputFocusOrClick={handleInputFocusOrClick}
               onPaste={handlePaste}
+              onDrop={handleDrop}
               onSubmit={doSubmit}
               onSearch={onSearch}
             />

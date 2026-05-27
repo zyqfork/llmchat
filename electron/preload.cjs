@@ -1,7 +1,8 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, nativeTheme } = require("electron");
 
 contextBridge.exposeInMainWorld("electronApp", {
   isElectron: true,
+  isDesktopClient: true,
   invokeFetch: (payload) => ipcRenderer.invoke("electron-fetch", payload),
   onStreamResponse: (listener) => {
     const wrapped = (_event, data) => listener(data);
@@ -30,5 +31,18 @@ contextBridge.exposeInMainWorld("electronApp", {
     const wrapped = (_event, data) => listener(data);
     ipcRenderer.on("electron-ws-error", wrapped);
     return () => ipcRenderer.removeListener("electron-ws-error", wrapped);
+  },
+  setNativeTheme: (theme) =>
+    ipcRenderer.invoke("electron-set-native-theme", theme),
+  onNativeThemeChanged: (listener) => {
+    const wrapped = () => listener(nativeTheme.shouldUseDarkColors);
+    nativeTheme.on("updated", wrapped);
+    return () => nativeTheme.off("updated", wrapped);
+  },
+  openExternal: (url) => ipcRenderer.invoke("electron-open-external", url),
+  onDeepLink: (listener) => {
+    const wrapped = (_event, url) => listener(url);
+    ipcRenderer.on("electron-deep-link", wrapped);
+    return () => ipcRenderer.removeListener("electron-deep-link", wrapped);
   },
 });

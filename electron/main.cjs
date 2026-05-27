@@ -1,11 +1,22 @@
 const fs = require("fs");
 const path = require("path");
-const { app, BrowserWindow, shell, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  nativeTheme,
+  Tray,
+  Menu,
+} = require("electron");
 
 const isDev = !app.isPackaged;
+const PROTOCOL = "llmchat";
 let requestCounter = 0;
 let wsCounter = 1;
 const wsConnections = new Map();
+let mainWindow = null;
+let tray = null;
 
 function normalizeHeaders(headers) {
   const output = {};
@@ -18,6 +29,54 @@ function normalizeHeaders(headers) {
     }
   }
   return output;
+}
+
+function focusMainWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function emitDeepLink(url) {
+  if (!mainWindow?.webContents) return;
+  mainWindow.webContents.send("electron-deep-link", url);
+}
+
+function handleDeepLinkArg(arg) {
+  if (typeof arg === "string" && arg.startsWith(`${PROTOCOL}:`)) {
+    emitDeepLink(arg);
+  }
+}
+
+function registerProtocol() {
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [
+        path.resolve(process.argv[1]),
+      ]);
+    }
+  } else {
+    app.setAsDefaultProtocolClient(PROTOCOL);
+  }
+}
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, argv) => {
+    focusMainWindow();
+    argv.forEach(handleDeepLinkArg);
+  });
+}
+
+if (process.platform === "darwin") {
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    handleDeepLinkArg(url);
+    focusMainWindow();
+  });
 }
 
 ipcMain.handle("electron-fetch", async (event, payload) => {
@@ -78,7 +137,6 @@ ipcMain.handle("electron-fetch", async (event, payload) => {
 ipcMain.handle("electron-ws-connect", async (event, payload) => {
   const connectionId = wsCounter++;
   const webContents = event.sender;
-  // Use ws library to support custom headers (Authorization, etc.)
   const Ws = require("ws");
   const hdrs = normalizeHeaders(payload.headers);
   const hasAuth = Object.keys(hdrs).some(
@@ -128,6 +186,16 @@ ipcMain.handle("electron-ws-send", async (_event, payload) => {
   return true;
 });
 
+ipcMain.handle("electron-set-native-theme", async (_event, theme) => {
+  if (theme === "system" || theme == null) {
+    nativeTheme.themeSource = "system";
+  } else if (theme === "dark") {
+    nativeTheme.themeSource = "dark";
+  } else {
+    nativeTheme.themeSource = "light";
+  }
+});
+
 ipcMain.handle("electron-ws-close", async (_event, payload) => {
   const socket = wsConnections.get(payload.connection_id);
   if (!socket) return true;
@@ -136,7 +204,10 @@ ipcMain.handle("electron-ws-close", async (_event, payload) => {
   return true;
 });
 
-/** 与 Tauri 共用 src-tauri/icons；打包后通过 extraResources 放在 resources/icons */
+ipcMain.handle("electron-open-external", async (_event, url) => {
+  await shell.openExternal(url);
+});
+
 function getAppIconPath() {
   const iconsDir = isDev
     ? path.join(__dirname, "..", "src-tauri", "icons")
@@ -150,52 +221,113 @@ function getAppIconPath() {
   return path.join(iconsDir, "icon.png");
 }
 
+function setupTray(iconPath) {
+  if (!iconPath || !fs.existsSync(iconPath)) return;
+  tray = new Tray(iconPath);
+  tray.setToolTip("LLMChat");
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "显示 LLMChat",
+      click: () => focusMainWindow(),
+    },
+    { type: "separator" },
+    {
+      label: "退出",
+      click: () => app.quit(),
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => focusMainWindow());
+}
+
+function blockDevToolsShortcuts(win) {
+  if (isDev) return;
+  win.webContents.on("before-input-event", (event, input) => {
+    const key = input.key?.toLowerCase();
+    if (key === "f12") {
+      event.preventDefault();
+      return;
+    }
+    if (input.control && input.shift && (key === "i" || key === "j" || key === "c")) {
+      event.preventDefault();
+    }
+  });
+}
+
 function createMainWindow() {
   const iconPath = getAppIconPath();
   const icon = fs.existsSync(iconPath) ? iconPath : undefined;
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 960,
     height: 600,
-    minWidth: 800,
-    minHeight: 520,
+    minWidth: 640,
+    minHeight: 480,
     show: false,
     autoHideMenuBar: true,
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     title: "LLMChat",
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
-  win.once("ready-to-show", () => {
-    win.show();
+  blockDevToolsShortcuts(mainWindow);
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
   });
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  mainWindow.on("close", (event) => {
+    if (process.platform === "darwin") {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
   });
 
   if (isDev) {
-    win.loadURL("http://localhost:3000");
+    mainWindow.loadURL("http://localhost:3000");
   } else {
-    win.loadFile(path.join(__dirname, "..", "out", "index.html"));
+    mainWindow.loadFile(path.join(__dirname, "..", "out", "index.html"));
   }
+
+  mainWindow.webContents.once("did-finish-load", () => {
+    process.argv.forEach(handleDeepLinkArg);
+  });
 }
 
 app.whenReady().then(() => {
+  registerProtocol();
+  const iconPath = getAppIconPath();
+  setupTray(iconPath);
   createMainWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
+    } else {
+      focusMainWindow();
     }
   });
 });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  if (mainWindow) {
+    mainWindow.removeAllListeners("close");
+    mainWindow.destroy();
+    mainWindow = null;
+  }
 });

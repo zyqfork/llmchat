@@ -34,6 +34,16 @@ import { initializeMcpSystem } from "../mcp/actions.client";
 import { isCorsError } from "@mariozechner/pi-web-ui/utils/proxy-utils";
 import { logger } from "../utils/logger";
 import { ChatControllerPool } from "../client/controller";
+import {
+  installDesktopNativeEnhancements,
+  useDesktopThemeSync,
+} from "../utils/desktop-native";
+import { syncNativeWindowTheme } from "../utils/desktop-theme";
+import { DesktopShortcutBridge } from "./desktop-shortcut-bridge";
+import { isDesktopApp } from "../utils/desktop";
+import { shouldUseDesktopLayout } from "../utils/desktop-native";
+import { getDesktopRuntime, DesktopRuntime } from "../utils/fetch";
+import { DesktopLifecycle } from "./desktop-lifecycle";
 
 export function Loading(props: { noLogo?: boolean }) {
   return (
@@ -95,6 +105,8 @@ export function useSwitchTheme() {
       "color-scheme-rose",
     );
 
+    document.body.classList.remove("theme-auto");
+
     if (config.theme === "dark") {
       document.body.classList.add("dark");
     } else if (config.theme === "light") {
@@ -112,12 +124,15 @@ export function useSwitchTheme() {
     );
 
     if (config.theme === "auto") {
-      metaDescriptionDark?.setAttribute("content", "#151515");
-      metaDescriptionLight?.setAttribute("content", "#fafafa");
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const color = isDark ? "#151515" : "#fafafa";
+      metaDescriptionDark?.setAttribute("content", color);
+      metaDescriptionLight?.setAttribute("content", color);
     } else {
       const themeColor = getCSSVar("--theme-color");
       metaDescriptionDark?.setAttribute("content", themeColor);
       metaDescriptionLight?.setAttribute("content", themeColor);
+      void syncNativeWindowTheme(config.theme);
     }
   }, [config.theme, config.colorScheme]);
 }
@@ -144,11 +159,21 @@ const useHasHydrated = () => {
 };
 
 const loadAsyncGoogleFont = () => {
+  const cfg = getClientConfig();
+  // 桌面客户端使用系统字体栈，避免离线首屏拉取 Google Fonts
+  if (
+    isDesktopApp() ||
+    (typeof window !== "undefined" &&
+      getDesktopRuntime() !== DesktopRuntime.Browser)
+  ) {
+    return;
+  }
+
   const linkEl = document.createElement("link");
   const proxyFontUrl = "/google-fonts";
   const remoteFontUrl = "https://fonts.googleapis.com";
   const googleFontUrl =
-    getClientConfig()?.buildMode === "export" ? remoteFontUrl : proxyFontUrl;
+    cfg?.buildMode === "export" ? remoteFontUrl : proxyFontUrl;
   linkEl.rel = "stylesheet";
   linkEl.href =
     googleFontUrl +
@@ -177,7 +202,7 @@ function Screen() {
 
   const isMobileScreen = useMobileScreen();
   const shouldTightBorder =
-    getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
+    shouldUseDesktopLayout() || (config.tightBorder && !isMobileScreen);
   const { isCollapsed } = useDragSideBar();
 
   // 检查是否需要访问码验证
@@ -186,7 +211,7 @@ function Screen() {
     if (isAuth || isSettings) return false;
 
     // 在 App 环境下，不强制要求访问码验证，允许用户访问设置页面
-    if (getClientConfig()?.isApp) return false;
+    if (isDesktopApp()) return false;
 
     // 如果有环境变量设置的访问码要求
     if (accessStore.enabledAccessControl()) {
@@ -326,10 +351,13 @@ export function useLoadData() {
 
 export function Home() {
   useSwitchTheme();
+  useDesktopThemeSync();
   useLoadData();
   useHtmlLang();
 
   useEffect(() => {
+    installDesktopNativeEnhancements();
+
     useAccessStore.getState().fetch();
 
     const initMcp = async () => {
@@ -368,6 +396,8 @@ export function Home() {
   return (
     <ErrorBoundary>
       <Router>
+        <DesktopShortcutBridge />
+        <DesktopLifecycle />
         <Screen />
       </Router>
     </ErrorBoundary>

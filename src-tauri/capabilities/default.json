@@ -13,6 +13,7 @@
     "core:window:allow-unmaximize",
     "core:window:allow-unminimize",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
     "core:window:allow-set-resizable",
     "core:window:allow-set-icon",
     "core:window:allow-set-ignore-cursor-events",
@@ -62,6 +63,11 @@
     "notification:default",
     "http:default",
     "window-state:default",
-    "updater:default"
+    "updater:default",
+    "core:tray:default",
+    "deep-link:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered"
   ]
 }

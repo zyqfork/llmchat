@@ -101,6 +101,7 @@
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-shell": "2",
     "@tauri-apps/plugin-updater": "^2",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -168,6 +169,14 @@
     "deb": {
       "packageName": "llmchat-electron"
     },
+    "protocols": [
+      {
+        "name": "LLMChat",
+        "schemes": [
+          "llmchat"
+        ]
+      }
+    ],
     "win": {
       "target": [
         {

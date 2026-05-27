@@ -22,6 +22,12 @@
   @include container();
 }
 
+:global(html.desktop-app) .container,
+:global(html.desktop-app) .tight-container {
+  box-shadow: none;
+  transition: none;
+}
+
 @media only screen and (min-width: 600px) {
   .tight-container {
     --window-width: 100vw;
@@ -175,6 +181,10 @@
   &-narrow {
     justify-content: center;
   }
+}
+
+:global(html.desktop-app.desktop-tauri.desktop-macos) .sidebar-header {
+  padding-left: 78px;
 }
 
 .sidebar-logo {

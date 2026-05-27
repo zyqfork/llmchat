@@ -174,6 +174,7 @@ const en: LocaleType = {
     IsContext: "Contextual Prompt",
     ShortcutKey: {
       Title: "Keyboard Shortcuts",
+      openSettings: "Open Settings",
       newChat: "Open New Chat",
       focusInput: "Focus Input Field",
       copyLastMessage: "Copy Last Reply",

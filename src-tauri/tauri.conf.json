@@ -4,7 +4,7 @@
   "version": "2.18.0",
   "identifier": "com.github.zyqfork.llmchat",
   "build": {
-    "beforeDevCommand": "yarn export",
+    "beforeDevCommand": "yarn export:dev",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "yarn export",
     "frontendDist": "../out"
@@ -47,18 +47,28 @@
         "title": "LLMChat",
         "width": 960,
         "height": 600,
+        "minWidth": 640,
+        "minHeight": 480,
+        "center": true,
         "resizable": true,
         "fullscreen": false,
         "hiddenTitle": true,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "theme": null,
+        "zoomHotkeysEnabled": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob: asset: https://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https: http: ws: wss: tauri:; media-src 'self' blob: data:"
     },
     "withGlobalTauri": true
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["llmchat"]
+      }
+    },
     "updater": {
       "endpoints": [
         "https://github.com/zyqfork/llmchat/releases/latest/download/latest.json"

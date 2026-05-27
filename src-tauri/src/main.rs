@@ -1,11 +1,14 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod fetch;  // 统一的 fetch 模块
+mod desktop;
+mod fetch;
 mod ws;
 
+use tauri::Emitter;
+
 fn main() {
-  tauri::Builder::default()
+  let builder = tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_clipboard_manager::init())
@@ -14,24 +17,48 @@ fn main() {
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+      desktop::handle_second_instance(app, &argv);
+    }))
+    .plugin(
+      tauri_plugin_global_shortcut::Builder::new()
+        .with_handler(|app, shortcut, event| {
+          use tauri_plugin_global_shortcut::ShortcutState;
+          if event.state != ShortcutState::Pressed {
+            return;
+          }
+          let id = shortcut.to_string();
+          let payload = if id.contains("Comma") {
+            "settings"
+          } else if id.contains("KeyO") {
+            "new-chat"
+          } else {
+            return;
+          };
+          let _ = app.emit("global-shortcut", payload);
+        })
+        .build(),
+    )
+    .plugin(tauri_plugin_deep_link::init())
     .invoke_handler(tauri::generate_handler![
       fetch::tauri_fetch,
       ws::tauri_ws_connect,
       ws::tauri_ws_send_text,
       ws::tauri_ws_close
     ])
-    .setup(|_app| {
-      // 只在启用 debug-devtools feature 时打开开发者工具
+    .setup(|app| {
+      desktop::setup(app)?;
       #[cfg(feature = "debug-devtools")]
       {
-        use tauri::Manager;
-        if let Some(window) = _app.get_webview_window("main") {
+        if let Some(window) = app.get_webview_window("main") {
           window.open_devtools();
           println!("Developer tools opened");
         }
       }
       Ok(())
-    })
+    });
+
+  builder
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

@@ -48,6 +48,7 @@ type ChatInputPanelProps = {
   onInputKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onInputFocusOrClick: () => void;
   onPaste: (event: React.ClipboardEvent<HTMLTextAreaElement>) => void;
+  onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
   onSubmit: (value: string) => void;
   onSearch: (keyword: string) => void;
 };
@@ -92,12 +93,22 @@ export function ChatInputPanel(props: ChatInputPanelProps) {
     onInputKeyDown,
     onInputFocusOrClick,
     onPaste,
+    onDrop,
     onSubmit,
     onSearch,
   } = props;
 
   return (
-    <div className={styles["chat-input-panel"]}>
+    <div
+      className={styles["chat-input-panel"]}
+      data-desktop-drop-zone
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+        }
+      }}
+      onDrop={onDrop}
+    >
       <PromptHints prompts={promptHints} onPromptSelect={onPromptSelect} />
 
       <MCPPanel

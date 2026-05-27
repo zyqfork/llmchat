@@ -163,6 +163,7 @@ const tw = {
     IsContext: "預設提示詞",
     ShortcutKey: {
       Title: "鍵盤快捷方式",
+      openSettings: "開啟設定",
       newChat: "開啟新聊天",
       focusInput: "聚焦輸入框",
       copyLastMessage: "複製最後一個回覆",

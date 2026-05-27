@@ -29,8 +29,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const cfg = getClientConfig();
+  const desktopApp = cfg?.buildMode === "export" && cfg?.isApp;
   // 与 next.config `assetPrefix` 一致：App 静态包在 file:// 下需相对 public 资源路径
-  const publicBase = cfg?.buildMode === "export" && cfg?.isApp ? "./" : "/";
+  const publicBase = desktopApp ? "./" : "/";
   return (
     <html lang="en">
       <head>
@@ -39,12 +40,16 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <link
-          rel="manifest"
-          href={`${publicBase}site.webmanifest`}
-          crossOrigin="use-credentials"
-        ></link>
+        {!desktopApp && (
+          <>
+            <meta name="mobile-web-app-capable" content="yes" />
+            <link
+              rel="manifest"
+              href={`${publicBase}site.webmanifest`}
+              crossOrigin="use-credentials"
+            />
+          </>
+        )}
         <script src={`${publicBase}serviceWorkerRegister.js`} defer></script>
       </head>
       <body>{children}</body>

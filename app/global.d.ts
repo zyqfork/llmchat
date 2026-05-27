@@ -16,6 +16,7 @@ declare interface Window {
   __TAURI__?: boolean;
   electronApp?: {
     isElectron?: boolean;
+    isDesktopClient?: boolean;
     invokeFetch?: (payload: {
       method: string;
       url: string;
@@ -62,5 +63,11 @@ declare interface Window {
     onWsError?: (
       listener: (payload: { connection_id: number; error: string }) => void,
     ) => () => void;
+    setNativeTheme?: (theme: "system" | "light" | "dark") => Promise<void>;
+    onNativeThemeChanged?: (
+      listener: (shouldUseDarkColors: boolean) => void,
+    ) => () => void;
+    openExternal?: (url: string) => Promise<void>;
+    onDeepLink?: (listener: (url: string) => void) => () => void;
   };
 }
