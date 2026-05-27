@@ -54,6 +54,10 @@
         "fullscreen": false,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
+        "trafficLightPosition": {
+          "x": 16.0,
+          "y": 18.0
+        },
         "theme": null,
         "zoomHotkeysEnabled": false
       }

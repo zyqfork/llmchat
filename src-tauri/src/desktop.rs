@@ -8,23 +8,8 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   setup_tray(app)?;
   setup_deep_link(app)?;
   setup_global_shortcuts(app)?;
-  setup_traffic_lights(app);
   Ok(())
 }
-
-/// macOS Overlay 标题栏交通灯位置（不宜写在 tauri.conf，旧版 CLI 不识别该字段）
-#[cfg(target_os = "macos")]
-fn setup_traffic_lights(app: &tauri::App) {
-  if let Some(window) = app.get_webview_window("main") {
-    use tauri::{LogicalPosition, Position};
-    let _ = window.set_traffic_light_position(Position::Logical(LogicalPosition::new(
-      16.0, 18.0,
-    )));
-  }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn setup_traffic_lights(_app: &tauri::App) {}
 
 pub fn focus_main_window_from_plugin(app: &AppHandle) {
   focus_main_window(app);
