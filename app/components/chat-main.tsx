@@ -1622,6 +1622,7 @@ export function ChatMain() {
           <div className={styles["chat-body-container"]}>
             <div
               className={styles["chat-body"]}
+              data-chat-viewport
               ref={scrollRef}
               onScroll={(e) => onChatBodyScroll(e.currentTarget)}
               onWheelCapture={onChatBodyWheel}

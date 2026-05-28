@@ -20,6 +20,7 @@ import styles from "../chat.module.scss";
 // 动态导入Markdown组件以优化性能
 const Markdown = dynamic(async () => (await import("../markdown")).Markdown, {
   loading: () => <div className={styles["loading-icon"]}>...</div>,
+  ssr: false,
 });
 
 // 导入图标
@@ -211,6 +212,7 @@ export const MessageItem = React.memo(
               fontSize={fontSize}
               defaultShow={true}
               isUserMessage={isUser}
+              isStreamFinished={!message.streaming && !(message as any).preview}
             />
 
             {/* 单张图片显示 */}

@@ -123,6 +123,7 @@ function getModelIconSvg(modelName?: string): string {
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
+  ssr: false,
 });
 
 export function ExportMessageModal(props: { onClose: () => void }) {

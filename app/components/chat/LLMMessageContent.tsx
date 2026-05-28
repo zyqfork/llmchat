@@ -4,6 +4,7 @@ import styles from "../chat.module.scss";
 
 const Markdown = dynamic(async () => (await import("../markdown")).Markdown, {
   loading: () => <span className={styles["loading-icon"]}>...</span>,
+  ssr: false,
 });
 
 export function LLMMessageContent(props: {
@@ -18,7 +19,7 @@ export function LLMMessageContent(props: {
 }) {
   const {
     content,
-    isStreamFinished: _isStreamFinished,
+    isStreamFinished,
     loading = false,
     fontSize,
     fontFamily,
@@ -35,6 +36,7 @@ export function LLMMessageContent(props: {
       parentRef={parentRef}
       defaultShow={defaultShow}
       isUserMessage={isUserMessage}
+      isStreamFinished={isStreamFinished}
     />
   );
 }

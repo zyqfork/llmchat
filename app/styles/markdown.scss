@@ -1125,6 +1125,27 @@
   border-radius: 4px;
   padding: 10px;
   background-color: var(--white);
+  max-width: 100%;
+  overflow: auto;
+
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Mermaid render() 临时节点若落到 body（flex 布局）会挤压主界面 */
+body > div[id^="dmermaid"],
+body > iframe[id^="imermaid"] {
+  position: fixed !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 #dmermaid {

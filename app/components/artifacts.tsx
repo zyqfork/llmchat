@@ -28,6 +28,8 @@ type HTMLPreviewProps = {
   code: string;
   autoHeight?: boolean;
   height?: number | string;
+  /** 不限制 iframe 高度，由外层容器滚动 */
+  unlimitedHeight?: boolean;
   onLoad?: (title?: string) => void;
 };
 
@@ -39,7 +41,7 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
   function HTMLPreview(props, ref) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [frameId, setFrameId] = useState<string>(nanoid());
-    const [iframeHeight, setIframeHeight] = useState(600);
+    const [iframeHeight, setIframeHeight] = useState(120);
     const [title, setTitle] = useState("");
     /*
      * https://stackoverflow.com/questions/19739001/what-is-the-difference-between-srcdoc-and-src-datatext-html-in-an
@@ -74,15 +76,20 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
       if (typeof props.height === "string") {
         return props.height;
       }
+      if (props.unlimitedHeight) {
+        return iframeHeight || props.height || 600;
+      }
       const parentHeight = props.height || 600;
-      // 在弹窗预览中，不需要额外添加边距，直接使用iframe的实际高度
       return iframeHeight > parentHeight ? parentHeight : iframeHeight;
-    }, [props.autoHeight, props.height, iframeHeight]);
+    }, [props.autoHeight, props.height, props.unlimitedHeight, iframeHeight]);
 
     const srcDoc = useMemo(() => {
-      const script = `<script>window.addEventListener("DOMContentLoaded", () => new ResizeObserver((entries) => parent.postMessage({id: '${frameId}', height: entries[0].target.clientHeight}, '*')).observe(document.body))</script>`;
+      const script = `<script>window.addEventListener("DOMContentLoaded",()=>{const report=()=>{const h=Math.max(document.body?.scrollHeight||0,document.documentElement?.scrollHeight||0,document.body?.offsetHeight||0);parent.postMessage({id:'${frameId}',height:h},'*')};new ResizeObserver(report).observe(document.body);report()})</script>`;
       if (props.code.includes("<!DOCTYPE html>")) {
-        props.code.replace("<!DOCTYPE html>", "<!DOCTYPE html>" + script);
+        return props.code.replace(
+          "<!DOCTYPE html>",
+          "<!DOCTYPE html>" + script,
+        );
       }
       return script + props.code;
     }, [props.code, frameId]);
@@ -99,6 +106,7 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
         key={frameId}
         ref={iframeRef}
         sandbox="allow-forms allow-modals allow-scripts"
+        scrolling={props.unlimitedHeight ? "no" : undefined}
         style={{ height }}
         srcDoc={srcDoc}
         onLoad={handleOnLoad}
