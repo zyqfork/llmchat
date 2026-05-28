@@ -1,6 +1,9 @@
 name: Release App
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       release_tag:
@@ -10,6 +13,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: release-app-${{ github.event_name == 'push' && 'latest' || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 jobs:
   create-release:
     permissions:
@@ -18,11 +25,13 @@ jobs:
     outputs:
       release_id: ${{ steps.create-release.outputs.release_id }}
       release_tag: ${{ steps.create-release.outputs.release_tag }}
+      is_latest_channel: ${{ steps.create-release.outputs.is_latest_channel }}
 
     steps:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
+
       - name: setup node
         uses: actions/setup-node@v3
         with:
@@ -35,21 +44,122 @@ jobs:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
         with:
           script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const eventName = context.eventName
+
+            async function ensureLatestRelease() {
+              const sha = context.sha
+              const shortSha = sha.slice(0, 7)
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: "tags/latest",
+                })
+              } catch (error) {
+                if (error.status !== 404 && error.status !== 422) {
+                  throw error
+                }
+              }
+
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: "refs/tags/latest",
+                sha,
+              })
+
+              const body =
+                `Automatic build from \`${context.ref}\` at [` +
+                `\`${shortSha}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}).`
+
+              let release
+              try {
+                const existing = await github.rest.repos.getReleaseByTag({
+                  owner,
+                  repo,
+                  tag: "latest",
+                })
+                release = existing.data
+
+                const assets = await github.paginate(
+                  github.rest.repos.listReleaseAssets,
+                  {
+                    owner,
+                    repo,
+                    release_id: release.id,
+                  },
+                )
+                for (const asset of assets) {
+                  await github.rest.repos.deleteReleaseAsset({
+                    owner,
+                    repo,
+                    asset_id: asset.id,
+                  })
+                }
+
+                const updated = await github.rest.repos.updateRelease({
+                  owner,
+                  repo,
+                  release_id: release.id,
+                  tag_name: "latest",
+                  target_commitish: sha,
+                  name: "Latest (main)",
+                  body,
+                  draft: false,
+                  prerelease: true,
+                })
+                release = updated.data
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error
+                }
+                const created = await github.rest.repos.createRelease({
+                  owner,
+                  repo,
+                  tag_name: "latest",
+                  target_commitish: sha,
+                  name: "Latest (main)",
+                  body,
+                  draft: false,
+                  prerelease: true,
+                })
+                release = created.data
+              }
+
+              core.setOutput("is_latest_channel", "true")
+              return release
+            }
+
             let data
-            if (process.env.RELEASE_TAG) {
+
+            if (eventName === "release") {
+              data = context.payload.release
+              core.setOutput("is_latest_channel", "false")
+            } else if (eventName === "push") {
+              data = await ensureLatestRelease()
+            } else if (process.env.RELEASE_TAG) {
               const response = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
                 tag: process.env.RELEASE_TAG,
               })
               data = response.data
+              core.setOutput("is_latest_channel", "false")
             } else {
               const response = await github.rest.repos.getLatestRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
               })
               data = response.data
+              core.setOutput(
+                "is_latest_channel",
+                data.tag_name === "latest" ? "true" : "false",
+              )
             }
+
             core.setOutput("release_id", String(data.id))
             core.setOutput("release_tag", data.tag_name)
 
@@ -95,7 +205,15 @@ jobs:
           cache: 'yarn'
 
       - name: sync version from release tag
-        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
+        shell: bash
+        run: |
+          if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
+            SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+            PKG_VERSION="$(node -p "require('./package.json').version")"
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${SHORT_SHA}"
+          else
+            node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
+          fi
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -173,7 +291,15 @@ jobs:
           cache: "yarn"
 
       - name: sync version from release tag
-        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
+        shell: bash
+        run: |
+          if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
+            SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+            PKG_VERSION="$(node -p "require('./package.json').version")"
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${SHORT_SHA}"
+          else
+            node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
+          fi
 
       - name: install Linux packaging dependencies (ubuntu only)
         if: startsWith(matrix.config.os, 'ubuntu-')
@@ -213,13 +339,14 @@ jobs:
         id: publish-release
         uses: actions/github-script@v6
         env:
-          release_id: ${{ needs.create-release.outputs.release_id }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          IS_LATEST_CHANNEL: ${{ needs.create-release.outputs.is_latest_channel }}
         with:
           script: |
             github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: process.env.release_id,
+              release_id: process.env.RELEASE_ID,
               draft: false,
-              prerelease: false
+              prerelease: process.env.IS_LATEST_CHANNEL === "true",
             })
