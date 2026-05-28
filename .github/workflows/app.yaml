@@ -385,16 +385,24 @@ jobs:
               }
 
               if (name.startsWith("LLMChat-Tauri")) {
+                let normalized = name
                 if (name.includes("-latest") || name.includes("_latest")) {
-                  return name.replace(
+                  normalized = name.replace(
                     /^LLMChat-Tauri[_-].*?-latest(?:\+[A-Za-z0-9]+)?([_-])/,
                     "LLMChat-Tauri-latest$1",
                   )
+                } else {
+                  normalized = name.replace(
+                    /^LLMChat-Tauri[_-]/,
+                    "LLMChat-Tauri-latest_",
+                  )
                 }
-                return name.replace(
-                  /^LLMChat-Tauri[_-]/,
-                  "LLMChat-Tauri-latest_",
+                // RPM 包默认包含 release 序号（如 -1.x86_64.rpm），latest 命名中去掉该序号。
+                normalized = normalized.replace(
+                  /-1\.(aarch64|x86_64)\.rpm$/,
+                  ".$1.rpm",
                 )
+                return normalized
               }
 
               return name
