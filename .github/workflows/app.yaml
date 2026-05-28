@@ -208,9 +208,10 @@ jobs:
         shell: bash
         run: |
           if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
-            SHORT_SHA="$(git rev-parse --short=7 HEAD)"
             PKG_VERSION="$(node -p "require('./package.json').version")"
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${SHORT_SHA}"
+            BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
+            if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${BUILD_META}"
           else
             node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
           fi
@@ -294,9 +295,10 @@ jobs:
         shell: bash
         run: |
           if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
-            SHORT_SHA="$(git rev-parse --short=7 HEAD)"
             PKG_VERSION="$(node -p "require('./package.json').version")"
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${SHORT_SHA}"
+            BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
+            if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${BUILD_META}"
           else
             node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
           fi
