@@ -210,6 +210,7 @@ export const MessageItem = React.memo(
               }
               fontSize={fontSize}
               defaultShow={true}
+              isUserMessage={isUser}
             />
 
             {/* 单张图片显示 */}

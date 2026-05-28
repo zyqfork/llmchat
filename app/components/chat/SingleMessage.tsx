@@ -264,6 +264,7 @@ export function SingleMessage(props: SingleMessageProps) {
       fontFamily={fontFamily}
       parentRef={scrollRef}
       defaultShow={index >= totalMessages - 6}
+      isUserMessage={isUser}
     />
   );
 

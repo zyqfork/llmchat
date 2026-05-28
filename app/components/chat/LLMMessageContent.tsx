@@ -14,6 +14,7 @@ export function LLMMessageContent(props: {
   fontFamily?: string;
   parentRef?: RefObject<HTMLDivElement | null>;
   defaultShow?: boolean;
+  isUserMessage?: boolean;
 }) {
   const {
     content,
@@ -23,6 +24,7 @@ export function LLMMessageContent(props: {
     fontFamily,
     parentRef,
     defaultShow,
+    isUserMessage = false,
   } = props;
   return (
     <Markdown
@@ -32,6 +34,7 @@ export function LLMMessageContent(props: {
       fontFamily={fontFamily}
       parentRef={parentRef}
       defaultShow={defaultShow}
+      isUserMessage={isUserMessage}
     />
   );
 }
