@@ -26,6 +26,7 @@ jobs:
       release_id: ${{ steps.create-release.outputs.release_id }}
       release_tag: ${{ steps.create-release.outputs.release_tag }}
       is_latest_channel: ${{ steps.create-release.outputs.is_latest_channel }}
+      build_ref: ${{ steps.create-release.outputs.build_ref }}
 
     steps:
       - uses: actions/checkout@v3
@@ -138,8 +139,10 @@ jobs:
             if (eventName === "release") {
               data = context.payload.release
               core.setOutput("is_latest_channel", "false")
+              core.setOutput("build_ref", data.tag_name)
             } else if (eventName === "push") {
               data = await ensureLatestRelease()
+              core.setOutput("build_ref", context.sha)
             } else if (process.env.RELEASE_TAG) {
               const response = await github.rest.repos.getReleaseByTag({
                 owner,
@@ -148,6 +151,7 @@ jobs:
               })
               data = response.data
               core.setOutput("is_latest_channel", "false")
+              core.setOutput("build_ref", data.tag_name)
             } else {
               const response = await github.rest.repos.getLatestRelease({
                 owner,
@@ -158,6 +162,7 @@ jobs:
                 "is_latest_channel",
                 data.tag_name === "latest" ? "true" : "false",
               )
+              core.setOutput("build_ref", data.tag_name)
             }
 
             core.setOutput("release_id", String(data.id))
@@ -196,7 +201,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ needs.create-release.outputs.release_tag }}
+          ref: ${{ needs.create-release.outputs.build_ref }}
 
       - name: setup node
         uses: actions/setup-node@v3
@@ -283,7 +288,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ needs.create-release.outputs.release_tag }}
+          ref: ${{ needs.create-release.outputs.build_ref }}
 
       - name: setup node
         uses: actions/setup-node@v3
