@@ -106,10 +106,10 @@ jobs:
                   release_id: release.id,
                   tag_name: "latest",
                   target_commitish: sha,
-                  name: "Latest (main)",
+                  name: "Latest",
                   body,
                   draft: false,
-                  prerelease: true,
+                  prerelease: false,
                 })
                 release = updated.data
               } catch (error) {
@@ -121,10 +121,10 @@ jobs:
                   repo,
                   tag_name: "latest",
                   target_commitish: sha,
-                  name: "Latest (main)",
+                  name: "Latest",
                   body,
                   draft: false,
-                  prerelease: true,
+                  prerelease: false,
                 })
                 release = created.data
               }
@@ -347,6 +347,64 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: process.env.RELEASE_ID,
+              name: process.env.IS_LATEST_CHANNEL === "true" ? "Latest" : undefined,
               draft: false,
-              prerelease: process.env.IS_LATEST_CHANNEL === "true",
+              prerelease: false,
             })
+
+      - name: normalize latest asset names
+        if: needs.create-release.outputs.is_latest_channel == 'true'
+        uses: actions/github-script@v6
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const releaseId = Number(process.env.RELEASE_ID)
+
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner,
+              repo,
+              release_id: releaseId,
+            })
+
+            function normalizeName(name) {
+              // Keep updater metadata file names unchanged.
+              if (name === "latest.json" || name.endsWith(".sig")) {
+                return name
+              }
+
+              if (name.startsWith("LLMChat-electron-")) {
+                return name.replace(
+                  /^LLMChat-electron-.*?-latest-/,
+                  "LLMChat-electron-latest-",
+                )
+              }
+
+              if (name.startsWith("LLMChat-Tauri")) {
+                if (name.includes("-latest") || name.includes("_latest")) {
+                  return name.replace(
+                    /^LLMChat-Tauri[_-].*?-latest(?:\+[A-Za-z0-9]+)?([_-])/,
+                    "LLMChat-Tauri-latest$1",
+                  )
+                }
+                return name.replace(
+                  /^LLMChat-Tauri[_-]/,
+                  "LLMChat-Tauri-latest_",
+                )
+              }
+
+              return name
+            }
+
+            for (const asset of assets) {
+              const nextName = normalizeName(asset.name)
+              if (nextName === asset.name) continue
+              await github.rest.repos.updateReleaseAsset({
+                owner,
+                repo,
+                asset_id: asset.id,
+                name: nextName,
+              })
+            }
