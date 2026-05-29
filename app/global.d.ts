@@ -9,6 +9,7 @@ declare module "*.scss" {
 }
 
 declare module "*.svg";
+declare module "plantuml-encoder";
 
 declare interface Window {
   // Tauri 2.x uses a simple boolean flag for detection

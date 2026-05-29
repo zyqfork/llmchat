@@ -8,6 +8,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { HighlightedCodeView } from "./HighlightedCodeView";
+import { copyToClipboard } from "../../utils";
 import styles from "./code-preview-shell.module.scss";
 
 const TOOLBAR_HEIGHT = 45;
@@ -182,6 +183,15 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
               )}
             </>
           )}
+          <div className={styles["toolbar-right"]}>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(code)}
+              title="复制当前源码"
+            >
+              复制
+            </button>
+          </div>
         </div>
       )}
 

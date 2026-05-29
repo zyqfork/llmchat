@@ -17,7 +17,16 @@ import {
   llmUiHighlighter,
   resolveShikiLang,
 } from "./shiki-highlighter";
-import { HtmlPreviewPanel, MermaidPreviewPanel } from "./preview-panels";
+import {
+  CsvPreviewPanel,
+  EchartsPreviewPanel,
+  GraphvizPreviewPanel,
+  HtmlPreviewPanel,
+  MarkmapPreviewPanel,
+  MermaidPreviewPanel,
+  PlantUmlPreviewPanel,
+  VegaPreviewPanel,
+} from "./preview-panels";
 import { getPreviewLanguage } from "./preview-utils";
 
 export { codeBlockLookBack };
@@ -68,6 +77,40 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
   if (previewKind === "html" && enableArtifacts) {
     return (
       <HtmlPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "plantuml") {
+    return (
+      <PlantUmlPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "graphviz") {
+    return (
+      <GraphvizPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "echarts") {
+    return (
+      <EchartsPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "vega") {
+    return (
+      <VegaPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "markmap") {
+    return (
+      <MarkmapPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
+    );
+  }
+  if (previewKind === "csv") {
+    return (
+      <CsvPreviewPanel
+        code={code}
+        language={language}
+        isStreaming={!blockMatch.isComplete}
+      />
     );
   }
 
