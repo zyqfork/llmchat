@@ -190,7 +190,21 @@ function createMarkdownComponents() {
       const { className, children, ...rest } = codeProps;
       // 内联代码：没有 className 或不是语言类名
       if (!className || !className.startsWith("language-")) {
-        return <code {...rest}>{children}</code>;
+        return (
+          <code
+            {...rest}
+            style={{
+              backgroundColor: "var(--gray-100)",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              fontSize: "0.9em",
+              fontFamily:
+                'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+            }}
+          >
+            {children}
+          </code>
+        );
       }
       // 代码块：有 language- 前缀的 className
       // 这种情况不应该发生，因为代码块应该由 CodeBlock 组件处理
@@ -200,7 +214,17 @@ function createMarkdownComponents() {
         className,
       );
       return (
-        <code className={className} {...rest}>
+        <code
+          className={className}
+          {...rest}
+          style={{
+            display: "block",
+            fontFamily:
+              'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+            fontSize: "14px",
+            lineHeight: "1.5",
+          }}
+        >
           {children}
         </code>
       );
@@ -276,12 +300,48 @@ function createMarkdownComponents() {
                 </button>
               </div>
             </div>
-            <pre {...rest}>{children}</pre>
+            <pre
+              {...rest}
+              style={{
+                margin: 0,
+                padding: "12px",
+                overflow: "auto",
+                backgroundColor: "var(--white)",
+                fontSize: "14px",
+                lineHeight: "1.5",
+                fontFamily:
+                  'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {children}
+            </pre>
           </div>
         );
       }
 
-      return <pre {...rest}>{children}</pre>;
+      return (
+        <pre
+          {...rest}
+          style={{
+            margin: "10px 0",
+            padding: "12px",
+            overflow: "auto",
+            backgroundColor: "var(--white)",
+            border: "var(--border-in-light)",
+            borderRadius: "8px",
+            fontSize: "14px",
+            lineHeight: "1.5",
+            fontFamily:
+              'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {children}
+        </pre>
+      );
     },
   } as any;
 }
