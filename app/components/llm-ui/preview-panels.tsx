@@ -88,21 +88,27 @@ export function MermaidPreviewPanel(props: {
           mermaidInitialized = true;
         }
 
-        host.innerHTML = "";
-        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
-        const result = await mermaid.render(id, code, host);
-        if (!cancelled) {
-          setSvg(result.svg);
-          setError(null);
+        const tempDiv = document.createElement("div");
+        tempDiv.style.position = "absolute";
+        tempDiv.style.left = "-9999px";
+        tempDiv.style.top = "-9999px";
+        tempDiv.style.width = "1024px";
+        document.body.appendChild(tempDiv);
+
+        try {
+          const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
+          const result = await mermaid.render(id, code, tempDiv);
+          if (!cancelled) {
+            setSvg(result.svg);
+            setError(null);
+          }
+        } finally {
+          document.body.removeChild(tempDiv);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
           setSvg(null);
-        }
-      } finally {
-        if (renderHostRef.current) {
-          renderHostRef.current.innerHTML = "";
         }
       }
     })();
@@ -592,7 +598,7 @@ export function MarkmapPreviewPanel(props: {
       isRendering={false}
       isPreviewReady={isPreviewReady}
       previewFillWidth
-      showZoomControls={false}
+      showZoomControls={true}
       preview={
         error ? (
           <ErrorFallback message={error} />
@@ -660,6 +666,461 @@ export function CsvPreviewPanel(props: {
       previewFillWidth
       showZoomControls={false}
       preview={<CsvTablePreview code={props.code} language={props.language} />}
+    />
+  );
+}
+
+function getAllCollapsiblePaths(data: any): string[] {
+  const paths: string[] = [];
+  const traverse = (val: any, currentPath: string) => {
+    if (val === null || typeof val !== "object") return;
+    paths.push(currentPath);
+    if (Array.isArray(val)) {
+      val.forEach((item, index) => {
+        traverse(item, `${currentPath}[${index}]`);
+      });
+    } else {
+      Object.entries(val).forEach(([key, value]) => {
+        traverse(value, currentPath ? `${currentPath}.${key}` : key);
+      });
+    }
+  };
+  traverse(data, "root");
+  return paths;
+}
+
+function getInitialExpandedPaths(data: any): Set<string> {
+  const expanded = new Set<string>();
+  expanded.add("root");
+  if (data && typeof data === "object") {
+    if (Array.isArray(data)) {
+      data.slice(0, 10).forEach((item, index) => {
+        if (item && typeof item === "object") {
+          expanded.add(`root[${index}]`);
+        }
+      });
+    } else {
+      Object.entries(data).forEach(([key, val]) => {
+        if (val && typeof val === "object") {
+          expanded.add(`root.${key}`);
+        }
+      });
+    }
+  }
+  return expanded;
+}
+
+function filterJson(data: any, query: string): any {
+  if (!query) return data;
+  const q = query.toLowerCase();
+
+  const match = (val: any): boolean => {
+    if (typeof val === "string" && val.toLowerCase().includes(q)) return true;
+    if (typeof val === "number" && String(val).toLowerCase().includes(q))
+      return true;
+    if (typeof val === "boolean" && String(val).toLowerCase().includes(q))
+      return true;
+    return false;
+  };
+
+  const traverse = (node: any): any => {
+    if (node === null || typeof node !== "object") {
+      return match(node) ? node : undefined;
+    }
+    if (Array.isArray(node)) {
+      const nextArr: any[] = [];
+      for (const item of node) {
+        const res = traverse(item);
+        if (res !== undefined) {
+          nextArr.push(res);
+        }
+      }
+      return nextArr.length > 0 ? nextArr : undefined;
+    }
+    // object
+    const nextObj: any = {};
+    let hasKeys = false;
+    for (const [key, val] of Object.entries(node)) {
+      if (key.toLowerCase().includes(q)) {
+        nextObj[key] = val;
+        hasKeys = true;
+      } else {
+        const res = traverse(val);
+        if (res !== undefined) {
+          nextObj[key] = res;
+          hasKeys = true;
+        }
+      }
+    }
+    return hasKeys ? nextObj : undefined;
+  };
+
+  return traverse(data);
+}
+
+type JsonNodeProps = {
+  name: string | null;
+  value: any;
+  path: string;
+  expandedPaths: Set<string>;
+  togglePath: (path: string) => void;
+  copyValue: (val: any) => void;
+  query: string;
+};
+
+function JsonTreeNode({
+  name,
+  value,
+  path,
+  expandedPaths,
+  togglePath,
+  copyValue,
+  query,
+}: JsonNodeProps) {
+  const isCollapsible = value !== null && typeof value === "object";
+  const isExpanded = expandedPaths.has(path);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    togglePath(path);
+  };
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    copyValue(value);
+  };
+
+  if (isCollapsible) {
+    const isArray = Array.isArray(value);
+    const keys = isArray ? value : Object.keys(value);
+    const isEmpty = keys.length === 0;
+
+    const openingBracket = isArray ? "[" : "{";
+    const closingBracket = isArray ? "]" : "}";
+
+    const renderCollapsedSummary = () => {
+      if (isArray) {
+        return (
+          <span
+            className={styles["json-collapsed-text"]}
+            onClick={handleToggle}
+          >
+            {`${value.length} items`}
+          </span>
+        );
+      }
+      const keysList = Object.keys(value);
+      if (keysList.length <= 3) {
+        const preview = keysList
+          .map((k) => {
+            const v = value[k];
+            let vStr = "";
+            if (v === null) vStr = "null";
+            else if (typeof v === "object")
+              vStr = Array.isArray(v) ? "[...]" : "{...}";
+            else if (typeof v === "string")
+              vStr = `"${v.slice(0, 10)}${v.length > 10 ? "..." : ""}"`;
+            else vStr = String(v);
+            return `${k}: ${vStr}`;
+          })
+          .join(", ");
+        return (
+          <span
+            className={styles["json-collapsed-text"]}
+            onClick={handleToggle}
+          >
+            {`{ ${preview} }`}
+          </span>
+        );
+      }
+      return (
+        <span className={styles["json-collapsed-text"]} onClick={handleToggle}>
+          {`${keysList.length} keys`}
+        </span>
+      );
+    };
+
+    return (
+      <div className={`${styles["json-tree-node"]} ${styles["collapsible"]}`}>
+        <div className={styles["json-node-row"]}>
+          {!isEmpty && (
+            <span
+              className={`${styles["json-toggle-btn"]} ${isExpanded ? styles["expanded"] : ""}`}
+              onClick={handleToggle}
+            >
+              ▶
+            </span>
+          )}
+          {isEmpty && <span style={{ width: 18 }} />}
+          {name !== null && (
+            <>
+              <span className={styles["json-key"]}>{name}</span>
+              <span className={styles["json-colon"]}>:</span>
+            </>
+          )}
+          <span className={styles["json-bracket"]}>{openingBracket}</span>
+
+          {!isExpanded && renderCollapsedSummary()}
+
+          {!isExpanded && (
+            <span className={styles["json-bracket"]}>{closingBracket}</span>
+          )}
+          {isArray && (
+            <span
+              className={styles["json-meta"]}
+            >{`// ${value.length} items`}</span>
+          )}
+          {!isArray && (
+            <span
+              className={styles["json-meta"]}
+            >{`// ${Object.keys(value).length} keys`}</span>
+          )}
+
+          <span
+            className={styles["json-copy-btn"]}
+            onClick={handleCopy}
+            title="复制节点数据"
+          >
+            📋
+          </span>
+        </div>
+
+        {isExpanded && !isEmpty && (
+          <div style={{ position: "relative" }}>
+            <div className={styles["json-indent-line"]} />
+            <div style={{ paddingLeft: 16 }}>
+              {isArray
+                ? (value as any[]).map((item, idx) => {
+                    const childPath = `${path}[${idx}]`;
+                    return (
+                      <JsonTreeNode
+                        key={childPath}
+                        name={null}
+                        value={item}
+                        path={childPath}
+                        expandedPaths={expandedPaths}
+                        togglePath={togglePath}
+                        copyValue={copyValue}
+                        query={query}
+                      />
+                    );
+                  })
+                : Object.entries(value).map(([k, v]) => {
+                    const childPath = `${path}.${k}`;
+                    return (
+                      <JsonTreeNode
+                        key={childPath}
+                        name={k}
+                        value={v}
+                        path={childPath}
+                        expandedPaths={expandedPaths}
+                        togglePath={togglePath}
+                        copyValue={copyValue}
+                        query={query}
+                      />
+                    );
+                  })}
+            </div>
+            <div
+              className={styles["json-node-row"]}
+              style={{ paddingLeft: 18 }}
+            >
+              <span className={styles["json-bracket"]}>{closingBracket}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const renderValue = () => {
+    if (value === null) {
+      return <span className={styles["json-value-null"]}>null</span>;
+    }
+    if (typeof value === "string") {
+      return (
+        <span className={styles["json-value-string"]}>{`"${value}"`}</span>
+      );
+    }
+    if (typeof value === "number") {
+      return <span className={styles["json-value-number"]}>{value}</span>;
+    }
+    if (typeof value === "boolean") {
+      return (
+        <span className={styles["json-value-boolean"]}>{String(value)}</span>
+      );
+    }
+    return <span>{String(value)}</span>;
+  };
+
+  return (
+    <div className={styles["json-tree-node"]}>
+      <div className={styles["json-node-row"]}>
+        {name !== null && (
+          <>
+            <span className={styles["json-key"]}>{name}</span>
+            <span className={styles["json-colon"]}>:</span>
+          </>
+        )}
+        {renderValue()}
+        <span
+          className={styles["json-copy-btn"]}
+          onClick={handleCopy}
+          title="复制值"
+        >
+          📋
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function JsonPreviewPanel(props: {
+  code: string;
+  isStreaming: boolean;
+}) {
+  const highlightedHtml = useHighlightedCode(
+    props.code,
+    "json",
+    !props.isStreaming,
+  );
+
+  const [query, setQuery] = useState("");
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [parsedData, setParsedData] = useState<any>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const trimmed = props.code.trim();
+    if (!trimmed) {
+      setParsedData(null);
+      setParseError(null);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(trimmed);
+      setParsedData(data);
+      setParseError(null);
+      setExpandedPaths(getInitialExpandedPaths(data));
+    } catch (err) {
+      setParsedData(null);
+      setParseError(err instanceof Error ? err.message : String(err));
+    }
+  }, [props.code]);
+
+  const togglePath = (path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const handleExpandAll = () => {
+    if (!parsedData) return;
+    const paths = getAllCollapsiblePaths(parsedData);
+    setExpandedPaths(new Set(paths));
+  };
+
+  const handleCollapseAll = () => {
+    const rootSet = new Set<string>();
+    rootSet.add("root");
+    setExpandedPaths(rootSet);
+  };
+
+  const handleCopyValue = (val: any) => {
+    const text = typeof val === "string" ? val : JSON.stringify(val, null, 2);
+    import("../../utils").then((m) => m.copyToClipboard(text));
+  };
+
+  const filteredData = React.useMemo(() => {
+    if (!parsedData || !query) return parsedData;
+    return filterJson(parsedData, query);
+  }, [parsedData, query]);
+
+  useEffect(() => {
+    if (query && filteredData) {
+      const paths = getAllCollapsiblePaths(filteredData);
+      setExpandedPaths(new Set(paths));
+    }
+  }, [query, filteredData]);
+
+  const isPreviewReady = !props.isStreaming && parsedData !== null;
+  const isRendering = props.isStreaming;
+
+  const renderPreview = () => {
+    if (parseError) {
+      return (
+        <div style={{ padding: 12 }}>
+          <ErrorFallback message={`JSON 解析失败:\n${parseError}`} />
+        </div>
+      );
+    }
+
+    if (!parsedData) {
+      return (
+        <div style={{ padding: 12 }}>
+          <ErrorFallback message="未找到可解析的 JSON 内容" />
+        </div>
+      );
+    }
+
+    if (filteredData === undefined) {
+      return (
+        <div className={styles["json-no-results"]}>
+          没有找到匹配 &quot;{query}&quot; 的节点
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles["json-preview-container"]}>
+        <div className={styles["json-search-bar"]}>
+          <input
+            type="text"
+            placeholder="搜索键或值..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className={styles["json-actions"]}>
+            <button type="button" onClick={handleExpandAll}>
+              展开全部
+            </button>
+            <button type="button" onClick={handleCollapseAll}>
+              折叠全部
+            </button>
+          </div>
+        </div>
+        <div className={styles["json-tree-viewport"]}>
+          <JsonTreeNode
+            name={null}
+            value={filteredData}
+            path="root"
+            expandedPaths={expandedPaths}
+            togglePath={togglePath}
+            copyValue={handleCopyValue}
+            query={query}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <CodePreviewShell
+      code={props.code}
+      highlightedHtml={highlightedHtml}
+      isStreaming={props.isStreaming}
+      isRendering={isRendering}
+      isPreviewReady={isPreviewReady}
+      previewFillWidth
+      showZoomControls={true}
+      preview={renderPreview()}
     />
   );
 }

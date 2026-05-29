@@ -217,7 +217,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
             .filter(Boolean)
             .join(" ")}
           style={{
-            minHeight: previewFillWidth ? undefined : minViewportHeight,
+            minHeight: previewFillWidth ? "auto" : minViewportHeight,
             maxHeight: viewportMaxHeight,
           }}
           onWheel={(e) => {

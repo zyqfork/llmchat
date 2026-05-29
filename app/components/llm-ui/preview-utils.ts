@@ -2,6 +2,7 @@ import {
   JSON_LIKE_LANGS,
   MARKDOWN_LIKE_LANGS,
   resolvePreviewTypeFromLang,
+  MERMAID_KEYWORDS,
 } from "./preview-lang-map";
 import { detectJsonPreviewType } from "./preview-json-detect";
 
@@ -48,6 +49,16 @@ function isGraphvizWithoutLang(code: string) {
   );
 }
 
+/** Mermaid：无标签时检查第一个词是否为 Mermaid 的关键字 */
+function isMermaidWithoutLang(code: string): boolean {
+  const trimmed = code.trimStart();
+  const firstWord = trimmed
+    .split(/[\s\r\n(]/, 1)[0]
+    .trim()
+    .toLowerCase();
+  return MERMAID_KEYWORDS.map((k) => k.toLowerCase()).includes(firstWord);
+}
+
 /**
  * Markmap：当 fence 为 markdown/md 时，检查内容是否是典型的 markmap 树状结构
  * 特征：以 # 标题开头，包含多级标题（##、###）和列表项
@@ -88,7 +99,13 @@ export function getPreviewLanguage(
   }
 
   if (JSON_LIKE_LANGS.has(lang)) {
-    return detectJsonPreviewType(code);
+    const jsonType = detectJsonPreviewType(code);
+    if (jsonType) {
+      return jsonType;
+    }
+    if (lang === "json" || lang === "jsonc") {
+      return "json";
+    }
   }
 
   // markdown/md 标签时，检查是否是 markmap 内容
@@ -106,6 +123,16 @@ export function getPreviewLanguage(
     }
     if (isGraphvizWithoutLang(code)) {
       return "graphviz";
+    }
+    if (isMermaidWithoutLang(code)) {
+      return "mermaid";
+    }
+    const trimmed = code.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        JSON.parse(trimmed);
+        return "json";
+      } catch {}
     }
   }
 

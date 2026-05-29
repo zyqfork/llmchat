@@ -21,6 +21,8 @@ export const PREVIEW_LANG_ALIASES: Record<string, PreviewLanguage> = {
   mindmap: "markmap",
   csv: "csv",
   tsv: "csv",
+  json: "json",
+  jsonc: "json",
 };
 
 /** 仅当 fence 为 json / js / ts 等泛型标签时，才尝试用 JSON 结构推断 */
@@ -36,10 +38,39 @@ export const JSON_LIKE_LANGS = new Set([
 /** fence 为 markdown/md 时，可能是 markmap 内容 */
 export const MARKDOWN_LIKE_LANGS = new Set(["markdown", "md"]);
 
+export const MERMAID_KEYWORDS = [
+  "graph",
+  "flowchart",
+  "sequenceDiagram",
+  "classDiagram",
+  "stateDiagram",
+  "stateDiagram-v2",
+  "erDiagram",
+  "journey",
+  "gantt",
+  "pie",
+  "quadrantChart",
+  "requirementDiagram",
+  "gitGraph",
+  "C4Context",
+  "mindmap",
+  "timeline",
+  "zenuml",
+  "sankey-beta",
+  "block-beta",
+  "packet-beta",
+  "architecture",
+];
+
 export function resolvePreviewTypeFromLang(
   language?: string,
 ): PreviewLanguage | null {
   const lang = (language || "").trim().toLowerCase();
   if (!lang) return null;
-  return PREVIEW_LANG_ALIASES[lang] ?? null;
+  const alias = PREVIEW_LANG_ALIASES[lang];
+  if (alias) return alias;
+  if (MERMAID_KEYWORDS.map((k) => k.toLowerCase()).includes(lang)) {
+    return "mermaid";
+  }
+  return null;
 }

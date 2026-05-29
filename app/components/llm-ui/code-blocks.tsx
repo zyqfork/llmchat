@@ -24,6 +24,7 @@ import {
   MermaidPreviewPanel,
   PlantUmlPreviewPanel,
   VegaPreviewPanel,
+  JsonPreviewPanel,
 } from "./preview-panels";
 import { getPreviewLanguage } from "./preview-utils";
 import { CodePreviewShell } from "./CodePreviewShell";
@@ -104,6 +105,11 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
         language={language}
         isStreaming={!blockMatch.isComplete}
       />
+    );
+  }
+  if (previewKind === "json") {
+    return (
+      <JsonPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
     );
   }
 
