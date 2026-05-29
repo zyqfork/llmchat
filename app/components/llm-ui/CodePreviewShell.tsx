@@ -83,6 +83,9 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
   useEffect(() => {
     if (isPreviewReady && !isStreaming && !isRendering) {
       setShowSource(false);
+    } else if (!isPreviewReady && !isStreaming && !isRendering) {
+      // 渲染失败时，强制显示源码
+      setShowSource(true);
     }
   }, [isPreviewReady, isStreaming, isRendering]);
 
@@ -125,8 +128,9 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
     }
   };
 
-  const showToolbar =
-    !isStreaming && (effectiveShowSource ? isPreviewReady : true);
+  // 当渲染失败时（isPreviewReady=false），直接显示源码，工具栏只显示复制按钮
+  // 当渲染成功时，根据 effectiveShowSource 决定显示内容
+  const showToolbar = !isStreaming;
 
   const viewportMaxHeight = previewViewportMaxHeight
     ? Math.max(previewViewportMaxHeight - TOOLBAR_HEIGHT, minViewportHeight)
@@ -137,6 +141,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
       {showToolbar && (
         <div className={styles.toolbar}>
           {effectiveShowSource ? (
+            // 查看源码时，只有在预览可用的情况下才显示"预览"按钮
             isPreviewReady && (
               <button
                 type="button"
@@ -147,6 +152,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
               </button>
             )
           ) : (
+            // 查看预览时，显示所有控制按钮
             <>
               {showZoomControls && (
                 <>
@@ -196,7 +202,11 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
       )}
 
       {effectiveShowSource ? (
-        <HighlightedCodeView code={code} highlightedHtml={highlightedHtml} />
+        <HighlightedCodeView
+          code={code}
+          highlightedHtml={highlightedHtml}
+          showFullContent={!isPreviewReady}
+        />
       ) : (
         <div
           ref={viewportRef}

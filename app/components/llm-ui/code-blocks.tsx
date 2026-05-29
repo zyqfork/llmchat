@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import {
   codeBlockLookBack,
   parseCompleteMarkdownCodeBlock,
@@ -8,8 +8,6 @@ import {
   useCodeBlockToHtml,
 } from "@llm-ui/code";
 import type { LLMOutputComponent } from "@llm-ui/react";
-import parseHtml from "html-react-parser";
-import { copyToClipboard } from "../../utils";
 import { useAppConfig } from "../../store/config";
 import { useChatStore } from "../../store";
 import {
@@ -28,6 +26,7 @@ import {
   VegaPreviewPanel,
 } from "./preview-panels";
 import { getPreviewLanguage } from "./preview-utils";
+import { CodePreviewShell } from "./CodePreviewShell";
 
 export { codeBlockLookBack };
 
@@ -37,8 +36,6 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
   const config = useAppConfig();
   const enableArtifacts =
     session.mask?.enableArtifacts !== false && config.enableArtifacts;
-  const enableCodeFold =
-    session.mask?.enableCodeFold !== false && config.enableCodeFold;
 
   const parser = blockMatch.isComplete
     ? parseCompleteMarkdownCodeBlock
@@ -56,17 +53,6 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
     },
     parser,
   });
-
-  const [collapsed, setCollapsed] = useState(true);
-  const codeRef = useRef<HTMLDivElement>(null);
-  const [showToggle, setShowToggle] = useState(false);
-
-  useEffect(() => {
-    if (codeRef.current) {
-      const codeHeight = codeRef.current.scrollHeight;
-      setShowToggle(codeHeight > 400);
-    }
-  }, [html, code]);
 
   if (previewKind === "mermaid") {
     return (
@@ -114,36 +100,17 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
     );
   }
 
+  // 普通代码块：使用 CodePreviewShell 统一样式，不支持预览
   return (
-    <div className="llm-ui-code-block">
-      <div
-        ref={codeRef}
-        style={{
-          position: "relative",
-          maxHeight: enableCodeFold && collapsed ? "400px" : "none",
-          overflow: enableCodeFold && collapsed ? "hidden" : "visible",
-        }}
-      >
-        <span
-          className="copy-code-button"
-          onClick={() => copyToClipboard(code)}
-        />
-        {html ? (
-          parseHtml(html)
-        ) : (
-          <pre>
-            <code>{code}</code>
-          </pre>
-        )}
-      </div>
-      {showToggle && enableCodeFold && collapsed && (
-        <div className="show-hide-button collapsed">
-          <button type="button" onClick={() => setCollapsed(false)}>
-            更多
-          </button>
-        </div>
-      )}
-    </div>
+    <CodePreviewShell
+      code={code}
+      highlightedHtml={html}
+      isStreaming={!blockMatch.isComplete}
+      isRendering={false}
+      isPreviewReady={false}
+      preview={null}
+      showZoomControls={false}
+    />
   );
 };
 
