@@ -84,6 +84,10 @@ export function MermaidPreviewPanel(props: {
             startOnLoad: false,
             theme: "default",
             securityLevel: "loose",
+            quadrantChart: {
+              chartWidth: 500,
+              chartHeight: 500,
+            },
           });
           mermaidInitialized = true;
         }
