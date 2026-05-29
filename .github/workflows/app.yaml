@@ -410,29 +410,25 @@ jobs:
                 return name
               }
 
+              // Electron 文件：LLMChat-electron-0.1.0-latest-linux-amd64.deb -> LLMChat-electron-latest-linux-amd64.deb
               if (name.startsWith("LLMChat-electron-")) {
                 return name.replace(
-                  /^LLMChat-electron-.*?-latest-/,
+                  /^LLMChat-electron-[\d.]+-latest(?:\+\d+)?-/,
                   "LLMChat-electron-latest-",
                 )
               }
 
+              // Tauri 文件：LLMChat-Tauri_0.1.0-latest+89_arm64.deb -> LLMChat-Tauri-latest_arm64.deb
               if (name.startsWith("LLMChat-Tauri")) {
                 let normalized = name
-                if (name.includes("-latest") || name.includes("_latest")) {
-                  normalized = name.replace(
-                    /^LLMChat-Tauri[_-].*?-latest(?:\+[A-Za-z0-9]+)?([_-])/,
-                    "LLMChat-Tauri-latest$1",
-                  )
-                } else {
-                  normalized = name.replace(
-                    /^LLMChat-Tauri[_-]/,
-                    "LLMChat-Tauri-latest_",
-                  )
-                }
-                // RPM 包默认包含 release 序号（如 -1.x86_64.rpm），latest 命名中去掉该序号。
+                // 移除版本号，保留 latest
                 normalized = normalized.replace(
-                  /-1\.(aarch64|x86_64)\.rpm$/,
+                  /^LLMChat-Tauri[_-][\d.]+-latest(?:\+\d+)?([_-])/,
+                  "LLMChat-Tauri-latest$1",
+                )
+                // RPM 包去掉 release 序号（如 -1.x86_64.rpm -> .x86_64.rpm）
+                normalized = normalized.replace(
+                  /-\d+\.(aarch64|x86_64)\.rpm$/,
                   ".$1.rpm",
                 )
                 return normalized
