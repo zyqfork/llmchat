@@ -2,7 +2,6 @@
 
 import React from "react";
 import parseHtml from "html-react-parser";
-import { copyToClipboard } from "../../utils";
 import styles from "./code-preview-shell.module.scss";
 
 export function HighlightedCodeView(props: {
@@ -20,10 +19,6 @@ export function HighlightedCodeView(props: {
         overflow: showFullContent ? "visible" : undefined,
       }}
     >
-      <span
-        className="copy-code-button"
-        onClick={() => copyToClipboard(code)}
-      />
       {highlightedHtml ? (
         parseHtml(highlightedHtml)
       ) : (

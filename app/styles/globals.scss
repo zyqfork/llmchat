@@ -365,7 +365,7 @@ pre {
   &:hover .copy-code-button {
     pointer-events: all;
     transform: translateX(0px);
-    opacity: 0.5;
+    opacity: 1;
   }
 
   .copy-code-button {
@@ -373,22 +373,25 @@ pre {
     right: 10px;
     top: 1em;
     cursor: pointer;
-    padding: 0px 5px;
-    background-color: var(--black);
-    color: var(--white);
+    padding: 4px 8px;
+    background-color: var(--white);
+    color: var(--black);
     border: var(--border-in-light);
-    border-radius: 10px;
-    transform: translateX(10px);
-    pointer-events: none;
-    opacity: 0;
+    border-radius: 6px;
+    transform: translateX(0px);
+    pointer-events: all;
+    opacity: 0.7;
     transition: all ease 0.3s;
+    font-size: 12px;
 
     &:after {
-      content: "copy";
+      content: "复制";
     }
 
     &:hover {
       opacity: 1;
+      border-color: var(--primary);
+      color: var(--primary);
     }
   }
 }

@@ -188,14 +188,100 @@ function createMarkdownComponents() {
     },
     code: (codeProps: any) => {
       const { className, children, ...rest } = codeProps;
-      if (className) {
+      // 内联代码：没有 className 或不是语言类名
+      if (!className || !className.startsWith("language-")) {
+        return <code {...rest}>{children}</code>;
+      }
+      // 代码块：有 language- 前缀的 className
+      // 这种情况不应该发生，因为代码块应该由 CodeBlock 组件处理
+      // 但如果发生了，我们也要正确渲染
+      console.warn(
+        "[MarkdownBlock] Code block rendered by MarkdownBlock instead of CodeBlock:",
+        className,
+      );
+      return (
+        <code className={className} {...rest}>
+          {children}
+        </code>
+      );
+    },
+    pre: (preProps: any) => {
+      const { children, ...rest } = preProps;
+      // 检查是否是代码块 —— ReactMarkdown 使用自定义 code 组件时，
+      // child.type 不是字符串 'code' 而是自定义组件函数，
+      // 所以需要同时检查字符串和函数类型
+      const codeChild = React.Children.toArray(children).find(
+        (child: any) =>
+          React.isValidElement(child) &&
+          (child.type === "code" ||
+            typeof child.type === "function" ||
+            (child.props as any)?.className?.toString().includes("language-")),
+      );
+
+      // 提取代码文本，用于复制按钮
+      const extractCodeText = (node: any): string => {
+        if (!node) return "";
+        const props = node.props || {};
+        const content = props.children;
+        if (typeof content === "string") return content;
+        if (Array.isArray(content))
+          return content
+            .map((c: any) => (typeof c === "string" ? c : extractCodeText(c)))
+            .join("");
+        if (React.isValidElement(content)) return extractCodeText(content);
+        return String(content || "");
+      };
+
+      if (codeChild) {
+        const codeText = extractCodeText(codeChild);
+
         return (
-          <code className={className} {...rest}>
-            {children}
-          </code>
+          <div
+            style={{
+              position: "relative",
+              border: "var(--border-in-light)",
+              borderRadius: "8px",
+              backgroundColor: "var(--white)",
+              overflow: "hidden",
+              marginBottom: "10px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "8px 10px",
+                borderBottom: "var(--border-in-light)",
+                background: "var(--gray-50)",
+              }}
+            >
+              <div style={{ marginLeft: "auto" }}>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(codeText)}
+                  style={{
+                    border: "var(--border-in-light)",
+                    background: "var(--white)",
+                    color: "var(--black)",
+                    borderRadius: "6px",
+                    minWidth: "28px",
+                    height: "28px",
+                    padding: "0 8px",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                  }}
+                  title="复制当前源码"
+                >
+                  复制
+                </button>
+              </div>
+            </div>
+            <pre {...rest}>{children}</pre>
+          </div>
         );
       }
-      return <code {...rest}>{children}</code>;
+
+      return <pre {...rest}>{children}</pre>;
     },
   } as any;
 }
@@ -207,6 +293,11 @@ const rehypePlugins = [
 ];
 
 export const MarkdownBlock: LLMOutputComponent = ({ blockMatch }) => {
+  console.log("[MarkdownBlock] Rendering markdown block:", {
+    outputLength: blockMatch.output.length,
+    outputPreview: blockMatch.output.substring(0, 100),
+  });
+
   return (
     <ReactMarkdown
       remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}

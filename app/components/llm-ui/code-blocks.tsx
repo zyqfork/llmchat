@@ -44,6 +44,13 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
   const lang = language ?? "plain";
   const previewKind = getPreviewLanguage(code, language);
 
+  console.log("[CodeBlock] Rendering code block:", {
+    language,
+    previewKind,
+    codeLength: code.length,
+    isComplete: blockMatch.isComplete,
+  });
+
   const { html } = useCodeBlockToHtml({
     markdownCodeBlock: blockMatch.output,
     highlighter: llmUiHighlighter,

@@ -128,9 +128,8 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
     }
   };
 
-  // 当渲染失败时（isPreviewReady=false），直接显示源码，工具栏只显示复制按钮
-  // 当渲染成功时，根据 effectiveShowSource 决定显示内容
-  const showToolbar = !isStreaming;
+  // 工具栏始终显示（流式传输时也显示）
+  const showToolbar = true;
 
   const viewportMaxHeight = previewViewportMaxHeight
     ? Math.max(previewViewportMaxHeight - TOOLBAR_HEIGHT, minViewportHeight)

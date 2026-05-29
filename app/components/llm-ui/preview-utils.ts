@@ -29,13 +29,30 @@ function isHtmlWithoutLang(code: string) {
   );
 }
 
+/** PlantUML：无标签时检查是否以 @startuml 开头 */
+function isPlantUmlWithoutLang(code: string) {
+  const trimmed = code.trimStart();
+  return trimmed.startsWith("@startuml") || trimmed.startsWith("@startmindmap");
+}
+
+/** Graphviz：无标签时检查是否以 digraph/graph 开头 */
+function isGraphvizWithoutLang(code: string) {
+  const trimmed = code.trimStart();
+  return (
+    trimmed.startsWith("digraph") ||
+    trimmed.startsWith("graph") ||
+    trimmed.startsWith("strict digraph") ||
+    trimmed.startsWith("strict graph")
+  );
+}
+
 /**
  * 识别可预览代码块类型。
  *
  * 策略（避免对正文做复杂正则）：
  * 1. Markdown fence 的 language 标签 -> 预览类型（主路径）
  * 2. json/js/ts 等泛型标签 -> 用 JSON 解析 + vega-schema-url-parser / ECharts 结构字段推断
- * 3. 仅 HTML 保留无标签时的前缀兜底
+ * 3. 无标签时的内容检测：HTML、PlantUML、Graphviz
  */
 export function getPreviewLanguage(
   code: string,
@@ -52,8 +69,17 @@ export function getPreviewLanguage(
     return detectJsonPreviewType(code);
   }
 
-  if (!lang && isHtmlWithoutLang(code)) {
-    return "html";
+  // 无标签时的内容检测
+  if (!lang) {
+    if (isHtmlWithoutLang(code)) {
+      return "html";
+    }
+    if (isPlantUmlWithoutLang(code)) {
+      return "plantuml";
+    }
+    if (isGraphvizWithoutLang(code)) {
+      return "graphviz";
+    }
   }
 
   return null;

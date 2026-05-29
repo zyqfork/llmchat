@@ -7,6 +7,11 @@
   border-radius: 8px;
   background-color: var(--white);
   overflow: hidden;
+
+  // 覆盖全局的 pre 样式
+  :global(pre) {
+    background: var(--white) !important;
+  }
 }
 
 .render-host {
@@ -65,9 +70,18 @@
   max-width: 100%;
   overflow: auto;
   position: relative;
+  background-color: var(--white);
+  padding: 10px;
+  box-sizing: border-box;
 
-  :global(pre) {
+  :global(pre),
+  :global(.markdown-body pre) {
     margin: 0;
+    background: var(--white) !important;
+  }
+  
+  :global(.copy-code-button) {
+    display: none;
   }
 }
 
