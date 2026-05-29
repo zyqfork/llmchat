@@ -33,6 +33,9 @@ export const JSON_LIKE_LANGS = new Set([
   "ts",
 ]);
 
+/** fence 为 markdown/md 时，可能是 markmap 内容 */
+export const MARKDOWN_LIKE_LANGS = new Set(["markdown", "md"]);
+
 export function resolvePreviewTypeFromLang(
   language?: string,
 ): PreviewLanguage | null {
