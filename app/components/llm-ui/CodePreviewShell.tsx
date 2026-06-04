@@ -9,9 +9,21 @@ import React, {
 } from "react";
 import { HighlightedCodeView } from "./HighlightedCodeView";
 import { copyToClipboard } from "../../utils";
+import { showModal } from "../ui-lib";
 import styles from "./code-preview-shell.module.scss";
 
 const TOOLBAR_HEIGHT = 45;
+
+export type CodePreviewFullscreenConfig = {
+  title: string;
+  preview?: ReactNode;
+  content?: ReactNode;
+  onReload?: () => void;
+  previewFillWidth?: boolean;
+  showZoomControls?: boolean;
+  enableCanvasPanZoom?: boolean;
+  isPreviewReady?: boolean;
+};
 
 export type CodePreviewShellProps = {
   code: string;
@@ -24,6 +36,7 @@ export type CodePreviewShellProps = {
   isPreviewReady: boolean;
   preview: ReactNode;
   onFullscreen?: () => void;
+  fullscreen?: CodePreviewFullscreenConfig;
   /** 刷新预览（重新渲染） */
   onReload?: () => void;
   hideFullscreen?: boolean;
@@ -33,6 +46,8 @@ export type CodePreviewShellProps = {
   previewViewportMaxHeight?: number;
   /** 是否显示缩放控件（Mermaid 等） */
   showZoomControls?: boolean;
+  /** 是否允许在预览区拖拽平移（JSON 树等交互预览应设为 false） */
+  enableCanvasPanZoom?: boolean;
   viewportClassName?: string;
   minViewportHeight?: number;
 };
@@ -51,6 +66,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
     previewFillWidth = false,
     previewViewportMaxHeight,
     showZoomControls = true,
+    enableCanvasPanZoom,
     viewportClassName,
     minViewportHeight = 200,
   } = props;
@@ -65,7 +81,8 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const codeKeyRef = useRef(code);
 
-  const enablePanZoom = showZoomControls;
+  const enablePanZoom = enableCanvasPanZoom ?? showZoomControls;
+  const enableCanvasScale = showZoomControls;
 
   const resetView = useCallback(() => {
     setScale(1);
@@ -101,6 +118,33 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
     onReload?.();
     setShowSource(false);
     resetView();
+  };
+
+  const handleFullscreen = () => {
+    if (onFullscreen) {
+      onFullscreen();
+      return;
+    }
+    if (!props.fullscreen) return;
+    const fullscreen = props.fullscreen;
+    showModal({
+      title: fullscreen.title,
+      defaultMax: true,
+      children: fullscreen.content ?? (
+        <div className={styles["modal-body"]}>
+          <CodePreviewModalBody
+            code={code}
+            highlightedHtml={highlightedHtml}
+            isPreviewReady={fullscreen.isPreviewReady ?? true}
+            preview={fullscreen.preview}
+            onReload={fullscreen.onReload}
+            previewFillWidth={fullscreen.previewFillWidth}
+            showZoomControls={fullscreen.showZoomControls}
+            enableCanvasPanZoom={fullscreen.enableCanvasPanZoom}
+          />
+        </div>
+      ),
+    });
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -181,8 +225,12 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
                   刷新
                 </button>
               )}
-              {!hideFullscreen && onFullscreen && (
-                <button type="button" onClick={onFullscreen} title="全屏预览">
+              {!hideFullscreen && (onFullscreen || props.fullscreen) && (
+                <button
+                  type="button"
+                  onClick={handleFullscreen}
+                  title="全屏预览"
+                >
                   全屏
                 </button>
               )}
@@ -221,7 +269,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
             maxHeight: viewportMaxHeight,
           }}
           onWheel={(e) => {
-            if (!enablePanZoom || (!e.ctrlKey && !e.metaKey)) return;
+            if (!enableCanvasScale || (!e.ctrlKey && !e.metaKey)) return;
             e.preventDefault();
             if (e.deltaY < 0) zoomIn();
             else zoomOut();
@@ -236,7 +284,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
               .filter(Boolean)
               .join(" ")}
             style={{
-              transform: enablePanZoom
+              transform: enableCanvasScale
                 ? `translate(${pan.x}px, ${pan.y}px) scale(${scale})`
                 : undefined,
               cursor: enablePanZoom
@@ -245,10 +293,10 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
                   : "grab"
                 : undefined,
             }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onPointerDown={enablePanZoom ? onPointerDown : undefined}
+            onPointerMove={enablePanZoom ? onPointerMove : undefined}
+            onPointerUp={enablePanZoom ? onPointerUp : undefined}
+            onPointerCancel={enablePanZoom ? onPointerUp : undefined}
           >
             {preview}
           </div>
@@ -267,6 +315,7 @@ export function CodePreviewModalBody(props: {
   onReload?: () => void;
   previewFillWidth?: boolean;
   showZoomControls?: boolean;
+  enableCanvasPanZoom?: boolean;
 }) {
   return (
     <CodePreviewShell
@@ -280,6 +329,7 @@ export function CodePreviewModalBody(props: {
       hideFullscreen
       previewFillWidth={props.previewFillWidth}
       showZoomControls={props.showZoomControls}
+      enableCanvasPanZoom={props.enableCanvasPanZoom}
       viewportClassName={styles["modal-viewport"]}
       minViewportHeight={376}
     />

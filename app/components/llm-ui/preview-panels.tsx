@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { encode } from "plantuml-encoder";
-import { showModal } from "../ui-lib";
 import { HTMLPreview, type HTMLPreviewHander } from "../artifacts";
 import { isXmlPreviewContent } from "./preview-xml";
 import { parseJsonLike } from "./preview-parse";
@@ -21,30 +20,6 @@ function MermaidSvgPreview(props: { svg: string }) {
       dangerouslySetInnerHTML={{ __html: props.svg }}
     />
   );
-}
-
-function openMermaidFullscreenModal(
-  code: string,
-  highlightedHtml: string | undefined,
-  svg: string,
-  onReload: () => void,
-) {
-  showModal({
-    title: "Mermaid 预览",
-    defaultMax: true,
-    children: (
-      <div className={styles["modal-body"]}>
-        <CodePreviewModalBody
-          code={code}
-          highlightedHtml={highlightedHtml}
-          isPreviewReady={true}
-          showZoomControls
-          preview={<MermaidSvgPreview svg={svg} />}
-          onReload={onReload}
-        />
-      </div>
-    ),
-  });
 }
 
 export function MermaidPreviewPanel(props: {
@@ -153,15 +128,14 @@ export function MermaidPreviewPanel(props: {
         showZoomControls
         preview={svg ? <MermaidSvgPreview svg={svg} /> : null}
         onReload={reloadPreview}
-        onFullscreen={
+        fullscreen={
           svg
-            ? () =>
-                openMermaidFullscreenModal(
-                  props.code,
-                  highlightedHtml,
-                  svg,
-                  reloadPreview,
-                )
+            ? {
+                title: "Mermaid 预览",
+                preview: <MermaidSvgPreview svg={svg} />,
+                onReload: reloadPreview,
+                showZoomControls: true,
+              }
             : undefined
         }
       />
@@ -216,24 +190,6 @@ export function SvgPreviewPanel(props: { code: string; isStreaming: boolean }) {
   const isPreviewReady = !props.isStreaming;
   const preview = <SvgInlinePreview code={props.code} />;
 
-  const openFullscreen = () => {
-    showModal({
-      title: "SVG 预览",
-      defaultMax: true,
-      children: (
-        <div className={styles["modal-body"]}>
-          <CodePreviewModalBody
-            code={props.code}
-            highlightedHtml={highlightedHtml}
-            isPreviewReady={true}
-            showZoomControls
-            preview={preview}
-          />
-        </div>
-      ),
-    });
-  };
-
   return (
     <CodePreviewShell
       code={props.code}
@@ -243,7 +199,11 @@ export function SvgPreviewPanel(props: { code: string; isStreaming: boolean }) {
       isPreviewReady={isPreviewReady}
       showZoomControls
       preview={preview}
-      onFullscreen={openFullscreen}
+      fullscreen={{
+        title: "SVG 预览",
+        preview,
+        showZoomControls: true,
+      }}
     />
   );
 }
@@ -264,20 +224,6 @@ export function HtmlPreviewPanel(props: {
     !props.isStreaming,
   );
   const isPreviewReady = !props.isStreaming;
-
-  const openFullscreen = () => {
-    showModal({
-      title: previewTitle,
-      defaultMax: true,
-      children: (
-        <HtmlFullscreenContent
-          code={props.code}
-          language={props.language}
-          highlightedHtml={highlightedHtml}
-        />
-      ),
-    });
-  };
 
   return (
     <CodePreviewShell
@@ -301,7 +247,16 @@ export function HtmlPreviewPanel(props: {
         </div>
       }
       onReload={() => previewRef.current?.reload()}
-      onFullscreen={openFullscreen}
+      fullscreen={{
+        title: previewTitle,
+        content: (
+          <HtmlFullscreenContent
+            code={props.code}
+            language={props.language}
+            highlightedHtml={highlightedHtml}
+          />
+        ),
+      }}
     />
   );
 }
@@ -331,29 +286,6 @@ function PlantUmlImagePreview(props: { code: string }) {
   return <img className={styles["preview-image"]} src={src} alt="PlantUML" />;
 }
 
-function openImageFullscreenModal(
-  title: string,
-  code: string,
-  highlightedHtml: string | undefined,
-  body: React.ReactNode,
-) {
-  showModal({
-    title,
-    defaultMax: true,
-    children: (
-      <div className={styles["modal-body"]}>
-        <CodePreviewModalBody
-          code={code}
-          highlightedHtml={highlightedHtml}
-          isPreviewReady={true}
-          showZoomControls
-          preview={body}
-        />
-      </div>
-    ),
-  });
-}
-
 export function PlantUmlPreviewPanel(props: {
   code: string;
   isStreaming: boolean;
@@ -375,14 +307,11 @@ export function PlantUmlPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       showZoomControls
       preview={preview}
-      onFullscreen={() =>
-        openImageFullscreenModal(
-          "PlantUML 预览",
-          props.code,
-          highlightedHtml,
-          preview,
-        )
-      }
+      fullscreen={{
+        title: "PlantUML 预览",
+        preview,
+        showZoomControls: true,
+      }}
     />
   );
 }
@@ -463,15 +392,13 @@ export function GraphvizPreviewPanel(props: {
         ) : null
       }
       onReload={reloadPreview}
-      onFullscreen={
+      fullscreen={
         svg
-          ? () =>
-              openImageFullscreenModal(
-                "Graphviz 预览",
-                props.code,
-                highlightedHtml,
-                <GraphvizSvgPreview svg={svg} />,
-              )
+          ? {
+              title: "Graphviz 预览",
+              preview: <GraphvizSvgPreview svg={svg} />,
+              showZoomControls: true,
+            }
           : undefined
       }
     />
@@ -525,7 +452,18 @@ export function EchartsPreviewPanel(props: {
     !props.isStreaming,
   );
   const [error, setError] = useState<string | null>(null);
+  const [renderKey, setRenderKey] = useState(0);
+  const reloadPreview = () => setRenderKey((k) => k + 1);
   const isPreviewReady = !props.isStreaming;
+  const preview = error ? (
+    <ErrorFallback message={error} />
+  ) : (
+    <EchartsCanvasPreview
+      key={renderKey}
+      code={props.code}
+      onError={setError}
+    />
+  );
 
   return (
     <CodePreviewShell
@@ -536,13 +474,15 @@ export function EchartsPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       previewFillWidth
       showZoomControls={false}
-      preview={
-        error ? (
-          <ErrorFallback message={error} />
-        ) : (
-          <EchartsCanvasPreview code={props.code} onError={setError} />
-        )
-      }
+      preview={preview}
+      onReload={reloadPreview}
+      fullscreen={{
+        title: "ECharts 预览",
+        preview,
+        onReload: reloadPreview,
+        previewFillWidth: true,
+        showZoomControls: false,
+      }}
     />
   );
 }
@@ -591,7 +531,14 @@ export function VegaPreviewPanel(props: {
     !props.isStreaming,
   );
   const [error, setError] = useState<string | null>(null);
+  const [renderKey, setRenderKey] = useState(0);
+  const reloadPreview = () => setRenderKey((k) => k + 1);
   const isPreviewReady = !props.isStreaming;
+  const preview = error ? (
+    <ErrorFallback message={error} />
+  ) : (
+    <VegaPreview key={renderKey} code={props.code} onError={setError} />
+  );
 
   return (
     <CodePreviewShell
@@ -602,13 +549,15 @@ export function VegaPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       previewFillWidth
       showZoomControls={false}
-      preview={
-        error ? (
-          <ErrorFallback message={error} />
-        ) : (
-          <VegaPreview code={props.code} onError={setError} />
-        )
-      }
+      preview={preview}
+      onReload={reloadPreview}
+      fullscreen={{
+        title: "Vega 预览",
+        preview,
+        onReload: reloadPreview,
+        previewFillWidth: true,
+        showZoomControls: false,
+      }}
     />
   );
 }
@@ -656,7 +605,14 @@ export function MarkmapPreviewPanel(props: {
     !props.isStreaming,
   );
   const [error, setError] = useState<string | null>(null);
+  const [renderKey, setRenderKey] = useState(0);
+  const reloadPreview = () => setRenderKey((k) => k + 1);
   const isPreviewReady = !props.isStreaming;
+  const preview = error ? (
+    <ErrorFallback message={error} />
+  ) : (
+    <MarkmapPreview key={renderKey} code={props.code} onError={setError} />
+  );
 
   return (
     <CodePreviewShell
@@ -667,13 +623,15 @@ export function MarkmapPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       previewFillWidth
       showZoomControls={true}
-      preview={
-        error ? (
-          <ErrorFallback message={error} />
-        ) : (
-          <MarkmapPreview code={props.code} onError={setError} />
-        )
-      }
+      preview={preview}
+      onReload={reloadPreview}
+      fullscreen={{
+        title: "Markmap 预览",
+        preview,
+        onReload: reloadPreview,
+        previewFillWidth: true,
+        showZoomControls: true,
+      }}
     />
   );
 }
@@ -723,6 +681,9 @@ export function CsvPreviewPanel(props: {
     !props.isStreaming,
   );
   const isPreviewReady = !props.isStreaming;
+  const preview = (
+    <CsvTablePreview code={props.code} language={props.language} />
+  );
 
   return (
     <CodePreviewShell
@@ -733,97 +694,42 @@ export function CsvPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       previewFillWidth
       showZoomControls={false}
-      preview={<CsvTablePreview code={props.code} language={props.language} />}
+      preview={preview}
+      fullscreen={{
+        title:
+          props.language?.toLowerCase() === "tsv" ? "TSV 预览" : "CSV 预览",
+        preview,
+        previewFillWidth: true,
+        showZoomControls: false,
+      }}
     />
   );
 }
 
-function getAllCollapsiblePaths(data: any): string[] {
+function collectCollapsiblePaths(
+  data: unknown,
+  currentPath = "root",
+): string[] {
   const paths: string[] = [];
-  const traverse = (val: any, currentPath: string) => {
+  const traverse = (val: unknown, path: string) => {
     if (val === null || typeof val !== "object") return;
-    paths.push(currentPath);
+    paths.push(path);
     if (Array.isArray(val)) {
       val.forEach((item, index) => {
-        traverse(item, `${currentPath}[${index}]`);
+        traverse(item, `${path}[${index}]`);
       });
     } else {
-      Object.entries(val).forEach(([key, value]) => {
-        traverse(value, currentPath ? `${currentPath}.${key}` : key);
+      Object.entries(val).forEach(([key, child]) => {
+        traverse(child, path === "root" ? `root.${key}` : `${path}.${key}`);
       });
     }
   };
-  traverse(data, "root");
+  traverse(data, currentPath);
   return paths;
 }
 
-function getInitialExpandedPaths(data: any): Set<string> {
-  const expanded = new Set<string>();
-  expanded.add("root");
-  if (data && typeof data === "object") {
-    if (Array.isArray(data)) {
-      data.slice(0, 10).forEach((item, index) => {
-        if (item && typeof item === "object") {
-          expanded.add(`root[${index}]`);
-        }
-      });
-    } else {
-      Object.entries(data).forEach(([key, val]) => {
-        if (val && typeof val === "object") {
-          expanded.add(`root.${key}`);
-        }
-      });
-    }
-  }
-  return expanded;
-}
-
-function filterJson(data: any, query: string): any {
-  if (!query) return data;
-  const q = query.toLowerCase();
-
-  const match = (val: any): boolean => {
-    if (typeof val === "string" && val.toLowerCase().includes(q)) return true;
-    if (typeof val === "number" && String(val).toLowerCase().includes(q))
-      return true;
-    if (typeof val === "boolean" && String(val).toLowerCase().includes(q))
-      return true;
-    return false;
-  };
-
-  const traverse = (node: any): any => {
-    if (node === null || typeof node !== "object") {
-      return match(node) ? node : undefined;
-    }
-    if (Array.isArray(node)) {
-      const nextArr: any[] = [];
-      for (const item of node) {
-        const res = traverse(item);
-        if (res !== undefined) {
-          nextArr.push(res);
-        }
-      }
-      return nextArr.length > 0 ? nextArr : undefined;
-    }
-    // object
-    const nextObj: any = {};
-    let hasKeys = false;
-    for (const [key, val] of Object.entries(node)) {
-      if (key.toLowerCase().includes(q)) {
-        nextObj[key] = val;
-        hasKeys = true;
-      } else {
-        const res = traverse(val);
-        if (res !== undefined) {
-          nextObj[key] = res;
-          hasKeys = true;
-        }
-      }
-    }
-    return hasKeys ? nextObj : undefined;
-  };
-
-  return traverse(data);
+function getInitialExpandedPaths(data: unknown): Set<string> {
+  return new Set(collectCollapsiblePaths(data));
 }
 
 type JsonNodeProps = {
@@ -833,7 +739,6 @@ type JsonNodeProps = {
   expandedPaths: Set<string>;
   togglePath: (path: string) => void;
   copyValue: (val: any) => void;
-  query: string;
 };
 
 function JsonTreeNode({
@@ -843,7 +748,6 @@ function JsonTreeNode({
   expandedPaths,
   togglePath,
   copyValue,
-  query,
 }: JsonNodeProps) {
   const isCollapsible = value !== null && typeof value === "object";
   const isExpanded = expandedPaths.has(path);
@@ -969,7 +873,6 @@ function JsonTreeNode({
                         expandedPaths={expandedPaths}
                         togglePath={togglePath}
                         copyValue={copyValue}
-                        query={query}
                       />
                     );
                   })
@@ -984,7 +887,6 @@ function JsonTreeNode({
                         expandedPaths={expandedPaths}
                         togglePath={togglePath}
                         copyValue={copyValue}
-                        query={query}
                       />
                     );
                   })}
@@ -1069,21 +971,11 @@ async function parseStructuredPreviewCode(
   }
 }
 
-export function JsonPreviewPanel(props: {
-  code: string;
-  language?: string;
-  isStreaming: boolean;
-}) {
+function JsonStructuredPreview(props: { code: string; language?: string }) {
   const isYaml =
     props.language?.toLowerCase() === "yaml" ||
     props.language?.toLowerCase() === "yml";
-  const highlightedHtml = useHighlightedCode(
-    props.code,
-    isYaml ? "yaml" : "json",
-    !props.isStreaming,
-  );
 
-  const [query, setQuery] = useState("");
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [parsedData, setParsedData] = useState<any>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -1127,99 +1019,107 @@ export function JsonPreviewPanel(props: {
     });
   };
 
-  const handleExpandAll = () => {
-    if (!parsedData) return;
-    const paths = getAllCollapsiblePaths(parsedData);
-    setExpandedPaths(new Set(paths));
-  };
-
-  const handleCollapseAll = () => {
-    const rootSet = new Set<string>();
-    rootSet.add("root");
-    setExpandedPaths(rootSet);
-  };
-
   const handleCopyValue = (val: any) => {
     const text = typeof val === "string" ? val : JSON.stringify(val, null, 2);
     import("../../utils").then((m) => m.copyToClipboard(text));
   };
 
-  const filteredData = React.useMemo(() => {
-    if (!parsedData || !query) return parsedData;
-    return filterJson(parsedData, query);
-  }, [parsedData, query]);
-
-  useEffect(() => {
-    if (query && filteredData) {
-      const paths = getAllCollapsiblePaths(filteredData);
-      setExpandedPaths(new Set(paths));
-    }
-  }, [query, filteredData]);
-
-  const isPreviewReady = !props.isStreaming && parsedData !== null;
-  const isRendering = props.isStreaming;
-
-  const renderPreview = () => {
-    if (parseError) {
-      return (
-        <div style={{ padding: 12 }}>
-          <ErrorFallback
-            message={`${isYaml ? "YAML" : "JSON"} 解析失败:\n${parseError}`}
-          />
-        </div>
-      );
-    }
-
-    if (!parsedData) {
-      return (
-        <div style={{ padding: 12 }}>
-          <ErrorFallback
-            message={`未找到可解析的 ${isYaml ? "YAML" : "JSON"} 内容`}
-          />
-        </div>
-      );
-    }
-
-    if (filteredData === undefined) {
-      return (
-        <div className={styles["json-no-results"]}>
-          没有找到匹配 &quot;{query}&quot; 的节点
-        </div>
-      );
-    }
-
+  if (parseError) {
     return (
-      <div className={styles["json-preview-container"]}>
-        <div className={styles["json-search-bar"]}>
-          <input
-            type="text"
-            placeholder="搜索键或值..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <div className={styles["json-actions"]}>
-            <button type="button" onClick={handleExpandAll}>
-              展开全部
-            </button>
-            <button type="button" onClick={handleCollapseAll}>
-              折叠全部
-            </button>
-          </div>
-        </div>
-        <div className={styles["json-tree-viewport"]}>
-          <JsonTreeNode
-            name={null}
-            value={filteredData}
-            path="root"
-            expandedPaths={expandedPaths}
-            togglePath={togglePath}
-            copyValue={handleCopyValue}
-            query={query}
-          />
-        </div>
+      <div style={{ padding: 12 }}>
+        <ErrorFallback
+          message={`${isYaml ? "YAML" : "JSON"} 解析失败:\n${parseError}`}
+        />
       </div>
     );
-  };
+  }
+
+  if (!parsedData) {
+    return (
+      <div style={{ padding: 12 }}>
+        <ErrorFallback
+          message={`未找到可解析的 ${isYaml ? "YAML" : "JSON"} 内容`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles["json-preview-container"]}>
+      <div className={styles["json-tree-viewport"]}>
+        <JsonTreeNode
+          name={null}
+          value={parsedData}
+          path="root"
+          expandedPaths={expandedPaths}
+          togglePath={togglePath}
+          copyValue={handleCopyValue}
+        />
+      </div>
+    </div>
+  );
+}
+
+function JsonFullscreenModalContent(props: {
+  code: string;
+  language?: string;
+  highlightedHtml?: string;
+}) {
+  const [reloadKey, setReloadKey] = useState(0);
+
+  return (
+    <div className={styles["modal-body"]}>
+      <CodePreviewModalBody
+        code={props.code}
+        highlightedHtml={props.highlightedHtml}
+        isPreviewReady={true}
+        showZoomControls
+        enableCanvasPanZoom={false}
+        previewFillWidth
+        preview={
+          <JsonStructuredPreview
+            key={reloadKey}
+            code={props.code}
+            language={props.language}
+          />
+        }
+        onReload={() => setReloadKey((k) => k + 1)}
+      />
+    </div>
+  );
+}
+
+export function JsonPreviewPanel(props: {
+  code: string;
+  language?: string;
+  isStreaming: boolean;
+}) {
+  const isYaml =
+    props.language?.toLowerCase() === "yaml" ||
+    props.language?.toLowerCase() === "yml";
+  const previewTitle = isYaml ? "YAML 预览" : "JSON 预览";
+  const highlightedHtml = useHighlightedCode(
+    props.code,
+    isYaml ? "yaml" : "json",
+    !props.isStreaming,
+  );
+
+  const [reloadKey, setReloadKey] = useState(0);
+  const reloadPreview = () => setReloadKey((k) => k + 1);
+
+  const isPreviewReady = React.useMemo(() => {
+    if (props.isStreaming) return false;
+    const trimmed = props.code.trim();
+    if (!trimmed) return false;
+    if (isYaml) return true;
+    try {
+      parseJsonLike(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [props.code, props.isStreaming, isYaml]);
+  const isRendering = props.isStreaming;
 
   return (
     <CodePreviewShell
@@ -1230,7 +1130,29 @@ export function JsonPreviewPanel(props: {
       isPreviewReady={isPreviewReady}
       previewFillWidth
       showZoomControls={true}
-      preview={renderPreview()}
+      enableCanvasPanZoom={false}
+      preview={
+        <JsonStructuredPreview
+          key={reloadKey}
+          code={props.code}
+          language={props.language}
+        />
+      }
+      onReload={reloadPreview}
+      fullscreen={
+        isPreviewReady
+          ? {
+              title: previewTitle,
+              content: (
+                <JsonFullscreenModalContent
+                  code={props.code}
+                  language={props.language}
+                  highlightedHtml={highlightedHtml}
+                />
+              ),
+            }
+          : undefined
+      }
     />
   );
 }

@@ -26,19 +26,30 @@ export function wrapXmlForHtmlPreview(xml: string, frameId: string): string {
 <title>XML 预览</title>
 <style>
   *{box-sizing:border-box}
-  body{margin:0;padding:12px 16px 20px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;background:#fff;color:#1f2328}
+  body{margin:0;padding:12px 16px 20px;font-family:Menlo,Monaco,Consolas,"Courier New",monospace;font-size:13px;line-height:1.6;background:#fff;color:#1f2328}
   .xml-tree{margin:0}
-  .node{margin-left:14px;border-left:1px solid #d8dee4;padding-left:8px}
-  .xml-tree>.node{margin-left:0;border-left:none;padding-left:0}
-  .tag-line{cursor:pointer;user-select:none;padding:2px 0;border-radius:4px}
+  .node{display:block;position:relative}
+  .tag-line{display:flex;align-items:flex-start;padding:2px 4px;border-radius:4px;cursor:default;user-select:none;transition:background-color .15s}
   .tag-line:hover{background:#f6f8fa}
+  .tag-line.clickable{cursor:pointer}
+  .toggle{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-top:2px;color:#1f2328;opacity:.5;font-size:8px;transition:transform .2s,opacity .2s;transform:rotate(90deg);flex:0 0 auto}
+  .tag-line.clickable:hover .toggle{opacity:.9;color:#1677ff}
+  .placeholder{display:inline-block;width:18px;flex:0 0 auto}
   .tag-name{color:#116329;font-weight:600}
   .attr-name{color:#0550ae}
   .attr-val{color:#0a3069}
-  .text-val{color:#24292f;padding:2px 0 2px 4px}
-  .pi,.comment{color:#6e7781;font-style:italic;padding:2px 0}
+  .text-val{color:#24292f;padding:2px 4px 2px 22px;border-radius:4px}
+  .text-val:hover{background:#f6f8fa}
+  .pi,.comment{color:#6e7781;font-style:italic;padding:2px 4px 2px 22px;border-radius:4px}
+  .pi:hover,.comment:hover{background:#f6f8fa}
+  .children{position:relative;padding-left:16px}
+  .children:before{content:"";position:absolute;left:8px;top:0;bottom:4px;width:1px;background:#d8dee4;opacity:.7}
+  .tag-close{padding-left:22px}
+  .collapsed-summary{display:none;margin:0 4px;padding:0 4px;border:1px solid #d8dee4;border-radius:4px;background:#f6f8fa;color:#1f2328;opacity:.6;font-size:11px}
   .node.collapsed>.children,.node.collapsed>.tag-close{display:none}
-  pre.fallback{white-space:pre-wrap;word-break:break-word;margin:0;tab-size:2}
+  .node.collapsed>.tag-line .toggle{transform:rotate(0deg)}
+  .node.collapsed>.tag-line .collapsed-summary{display:inline-flex}
+  pre.fallback{white-space:pre-wrap;word-break:break-word;margin:0;tab-size:2;padding:2px 4px;color:#116329}
 </style>
 </head>
 <body>
@@ -100,14 +111,18 @@ ${heightScript}
     }
     var hasChildren=childEls.length>0;
     var open=document.createElement("div");
-    open.className="tag-line";
-    var html='<span class="tag-name">&lt;'+esc(el.tagName);
+    open.className="tag-line"+(hasChildren?" clickable":"");
+    var html=hasChildren?'<span class="toggle">▶</span>':'<span class="placeholder"></span>';
+    html+='<span class="tag-name">&lt;'+esc(el.tagName);
     for(var k=0;k<el.attributes.length;k++){
       var a=el.attributes[k];
       html+='</span> <span class="attr-name">'+esc(a.name)+'</span>=<span class="attr-val">&quot;'+esc(a.value)+'&quot;</span><span class="tag-name">';
     }
     html+=hasChildren?'&gt;':' /&gt;';
     html+='</span>';
+    if(hasChildren){
+      html+='<span class="collapsed-summary">'+childEls.length+' nodes</span>';
+    }
     open.innerHTML=html;
     box.appendChild(open);
     if(hasChildren){

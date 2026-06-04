@@ -241,55 +241,7 @@
   font-size: 13px;
   line-height: 1.6;
   user-select: text;
-}
-
-.json-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: var(--border-in-light);
-  background: var(--gray-50);
-
-  input {
-    flex: 1;
-    min-height: 30px;
-    height: 30px;
-    padding: 0 10px;
-    font-size: 12px;
-    border-radius: 6px;
-    border: var(--border-in-light);
-    background: var(--white);
-    color: var(--black);
-    text-align: left;
-
-    &:focus {
-      border-color: var(--primary);
-    }
-  }
-
-  .json-actions {
-    display: flex;
-    gap: 6px;
-
-    button {
-      border: var(--border-in-light);
-      background: var(--white);
-      color: var(--black);
-      border-radius: 6px;
-      height: 30px;
-      padding: 0 10px;
-      cursor: pointer;
-      font-size: 12px;
-      white-space: nowrap;
-      transition: all 0.2s;
-
-      &:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-      }
-    }
-  }
+  cursor: default;
 }
 
 .json-tree-viewport {
@@ -436,14 +388,6 @@
     background-color: var(--gray-100);
     opacity: 0.25;
   }
-}
-
-.json-no-results {
-  padding: 24px;
-  text-align: center;
-  color: var(--black);
-  opacity: 0.5;
-  font-style: italic;
 }
 
 .json-copy-btn {
