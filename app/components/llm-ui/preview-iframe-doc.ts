@@ -1,5 +1,3 @@
-import { isXmlPreviewContent, wrapXmlForHtmlPreview } from "./preview-xml";
-
 function heightReportScript(frameId: string) {
   return `window.addEventListener("DOMContentLoaded",function(){var report=function(){var body=document.body;var h=0;if(body){var style=getComputedStyle(body);var bottom=parseFloat(style.paddingBottom)||0;var max=0;for(var i=0;i<body.children.length;i++){var rect=body.children[i].getBoundingClientRect();max=Math.max(max,rect.bottom)}h=Math.ceil(max+bottom);if(!h){h=body.scrollHeight||0}}parent.postMessage({id:"${frameId}",height:Math.max(h,40)},"*")};if(window.ResizeObserver){new ResizeObserver(report).observe(document.body)}report();setTimeout(report,0)});`;
 }
@@ -72,15 +70,12 @@ function injectHeightScriptIntoHtml(html: string, frameId: string): string {
   return html + script;
 }
 
-/** 生成 iframe srcDoc（统一处理 XML / SVG / HTML 完整文档 / HTML 片段） */
+/** 生成 iframe srcDoc（统一处理 SVG / HTML 完整文档 / HTML 片段） */
 export function buildIframeSrcDoc(
   code: string,
   frameId: string,
   language?: string,
 ): string {
-  if (isXmlPreviewContent(code, language)) {
-    return wrapXmlForHtmlPreview(code, frameId);
-  }
   if (isSvgPreviewContent(code, language)) {
     return wrapSvgForHtmlPreview(code, frameId);
   }

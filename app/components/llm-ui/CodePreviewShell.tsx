@@ -287,6 +287,8 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
               transform: enableCanvasScale
                 ? `translate(${pan.x}px, ${pan.y}px) scale(${scale})`
                 : undefined,
+              touchAction: enablePanZoom ? "none" : "auto",
+              userSelect: enablePanZoom ? "none" : undefined,
               cursor: enablePanZoom
                 ? isDragging
                   ? "grabbing"

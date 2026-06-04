@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import JsonView from "@uiw/react-json-view";
+import { githubLightTheme } from "@uiw/react-json-view/githubLight";
+import XMLViewer from "react-xml-viewer";
 import { encode } from "plantuml-encoder";
 import { HTMLPreview, type HTMLPreviewHander } from "../artifacts";
 import { isXmlPreviewContent } from "./preview-xml";
@@ -172,6 +175,58 @@ function HtmlFullscreenContent(props: {
   );
 }
 
+const xmlViewerTheme = {
+  tagColor: "#116329",
+  textColor: "#24292f",
+  attributeKeyColor: "#0550ae",
+  attributeValueColor: "#0a3069",
+  separatorColor: "#1f2328",
+  commentColor: "#6e7781",
+  cdataColor: "#0d904f",
+  fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
+};
+
+function XmlStructuredPreview(props: { code: string }) {
+  return (
+    <div className={styles["xml-preview-container"]}>
+      <XMLViewer
+        xml={props.code.trim()}
+        collapsible
+        indentSize={2}
+        initialCollapsedDepth={undefined}
+        theme={xmlViewerTheme}
+        invalidXml={
+          <pre className={styles["xml-invalid-source"]}>
+            {props.code.trim()}
+          </pre>
+        }
+      />
+    </div>
+  );
+}
+
+function XmlFullscreenContent(props: {
+  code: string;
+  highlightedHtml?: string;
+}) {
+  const [reloadKey, setReloadKey] = useState(0);
+
+  return (
+    <div className={styles["modal-body"]}>
+      <CodePreviewModalBody
+        code={props.code}
+        highlightedHtml={props.highlightedHtml}
+        isPreviewReady={true}
+        previewFillWidth
+        showZoomControls
+        enableCanvasPanZoom={false}
+        preview={<XmlStructuredPreview key={reloadKey} code={props.code} />}
+        onReload={() => setReloadKey((k) => k + 1)}
+      />
+    </div>
+  );
+}
+
 function SvgInlinePreview(props: { code: string }) {
   return (
     <div
@@ -223,7 +278,37 @@ export function HtmlPreviewPanel(props: {
     highlightLang,
     !props.isStreaming,
   );
+  const [xmlReloadKey, setXmlReloadKey] = useState(0);
   const isPreviewReady = !props.isStreaming;
+
+  if (isXml) {
+    const reloadPreview = () => setXmlReloadKey((k) => k + 1);
+
+    return (
+      <CodePreviewShell
+        code={props.code}
+        highlightedHtml={highlightedHtml}
+        isStreaming={props.isStreaming}
+        isRendering={false}
+        isPreviewReady={isPreviewReady}
+        previewFillWidth
+        previewViewportMaxHeight={chatViewportHeight}
+        showZoomControls
+        enableCanvasPanZoom={false}
+        preview={<XmlStructuredPreview key={xmlReloadKey} code={props.code} />}
+        onReload={reloadPreview}
+        fullscreen={{
+          title: previewTitle,
+          content: (
+            <XmlFullscreenContent
+              code={props.code}
+              highlightedHtml={highlightedHtml}
+            />
+          ),
+        }}
+      />
+    );
+  }
 
   return (
     <CodePreviewShell
@@ -706,244 +791,20 @@ export function CsvPreviewPanel(props: {
   );
 }
 
-function collectCollapsiblePaths(
-  data: unknown,
-  currentPath = "root",
-): string[] {
-  const paths: string[] = [];
-  const traverse = (val: unknown, path: string) => {
-    if (val === null || typeof val !== "object") return;
-    paths.push(path);
-    if (Array.isArray(val)) {
-      val.forEach((item, index) => {
-        traverse(item, `${path}[${index}]`);
-      });
-    } else {
-      Object.entries(val).forEach(([key, child]) => {
-        traverse(child, path === "root" ? `root.${key}` : `${path}.${key}`);
-      });
-    }
-  };
-  traverse(data, currentPath);
-  return paths;
-}
-
-function getInitialExpandedPaths(data: unknown): Set<string> {
-  return new Set(collectCollapsiblePaths(data));
-}
-
-type JsonNodeProps = {
-  name: string | null;
-  value: any;
-  path: string;
-  expandedPaths: Set<string>;
-  togglePath: (path: string) => void;
-  copyValue: (val: any) => void;
+const jsonViewTheme = {
+  ...githubLightTheme,
+  "--w-rjv-font-family": 'Menlo, Monaco, Consolas, "Courier New", monospace',
+  "--w-rjv-background-color": "transparent",
+  "--w-rjv-color": "var(--black)",
+  "--w-rjv-key-string": "#881391",
+  "--w-rjv-key-number": "#881391",
+  "--w-rjv-info-color": "rgba(31, 35, 40, 0.45)",
+  "--w-rjv-string-color": "#0d904f",
+  "--w-rjv-number-color": "#1c00cf",
+  "--w-rjv-boolean-color": "#aa0d91",
+  "--w-rjv-null-color": "#808080",
+  "--w-rjv-arrow-color": "rgba(31, 35, 40, 0.55)",
 };
-
-function JsonTreeNode({
-  name,
-  value,
-  path,
-  expandedPaths,
-  togglePath,
-  copyValue,
-}: JsonNodeProps) {
-  const isCollapsible = value !== null && typeof value === "object";
-  const isExpanded = expandedPaths.has(path);
-
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    togglePath(path);
-  };
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    copyValue(value);
-  };
-
-  if (isCollapsible) {
-    const isArray = Array.isArray(value);
-    const keys = isArray ? value : Object.keys(value);
-    const isEmpty = keys.length === 0;
-
-    const openingBracket = isArray ? "[" : "{";
-    const closingBracket = isArray ? "]" : "}";
-
-    const renderCollapsedSummary = () => {
-      if (isArray) {
-        return (
-          <span
-            className={styles["json-collapsed-text"]}
-            onClick={handleToggle}
-          >
-            {`${value.length} items`}
-          </span>
-        );
-      }
-      const keysList = Object.keys(value);
-      if (keysList.length <= 3) {
-        const preview = keysList
-          .map((k) => {
-            const v = value[k];
-            let vStr = "";
-            if (v === null) vStr = "null";
-            else if (typeof v === "object")
-              vStr = Array.isArray(v) ? "[...]" : "{...}";
-            else if (typeof v === "string")
-              vStr = `"${v.slice(0, 10)}${v.length > 10 ? "..." : ""}"`;
-            else vStr = String(v);
-            return `${k}: ${vStr}`;
-          })
-          .join(", ");
-        return (
-          <span
-            className={styles["json-collapsed-text"]}
-            onClick={handleToggle}
-          >
-            {`{ ${preview} }`}
-          </span>
-        );
-      }
-      return (
-        <span className={styles["json-collapsed-text"]} onClick={handleToggle}>
-          {`${keysList.length} keys`}
-        </span>
-      );
-    };
-
-    return (
-      <div className={`${styles["json-tree-node"]} ${styles["collapsible"]}`}>
-        <div className={styles["json-node-row"]}>
-          {!isEmpty && (
-            <span
-              className={`${styles["json-toggle-btn"]} ${isExpanded ? styles["expanded"] : ""}`}
-              onClick={handleToggle}
-            >
-              ▶
-            </span>
-          )}
-          {isEmpty && <span style={{ width: 18 }} />}
-          {name !== null && (
-            <>
-              <span className={styles["json-key"]}>{name}</span>
-              <span className={styles["json-colon"]}>:</span>
-            </>
-          )}
-          <span className={styles["json-bracket"]}>{openingBracket}</span>
-
-          {!isExpanded && renderCollapsedSummary()}
-
-          {!isExpanded && (
-            <span className={styles["json-bracket"]}>{closingBracket}</span>
-          )}
-          {isArray && (
-            <span
-              className={styles["json-meta"]}
-            >{`// ${value.length} items`}</span>
-          )}
-          {!isArray && (
-            <span
-              className={styles["json-meta"]}
-            >{`// ${Object.keys(value).length} keys`}</span>
-          )}
-
-          <span
-            className={styles["json-copy-btn"]}
-            onClick={handleCopy}
-            title="复制节点数据"
-          >
-            📋
-          </span>
-        </div>
-
-        {isExpanded && !isEmpty && (
-          <div style={{ position: "relative" }}>
-            <div className={styles["json-indent-line"]} />
-            <div style={{ paddingLeft: 16 }}>
-              {isArray
-                ? (value as any[]).map((item, idx) => {
-                    const childPath = `${path}[${idx}]`;
-                    return (
-                      <JsonTreeNode
-                        key={childPath}
-                        name={null}
-                        value={item}
-                        path={childPath}
-                        expandedPaths={expandedPaths}
-                        togglePath={togglePath}
-                        copyValue={copyValue}
-                      />
-                    );
-                  })
-                : Object.entries(value).map(([k, v]) => {
-                    const childPath = `${path}.${k}`;
-                    return (
-                      <JsonTreeNode
-                        key={childPath}
-                        name={k}
-                        value={v}
-                        path={childPath}
-                        expandedPaths={expandedPaths}
-                        togglePath={togglePath}
-                        copyValue={copyValue}
-                      />
-                    );
-                  })}
-            </div>
-            <div
-              className={styles["json-node-row"]}
-              style={{ paddingLeft: 18 }}
-            >
-              <span className={styles["json-bracket"]}>{closingBracket}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const renderValue = () => {
-    if (value === null) {
-      return <span className={styles["json-value-null"]}>null</span>;
-    }
-    if (typeof value === "string") {
-      return (
-        <span className={styles["json-value-string"]}>{`"${value}"`}</span>
-      );
-    }
-    if (typeof value === "number") {
-      return <span className={styles["json-value-number"]}>{value}</span>;
-    }
-    if (typeof value === "boolean") {
-      return (
-        <span className={styles["json-value-boolean"]}>{String(value)}</span>
-      );
-    }
-    return <span>{String(value)}</span>;
-  };
-
-  return (
-    <div className={styles["json-tree-node"]}>
-      <div className={styles["json-node-row"]}>
-        {name !== null && (
-          <>
-            <span className={styles["json-key"]}>{name}</span>
-            <span className={styles["json-colon"]}>:</span>
-          </>
-        )}
-        {renderValue()}
-        <span
-          className={styles["json-copy-btn"]}
-          onClick={handleCopy}
-          title="复制值"
-        >
-          📋
-        </span>
-      </div>
-    </div>
-  );
-}
 
 async function parseStructuredPreviewCode(
   code: string,
@@ -976,7 +837,6 @@ function JsonStructuredPreview(props: { code: string; language?: string }) {
     props.language?.toLowerCase() === "yaml" ||
     props.language?.toLowerCase() === "yml";
 
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [parsedData, setParsedData] = useState<any>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -1000,29 +860,11 @@ function JsonStructuredPreview(props: { code: string; language?: string }) {
       }
       setParsedData(data);
       setParseError(null);
-      setExpandedPaths(getInitialExpandedPaths(data));
     })();
     return () => {
       cancelled = true;
     };
   }, [props.code, props.language]);
-
-  const togglePath = (path: string) => {
-    setExpandedPaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-  };
-
-  const handleCopyValue = (val: any) => {
-    const text = typeof val === "string" ? val : JSON.stringify(val, null, 2);
-    import("../../utils").then((m) => m.copyToClipboard(text));
-  };
 
   if (parseError) {
     return (
@@ -1047,14 +889,22 @@ function JsonStructuredPreview(props: { code: string; language?: string }) {
   return (
     <div className={styles["json-preview-container"]}>
       <div className={styles["json-tree-viewport"]}>
-        <JsonTreeNode
-          name={null}
-          value={parsedData}
-          path="root"
-          expandedPaths={expandedPaths}
-          togglePath={togglePath}
-          copyValue={handleCopyValue}
-        />
+        {typeof parsedData === "object" ? (
+          <JsonView
+            value={parsedData as object}
+            collapsed={false}
+            shouldExpandNodeInitially={() => true}
+            displayDataTypes={false}
+            displayObjectSize
+            enableClipboard
+            shortenTextAfterLength={0}
+            style={jsonViewTheme}
+          />
+        ) : (
+          <pre className={styles["json-primitive-value"]}>
+            {JSON.stringify(parsedData, null, 2)}
+          </pre>
+        )}
       </div>
     </div>
   );
