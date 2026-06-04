@@ -13,6 +13,10 @@ import type { LLMOutputComponent } from "@llm-ui/react";
 import { copyToClipboard } from "../../utils";
 import Locale from "../../locales";
 import { showImageModal } from "../ui-lib";
+import { useAppConfig } from "../../store/config";
+import { useChatStore } from "../../store";
+import { getPreviewLanguage } from "./preview-utils";
+import { PreviewCodeBlockRoute } from "./preview-code-route";
 import styles from "../markdown.module.scss";
 
 const sanitizeOptions = {
@@ -135,7 +139,38 @@ function ThinkCollapse({ title, children }: ThinkCollapseProps) {
   );
 }
 
-function createMarkdownComponents() {
+function extractCodeFromPreChild(codeChild: React.ReactElement) {
+  const extractCodeText = (node: React.ReactNode): string => {
+    if (typeof node === "string") return node;
+    if (typeof node === "number") return String(node);
+    if (Array.isArray(node)) {
+      return node.map(extractCodeText).join("");
+    }
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+      }>;
+      if (element.props?.children) {
+        return extractCodeText(element.props.children);
+      }
+    }
+    return "";
+  };
+
+  const className = String(
+    (codeChild.props as { className?: string }).className || "",
+  );
+  const langMatch = className.match(/language-([\w-]+)/i);
+  return {
+    code: extractCodeText(codeChild).replace(/\n$/, ""),
+    language: langMatch?.[1],
+  };
+}
+
+function createMarkdownComponents(options: {
+  enableArtifacts: boolean;
+  isStreaming: boolean;
+}) {
   return {
     p: (pProps: any) => <p {...pProps} dir="auto" />,
     img: (imgProps: any) => {
@@ -206,13 +241,6 @@ function createMarkdownComponents() {
           </code>
         );
       }
-      // 代码块：有 language- 前缀的 className
-      // 这种情况不应该发生，因为代码块应该由 CodeBlock 组件处理
-      // 但如果发生了，我们也要正确渲染
-      console.warn(
-        "[MarkdownBlock] Code block rendered by MarkdownBlock instead of CodeBlock:",
-        className,
-      );
       return (
         <code
           className={className}
@@ -242,22 +270,24 @@ function createMarkdownComponents() {
             (child.props as any)?.className?.toString().includes("language-")),
       );
 
-      // 提取代码文本，用于复制按钮
-      const extractCodeText = (node: any): string => {
-        if (!node) return "";
-        const props = node.props || {};
-        const content = props.children;
-        if (typeof content === "string") return content;
-        if (Array.isArray(content))
-          return content
-            .map((c: any) => (typeof c === "string" ? c : extractCodeText(c)))
-            .join("");
-        if (React.isValidElement(content)) return extractCodeText(content);
-        return String(content || "");
-      };
-
-      if (codeChild) {
-        const codeText = extractCodeText(codeChild);
+      if (codeChild && React.isValidElement(codeChild)) {
+        const { code: codeText, language } = extractCodeFromPreChild(
+          codeChild as React.ReactElement,
+        );
+        const previewKind = getPreviewLanguage(codeText, language);
+        const canPreview =
+          previewKind && !(previewKind === "html" && !options.enableArtifacts);
+        if (canPreview) {
+          return (
+            <PreviewCodeBlockRoute
+              previewKind={previewKind}
+              code={codeText}
+              language={language}
+              isStreaming={options.isStreaming}
+              enableArtifacts={options.enableArtifacts}
+            />
+          );
+        }
 
         return (
           <div
@@ -353,16 +383,20 @@ const rehypePlugins = [
 ];
 
 export const MarkdownBlock: LLMOutputComponent = ({ blockMatch }) => {
-  console.log("[MarkdownBlock] Rendering markdown block:", {
-    outputLength: blockMatch.output.length,
-    outputPreview: blockMatch.output.substring(0, 100),
-  });
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const config = useAppConfig();
+  const enableArtifacts =
+    session.mask?.enableArtifacts !== false && config.enableArtifacts;
 
   return (
     <ReactMarkdown
       remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
       rehypePlugins={rehypePlugins}
-      components={createMarkdownComponents()}
+      components={createMarkdownComponents({
+        enableArtifacts,
+        isStreaming: !blockMatch.isComplete,
+      })}
     >
       {blockMatch.output}
     </ReactMarkdown>

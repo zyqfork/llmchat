@@ -1,4 +1,5 @@
 import parseVegaSchemaUrl from "vega-schema-url-parser";
+import { parseJsonLike } from "./preview-parse";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -14,7 +15,7 @@ export function parsePreviewJson(code: string): unknown | null {
   }
 
   try {
-    return JSON.parse(trimmed);
+    return parseJsonLike(trimmed);
   } catch {
     return null;
   }

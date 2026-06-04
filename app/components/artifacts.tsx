@@ -23,9 +23,12 @@ import { Path, REPO_URL } from "@/app/constant";
 import { Loading } from "./home";
 import styles from "./artifacts.module.scss";
 import { logger } from "../utils/logger";
+import { buildIframeSrcDoc } from "./llm-ui/preview-iframe-doc";
 
 type HTMLPreviewProps = {
   code: string;
+  /** fence 语言，用于区分 xml / html */
+  language?: string;
   autoHeight?: boolean;
   height?: number | string;
   /** 不限制 iframe 高度，由外层容器滚动 */
@@ -83,16 +86,10 @@ export const HTMLPreview = forwardRef<HTMLPreviewHander, HTMLPreviewProps>(
       return iframeHeight > parentHeight ? parentHeight : iframeHeight;
     }, [props.autoHeight, props.height, props.unlimitedHeight, iframeHeight]);
 
-    const srcDoc = useMemo(() => {
-      const script = `<script>window.addEventListener("DOMContentLoaded",()=>{const report=()=>{const h=Math.max(document.body?.scrollHeight||0,document.documentElement?.scrollHeight||0,document.body?.offsetHeight||0);parent.postMessage({id:'${frameId}',height:h},'*')};new ResizeObserver(report).observe(document.body);report()})</script>`;
-      if (props.code.includes("<!DOCTYPE html>")) {
-        return props.code.replace(
-          "<!DOCTYPE html>",
-          "<!DOCTYPE html>" + script,
-        );
-      }
-      return script + props.code;
-    }, [props.code, frameId]);
+    const srcDoc = useMemo(
+      () => buildIframeSrcDoc(props.code, frameId, props.language),
+      [props.code, props.language, frameId],
+    );
 
     const handleOnLoad = () => {
       if (props?.onLoad) {

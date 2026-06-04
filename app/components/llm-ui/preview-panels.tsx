@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { encode } from "plantuml-encoder";
 import { showModal } from "../ui-lib";
 import { HTMLPreview, type HTMLPreviewHander } from "../artifacts";
+import { isXmlPreviewContent } from "./preview-xml";
+import { parseJsonLike } from "./preview-parse";
 import { CodePreviewModalBody, CodePreviewShell } from "./CodePreviewShell";
 import { useHighlightedCode } from "./use-highlighted-code";
 import { useChatViewportHeight } from "./use-chat-viewport-height";
@@ -169,6 +171,7 @@ export function MermaidPreviewPanel(props: {
 
 function HtmlFullscreenContent(props: {
   code: string;
+  language?: string;
   highlightedHtml?: string;
 }) {
   const previewRef = useRef<HTMLPreviewHander>(null);
@@ -184,6 +187,7 @@ function HtmlFullscreenContent(props: {
           <HTMLPreview
             ref={previewRef}
             code={props.code}
+            language={props.language}
             autoHeight={true}
             height={600}
           />
@@ -194,26 +198,81 @@ function HtmlFullscreenContent(props: {
   );
 }
 
+function SvgInlinePreview(props: { code: string }) {
+  return (
+    <div
+      className={styles["mermaid-svg-wrap"]}
+      dangerouslySetInnerHTML={{ __html: props.code.trim() }}
+    />
+  );
+}
+
+export function SvgPreviewPanel(props: { code: string; isStreaming: boolean }) {
+  const highlightedHtml = useHighlightedCode(
+    props.code,
+    "svg",
+    !props.isStreaming,
+  );
+  const isPreviewReady = !props.isStreaming;
+  const preview = <SvgInlinePreview code={props.code} />;
+
+  const openFullscreen = () => {
+    showModal({
+      title: "SVG 预览",
+      defaultMax: true,
+      children: (
+        <div className={styles["modal-body"]}>
+          <CodePreviewModalBody
+            code={props.code}
+            highlightedHtml={highlightedHtml}
+            isPreviewReady={true}
+            showZoomControls
+            preview={preview}
+          />
+        </div>
+      ),
+    });
+  };
+
+  return (
+    <CodePreviewShell
+      code={props.code}
+      highlightedHtml={highlightedHtml}
+      isStreaming={props.isStreaming}
+      isRendering={false}
+      isPreviewReady={isPreviewReady}
+      showZoomControls
+      preview={preview}
+      onFullscreen={openFullscreen}
+    />
+  );
+}
+
 export function HtmlPreviewPanel(props: {
   code: string;
+  language?: string;
   isStreaming: boolean;
 }) {
   const previewRef = useRef<HTMLPreviewHander>(null);
   const chatViewportHeight = useChatViewportHeight();
+  const isXml = isXmlPreviewContent(props.code, props.language);
+  const previewTitle = isXml ? "XML 预览" : "HTML 预览";
+  const highlightLang = isXml ? "xml" : "html";
   const highlightedHtml = useHighlightedCode(
     props.code,
-    "html",
+    highlightLang,
     !props.isStreaming,
   );
   const isPreviewReady = !props.isStreaming;
 
   const openFullscreen = () => {
     showModal({
-      title: "HTML 预览",
+      title: previewTitle,
       defaultMax: true,
       children: (
         <HtmlFullscreenContent
           code={props.code}
+          language={props.language}
           highlightedHtml={highlightedHtml}
         />
       ),
@@ -235,6 +294,7 @@ export function HtmlPreviewPanel(props: {
           <HTMLPreview
             ref={previewRef}
             code={props.code}
+            language={props.language}
             autoHeight={true}
             unlimitedHeight
           />
@@ -249,8 +309,12 @@ export function HtmlPreviewPanel(props: {
 // 兼容旧引用
 export const MermaidDiagram = MermaidPreviewPanel;
 
-function parseSpec(code: string) {
-  return JSON.parse(code);
+function parseSpec(code: string): Record<string, unknown> {
+  const parsed = parseJsonLike(code);
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>;
+  }
+  throw new Error("需要 JSON 对象作为配置");
 }
 
 function ErrorFallback(props: { message: string }) {
@@ -979,13 +1043,43 @@ function JsonTreeNode({
   );
 }
 
+async function parseStructuredPreviewCode(
+  code: string,
+  language?: string,
+): Promise<{ data: unknown; error: string | null }> {
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return { data: null, error: null };
+  }
+
+  const lang = (language || "").trim().toLowerCase();
+  try {
+    if (lang === "yaml" || lang === "yml") {
+      const yamlMod = await import("yaml");
+      const data = yamlMod.parse(trimmed);
+      return { data, error: null };
+    }
+    const data = parseJsonLike(trimmed);
+    return { data, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export function JsonPreviewPanel(props: {
   code: string;
+  language?: string;
   isStreaming: boolean;
 }) {
+  const isYaml =
+    props.language?.toLowerCase() === "yaml" ||
+    props.language?.toLowerCase() === "yml";
   const highlightedHtml = useHighlightedCode(
     props.code,
-    "json",
+    isYaml ? "yaml" : "json",
     !props.isStreaming,
   );
 
@@ -995,23 +1089,31 @@ export function JsonPreviewPanel(props: {
   const [parseError, setParseError] = useState<string | null>(null);
 
   useEffect(() => {
-    const trimmed = props.code.trim();
-    if (!trimmed) {
-      setParsedData(null);
-      setParseError(null);
-      return;
-    }
-
-    try {
-      const data = JSON.parse(trimmed);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await parseStructuredPreviewCode(
+        props.code,
+        props.language,
+      );
+      if (cancelled) return;
+      if (error) {
+        setParsedData(null);
+        setParseError(error);
+        return;
+      }
+      if (data === null) {
+        setParsedData(null);
+        setParseError(null);
+        return;
+      }
       setParsedData(data);
       setParseError(null);
       setExpandedPaths(getInitialExpandedPaths(data));
-    } catch (err) {
-      setParsedData(null);
-      setParseError(err instanceof Error ? err.message : String(err));
-    }
-  }, [props.code]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.code, props.language]);
 
   const togglePath = (path: string) => {
     setExpandedPaths((prev) => {
@@ -1061,7 +1163,9 @@ export function JsonPreviewPanel(props: {
     if (parseError) {
       return (
         <div style={{ padding: 12 }}>
-          <ErrorFallback message={`JSON 解析失败:\n${parseError}`} />
+          <ErrorFallback
+            message={`${isYaml ? "YAML" : "JSON"} 解析失败:\n${parseError}`}
+          />
         </div>
       );
     }
@@ -1069,7 +1173,9 @@ export function JsonPreviewPanel(props: {
     if (!parsedData) {
       return (
         <div style={{ padding: 12 }}>
-          <ErrorFallback message="未找到可解析的 JSON 内容" />
+          <ErrorFallback
+            message={`未找到可解析的 ${isYaml ? "YAML" : "JSON"} 内容`}
+          />
         </div>
       );
     }

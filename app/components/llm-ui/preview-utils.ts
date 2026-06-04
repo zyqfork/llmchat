@@ -5,17 +5,20 @@ import {
   MERMAID_KEYWORDS,
 } from "./preview-lang-map";
 import { detectJsonPreviewType } from "./preview-json-detect";
+import { parseJsonLike } from "./preview-parse";
 
 export type PreviewLanguage =
   | "mermaid"
   | "html"
+  | "svg"
   | "plantuml"
   | "graphviz"
   | "echarts"
   | "vega"
   | "markmap"
   | "csv"
-  | "json";
+  | "json"
+  | "yaml";
 
 function normalizeLang(language?: string) {
   return (language || "").trim().toLowerCase();
@@ -27,9 +30,14 @@ function isHtmlWithoutLang(code: string) {
   return (
     trimmed.startsWith("<!DOCTYPE") ||
     trimmed.startsWith("<html") ||
-    trimmed.startsWith("<svg") ||
     trimmed.startsWith("<?xml")
   );
+}
+
+function isSvgWithoutLang(code: string) {
+  const trimmed = code.trimStart();
+  if (/^<\?xml[\s\S]*?<svg\b/i.test(trimmed)) return true;
+  return /^<svg[\s>/]/i.test(trimmed);
 }
 
 /** PlantUML：无标签时检查是否以 @startuml 开头 */
@@ -38,15 +46,16 @@ function isPlantUmlWithoutLang(code: string) {
   return trimmed.startsWith("@startuml") || trimmed.startsWith("@startmindmap");
 }
 
-/** Graphviz：无标签时检查是否以 digraph/graph 开头 */
+/** Graphviz DOT：避免把 Mermaid 的 `graph TD` 误判为 Graphviz */
 function isGraphvizWithoutLang(code: string) {
   const trimmed = code.trimStart();
-  return (
-    trimmed.startsWith("digraph") ||
-    trimmed.startsWith("graph") ||
-    trimmed.startsWith("strict digraph") ||
-    trimmed.startsWith("strict graph")
-  );
+  if (trimmed.startsWith("digraph") || trimmed.startsWith("strict digraph")) {
+    return true;
+  }
+  if (trimmed.startsWith("strict graph")) {
+    return /^strict graph\s*\{/i.test(trimmed);
+  }
+  return /^graph\s*\{/i.test(trimmed);
 }
 
 /** Mermaid：无标签时检查第一个词是否为 Mermaid 的关键字 */
@@ -93,6 +102,10 @@ export function getPreviewLanguage(
 ): PreviewLanguage | null {
   const lang = normalizeLang(language);
 
+  if (lang === "svg" || (lang === "xml" && isSvgWithoutLang(code))) {
+    return "svg";
+  }
+
   const fromLang = resolvePreviewTypeFromLang(lang);
   if (fromLang) {
     return fromLang;
@@ -115,6 +128,9 @@ export function getPreviewLanguage(
 
   // 无标签时的内容检测
   if (!lang) {
+    if (isSvgWithoutLang(code)) {
+      return "svg";
+    }
     if (isHtmlWithoutLang(code)) {
       return "html";
     }
@@ -130,7 +146,7 @@ export function getPreviewLanguage(
     const trimmed = code.trim();
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
       try {
-        JSON.parse(trimmed);
+        parseJsonLike(trimmed);
         return "json";
       } catch {}
     }

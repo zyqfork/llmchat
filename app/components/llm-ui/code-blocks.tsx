@@ -15,19 +15,10 @@ import {
   llmUiHighlighter,
   resolveShikiLang,
 } from "./shiki-highlighter";
-import {
-  CsvPreviewPanel,
-  EchartsPreviewPanel,
-  GraphvizPreviewPanel,
-  HtmlPreviewPanel,
-  MarkmapPreviewPanel,
-  MermaidPreviewPanel,
-  PlantUmlPreviewPanel,
-  VegaPreviewPanel,
-  JsonPreviewPanel,
-} from "./preview-panels";
+import { MermaidPreviewPanel } from "./preview-panels";
 import { getPreviewLanguage } from "./preview-utils";
 import { CodePreviewShell } from "./CodePreviewShell";
+import { PreviewCodeBlockRoute } from "./preview-code-route";
 
 export { codeBlockLookBack };
 
@@ -45,13 +36,6 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
   const lang = language ?? "plain";
   const previewKind = getPreviewLanguage(code, language);
 
-  console.log("[CodeBlock] Rendering code block:", {
-    language,
-    previewKind,
-    codeLength: code.length,
-    isComplete: blockMatch.isComplete,
-  });
-
   const { html } = useCodeBlockToHtml({
     markdownCodeBlock: blockMatch.output,
     highlighter: llmUiHighlighter,
@@ -62,58 +46,21 @@ export const CodeBlock: LLMOutputComponent = ({ blockMatch }) => {
     parser,
   });
 
-  if (previewKind === "mermaid") {
-    return (
-      <MermaidPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
+  const canPreview =
+    previewKind && !(previewKind === "html" && !enableArtifacts);
 
-  if (previewKind === "html" && enableArtifacts) {
+  if (canPreview) {
     return (
-      <HtmlPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "plantuml") {
-    return (
-      <PlantUmlPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "graphviz") {
-    return (
-      <GraphvizPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "echarts") {
-    return (
-      <EchartsPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "vega") {
-    return (
-      <VegaPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "markmap") {
-    return (
-      <MarkmapPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
-  if (previewKind === "csv") {
-    return (
-      <CsvPreviewPanel
+      <PreviewCodeBlockRoute
+        previewKind={previewKind}
         code={code}
         language={language}
         isStreaming={!blockMatch.isComplete}
+        enableArtifacts={enableArtifacts}
       />
     );
   }
-  if (previewKind === "json") {
-    return (
-      <JsonPreviewPanel code={code} isStreaming={!blockMatch.isComplete} />
-    );
-  }
 
-  // 普通代码块：使用 CodePreviewShell 统一样式，不支持预览
   return (
     <CodePreviewShell
       code={code}

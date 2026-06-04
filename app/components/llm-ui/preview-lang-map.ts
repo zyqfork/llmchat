@@ -6,7 +6,7 @@ export const PREVIEW_LANG_ALIASES: Record<string, PreviewLanguage> = {
   html: "html",
   htm: "html",
   xml: "html",
-  svg: "html",
+  svg: "svg",
   plantuml: "plantuml",
   puml: "plantuml",
   pu: "plantuml",
@@ -23,6 +23,8 @@ export const PREVIEW_LANG_ALIASES: Record<string, PreviewLanguage> = {
   tsv: "csv",
   json: "json",
   jsonc: "json",
+  yaml: "yaml",
+  yml: "yaml",
 };
 
 /** 仅当 fence 为 json / js / ts 等泛型标签时，才尝试用 JSON 结构推断 */
