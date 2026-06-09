@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld("electronApp", {
       ipcRenderer.removeListener("electron-native-theme-updated", wrapped);
   },
   openExternal: (url) => ipcRenderer.invoke("electron-open-external", url),
+  getVersion: () => ipcRenderer.invoke("electron-get-version"),
   onDeepLink: (listener) => {
     const wrapped = (_event, url) => listener(url);
     ipcRenderer.on("electron-deep-link", wrapped);

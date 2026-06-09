@@ -1,7 +1,16 @@
-import { FETCH_COMMIT_URL, FETCH_TAG_URL, StoreKey } from "../constant";
+import {
+  FETCH_COMMIT_URL,
+  FETCH_RELEASE_URL,
+  LATEST_UPDATE_JSON_URL,
+  StoreKey,
+} from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
-import { clientUpdate, normalizeReleaseTagVersion } from "../utils";
+import {
+  clientUpdate,
+  normalizeReleaseTagVersion,
+  semverCompare,
+} from "../utils";
 import ChatGptIcon from "../icons/chatgpt.svg";
 import Locale from "../locales";
 import { logger } from "../utils/logger";
@@ -39,7 +48,70 @@ function formatVersionDate(t: string) {
 
 type VersionType = "date" | "tag";
 
-async function getVersion(type: VersionType) {
+function isLatestChannelVersion(version: string) {
+  return normalizeReleaseTagVersion(version).includes("-latest.");
+}
+
+function isStableReleaseTag(tag: string) {
+  const normalized = normalizeReleaseTagVersion(tag);
+  return normalized !== "" && !normalized.includes("-");
+}
+
+async function getElectronVersion() {
+  if (typeof window === "undefined" || !window.electronApp?.getVersion) {
+    return "";
+  }
+
+  const version = await window.electronApp.getVersion();
+  if (!version || typeof version !== "string") return "";
+  return version.startsWith("v") ? version : `v${version}`;
+}
+
+async function getCurrentVersion(type: VersionType) {
+  const clientConfig = getClientConfig();
+  if (type === "date") {
+    return clientConfig?.commitDate || "unknown";
+  }
+
+  const electronVersion = await getElectronVersion();
+  return electronVersion || clientConfig?.version || "unknown";
+}
+
+async function getLatestChannelVersion() {
+  const data = (await (
+    await appFetch(LATEST_UPDATE_JSON_URL, undefined, FetchType.Sync)
+  ).json()) as {
+    version?: string;
+  };
+
+  const version = data?.version;
+  if (!version || typeof version !== "string") {
+    return "unknown";
+  }
+  return version.startsWith("v") ? version : `v${version}`;
+}
+
+async function getStableReleaseVersion() {
+  const data = (await (
+    await appFetch(FETCH_RELEASE_URL, undefined, FetchType.Sync)
+  ).json()) as {
+    tag_name?: string;
+    draft?: boolean;
+    prerelease?: boolean;
+  }[];
+
+  const release = data.find(
+    (item) =>
+      item?.tag_name &&
+      !item.draft &&
+      !item.prerelease &&
+      isStableReleaseTag(item.tag_name),
+  );
+
+  return release?.tag_name || "unknown";
+}
+
+async function getVersion(type: VersionType, currentVersion: string) {
   try {
     if (type === "date") {
       const data = (await (
@@ -63,18 +135,11 @@ async function getVersion(type: VersionType) {
       const remoteId = new Date(remoteCommitTime).getTime().toString();
       return remoteId;
     } else if (type === "tag") {
-      const data = (await (
-        await appFetch(FETCH_TAG_URL, undefined, FetchType.Sync)
-      ).json()) as {
-        commit: { sha: string; url: string };
-        name: string;
-      }[];
-
-      if (!data || !data[0] || !data[0].name) {
-        return "unknown";
+      if (isLatestChannelVersion(currentVersion)) {
+        return await getLatestChannelVersion();
       }
 
-      return data.at(0)?.name || "unknown";
+      return await getStableReleaseVersion();
     }
   } catch (error) {
     logger.error("[Update] Failed to fetch version:", error);
@@ -109,11 +174,7 @@ export const useUpdateStore = createPersistStore(
 
     async getLatestVersion(force = false) {
       const versionType = get().versionType;
-      const clientConfig = getClientConfig();
-      let version =
-        versionType === "date"
-          ? clientConfig?.commitDate
-          : clientConfig?.version;
+      let version = await getCurrentVersion(versionType);
 
       // 确保 version 是有效的字符串
       if (!version || typeof version !== "string") {
@@ -130,7 +191,7 @@ export const useUpdateStore = createPersistStore(
       }));
 
       try {
-        const remoteId = await getVersion(versionType);
+        const remoteId = await getVersion(versionType, version);
         // 确保 remoteId 是有效的字符串
         const validRemoteId =
           remoteId && typeof remoteId === "string" ? remoteId : "unknown";
@@ -150,11 +211,15 @@ export const useUpdateStore = createPersistStore(
             }
 
             if (granted) {
-              const same =
-                normalizeReleaseTagVersion(version) !== "" &&
-                normalizeReleaseTagVersion(version) ===
-                  normalizeReleaseTagVersion(validRemoteId);
-              if (same) {
+              const normalizedCurrent = normalizeReleaseTagVersion(version);
+              const normalizedRemote =
+                normalizeReleaseTagVersion(validRemoteId);
+              const hasUpdate =
+                normalizedCurrent !== "" &&
+                normalizedRemote !== "" &&
+                semverCompare(normalizedCurrent, normalizedRemote) === -1;
+
+              if (!hasUpdate) {
                 // Show a notification using Tauri
                 await sendNotification({
                   title: "NextChat",

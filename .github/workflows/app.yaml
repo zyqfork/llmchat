@@ -230,7 +230,7 @@ jobs:
             PKG_VERSION="$(node -p "require('./package.json').version")"
             BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
             if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${BUILD_META}"
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest.${BUILD_META}"
           else
             node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
           fi
@@ -252,7 +252,7 @@ jobs:
 
 
       - name: install frontend dependencies
-        run: yarn install && yarn export
+        run: yarn install --frozen-lockfile && yarn export
 
       - name: configure cargo for network reliability
         if: startsWith(matrix.config.os, 'ubuntu-')
@@ -271,6 +271,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 #          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -281,6 +283,9 @@ jobs:
 #          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ needs.create-release.outputs.release_tag }}
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
           args: ${{ matrix.config.tauri_args }}
 
   build-electron:
@@ -331,7 +336,7 @@ jobs:
             PKG_VERSION="$(node -p "require('./package.json').version")"
             BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
             if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest+${BUILD_META}"
+            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest.${BUILD_META}"
           else
             node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
           fi
@@ -343,7 +348,7 @@ jobs:
           sudo apt-get install -y libfuse2
 
       - name: install frontend dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: build electron app
         env:
@@ -413,25 +418,15 @@ jobs:
               // Electron 文件：LLMChat-electron-0.1.0-latest-linux-amd64.deb -> LLMChat-electron-latest-linux-amd64.deb
               if (name.startsWith("LLMChat-electron-")) {
                 return name.replace(
-                  /^LLMChat-electron-[\d.]+-latest(?:\+\d+)?-/,
+                  /^LLMChat-electron-[\d.]+-latest(?:[.+]\d+)?-/,
                   "LLMChat-electron-latest-",
                 )
               }
 
-              // Tauri 文件：LLMChat-Tauri_0.1.0-latest+89_arm64.deb -> LLMChat-Tauri-latest_arm64.deb
+              // Tauri updater metadata stores exact asset URLs, so keep Tauri
+              // asset names stable after tauri-action uploads latest.json.
               if (name.startsWith("LLMChat-Tauri")) {
-                let normalized = name
-                // 移除版本号，保留 latest
-                normalized = normalized.replace(
-                  /^LLMChat-Tauri[_-][\d.]+-latest(?:\+\d+)?([_-])/,
-                  "LLMChat-Tauri-latest$1",
-                )
-                // RPM 包去掉 release 序号（如 -1.x86_64.rpm -> .x86_64.rpm）
-                normalized = normalized.replace(
-                  /-\d+\.(aarch64|x86_64)\.rpm$/,
-                  ".$1.rpm",
-                )
-                return normalized
+                return name
               }
 
               return name

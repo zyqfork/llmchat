@@ -5,6 +5,7 @@ import { RequestMessage } from "./client/api";
 import {
   REQUEST_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS_FOR_THINKING,
+  RELEASE_URL,
   ServiceProvider,
   isVisionModel,
   getModelCapabilities,
@@ -465,6 +466,11 @@ export function getOperationId(operation: {
 
 export async function clientUpdate() {
   // this a wild for updating client app
+  if (window.electronApp?.isElectron) {
+    await window.electronApp.openExternal?.(RELEASE_URL);
+    return;
+  }
+
   if (!window.__TAURI__) return;
 
   try {
@@ -493,12 +499,18 @@ export function normalizeReleaseTagVersion(raw: string): string {
     return "";
   }
   const withoutV = trimmed.replace(/^v/i, "");
-  const prereleaseSep = withoutV.search(/[-+]/);
+  const buildSep = withoutV.indexOf("+");
+  const withoutBuild = buildSep === -1 ? withoutV : withoutV.slice(0, buildSep);
+  const prereleaseSep = withoutBuild.indexOf("-");
   const core =
-    prereleaseSep === -1 ? withoutV : withoutV.slice(0, prereleaseSep);
-  const suffix = prereleaseSep === -1 ? "" : withoutV.slice(prereleaseSep);
+    prereleaseSep === -1 ? withoutBuild : withoutBuild.slice(0, prereleaseSep);
+  const suffix = prereleaseSep === -1 ? "" : withoutBuild.slice(prereleaseSep);
   const parts = core.split(".").filter((p) => p !== "");
-  if (parts.length === 0) {
+  if (
+    parts.length === 0 ||
+    parts.length > 3 ||
+    parts.some((p) => !/^\d+$/.test(p))
+  ) {
     return "";
   }
   const maj = parts[0];
@@ -507,7 +519,29 @@ export function normalizeReleaseTagVersion(raw: string): string {
   return `${maj}.${min}.${pat}${suffix}`;
 }
 
-// https://gist.github.com/iwill/a83038623ba4fef6abb9efca87ae9ccb
+function parseSemver(version: string) {
+  const normalized = normalizeReleaseTagVersion(version);
+  const match = normalized.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4]?.split(".") ?? [],
+  };
+}
+
+function comparePrereleaseIdentifier(a: string, b: string) {
+  const aNumeric = /^\d+$/.test(a);
+  const bNumeric = /^\d+$/.test(b);
+  if (aNumeric && bNumeric) {
+    return Number(a) - Number(b);
+  }
+  if (aNumeric) return -1;
+  if (bNumeric) return 1;
+  return a.localeCompare(b);
+}
+
 export function semverCompare(a: string, b: string) {
   // 添加空值检查，防止 startsWith 方法调用失败
   if (!a || !b) {
@@ -516,17 +550,39 @@ export function semverCompare(a: string, b: string) {
     if (!b) return 1;
   }
 
-  // 移除版本号前缀 "v" 以确保版本比较的一致性
-  const cleanA = a.replace(/^v/, "");
-  const cleanB = b.replace(/^v/, "");
+  const parsedA = parseSemver(a);
+  const parsedB = parseSemver(b);
+  if (!parsedA || !parsedB) {
+    return normalizeReleaseTagVersion(a).localeCompare(
+      normalizeReleaseTagVersion(b),
+      undefined,
+      { numeric: true },
+    );
+  }
 
-  if (cleanA.startsWith(cleanB + "-")) return -1;
-  if (cleanB.startsWith(cleanA + "-")) return 1;
-  return cleanA.localeCompare(cleanB, undefined, {
-    numeric: true,
-    sensitivity: "case",
-    caseFirst: "upper",
-  });
+  for (const key of ["major", "minor", "patch"] as const) {
+    const diff = parsedA[key] - parsedB[key];
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+
+  if (parsedA.prerelease.length === 0 && parsedB.prerelease.length === 0) {
+    return 0;
+  }
+  if (parsedA.prerelease.length === 0) return 1;
+  if (parsedB.prerelease.length === 0) return -1;
+
+  const len = Math.max(parsedA.prerelease.length, parsedB.prerelease.length);
+  for (let i = 0; i < len; i += 1) {
+    const idA = parsedA.prerelease[i];
+    const idB = parsedB.prerelease[i];
+    if (idA == null && idB == null) return 0;
+    if (idA == null) return -1;
+    if (idB == null) return 1;
+    const diff = comparePrereleaseIdentifier(idA, idB);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+
+  return 0;
 }
 
 export function isThinkingModel(model: string | undefined) {

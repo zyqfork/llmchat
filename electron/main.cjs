@@ -280,6 +280,8 @@ ipcMain.handle("electron-open-external", async (_event, url) => {
   await shell.openExternal(url);
 });
 
+ipcMain.handle("electron-get-version", async () => app.getVersion());
+
 ipcMain.handle("electron-toggle-devtools", (event) => {
   if (event.sender.isDevToolsOpened()) {
     event.sender.closeDevTools();

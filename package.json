@@ -21,7 +21,7 @@
     "app:build:tauri": "yarn tauri build",
     "app:build:electron": "yarn electron:build",
     "electron:dev": "concurrently -k \"yarn dev\" \"wait-on tcp:3000 && electron .\"",
-    "electron:build": "yarn export && electron-builder",
+    "electron:build": "cross-env BUILD_APP_RUNTIME=electron yarn export && electron-builder",
     "version:sync": "node scripts/sync-version-from-tag.mjs",
     "icons:electron": "node scripts/generate-electron-app-icon.mjs",
     "app:build:debug": "yarn export:debug && yarn tauri build --features debug-devtools",

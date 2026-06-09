@@ -19,20 +19,21 @@ function tagToSemver(raw) {
     throw new Error("缺少版本：请传入标签参数或设置 RELEASE_VERSION");
   }
   const withoutV = tag.replace(/^v/i, "");
-  const prereleaseSep = withoutV.search(/[-+]/);
-  const core =
-    prereleaseSep === -1 ? withoutV : withoutV.slice(0, prereleaseSep);
-  const suffix = prereleaseSep === -1 ? "" : withoutV.slice(prereleaseSep);
+  const suffixMatch = withoutV.match(
+    /^([0-9]+(?:\.[0-9]+){0,2})([-+][0-9A-Za-z.-]+(?:\+[0-9A-Za-z.-]+)?)?$/,
+  );
+  if (!suffixMatch) {
+    throw new Error(`无法解析版本：${tag}`);
+  }
+  const core = suffixMatch[1];
+  const suffix = suffixMatch[2] ?? "";
   const parts = core.split(".").filter((p) => p !== "");
   if (parts.length === 0) {
     throw new Error(`无法解析版本：${tag}`);
   }
-  let maj = parts[0];
-  let min = parts[1] ?? "0";
-  let pat = parts[2] ?? "0";
-  if (parts.length > 3) {
-    pat = parts.slice(2).join(".");
-  }
+  const maj = parts[0];
+  const min = parts[1] ?? "0";
+  const pat = parts[2] ?? "0";
   return `${maj}.${min}.${pat}${suffix}`;
 }
 
