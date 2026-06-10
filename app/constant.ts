@@ -163,7 +163,6 @@ export const RELEASE_URL = `${REPO_URL}/releases`;
 export const FETCH_COMMIT_URL = `https://api.github.com/repos/${OWNER}/${REPO}/commits?per_page=1`;
 export const FETCH_TAG_URL = `https://api.github.com/repos/${OWNER}/${REPO}/tags?per_page=1`;
 export const FETCH_RELEASE_URL = `https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=20`;
-export const LATEST_UPDATE_JSON_URL = `${REPO_URL}/releases/download/latest/latest.json`;
 export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 
 // ==================== 统一图标配置 ====================

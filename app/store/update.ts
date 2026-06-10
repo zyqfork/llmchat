@@ -1,9 +1,4 @@
-import {
-  FETCH_COMMIT_URL,
-  FETCH_RELEASE_URL,
-  LATEST_UPDATE_JSON_URL,
-  StoreKey,
-} from "../constant";
+import { FETCH_COMMIT_URL, FETCH_RELEASE_URL, StoreKey } from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
 import {
@@ -48,10 +43,6 @@ function formatVersionDate(t: string) {
 
 type VersionType = "date" | "tag";
 
-function isLatestChannelVersion(version: string) {
-  return normalizeReleaseTagVersion(version).includes("-latest.");
-}
-
 function isStableReleaseTag(tag: string) {
   const normalized = normalizeReleaseTagVersion(tag);
   return normalized !== "" && !normalized.includes("-");
@@ -77,20 +68,6 @@ async function getCurrentVersion(type: VersionType) {
   return electronVersion || clientConfig?.version || "unknown";
 }
 
-async function getLatestChannelVersion() {
-  const data = (await (
-    await appFetch(LATEST_UPDATE_JSON_URL, undefined, FetchType.Sync)
-  ).json()) as {
-    version?: string;
-  };
-
-  const version = data?.version;
-  if (!version || typeof version !== "string") {
-    return "unknown";
-  }
-  return version.startsWith("v") ? version : `v${version}`;
-}
-
 async function getStableReleaseVersion() {
   const data = (await (
     await appFetch(FETCH_RELEASE_URL, undefined, FetchType.Sync)
@@ -111,7 +88,7 @@ async function getStableReleaseVersion() {
   return release?.tag_name || "unknown";
 }
 
-async function getVersion(type: VersionType, currentVersion: string) {
+async function getVersion(type: VersionType) {
   try {
     if (type === "date") {
       const data = (await (
@@ -134,11 +111,9 @@ async function getVersion(type: VersionType, currentVersion: string) {
 
       const remoteId = new Date(remoteCommitTime).getTime().toString();
       return remoteId;
-    } else if (type === "tag") {
-      if (isLatestChannelVersion(currentVersion)) {
-        return await getLatestChannelVersion();
-      }
+    }
 
+    if (type === "tag") {
       return await getStableReleaseVersion();
     }
   } catch (error) {
@@ -191,7 +166,7 @@ export const useUpdateStore = createPersistStore(
       }));
 
       try {
-        const remoteId = await getVersion(versionType, version);
+        const remoteId = await getVersion(versionType);
         // 确保 remoteId 是有效的字符串
         const validRemoteId =
           remoteId && typeof remoteId === "string" ? remoteId : "unknown";

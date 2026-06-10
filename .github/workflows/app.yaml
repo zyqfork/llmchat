@@ -2,20 +2,17 @@ name: Release App
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: Release tag to upload artifacts to (manual trigger only; empty means latest release)
-        required: false
-        default: ""
-  release:
-    types: [published]
+      tag:
+        description: Git tag to build desktop apps (e.g. v2.19.0)
+        required: true
 
 concurrency:
-  group: release-app-${{ github.event_name == 'push' && 'latest' || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  group: release-app-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   create-release:
@@ -25,162 +22,87 @@ jobs:
     outputs:
       release_id: ${{ steps.create-release.outputs.release_id }}
       release_tag: ${{ steps.create-release.outputs.release_tag }}
-      is_latest_channel: ${{ steps.create-release.outputs.is_latest_channel }}
       build_ref: ${{ steps.create-release.outputs.build_ref }}
 
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
-
-      - name: setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+          fetch-depth: 0
 
       - name: create release
         id: create-release
         uses: actions/github-script@v6
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          INPUT_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
         with:
           script: |
             const owner = context.repo.owner
             const repo = context.repo.repo
             const eventName = context.eventName
 
-            async function ensureLatestRelease() {
-              const sha = context.sha
-              const shortSha = sha.slice(0, 7)
+            function resolveTag() {
+              if (eventName === "workflow_dispatch") {
+                const tag = String(process.env.INPUT_TAG || "").trim()
+                if (!tag) {
+                  throw new Error("workflow_dispatch 需要指定 tag 参数")
+                }
+                return tag
+              }
+              if (eventName === "push" && context.ref.startsWith("refs/tags/")) {
+                return context.ref.replace("refs/tags/", "")
+              }
+              throw new Error(`不支持的事件类型：${eventName}`)
+            }
 
-              const body =
-                `Automatic build from \`${context.ref}\` at [` +
-                `\`${shortSha}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}).`
+            async function resolveTagSha(tag) {
+              if (eventName === "push" && context.ref.startsWith("refs/tags/")) {
+                return context.sha
+              }
 
-              let release
+              const ref = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `tags/${tag}`,
+              })
+              return ref.data.object.sha
+            }
+
+            async function ensureRelease(tag, sha) {
               try {
-                // 先尝试获取现有的 latest release
                 const existing = await github.rest.repos.getReleaseByTag({
                   owner,
                   repo,
-                  tag: "latest",
+                  tag,
                 })
-                release = existing.data
-
-                // 删除所有旧的 assets
-                const assets = await github.paginate(
-                  github.rest.repos.listReleaseAssets,
-                  {
-                    owner,
-                    repo,
-                    release_id: release.id,
-                  },
-                )
-                for (const asset of assets) {
-                  await github.rest.repos.deleteReleaseAsset({
-                    owner,
-                    repo,
-                    asset_id: asset.id,
-                  })
-                }
-
-                // 更新 release（保持同一个 release，只更新内容）
-                const updated = await github.rest.repos.updateRelease({
-                  owner,
-                  repo,
-                  release_id: release.id,
-                  tag_name: "latest",
-                  target_commitish: sha,
-                  name: "Latest",
-                  body,
-                  draft: false,
-                  prerelease: false,
-                })
-                release = updated.data
-
-                // 更新 tag 指向新的 commit
-                try {
-                  await github.rest.git.updateRef({
-                    owner,
-                    repo,
-                    ref: "tags/latest",
-                    sha,
-                    force: true,
-                  })
-                } catch (error) {
-                  // 如果 tag 不存在，创建它
-                  if (error.status === 404 || error.status === 422) {
-                    await github.rest.git.createRef({
-                      owner,
-                      repo,
-                      ref: "refs/tags/latest",
-                      sha,
-                    })
-                  } else {
-                    throw error
-                  }
-                }
+                return existing.data
               } catch (error) {
                 if (error.status !== 404) {
                   throw error
                 }
-                // 如果 release 不存在，创建新的
-                await github.rest.git.createRef({
-                  owner,
-                  repo,
-                  ref: "refs/tags/latest",
-                  sha,
-                })
-                const created = await github.rest.repos.createRelease({
-                  owner,
-                  repo,
-                  tag_name: "latest",
-                  target_commitish: sha,
-                  name: "Latest",
-                  body,
-                  draft: false,
-                  prerelease: false,
-                })
-                release = created.data
               }
 
-              core.setOutput("is_latest_channel", "true")
-              return release
-            }
-
-            let data
-
-            if (eventName === "release") {
-              data = context.payload.release
-              core.setOutput("is_latest_channel", "false")
-              core.setOutput("build_ref", data.tag_name)
-            } else if (eventName === "push") {
-              data = await ensureLatestRelease()
-              core.setOutput("build_ref", context.sha)
-            } else if (process.env.RELEASE_TAG) {
-              const response = await github.rest.repos.getReleaseByTag({
+              const created = await github.rest.repos.createRelease({
                 owner,
                 repo,
-                tag: process.env.RELEASE_TAG,
+                tag_name: tag,
+                target_commitish: sha,
+                name: tag,
+                body:
+                  `Desktop release for \`${tag}\` at [` +
+                  `\`${sha.slice(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}).`,
+                draft: false,
+                prerelease: false,
               })
-              data = response.data
-              core.setOutput("is_latest_channel", "false")
-              core.setOutput("build_ref", data.tag_name)
-            } else {
-              const response = await github.rest.repos.getLatestRelease({
-                owner,
-                repo,
-              })
-              data = response.data
-              core.setOutput(
-                "is_latest_channel",
-                data.tag_name === "latest" ? "true" : "false",
-              )
-              core.setOutput("build_ref", data.tag_name)
+              return created.data
             }
+
+            const tag = resolveTag()
+            const sha = await resolveTagSha(tag)
+            const data = await ensureRelease(tag, sha)
 
             core.setOutput("release_id", String(data.id))
             core.setOutput("release_tag", data.tag_name)
+            core.setOutput("build_ref", data.tag_name)
 
   build-tauri:
     needs: create-release
@@ -221,19 +143,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 22
-          cache: 'yarn'
+          cache: "yarn"
 
       - name: sync version from release tag
-        shell: bash
-        run: |
-          if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
-            PKG_VERSION="$(node -p "require('./package.json').version")"
-            BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
-            if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest.${BUILD_META}"
-          else
-            node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
-          fi
+        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -250,7 +163,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libfuse2
 
-
       - name: install frontend dependencies
         run: yarn install --frozen-lockfile && yarn export
 
@@ -262,7 +174,7 @@ jobs:
           [http]
           http2 = false
           timeout = 60
-          
+
           [net]
           retry = 5
           git-fetch-with-cli = true
@@ -275,12 +187,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-#          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-#          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-#          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-#          APPLE_ID: ${{ secrets.APPLE_ID }}
-#          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-#          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           tagName: ${{ needs.create-release.outputs.release_tag }}
@@ -330,16 +236,7 @@ jobs:
           cache: "yarn"
 
       - name: sync version from release tag
-        shell: bash
-        run: |
-          if [ "${{ needs.create-release.outputs.is_latest_channel }}" = "true" ]; then
-            PKG_VERSION="$(node -p "require('./package.json').version")"
-            BUILD_META="$(( ${GITHUB_RUN_NUMBER:-1} % 65535 ))"
-            if [ "$BUILD_META" -eq 0 ]; then BUILD_META=1; fi
-            node scripts/sync-version-from-tag.mjs "v${PKG_VERSION}-latest.${BUILD_META}"
-          else
-            node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
-          fi
+        run: node scripts/sync-version-from-tag.mjs "${{ needs.create-release.outputs.release_tag }}"
 
       - name: install Linux packaging dependencies (ubuntu only)
         if: startsWith(matrix.config.os, 'ubuntu-')
@@ -376,69 +273,15 @@ jobs:
 
     steps:
       - name: publish release
-        id: publish-release
         uses: actions/github-script@v6
         env:
           RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
-          IS_LATEST_CHANNEL: ${{ needs.create-release.outputs.is_latest_channel }}
         with:
           script: |
             github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: process.env.RELEASE_ID,
-              name: process.env.IS_LATEST_CHANNEL === "true" ? "Latest" : undefined,
               draft: false,
               prerelease: false,
             })
-
-      - name: normalize latest asset names
-        if: needs.create-release.outputs.is_latest_channel == 'true'
-        uses: actions/github-script@v6
-        env:
-          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
-        with:
-          script: |
-            const owner = context.repo.owner
-            const repo = context.repo.repo
-            const releaseId = Number(process.env.RELEASE_ID)
-
-            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
-              owner,
-              repo,
-              release_id: releaseId,
-            })
-
-            function normalizeName(name) {
-              // Keep updater metadata file names unchanged.
-              if (name === "latest.json" || name.endsWith(".sig")) {
-                return name
-              }
-
-              // Electron 文件：LLMChat-electron-0.1.0-latest-linux-amd64.deb -> LLMChat-electron-latest-linux-amd64.deb
-              if (name.startsWith("LLMChat-electron-")) {
-                return name.replace(
-                  /^LLMChat-electron-[\d.]+-latest(?:[.+]\d+)?-/,
-                  "LLMChat-electron-latest-",
-                )
-              }
-
-              // Tauri updater metadata stores exact asset URLs, so keep Tauri
-              // asset names stable after tauri-action uploads latest.json.
-              if (name.startsWith("LLMChat-Tauri")) {
-                return name
-              }
-
-              return name
-            }
-
-            for (const asset of assets) {
-              const nextName = normalizeName(asset.name)
-              if (nextName === asset.name) continue
-              await github.rest.repos.updateReleaseAsset({
-                owner,
-                repo,
-                asset_id: asset.id,
-                name: nextName,
-              })
-            }
