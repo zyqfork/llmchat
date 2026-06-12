@@ -14,9 +14,9 @@ export default defineConfig([
         {
           paths: [
             {
-              name: "@mariozechner/pi-web-ui",
+              name: "@earendil-works/pi-web-ui",
               message:
-                "请使用子路径导入（如 @mariozechner/pi-web-ui/utils/format），避免根入口在服务端牵出 pdfjs。",
+                "请使用子路径导入（如 @earendil-works/pi-web-ui/utils/format），避免根入口在服务端牵出 pdfjs。",
             },
           ],
         },

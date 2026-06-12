@@ -35,7 +35,6 @@ const nextConfig = {
       "@lobehub/icons",
       "lodash-es",
       "react-icons",
-      "framer-motion",
     ],
   },
 

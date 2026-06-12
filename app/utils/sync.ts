@@ -172,7 +172,7 @@ export function setLocalAppState(appState: AppState) {
   // 设置 zustand stores
   Object.entries(LocalStateSetters).forEach(([key, setter]) => {
     const storeKey = key as keyof typeof LocalStateSetters;
-    setter(appState[storeKey] as any);
+    (setter as (state: any) => void)(appState[storeKey]);
   });
 
   // 单独设置 MCP 配置（使用 localStorage）
