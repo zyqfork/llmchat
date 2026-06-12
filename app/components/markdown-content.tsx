@@ -9,15 +9,14 @@ import RemarkGfm from "remark-gfm";
 import RehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { Collapse } from "antd";
-import type { LLMOutputComponent } from "@llm-ui/react";
-import { copyToClipboard } from "../../utils";
-import Locale from "../../locales";
-import { showImageModal } from "../ui-lib";
-import { useAppConfig } from "../../store/config";
-import { useChatStore } from "../../store";
-import { getPreviewLanguage } from "./preview-utils";
-import { PreviewCodeBlockRoute } from "./preview-code-route";
-import styles from "../markdown.module.scss";
+import { copyToClipboard } from "../utils";
+import Locale from "../locales";
+import { showImageModal } from "./ui-lib";
+import { useAppConfig } from "../store/config";
+import { useChatStore } from "../store";
+import { getPreviewLanguage } from "./code-preview/preview-utils";
+import { PreviewCodeBlockRoute } from "./code-preview/preview-code-route";
+import styles from "./markdown.module.scss";
 
 const sanitizeOptions = {
   ...defaultSchema,
@@ -382,7 +381,10 @@ const rehypePlugins = [
   [rehypeSanitize, sanitizeOptions],
 ];
 
-export const MarkdownBlock: LLMOutputComponent = ({ blockMatch }) => {
+export function MarkdownContent(props: {
+  content: string;
+  isStreaming: boolean;
+}) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
@@ -395,10 +397,10 @@ export const MarkdownBlock: LLMOutputComponent = ({ blockMatch }) => {
       rehypePlugins={rehypePlugins}
       components={createMarkdownComponents({
         enableArtifacts,
-        isStreaming: !blockMatch.isComplete,
+        isStreaming: props.isStreaming,
       })}
     >
-      {blockMatch.output}
+      {props.content}
     </ReactMarkdown>
   );
-};
+}

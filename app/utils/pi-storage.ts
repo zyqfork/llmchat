@@ -1,5 +1,5 @@
-import { IndexedDBStorageBackend } from "@mariozechner/pi-web-ui/storage/backends/indexeddb-storage-backend";
-import { SettingsStore } from "@mariozechner/pi-web-ui/storage/stores/settings-store";
+import { IndexedDBStorageBackend } from "@earendil-works/pi-web-ui/storage/backends/indexeddb-storage-backend";
+import { SettingsStore } from "@earendil-works/pi-web-ui/storage/stores/settings-store";
 
 type PiSettingsStore = {
   get<T>(key: string): Promise<T | null>;

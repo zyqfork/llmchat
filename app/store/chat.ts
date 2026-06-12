@@ -10,7 +10,7 @@ import {
 import { isVisionModel } from "../constant";
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
-import { isContextOverflow } from "@mariozechner/pi-ai";
+import { isContextOverflow } from "@earendil-works/pi-ai";
 import { isResponseStatefulEnabled } from "../utils/response-api";
 import {
   StreamUpdateOptimizer,

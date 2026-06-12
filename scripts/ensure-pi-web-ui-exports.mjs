@@ -1,5 +1,5 @@
 /**
- * @mariozechner/pi-web-ui only exposes "." which pulls pdfjs-dist (breaks Next server).
+ * @earendil-works/pi-web-ui only exposes "." which pulls pdfjs-dist (breaks Next server).
  * Add conditional exports for leaf modules so the app can import without the barrel.
  * Idempotent; safe if upstream adds the same keys later.
  */
@@ -12,7 +12,7 @@ const pkgPath = path.join(
   __dirname,
   "..",
   "node_modules",
-  "@mariozechner",
+  "@earendil-works",
   "pi-web-ui",
   "package.json",
 );

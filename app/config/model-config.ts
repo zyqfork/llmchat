@@ -3,7 +3,7 @@ import {
   formatCost,
   formatModelCost,
   formatUsage,
-} from "@mariozechner/pi-web-ui/utils/format";
+} from "@earendil-works/pi-web-ui/utils/format";
 import { findPiModelById } from "../utils/pi-ai-resolver";
 import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/models-config";
 import type {

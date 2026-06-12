@@ -1,20 +1,20 @@
 import { logger } from "../utils/logger";
-import { applyProxyIfNeeded } from "@mariozechner/pi-web-ui/utils/proxy-utils";
+import { applyProxyIfNeeded } from "@earendil-works/pi-web-ui/utils/proxy-utils";
 import { fetch as tauriFetch, FetchType, isTauriApp } from "../utils/fetch";
 import { getAllProviders } from "../constant";
 import { resolvePiProviderId } from "../utils/pi-ai-resolver";
 import { useAccessStore } from "../store/access";
 import { executeMcpToolCall } from "./mcp-tool-executor";
-import { completeSimple, getModel, streamSimple } from "@mariozechner/pi-ai";
+import { completeSimple, getModel, streamSimple } from "@earendil-works/pi-ai";
 import type {
   Context,
   ImageContent,
   Message,
   TextContent,
-} from "@mariozechner/pi-ai";
-import { transformMessages } from "@mariozechner/pi-ai/providers/transform-messages";
+} from "@earendil-works/pi-ai";
+import { transformMessages } from "@earendil-works/pi-ai/providers/transform-messages";
 import { applyStatefulResponsesPayload } from "../utils/response-api";
-import { agentLoop, runAgentLoop } from "@mariozechner/pi-agent-core";
+import { agentLoop, runAgentLoop } from "@earendil-works/pi-agent-core";
 
 export interface LLMAdapterRequest {
   providerId: string;

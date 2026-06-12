@@ -31,7 +31,7 @@ import { useAccessStore } from "../store";
 import { useChatStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem } from "../mcp/actions.client";
-import { isCorsError } from "@mariozechner/pi-web-ui/utils/proxy-utils";
+import { isCorsError } from "@earendil-works/pi-web-ui/utils/proxy-utils";
 import { logger } from "../utils/logger";
 import { ChatControllerPool } from "../client/controller";
 import {

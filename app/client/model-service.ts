@@ -1,4 +1,4 @@
-import { isCorsError } from "@mariozechner/pi-web-ui/utils/proxy-utils";
+import { isCorsError } from "@earendil-works/pi-web-ui/utils/proxy-utils";
 import {
   DEFAULT_MODELS,
   getAllProviders,

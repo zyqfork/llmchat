@@ -5,7 +5,7 @@ import { useMemo, RefObject, useRef } from "react";
 import Locale from "../locales";
 import LoadingIcon from "../icons/three-dots.svg";
 import React from "react";
-import { LlmMarkdownRenderer } from "./llm-ui/LlmMarkdownRenderer";
+import { MarkdownContent } from "./markdown-content";
 
 function escapeBrackets(text: string) {
   const pattern =
@@ -254,9 +254,9 @@ export function Markdown(
           {props.content}
         </div>
       ) : (
-        <LlmMarkdownRenderer
+        <MarkdownContent
           content={processedContent}
-          isStreamFinished={props.isStreamFinished ?? true}
+          isStreaming={!(props.isStreamFinished ?? true)}
         />
       )}
     </div>

@@ -59,22 +59,21 @@
 
 这样**不改变任何产品行为**，只减少单文件行数、提高可读性和后续改滚动/换 Virtuoso 的可维护性。
 
-### 阶段 2：用 Virtuoso 重写消息列表（大改）
+### 阶段 2：重写消息列表滚动（大改）
 
-1. **安装**  
-   - `react-virtuoso`（或官方推荐的 `@virtuoso.dev/react-virtuoso`，以你项目实际包名为准）。
-2. **用 Virtuoso 的“消息列表”模式**  
-   - 文档参考：[Virtuoso Message List](https://virtuoso.dev/virtuoso-message-list)  
-   - 用其提供的“自动滚到底”“流式时跟随”“用户上滑停、滑回底部再跟”等行为，替代当前手写的 `useScrollToBottom` + 分页滚动逻辑。
+1. **先评估再引入依赖**  
+   - 当前已移除虚拟列表依赖；若未来重新做虚拟列表，应先用真实长会话压测现有分页滚动，再决定是否引入新的列表库。
+2. **重写“消息列表”模式**  
+   - 目标是让“自动滚到底”“流式时跟随”“用户上滑停、滑回底部再跟”等行为集中在消息列表组件里，替代当前手写的 `useScrollToBottom` + 分页滚动逻辑。
 3. **对接现有数据与 UI**  
    - 消息数据仍从 `session.messages`（及你现有的过滤/分组逻辑）来；  
-   - 每条消息的渲染继续用现有 `MessageItem`（或 chat 里当前内联的消息块），只把“列表容器”从当前 `div`+ 分页换成 Virtuoso 的列表组件。
+   - 每条消息的渲染继续用现有 `MessageItem`（或 chat 里当前内联的消息块），只把“列表容器”从当前 `div` + 分页换成更清晰的消息列表组件。
 4. **分页/历史加载**  
-   - 若需要“上滑加载更早消息”，用 Virtuoso 的 `firstItemIndex` 等 API 与现有 `msgRenderIndex` / 分页状态对接，避免重复请求。
+   - 若需要“上滑加载更早消息”，应与现有 `msgRenderIndex` / 分页状态对接，避免重复请求。
 5. **会话恢复**  
-   - 当前依赖 `scrollRef` 和 `sessionScrollStateMap` 的恢复逻辑，改为基于 Virtuoso 的 `initialTopMostItemIndex` 或等效 API 恢复滚动位置。
+   - 当前依赖 `scrollRef` 和 `sessionScrollStateMap` 的恢复逻辑，应迁移到消息列表组件内部统一处理。
 
-阶段 2 完成后，chat 页的“消息区”将主要由 Virtuoso 负责滚动与视口，**可删除或大幅精简**当前手写的 `useScrollToBottom` 和复杂的分页滚动判断。
+阶段 2 完成后，chat 页的“消息区”应由独立消息列表组件负责滚动与视口，**可删除或大幅精简**当前手写的 `useScrollToBottom` 和复杂的分页滚动判断。
 
 ---
 
@@ -82,8 +81,8 @@
 
 1. **先做阶段 1（拆分）**  
    - 把 chat.tsx 从 ~5k 行减到 ~1.5k–2k 行，确认无回归。  
-2. **再做阶段 2（Virtuoso）**  
-   - 在已拆小的 chat 页里，只改“消息列表”一块，接入 Virtuoso，并逐步下线旧滚动/分页逻辑。  
+2. **再做阶段 2（消息列表）**  
+   - 在已拆小的 chat 页里，只改“消息列表”一块，并逐步下线旧滚动/分页逻辑。  
 
 这样既回答了“为什么这么多行”（结构问题，不是成片垃圾），又给出了“大改”的清晰路径：**先拆文件，再换消息列表实现**。
 
@@ -94,7 +93,7 @@
 - **阶段 1：已完成**  
   - 所有内联组件与 hook 已拆至 `app/components/chat/`，chat.tsx 已收敛，构建通过。  
 - **虚拟滚动已移除**  
-  - 单模型与多模型统一为「可滚动 div + 分页列表」；已删除 `react-virtuoso` 使用、`useVirtualScroll`、`VirtualMessageList`、`ChatWithVirtualScroll` 及对应测试。  
+  - 单模型与多模型统一为「可滚动 div + 分页列表」；已删除旧虚拟列表依赖、`useVirtualScroll`、`VirtualMessageList`、`ChatWithVirtualScroll` 及对应测试。  
 - **额外拆分（已做）**  
   - `ProviderTooltip` + `getProviderDisplayName` → `chat/ProviderTooltip.tsx`；`useSubmitHandler` → `chat/hooks/useSubmitHandler.ts`；**ChatHeader**（窗口标题 + 操作按钮 + PromptToast）→ `chat/ChatHeader.tsx`。
 
@@ -120,7 +119,6 @@
 
 | 库 | 特点 | 适合做什么 | 说明 |
 |----|------|-------------|------|
-| **[llm-ui](https://github.com/richardgill/llm-ui)**（`@llm-ui/react`） | Headless、Markdown + 代码高亮（Shiki）、流式节流、可定制块 | **只替换「单条消息的 Markdown/流式展示」** | 1.7k+ stars，MIT；不提供整页布局，适合嵌入现有气泡内，替代当前 `<Markdown>` + 手写流式逻辑。 |
 | **LlamaIndex Chat UI** | 完整 Chat 组件（ChatSection、ChatMessages、ChatInput）、Markdown、流式、文件/标注 | 新页面或重写整页聊天 | 若接受较大改造成本，可整页用其布局；需对接现有 session/API。 |
 | **NLUX**（`@nlux/react`） | `<AiChat />` + 适配器、流式、主题变量 | 新对话页或独立模块 | 偏「对话 UI 套件」，和现有 store/多模型/MCP 需自己桥接。 |
 | **Stream Chat React** | 实时聊天、AI 集成、流式 Markdown | 团队/频道类聊天 | 更偏实时协作，与当前「单会话 + 多模型 + 工具」模型差异大。 |
@@ -128,5 +126,5 @@
 **建议**：
 
 1. **短期**：继续按「五」做拆分（Header、renderSingleMessage），把 chat.tsx 压到 ~1500 行内，不引入新库。
-2. **中期**：若希望**只优化「消息内容渲染」**（流式体验、代码高亮、Markdown 稳定性），可试点 **llm-ui** 的 `useLLMOutput` + 自定义块，只替换每条 assistant 消息里的 Markdown 区域，保留现有气泡、多模型、MCP、操作按钮等。
+2. **中期**：若希望**只优化「消息内容渲染」**（流式体验、代码高亮、Markdown 稳定性），优先增强现有 `react-markdown` 渲染链路和本地代码预览组件，避免引入维护不足的 Markdown 预切块库。
 3. **长期**：若规划整页重写（新路由、新数据结构），再评估 LlamaIndex Chat UI 或 NLUX 等「整页级」方案。

@@ -1,4 +1,4 @@
-import { getModels, getProviders } from "@mariozechner/pi-ai";
+import { getModels, getProviders } from "@earendil-works/pi-ai";
 
 type PiModel = ReturnType<typeof getModels>[number];
 

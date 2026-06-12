@@ -89,15 +89,24 @@ const nextConfig = {
             "app/mcp/actions": "./app/mcp/actions.client.ts",
           }
         : {}),
-      "@mariozechner/pi-ai/dist/env-api-keys":
+      "@earendil-works/pi-ai/dist/env-api-keys":
         "./app/shims/pi-ai-env-api-keys.ts",
-      "@mariozechner/pi-ai/dist/env-api-keys.js":
+      "@earendil-works/pi-ai/dist/env-api-keys.js":
         "./app/shims/pi-ai-env-api-keys.ts",
       bufferutil: "./app/shims/empty-module.ts",
       "utf-8-validate": "./app/shims/empty-module.ts",
       child_process: "./app/shims/empty-module.ts",
       "node:child_process": "./app/shims/empty-module.ts",
+      cytoscape: "./app/shims/cytoscape-default.js",
     },
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      cytoscape: path.join(__dirname, "app/shims/cytoscape-default.js"),
+    };
+    return config;
   },
   output: mode,
 };

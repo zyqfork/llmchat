@@ -23,7 +23,7 @@ import { Path, REPO_URL } from "@/app/constant";
 import { Loading } from "./home";
 import styles from "./artifacts.module.scss";
 import { logger } from "../utils/logger";
-import { buildIframeSrcDoc } from "./llm-ui/preview-iframe-doc";
+import { buildIframeSrcDoc } from "./code-preview/preview-iframe-doc";
 
 type HTMLPreviewProps = {
   code: string;
