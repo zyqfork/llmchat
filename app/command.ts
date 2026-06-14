@@ -15,18 +15,18 @@ export function useCommand(commands: Commands = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    let shouldUpdate = false;
+    const nextSearchParams = new URLSearchParams(searchParams);
+
     searchParams.forEach((param, name) => {
       const commandName = name as keyof Commands;
       if (typeof commands[commandName] === "function") {
         commands[commandName]!(param);
-        searchParams.delete(name);
-        shouldUpdate = true;
+        nextSearchParams.delete(name);
       }
     });
 
-    if (shouldUpdate) {
-      setSearchParams(searchParams);
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, commands]);

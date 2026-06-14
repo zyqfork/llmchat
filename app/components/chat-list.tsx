@@ -22,6 +22,7 @@ import { useMaskStore } from "../store/mask";
 import { showConfirm } from "./ui-lib";
 import { useMobileScreen } from "../utils";
 import clsx from "clsx";
+import { useShallow } from "zustand/react/shallow";
 
 export function ChatItem(props: {
   onClick?: () => void;
@@ -213,14 +214,16 @@ export function ChatList(props: { narrow?: boolean }) {
     moveSession,
     currentMaskId,
     togglePinSession,
-  ] = useChatStore((state) => [
-    state.sessions,
-    state.currentSessionIndex,
-    state.selectSession,
-    state.moveSession,
-    state.currentMaskId,
-    state.togglePinSession,
-  ]);
+  ] = useChatStore(
+    useShallow((state) => [
+      state.sessions,
+      state.currentSessionIndex,
+      state.selectSession,
+      state.moveSession,
+      state.currentMaskId,
+      state.togglePinSession,
+    ]),
+  );
   const chatStore = useChatStore();
   const maskStore = useMaskStore();
   const navigate = useNavigate();

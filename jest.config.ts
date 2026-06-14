@@ -34,7 +34,6 @@ const config: Config = {
     "^@modelcontextprotocol/sdk/client/(index|sse|streamableHttp)\\.js$":
       "<rootDir>/app/test-shims/mcp-sdk.ts",
   },
-  extensionsToTreatAsEsm: [".ts", ".tsx"],
   injectGlobals: true,
 };
 
