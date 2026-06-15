@@ -59,7 +59,7 @@ jobs:
         run: yarn add --dev "electron@${{ inputs.electron_version }}" --no-lockfile
 
       - name: verify Electron version
-        run: yarn electron --version
+        run: node -p "require('electron/package.json').version"
 
       - name: build Electron Linux ARM64 app
         env:
