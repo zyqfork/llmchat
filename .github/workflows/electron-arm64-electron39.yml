@@ -1,0 +1,85 @@
+name: Electron Linux ARM64 Electron 39
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit to build. Leave empty to build the workflow ref."
+        required: false
+        default: ""
+      release_tag:
+        description: "Optional release tag/version to sync before building, for example v2.24.0."
+        required: false
+        default: ""
+      electron_version:
+        description: "Electron version range to install only for this CI build."
+        required: true
+        default: "39"
+      upload_to_release:
+        description: "Upload artifacts to release_tag after building."
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: electron-arm64-electron39-${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Linux ARM64 with Electron ${{ inputs.electron_version }}
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          cache: "yarn"
+
+      - name: sync version from release tag
+        if: inputs.release_tag != ''
+        run: node scripts/sync-version-from-tag.mjs "${{ inputs.release_tag }}"
+
+      - name: install Linux packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 zlib1g zlib1g-dev
+
+      - name: install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: install Electron 39 for this build
+        run: yarn add --dev "electron@${{ inputs.electron_version }}" --no-lockfile
+
+      - name: verify Electron version
+        run: yarn electron --version
+
+      - name: build Electron Linux ARM64 app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn electron:build --linux AppImage deb --arm64
+
+      - name: upload Electron ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-linux-arm64-electron39
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+
+      - name: upload Electron ARM64 artifact to release
+        if: inputs.upload_to_release && inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: |
+            dist/*.AppImage
+            dist/*.deb
