@@ -5,14 +5,14 @@ import { getAllProviders } from "../constant";
 import { resolvePiProviderId } from "../utils/pi-ai-resolver";
 import { useAccessStore } from "../store/access";
 import { executeMcpToolCall } from "./mcp-tool-executor";
-import { completeSimple, getModel, streamSimple } from "@earendil-works/pi-ai";
+import { completeSimple, getModel, streamSimple } from "@earendil-works/pi-ai/compat";
 import type {
   Context,
   ImageContent,
   Message,
   TextContent,
 } from "@earendil-works/pi-ai";
-import { transformMessages } from "@earendil-works/pi-ai/providers/transform-messages";
+import { transformMessages } from "@earendil-works/pi-ai/api/transform-messages";
 import { applyStatefulResponsesPayload } from "../utils/response-api";
 import { agentLoop, runAgentLoop } from "@earendil-works/pi-agent-core";
 

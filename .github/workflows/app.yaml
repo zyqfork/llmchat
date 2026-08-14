@@ -206,22 +206,22 @@ jobs:
             artifact_name: electron-linux-amd64
             command: yarn electron:build --linux AppImage deb
             artifact_glob: |
-              dist/*.AppImage
-              dist/*.deb
+              release/*.AppImage
+              release/*.deb
           - os: ubuntu-24.04-arm
             artifact_name: electron-linux-arm64
             command: yarn electron:build --linux AppImage deb
             artifact_glob: |
-              dist/*.AppImage
-              dist/*.deb
+              release/*.AppImage
+              release/*.deb
           - os: windows-latest
             artifact_name: electron-windows
             command: yarn electron:build --win nsis
-            artifact_glob: dist/*.exe
+            artifact_glob: release/*.exe
           - os: macos-latest
             artifact_name: electron-macos-universal
             command: yarn electron:build --mac dmg
-            artifact_glob: dist/*.dmg
+            artifact_glob: release/*.dmg
 
     runs-on: ${{ matrix.config.os }}
     steps:

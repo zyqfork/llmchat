@@ -71,8 +71,8 @@ jobs:
         with:
           name: electron-linux-arm64-electron39
           path: |
-            dist/*.AppImage
-            dist/*.deb
+            release/*.AppImage
+            release/*.deb
           if-no-files-found: error
 
       - name: upload Electron ARM64 artifact to release
@@ -81,5 +81,5 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag }}
           files: |
-            dist/*.AppImage
-            dist/*.deb
+            release/*.AppImage
+            release/*.deb

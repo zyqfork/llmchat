@@ -26,6 +26,9 @@ const config: Config = {
     "^@earendil-works/pi-web-ui/storage/stores/settings-store$":
       "<rootDir>/app/test-shims/pi-web-ui-settings-store.ts",
     "^@earendil-works/pi-ai$": "<rootDir>/app/test-shims/pi-ai.ts",
+    "^@earendil-works/pi-ai/compat$": "<rootDir>/app/test-shims/pi-ai.ts",
+    "^@earendil-works/pi-ai/api/transform-messages$":
+      "<rootDir>/app/test-shims/pi-ai-transform-messages.ts",
     "^@earendil-works/pi-ai/providers/transform-messages$":
       "<rootDir>/app/test-shims/pi-ai-transform-messages.ts",
     "^@earendil-works/pi-agent-core$":

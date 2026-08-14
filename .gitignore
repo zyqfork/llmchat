@@ -15,6 +15,7 @@ package-lock.json
 
 # production
 /build
+/release
 
 # misc
 .DS_Store
@@ -52,11 +53,7 @@ masks.json
 # mcp config
 app/mcp/mcp_config.json
 
-.kiro
 dev_docs
 qdrant*
-.claude
 
 /dist/
-/.tmp-*
-/.junie/
