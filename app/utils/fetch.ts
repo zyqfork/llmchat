@@ -145,8 +145,27 @@ export async function fetch(
     writer.ready.then(() => writer.close().catch((e) => logger.error(e)));
   };
 
+  // 前端 AbortSignal → 通知原生后端真正取消请求（避免继续下载/计费）
+  const cancelNativeRequest = (request_id: number) => {
+    if (runtime === DesktopRuntime.Tauri) {
+      import("@tauri-apps/api/core")
+        .then(({ invoke }) =>
+          invoke("tauri_fetch_cancel", { request_id }).catch(() => {}),
+        )
+        .catch(() => {});
+    } else if (runtime === DesktopRuntime.Electron && window.electronApp) {
+      (window.electronApp as any)
+        .abortFetch?.(request_id)
+        ?.catch(() => {});
+    }
+  };
+
   if (signal) {
-    signal.addEventListener("abort", () => close());
+    signal.addEventListener("abort", () => {
+      // 拿到 request_id 后再取消；拿不到（请求尚未建立）时由原生侧超时兜底
+      requestIdPromise.then(cancelNativeRequest).catch(() => {});
+      close();
+    });
   }
 
   const onStreamPayload = (payload: any) => {

@@ -238,10 +238,14 @@ export class DesktopWebSocket {
     }
     const runtime = getDesktopRuntime();
     if (runtime === DesktopRuntime.Electron) {
-      void window.electronApp?.wsSend?.({
-        connection_id: this.connectionId,
-        data,
-      });
+      window.electronApp
+        ?.wsSend?.({
+          connection_id: this.connectionId,
+          data,
+        })
+        ?.catch((err: unknown) =>
+          logger.error("[DesktopWS] ws send failed:", err),
+        );
       return;
     }
     if (runtime === DesktopRuntime.Tauri) {
@@ -261,10 +265,16 @@ export class DesktopWebSocket {
     this.readyState = DesktopWebSocket.CLOSING;
     const runtime = getDesktopRuntime();
     if (runtime === DesktopRuntime.Electron) {
-      void window.electronApp?.wsClose?.({ connection_id: this.connectionId });
+      window.electronApp
+        ?.wsClose?.({ connection_id: this.connectionId })
+        ?.catch((err: unknown) =>
+          logger.error("[DesktopWS] ws close failed:", err),
+        );
     } else if (runtime === DesktopRuntime.Tauri) {
       import("@tauri-apps/api/core").then(({ invoke }) =>
-        invoke("tauri_ws_close", { connectionId: this.connectionId }),
+        invoke("tauri_ws_close", { connectionId: this.connectionId }).catch(
+          (err) => logger.error("[DesktopWS] tauri_ws_close failed:", err),
+        ),
       );
     }
   }

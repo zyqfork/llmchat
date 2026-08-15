@@ -26,11 +26,8 @@ function copyDir(src, dest) {
 console.log('Copying static files for standalone build...');
 
 // 复制 .next/static 到 .next/standalone/.next/static
+// （public 目录由 Next 构建时自动复制到 standalone 输出，无需手动处理）
 copyDir('.next/static', '.next/standalone/.next/static');
 console.log('✓ Copied .next/static');
-
-// 复制 public 到 .next/standalone/public
-copyDir('public', '.next/standalone/public');
-console.log('✓ Copied public');
 
 console.log('Standalone build is ready!');

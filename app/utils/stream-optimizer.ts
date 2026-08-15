@@ -13,12 +13,9 @@ export class StreamUpdateOptimizer {
   >();
 
   private updateTimer: NodeJS.Timeout | null = null;
-  // 优化批量延迟以提高响应速度
-  private readonly BATCH_DELAY = 50; // 从100ms降低到50ms，提高响应速度
-  // 添加最小内容长度阈值，避免过频繁的更新
-  private readonly MIN_CONTENT_LENGTH = 1; // 保持低阈值，确保小更新也能及时显示
-  // 添加最大等待时间，避免更新延迟过长
-  private readonly MAX_WAIT_TIME = 200; // 从500ms降低到200ms，减少延迟
+  // 批量延迟：流式期间把相邻 token 合并到同一个 50ms 窗口内一次性 flush，
+  // 避免每 token 一次 setState 触发整棵组件树重渲染。
+  private readonly BATCH_DELAY = 50;
   private lastFlushTime = 0;
   // 为每个模型维护独立的更新队列
   private modelUpdateQueues = new Map<string, any[]>();
@@ -34,10 +31,6 @@ export class StreamUpdateOptimizer {
   ) {
     const key = `${sessionId}-${messageId}`;
 
-    // 计算与上次缓存内容的增量长度
-    const prev = this.pendingUpdates.get(key)?.content ?? "";
-    const deltaLen = Math.max(0, content.length - prev.length);
-
     // 缓存更新
     this.pendingUpdates.set(key, {
       session,
@@ -46,36 +39,11 @@ export class StreamUpdateOptimizer {
       lastUpdate: Date.now(),
     });
 
-    // 防抖批量更新
+    // 合并到最近的批量窗口：先清掉上一个定时器，保证同一窗口内只有一个 flush。
+    // 慢速流（>20 token/s 间隔）仍会在 50ms 内显示新内容，感知延迟可忽略。
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
     }
-
-    // 多模型模式下的优化：更频繁的更新以确保界面响应性
-    const isMultiModel = session.multiModelMode?.enabled;
-
-    // 关键修复：多模型模式下，确保及时的状态更新
-    if (isMultiModel) {
-      // 多模型模式下，任何增量都立即刷新，确保按钮状态及时更新
-      if (deltaLen > 0) {
-        setTimeout(() => this.flushUpdates(), 5);
-        return;
-      }
-    }
-
-    // 非常小的增量（<=2 个字符）时，立即刷新，近似"逐字吐出"
-    if (deltaLen > 0 && deltaLen <= 2) {
-      // 使用微任务或最小延迟，避免阻塞当前调用栈
-      setTimeout(() => this.flushUpdates(), 0);
-      return;
-    }
-
-    // 普通模式下，中等增量也立即刷新
-    if (deltaLen > 0 && deltaLen <= 10) {
-      setTimeout(() => this.flushUpdates(), 10);
-      return;
-    }
-
     this.updateTimer = setTimeout(() => {
       this.flushUpdates();
     }, this.BATCH_DELAY);

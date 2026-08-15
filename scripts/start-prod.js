@@ -20,10 +20,18 @@ const child = spawn(
   { stdio: "inherit", env: process.env },
 );
 
+child.on("error", (err) => {
+  console.error(`Failed to start production server: ${err.message}`);
+  process.exit(1);
+});
+
 child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
+  // Windows 不支持把信号转发给自身进程，统一以退出码收尾
+  const exitCode = code ?? (signal ? 1 : 0);
+  if (exitCode !== 0) {
+    console.error("");
+    console.error("Server exited with a non-zero code.");
+    console.error("If the port is already in use, set a different one via the PORT environment variable.");
   }
-  process.exit(code ?? 0);
+  process.exit(exitCode);
 });

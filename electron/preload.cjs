@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld("electronApp", {
   isElectron: true,
   isDesktopClient: true,
   invokeFetch: (payload) => ipcRenderer.invoke("electron-fetch", payload),
+  abortFetch: (requestId) =>
+    ipcRenderer.invoke("electron-fetch-abort", { request_id: requestId }),
   onStreamResponse: (listener) => {
     const wrapped = (_event, data) => listener(data);
     ipcRenderer.on("electron-stream-response", wrapped);

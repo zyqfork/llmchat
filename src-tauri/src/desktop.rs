@@ -1,8 +1,36 @@
+use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri::{
   menu::{Menu, MenuItem},
   tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
   AppHandle, Emitter, Manager,
 };
+
+/// 前端是否已完成 deep-link 事件监听。未就绪前收到的深链 URL 会先缓存，
+/// 等前端通过 `desktop_frontend_ready` 命令取回后再分发（避免首启丢失）。
+static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
+static PENDING_DEEP_LINKS: Lazy<Mutex<Vec<String>>> =
+  Lazy::new(|| Mutex::new(Vec::new()));
+
+fn dispatch_deep_link(app: &AppHandle, url: &str) {
+  if FRONTEND_READY.load(Ordering::SeqCst) {
+    let _ = app.emit("deep-link", url.to_string());
+  } else if let Ok(mut pending) = PENDING_DEEP_LINKS.lock() {
+    pending.push(url.to_string());
+  }
+}
+
+/// 前端挂载 deep-link 监听后调用：一次性取回首启缓存的深链（由前端分发），
+/// 此后新到达的深链直接 emit，不再缓存。
+#[tauri::command]
+pub fn desktop_frontend_ready() -> Vec<String> {
+  FRONTEND_READY.store(true, Ordering::SeqCst);
+  PENDING_DEEP_LINKS
+    .lock()
+    .map(|mut v| std::mem::take(&mut *v))
+    .unwrap_or_default()
+}
 
 pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   setup_tray(app)?;
@@ -66,7 +94,7 @@ fn setup_deep_link(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error
   let handle = app.handle().clone();
   app.deep_link().on_open_url(move |event| {
     for url in event.urls() {
-      let _ = handle.emit("deep-link", url.to_string());
+      dispatch_deep_link(&handle, &url.to_string());
     }
   });
 
@@ -102,7 +130,7 @@ pub fn handle_second_instance(app: &AppHandle, argv: &[String]) {
   focus_main_window_from_plugin(app);
   for arg in argv {
     if arg.starts_with("llmchat:") {
-      let _ = app.emit("deep-link", arg.clone());
+      dispatch_deep_link(app, arg);
     }
   }
 }

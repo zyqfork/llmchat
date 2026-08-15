@@ -193,20 +193,26 @@ export function mergeAppState(localState: AppState, remoteState: AppState) {
 }
 
 /**
- * Merge state with `lastUpdateTime`, older state will be override
+ * Merge state with `lastUpdateTime`, older state will be override.
+ *
+ * merge(target, source) 中 source 的值在冲突时胜出，因此：
+ * - 远端更新（remote 较新）时，remote 作为 source，远端值优先；
+ * - 本地更新（local 较新）时，local 作为 source，本地值优先。
  */
 export function mergeWithUpdate<T extends { lastUpdateTime?: number }>(
   localState: T,
   remoteState: T,
 ) {
   const localUpdateTime = localState.lastUpdateTime ?? 0;
-  const remoteUpdateTime = localState.lastUpdateTime ?? 1;
+  const remoteUpdateTime = remoteState.lastUpdateTime ?? 1;
 
   if (localUpdateTime < remoteUpdateTime) {
-    merge(remoteState, localState);
-    return { ...remoteState };
-  } else {
+    // 远端较新：远端值优先，本地独有键保留
     merge(localState, remoteState);
     return { ...localState };
+  } else {
+    // 本地较新（或时间戳缺失）：本地值优先，远端独有键保留
+    merge(remoteState, localState);
+    return { ...remoteState };
   }
 }

@@ -892,8 +892,7 @@ function JsonStructuredPreview(props: { code: string; language?: string }) {
         {typeof parsedData === "object" ? (
           <JsonView
             value={parsedData as object}
-            collapsed={false}
-            shouldExpandNodeInitially={() => true}
+            collapsed={2}
             displayDataTypes={false}
             displayObjectSize
             enableClipboard

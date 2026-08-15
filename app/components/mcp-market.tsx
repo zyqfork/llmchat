@@ -97,7 +97,7 @@ export function McpMarketPage() {
   // 搜索框引用
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 添加状态轮询
+  // 添加状态轮询（页面不可见时不轮询，降低无效开销）
   useEffect(() => {
     if (!config) return;
 
@@ -108,10 +108,25 @@ export function McpMarketPage() {
 
     // 立即执行一次
     updateStatuses();
-    // 每 1000ms 轮询一次
-    const timer = setInterval(updateStatuses, 1000);
+    // 每 3000ms 轮询一次
+    const timer = setInterval(() => {
+      if (!document.hidden) {
+        updateStatuses();
+      }
+    }, 3000);
 
-    return () => clearInterval(timer);
+    // 页面重新可见时立即刷新一次
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        updateStatuses();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [config]);
 
   // 加载内置预设服务器

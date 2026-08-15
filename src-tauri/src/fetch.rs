@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
@@ -14,6 +15,10 @@ use reqwest::Client;
 use tauri::Emitter;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// 进行中的流式任务注册表，用于支持前端 AbortSignal 取消原生请求。
+static ACTIVE_STREAMS: Lazy<Mutex<HashMap<u32, tauri::async_runtime::JoinHandle<()>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// 复用全局 reqwest Client：启用连接池/Keep-Alive，避免每次请求都重建 Client。
 static CLIENT: Lazy<Client> = Lazy::new(|| {
@@ -72,7 +77,18 @@ async fn execute_stream_request(
     let event_name = "stream-response";
     let request_id = REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-    println!("[Tauri Fetch] {} {}", method, url);
+    // 只打印 scheme://host/path，避免 query 中的 token/api key 进入日志
+    if let Ok(parsed) = url.parse::<reqwest::Url>() {
+        println!(
+            "[Tauri Fetch] {} {}://{}{}",
+            method,
+            parsed.scheme(),
+            parsed.host_str().unwrap_or("?"),
+            parsed.path()
+        );
+    } else {
+        println!("[Tauri Fetch] {} <invalid url>", method);
+    }
 
     let client = &*CLIENT;
 
@@ -86,7 +102,10 @@ async fn execute_stream_request(
             .map_err(|e| format!("Invalid URL: {}", e))?,
     );
 
-    request = request.headers(header_map).timeout(timeout);
+    // 注意：不能把 timeout 挂在 reqwest 请求上——它会对“整个响应体”生效，
+    // 长流式响应会被总时长硬断。这里改为仅约束“建立连接 + 收到响应头”，
+    // 响应体的停滞由流式任务中的空闲超时控制。
+    request = request.headers(header_map);
 
     if method == reqwest::Method::POST
         || method == reqwest::Method::PUT
@@ -95,9 +114,9 @@ async fn execute_stream_request(
         request = request.body(bytes::Bytes::from(body));
     }
 
-    let response = request
-        .send()
+    let response = tokio::time::timeout(timeout, request.send())
         .await
+        .map_err(|_| "Request timeout".to_string())?
         .map_err(|e| format!("Request failed: {}", e))?;
 
     let mut resp_headers = HashMap::new();
@@ -117,13 +136,14 @@ async fn execute_stream_request(
         .unwrap_or("Unknown Status")
         .to_string();
 
-    tauri::async_runtime::spawn(async move {
+    let handle = tauri::async_runtime::spawn(async move {
         let mut stream = response.bytes_stream();
         let mut ended_with_error = false;
 
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(bytes) => {
+        // 空闲超时：每个 chunk 到达后重置计时器，流停滞超过 timeout 才终止
+        loop {
+            match tokio::time::timeout(timeout, stream.next()).await {
+                Ok(Some(Ok(bytes))) => {
                     if let Err(e) = window.emit(
                         event_name,
                         ChunkPayload {
@@ -132,10 +152,11 @@ async fn execute_stream_request(
                         },
                     ) {
                         println!("[Tauri Fetch] Failed to emit chunk: {:?}", e);
+                        ended_with_error = true;
                         break;
                     }
                 }
-                Err(err) => {
+                Ok(Some(Err(err))) => {
                     println!("[Tauri Fetch] Stream error: {:?}", err);
                     ended_with_error = true;
                     let _ = window.emit(
@@ -144,6 +165,23 @@ async fn execute_stream_request(
                             request_id,
                             status: 0,
                             error: Some(err.to_string()),
+                        },
+                    );
+                    break;
+                }
+                Ok(None) => break,
+                Err(_) => {
+                    println!(
+                        "[Tauri Fetch] Stream idle timeout for request {}",
+                        request_id
+                    );
+                    ended_with_error = true;
+                    let _ = window.emit(
+                        event_name,
+                        EndPayload {
+                            request_id,
+                            status: 0,
+                            error: Some("Response stream idle timeout".to_string()),
                         },
                     );
                     break;
@@ -161,7 +199,15 @@ async fn execute_stream_request(
                 },
             );
         }
+
+        if let Ok(mut streams) = ACTIVE_STREAMS.lock() {
+            streams.remove(&request_id);
+        }
     });
+
+    if let Ok(mut streams) = ACTIVE_STREAMS.lock() {
+        streams.insert(request_id, handle);
+    }
 
     Ok(StreamResponse {
         request_id,
@@ -169,6 +215,19 @@ async fn execute_stream_request(
         status_text,
         headers: resp_headers,
     })
+}
+
+/// 取消一个进行中的流式请求（前端 AbortSignal 触发时调用）。
+#[tauri::command]
+pub fn tauri_fetch_cancel(request_id: u32) -> Result<(), String> {
+    let handle = ACTIVE_STREAMS
+        .lock()
+        .map_err(|_| "active streams lock poisoned".to_string())?
+        .remove(&request_id);
+    if let Some(handle) = handle {
+        handle.abort();
+    }
+    Ok(())
 }
 
 /// 统一 fetch 命令：method, url, headers, body 由前端传入，timeout_secs 默认 300。

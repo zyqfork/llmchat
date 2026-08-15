@@ -34,7 +34,6 @@ const nextConfig = {
     optimizePackageImports: [
       "@lobehub/icons",
       "lodash-es",
-      "react-icons",
     ],
   },
 

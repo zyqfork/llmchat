@@ -52,6 +52,12 @@ export function DesktopLifecycle() {
           );
           unlisteners.push(unlistenDeepLink);
 
+          // 取回首启时缓存的深链（防止 React 挂载完成前的事件丢失）
+          const { invoke: invokeCore } = await import("@tauri-apps/api/core");
+          const pending =
+            (await invokeCore<string[]>("desktop_frontend_ready")) || [];
+          pending.forEach((url) => dispatchDeepLink(url));
+
           const unlistenShortcut = await listen<string>(
             "global-shortcut",
             (event) => {

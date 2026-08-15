@@ -117,10 +117,19 @@ export async function preProcessImageContentForAlibabaDashScope(
   }));
 }
 
-const imageCaches: Record<string, string> = {};
+// 压缩图片缓存（LRU 上限，避免长会话中无限增长占用内存）
+const IMAGE_CACHE_MAX = 50;
+const imageCaches = new Map<string, string>();
+function evictImageCache() {
+  while (imageCaches.size > IMAGE_CACHE_MAX) {
+    const oldest = imageCaches.keys().next().value;
+    if (oldest === undefined) break;
+    imageCaches.delete(oldest);
+  }
+}
 export function cacheImageToBase64Image(imageUrl: string) {
   if (imageUrl.includes(CACHE_URL_PREFIX)) {
-    if (!imageCaches[imageUrl]) {
+    if (!imageCaches.has(imageUrl)) {
       const reader = new FileReader();
       return fetch(imageUrl, {
         method: "GET",
@@ -128,12 +137,14 @@ export function cacheImageToBase64Image(imageUrl: string) {
         credentials: "include",
       })
         .then((res) => res.blob())
-        .then(
-          async (blob) =>
-            (imageCaches[imageUrl] = await compressImage(blob, 256 * 1024)),
-        ); // compressImage
+        .then(async (blob) => {
+          const data = await compressImage(blob, 256 * 1024);
+          imageCaches.set(imageUrl, data);
+          evictImageCache();
+          return data;
+        }); // compressImage
     }
-    return Promise.resolve(imageCaches[imageUrl]);
+    return Promise.resolve(imageCaches.get(imageUrl)!);
   }
   return Promise.resolve(imageUrl);
 }

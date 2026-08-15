@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::Emitter;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -83,9 +84,14 @@ pub async fn tauri_ws_connect(
         }
     }
 
-    let (ws_stream, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .map_err(|e| format!("ws connect failed: {e}"))?;
+    // 握手超时：不可达地址/无响应时避免 invoke 永久挂起
+    let (ws_stream, _) = tokio::time::timeout(
+        Duration::from_secs(15),
+        tokio_tungstenite::connect_async(request),
+    )
+    .await
+    .map_err(|_| "ws connect timeout: no handshake response within 15s".to_string())?
+    .map_err(|e| format!("ws connect failed: {e}"))?;
 
     let connection_id = WS_COUNTER.fetch_add(1, Ordering::SeqCst);
     let (tx, mut rx) = unbounded_channel::<Message>();

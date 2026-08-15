@@ -57,7 +57,6 @@ function createProviderState<T>(defaultValue: T): Record<string, T> {
 // 动态生成provider字段的默认状态
 function createProviderFieldsState(): Record<string, any> {
   const state: Record<string, any> = {};
-  const isApp = getClientConfig()?.buildMode === "export";
 
   getAllProviders().forEach((provider) => {
     const storeKeys = provider.storeKeys;
@@ -65,12 +64,10 @@ function createProviderFieldsState(): Record<string, any> {
     // 设置默认值
     state[storeKeys.apiKey] = "";
 
-    // 根据是否为App模式设置baseUrl
-    if (isApp) {
-      state[storeKeys.baseUrl] = provider.defaultBaseUrl;
-    } else {
-      state[storeKeys.baseUrl] = provider.apiPath;
-    }
+    // baseUrl 统一默认为供应商真实地址。
+    // 注意：旧的 Web 模式默认值 `provider.apiPath`（如 `/api/openai`）指向的
+    // 服务端代理路由已被移除，继续使用会导致所有请求 404。
+    state[storeKeys.baseUrl] = provider.defaultBaseUrl;
 
     // 根据SDK能力添加可选字段
     if (storeKeys.apiType) {
@@ -136,8 +133,6 @@ export interface CustomProvider {
 }
 
 let fetchState = 0; // 0 not fetch, 1 fetching, 2 done
-
-const isApp = getClientConfig()?.buildMode === "export";
 
 const DEFAULT_ACCESS_STATE = {
   accessCode: "",

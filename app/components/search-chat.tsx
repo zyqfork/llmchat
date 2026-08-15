@@ -23,10 +23,9 @@ export function SearchChatPage() {
   const sessions = chatStore.sessions;
   const selectSession = chatStore.selectSession;
 
+  const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
 
-  const previousValueRef = useRef<string>("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const doSearch = useCallback(
     (text: string) => {
       const lowerCaseText = text.toLowerCase();
@@ -73,23 +72,17 @@ export function SearchChatPage() {
     [sessions],
   );
 
+  // 输入防抖搜索（替代原来的 1s 轮询），输入为空时清空结果
   useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (searchInputRef.current) {
-        const currentValue = searchInputRef.current.value;
-        if (currentValue !== previousValueRef.current) {
-          if (currentValue.length > 0) {
-            const result = doSearch(currentValue);
-            setSearchResults(result);
-          }
-          previousValueRef.current = currentValue;
-        }
-      }
-    }, 1000);
-
-    // Cleanup the interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [doSearch]);
+    if (!searchText) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSearchResults(doSearch(searchText));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchText, doSearch]);
 
   return (
     <ErrorBoundary>
@@ -124,14 +117,13 @@ export function SearchChatPage() {
               className={styles["search-bar"]}
               placeholder={Locale.SearchChat.Page.Search}
               autoFocus
-              ref={searchInputRef}
+              value={searchText}
+              onChange={(e) => setSearchText(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  const searchText = e.currentTarget.value;
                   if (searchText.length > 0) {
-                    const result = doSearch(searchText);
-                    setSearchResults(result);
+                    setSearchResults(doSearch(searchText));
                   }
                 }
               }}

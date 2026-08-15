@@ -197,7 +197,7 @@ export const useUpdateStore = createPersistStore(
               if (!hasUpdate) {
                 // Show a notification using Tauri
                 await sendNotification({
-                  title: "NextChat",
+                  title: "LLMChat",
                   body: `${Locale.Settings.Update.IsLatest}`,
                   icon: `${ChatGptIcon.src}`,
                 });
@@ -207,7 +207,7 @@ export const useUpdateStore = createPersistStore(
                 );
                 // Show a notification for the new version using Tauri
                 await sendNotification({
-                  title: "NextChat",
+                  title: "LLMChat",
                   body: updateMessage,
                   icon: `${ChatGptIcon.src}`,
                 });

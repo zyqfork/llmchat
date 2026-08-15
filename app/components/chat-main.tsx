@@ -546,6 +546,11 @@ export function ChatMain() {
   };
 
   useEffect(() => {
+    // 流式进行中跳过：session 每 flush 都换新身份，若照常执行会
+    // 造成每个 token 额外一次 set（二次渲染整棵订阅树）。流结束瞬间
+    // isStreamingFollow 翻转，本 effect 会再触发一次完成清扫。
+    if (isStreamingFollow) return;
+
     chatStore.updateTargetSession(session, (session) => {
       const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
       session.messages.forEach((m) => {
@@ -571,7 +576,7 @@ export function ChatMain() {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, isStreamingFollow]);
 
   // check if should send message
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

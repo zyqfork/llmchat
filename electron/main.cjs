@@ -13,9 +13,12 @@ const {
 
 const isDev = !app.isPackaged;
 const PROTOCOL = "llmchat";
+// Windows: 通知/任务栏分组需要 AppUserModelID
+app.setAppUserModelId("com.github.zyqfork.llmchat.electron");
 let requestCounter = 0;
 let wsCounter = 1;
 const wsConnections = new Map();
+const activeRequests = new Map();
 let mainWindow = null;
 let tray = null;
 
@@ -72,9 +75,17 @@ function sendStreamEnd(webContents, requestId, error) {
 
 /**
  * 使用 Chromium net 栈代理请求（与渲染进程浏览器一致），避免 Node fetch + BoringSSL 的 ALPN/TLS 兼容问题。
+ *
+ * 超时语义：
+ * - `timeout_secs` 仅约束“建立连接 + 收到响应头”阶段；
+ * - 响应体阶段使用空闲超时（idleTimeoutSecs，默认 120s），
+ *   每个 chunk 到达时重置计时器，长流式响应不会被总时长硬断，停滞的流会被终止。
+ * - 无论以何种方式结束（end/error/abort），都会保证发送 `electron-stream-response` 结束事件，
+ *   避免前端 TransformStream 永久挂起。
  */
 function electronNetFetch(webContents, payload, requestId) {
-  const timeoutMs = (payload.timeout_secs || 300) * 1000;
+  const headerTimeoutMs = (payload.timeout_secs || 300) * 1000;
+  const idleTimeoutMs = (payload.idle_timeout_secs || 120) * 1000;
   const method = payload.method || "GET";
   const headers = normalizeHeaders(payload.headers);
   const body =
@@ -84,23 +95,43 @@ function electronNetFetch(webContents, payload, requestId) {
 
   return new Promise((resolve, reject) => {
     let headerResolved = false;
+    let streamEnded = false;
     const request = net.request({
       method,
       url: payload.url,
       headers,
     });
 
-    const timeoutId = setTimeout(() => {
+    // 头部阶段超时：只想等“连接+响应头”，不等整个 body
+    const headerTimer = setTimeout(() => {
       request.abort();
       if (!headerResolved) {
         reject(new Error("Request timeout"));
       }
-    }, timeoutMs);
+    }, headerTimeoutMs);
 
-    const clearTimer = () => clearTimeout(timeoutId);
+    let idleTimer = null;
+    const startIdleTimer = () => {
+      if (streamEnded) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        request.abort();
+        endStream("Response stream idle timeout");
+      }, idleTimeoutMs);
+    };
+
+    const endStream = (error) => {
+      if (streamEnded) return;
+      streamEnded = true;
+      clearTimeout(headerTimer);
+      clearTimeout(idleTimer);
+      activeRequests.delete(requestId);
+      sendStreamEnd(webContents, requestId, error);
+    };
 
     request.on("response", (response) => {
       headerResolved = true;
+      clearTimeout(headerTimer);
       resolve({
         request_id: requestId,
         status: response.statusCode,
@@ -108,36 +139,38 @@ function electronNetFetch(webContents, payload, requestId) {
         headers: normalizeResponseHeaders(response.headers),
       });
 
+      startIdleTimer();
       response.on("data", (chunk) => {
         if (webContents.isDestroyed()) return;
+        startIdleTimer();
         webContents.send("electron-stream-response", {
           request_id: requestId,
           chunk: Array.from(chunk),
         });
       });
 
-      response.on("end", () => {
-        clearTimer();
-        sendStreamEnd(webContents, requestId, null);
-      });
-
-      response.on("error", (err) => {
-        clearTimer();
-        sendStreamEnd(webContents, requestId, String(err));
-      });
+      response.on("end", () => endStream(null));
+      response.on("error", (err) => endStream(String(err)));
+      response.on("aborted", () => endStream("Response aborted"));
     });
 
     request.on("error", (err) => {
-      clearTimer();
+      clearTimeout(headerTimer);
+      clearTimeout(idleTimer);
+      activeRequests.delete(requestId);
       if (!headerResolved) {
         reject(new Error(`Request failed: ${formatFetchError(err)}`));
         return;
       }
-      sendStreamEnd(webContents, requestId, String(err));
+      endStream(String(err));
     });
+
+    // ClientRequest 在 abort() 时发出 'abort' 事件（'aborted' 属于 IncomingMessage）
+    request.on("abort", () => endStream("Request aborted"));
 
     if (body) request.write(body);
     request.end();
+    activeRequests.set(requestId, request);
   });
 }
 
@@ -194,6 +227,15 @@ ipcMain.handle("electron-fetch", (event, payload) => {
   return electronNetFetch(event.sender, payload, requestId);
 });
 
+// 前端 AbortSignal → 真正取消进行中的原生请求（避免继续下载/计费）
+ipcMain.handle("electron-fetch-abort", (_event, payload) => {
+  const request = activeRequests.get(payload?.request_id);
+  if (request) {
+    request.abort();
+  }
+  return true;
+});
+
 ipcMain.handle("electron-ws-connect", async (event, payload) => {
   const connectionId = wsCounter++;
   const webContents = event.sender;
@@ -206,6 +248,8 @@ ipcMain.handle("electron-ws-connect", async (event, payload) => {
     hasAuth ? [] : Array.isArray(payload.protocols) ? payload.protocols : [];
   const socket = new Ws(payload.url, protocols, {
     headers: hdrs,
+    // 握手超时：不可达地址/无响应时避免调用永久挂起
+    handshakeTimeout: 15000,
   });
 
   socket.on("open", () => {
@@ -218,7 +262,20 @@ ipcMain.handle("electron-ws-connect", async (event, payload) => {
       data: text,
     });
   });
+  const onOwnerDestroyed = () => {
+    for (const [id, sock] of wsConnections) {
+      if (sock._ownerWebContents === webContents) {
+        try {
+          sock.close();
+        } catch {
+          // ignore
+        }
+        wsConnections.delete(id);
+      }
+    }
+  };
   socket.on("close", (code, reason) => {
+    webContents.removeListener("destroyed", onOwnerDestroyed);
     webContents.send("electron-ws-close", {
       connection_id: connectionId,
       code,
@@ -227,13 +284,18 @@ ipcMain.handle("electron-ws-connect", async (event, payload) => {
     wsConnections.delete(connectionId);
   });
   socket.on("error", (err) => {
+    webContents.removeListener("destroyed", onOwnerDestroyed);
     webContents.send("electron-ws-error", {
       connection_id: connectionId,
       error: String(err || "WebSocket connection error"),
     });
   });
 
+  // 记录归属窗口；窗口销毁时统一关闭该窗口的所有连接，避免泄漏。
+  // 连接正常关闭时同步移除该监听器，防止长时间运行的窗口积累无限多的 once 监听。
+  socket._ownerWebContents = webContents;
   wsConnections.set(connectionId, socket);
+  webContents.once("destroyed", onOwnerDestroyed);
   return connectionId;
 });
 

@@ -25,13 +25,13 @@ jobs:
       build_ref: ${{ steps.create-release.outputs.build_ref }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: create release
         id: create-release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         env:
           INPUT_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
         with:
@@ -90,7 +90,7 @@ jobs:
                 body:
                   `Desktop release for \`${tag}\` at [` +
                   `\`${sha.slice(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}).`,
-                draft: false,
+                draft: true,
                 prerelease: false,
               })
               return created.data
@@ -104,8 +104,31 @@ jobs:
             core.setOutput("release_tag", data.tag_name)
             core.setOutput("build_ref", data.tag_name)
 
-  build-tauri:
+  lint-test:
     needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.create-release.outputs.build_ref }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "yarn"
+
+      - name: install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: run lint
+        run: yarn lint
+
+      - name: run tests
+        run: yarn test:ci
+
+  build-tauri:
+    needs: [create-release, lint-test]
     permissions:
       contents: write
     strategy:
@@ -135,12 +158,12 @@ jobs:
 
     runs-on: ${{ matrix.config.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.create-release.outputs.build_ref }}
 
       - name: setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "yarn"
@@ -195,7 +218,7 @@ jobs:
           args: ${{ matrix.config.tauri_args }}
 
   build-electron:
-    needs: create-release
+    needs: [create-release, lint-test]
     permissions:
       contents: write
     strategy:
@@ -225,12 +248,12 @@ jobs:
 
     runs-on: ${{ matrix.config.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.create-release.outputs.build_ref }}
 
       - name: setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "yarn"
@@ -273,7 +296,7 @@ jobs:
 
     steps:
       - name: publish release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         env:
           RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
         with:

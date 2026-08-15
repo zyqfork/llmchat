@@ -42,10 +42,12 @@ fn main() {
     .plugin(tauri_plugin_deep_link::init())
     .invoke_handler(tauri::generate_handler![
       fetch::tauri_fetch,
+      fetch::tauri_fetch_cancel,
       ws::tauri_ws_connect,
       ws::tauri_ws_send_text,
       ws::tauri_ws_close,
-      desktop::toggle_devtools
+      desktop::toggle_devtools,
+      desktop::desktop_frontend_ready
     ])
     .setup(|app| {
       desktop::setup(app)?;

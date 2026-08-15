@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import clsx from "clsx";
 import type { ChatMessage, ChatSession } from "../../store";
 import { useChatStore } from "../../store";
@@ -13,97 +13,153 @@ import Locale from "../../locales";
 import { showConfirm } from "../ui-lib";
 import styles from "../chat.module.scss";
 
+// getComputedStyle 读取成本较高，缓存 CSS 变量（主题切换后最长 60s 内更新）
+let cachedPrimaryColor: string | null = null;
+let cachedPrimaryAt = 0;
+function getPrimaryColor() {
+  const now = Date.now();
+  if (cachedPrimaryColor === null || now - cachedPrimaryAt > 60_000) {
+    cachedPrimaryAt = now;
+    cachedPrimaryColor =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim() || "#3b82f6";
+  }
+  return cachedPrimaryColor;
+}
+
 export function TokenCounter(props: {
   session: ChatSession;
   currentModel: string;
   userInput?: string;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const chatStore = useChatStore();
-
-  const calculateUsedTokens = (effectiveStartIndex: number) => {
-    const messages = props.session.messages;
-
-    // 统计压缩消息之后的新消息（排除压缩消息本身和错误消息）
-    const uncompressedTokens = messages
-      .slice(effectiveStartIndex)
-      .reduce((total: number, message: ChatMessage) => {
-        if (message.isError || message.isCompressedContextPrompt) return total;
-        return (
-          total +
-          estimateTokenLength(getMessageTextContentWithoutThinking(message))
-        );
-      }, 0);
-
-    // 加上摘要（memoryPrompt）的 token，代表被压缩历史的摘要成本
-    const memoryTokens = props.session.memoryPrompt
-      ? estimateTokenLength(props.session.memoryPrompt)
-      : 0;
-
-    return uncompressedTokens + memoryTokens;
-  };
+  const resetSession = useChatStore((s) => s.resetSession);
 
   const multiModelMode = props.session.multiModelMode;
   const isMultiModel =
-    multiModelMode?.enabled && multiModelMode.selectedModels.length > 1;
+    multiModelMode?.enabled && (multiModelMode.selectedModels.length ?? 0) > 1;
 
-  const modelConfig = props.session.mask.modelConfig;
-  const effectiveStartIndex = getActiveContextStartIndex(props.session);
-  const usedTokens = calculateUsedTokens(effectiveStartIndex);
-  const contextConfig = getModelContextTokens(props.currentModel);
-  const maxTokens = contextConfig?.contextTokens;
+  // 流式期间冻结统计：token 数只在会话结构变化（新增/压缩消息）或流结束时重算，
+  // 避免每个 token flush 都全量扫描历史消息。
+  const isStreaming = props.session.messages.some((m) => m.streaming);
+  const multiModelEnabled = multiModelMode?.enabled ?? false;
+  const multiModelCount = multiModelMode?.selectedModels.length ?? 0;
+  const stats = useMemo(
+    () => {
+      const session = props.session;
+      const effectiveStartIndex = getActiveContextStartIndex(session);
 
-  // 有效消息：压缩消息之后的非错误、非压缩消息（与摘要逻辑保持一致）
-  const currentContextCount = props.session.messages
-    .slice(effectiveStartIndex)
-    .filter((m) => !m.isError && !m.isCompressedContextPrompt).length;
-  const maxContextCount = modelConfig.historyMessageCount;
+      const messages = session.messages;
+
+      // 统计压缩消息之后的新消息（排除压缩消息本身和错误消息）
+      const uncompressedTokens = messages
+        .slice(effectiveStartIndex)
+        .reduce((total: number, message: ChatMessage) => {
+          if (message.isError || message.isCompressedContextPrompt)
+            return total;
+          return (
+            total +
+            estimateTokenLength(
+              getMessageTextContentWithoutThinking(message),
+            )
+          );
+        }, 0);
+
+      // 加上摘要（memoryPrompt）的 token，代表被压缩历史的摘要成本
+      const memoryTokens = session.memoryPrompt
+        ? estimateTokenLength(session.memoryPrompt)
+        : 0;
+      const usedTokens = uncompressedTokens + memoryTokens;
+
+      const contextConfig = getModelContextTokens(props.currentModel);
+      const maxTokens = contextConfig?.contextTokens;
+
+      // 有效消息：压缩消息之后的非错误、非压缩消息（与摘要逻辑保持一致）
+      const currentContextCount = messages
+        .slice(effectiveStartIndex)
+        .filter((m) => !m.isError && !m.isCompressedContextPrompt).length;
+      const maxContextCount = session.mask.modelConfig.historyMessageCount;
+
+      const multiModelStats = isMultiModel
+        ? multiModelMode.selectedModels.map((modelKey) => {
+            const [modelName] = modelKey.split("@");
+            const modelMessages = multiModelMode.modelMessages[modelKey] || [];
+
+            const messagesToCount =
+              effectiveStartIndex > 0
+                ? modelMessages.filter((msg) => {
+                    const originalIndex = messages.findIndex(
+                      (m) => m.id === msg.id,
+                    );
+                    return originalIndex >= effectiveStartIndex;
+                  })
+                : modelMessages;
+
+            const modelUsedTokens = messagesToCount.reduce(
+              (total: number, message: ChatMessage) => {
+                if (message.isError) return total;
+                return (
+                  total +
+                  estimateTokenLength(
+                    getMessageTextContentWithoutThinking(message),
+                  )
+                );
+              },
+              0,
+            );
+            const modelContextConfig = getModelContextTokens(modelName);
+            const modelMaxTokens = modelContextConfig?.contextTokens;
+            const modelProgressPercentage = modelMaxTokens
+              ? (modelUsedTokens / modelMaxTokens) * 100
+              : 0;
+
+            return {
+              modelKey,
+              modelName,
+              usedTokens: modelUsedTokens,
+              maxTokens: modelMaxTokens,
+              progressPercentage: modelProgressPercentage,
+            };
+          })
+        : [];
+
+      return {
+        effectiveStartIndex,
+        usedTokens,
+        maxTokens,
+        currentContextCount,
+        maxContextCount,
+        multiModelStats,
+      };
+    },
+    // 流式期间 session.messages 数组每 flush 都新建，不能依赖对象身份；
+    // 以"结构变化 + 是否仍在流式"作为重算条件：流式期间冻结，结束后重算一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      props.session.id,
+      props.session.messages.length,
+      props.session.memoryPrompt,
+      props.session.mask.modelConfig.historyMessageCount,
+      props.currentModel,
+      isStreaming,
+      multiModelEnabled,
+      multiModelCount,
+    ],
+  );
+
+  const {
+    usedTokens,
+    maxTokens,
+    currentContextCount,
+    maxContextCount,
+    multiModelStats,
+  } = stats;
 
   const inputTokens = props.userInput
     ? estimateTokenLength(props.userInput)
     : 0;
   const estimatedTokens = usedTokens + inputTokens;
-
-  const multiModelStats = isMultiModel
-    ? multiModelMode.selectedModels.map((modelKey) => {
-        const [modelName] = modelKey.split("@");
-        const modelMessages = multiModelMode.modelMessages[modelKey] || [];
-
-        const messagesToCount =
-          effectiveStartIndex > 0
-            ? modelMessages.filter((msg) => {
-                const originalIndex = props.session.messages.findIndex(
-                  (m) => m.id === msg.id,
-                );
-                return originalIndex >= effectiveStartIndex;
-              })
-            : modelMessages;
-
-        const modelUsedTokens = messagesToCount.reduce(
-          (total: number, message: ChatMessage) => {
-            if (message.isError) return total;
-            return (
-              total +
-              estimateTokenLength(getMessageTextContentWithoutThinking(message))
-            );
-          },
-          0,
-        );
-        const modelContextConfig = getModelContextTokens(modelName);
-        const modelMaxTokens = modelContextConfig?.contextTokens;
-        const modelProgressPercentage = modelMaxTokens
-          ? (modelUsedTokens / modelMaxTokens) * 100
-          : 0;
-
-        return {
-          modelKey,
-          modelName,
-          usedTokens: modelUsedTokens,
-          maxTokens: modelMaxTokens,
-          progressPercentage: modelProgressPercentage,
-        };
-      })
-    : [];
 
   const displayText = isMultiModel
     ? `${multiModelStats.length} ${Locale.Chat.MultiModel.Models || "模型"}`
@@ -135,18 +191,14 @@ export function TokenCounter(props: {
   const getProgressColor = (percentage: number) => {
     if (percentage >= 90) return "#ef4444";
     if (percentage >= 70) return "#f59e0b";
-    return (
-      getComputedStyle(document.documentElement)
-        .getPropertyValue("--primary")
-        .trim() || "#3b82f6"
-    );
+    return getPrimaryColor();
   };
 
   const handleResetChat = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (await showConfirm(Locale.Chat.InputActions.ResetConfirm)) {
-      chatStore.resetSession(props.session);
+      resetSession(props.session);
     }
   };
 
