@@ -7,6 +7,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json yarn.lock ./
+COPY scripts ./scripts
 
 RUN yarn config set registry 'https://registry.npmmirror.com/'
 RUN yarn config set network-timeout 300000
