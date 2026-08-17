@@ -81,7 +81,7 @@ function ThinkCollapse({ title, children }: ThinkCollapseProps) {
     }
   }, [title]);
 
-  const handleCopyContent = (e: React.MouseEvent) => {
+  const handleCopyContent = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const getTextContent = (node: React.ReactNode): string => {
@@ -122,7 +122,9 @@ function ThinkCollapse({ title, children }: ThinkCollapseProps) {
                 {!disabled && (
                   <span
                     className={styles["copy-think-button"]}
-                    onClick={handleCopyContent}
+                    onPointerDown={(e) => {
+                      if (e.button === 0) handleCopyContent(e);
+                    }}
                     title={Locale.Chat.Actions.Copy}
                   >
                     📋
@@ -311,7 +313,9 @@ function createMarkdownComponents(options: {
               <div style={{ marginLeft: "auto" }}>
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(codeText)}
+                  onPointerDown={(e) => {
+                    if (e.button === 0) copyToClipboard(codeText);
+                  }}
                   style={{
                     border: "var(--border-in-light)",
                     background: "var(--white)",

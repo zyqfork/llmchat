@@ -239,7 +239,9 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
           <div className={styles["toolbar-right"]}>
             <button
               type="button"
-              onClick={() => copyToClipboard(code)}
+              onPointerDown={(e) => {
+                if (e.button === 0) copyToClipboard(code);
+              }}
               title="复制当前源码"
             >
               复制
