@@ -133,16 +133,22 @@ export function useWindowSize() {
   });
 
   useEffect(() => {
+    let rafId = 0;
     const onResize = () => {
-      setSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
+      // 用 rAF 合并同一帧内的多次 resize 事件，减少无谓的重渲染
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setSize({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
       });
     };
 
     window.addEventListener("resize", onResize);
 
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("resize", onResize);
     };
   }, []);

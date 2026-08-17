@@ -57,3 +57,7 @@ dev_docs
 qdrant*
 
 /dist/
+
+# ai tools debug artifacts
+/.inscode/
+/app/_debug_tmp/

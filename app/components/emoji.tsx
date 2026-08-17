@@ -1,9 +1,5 @@
-import EmojiPicker, {
-  Emoji,
-  EmojiStyle,
-  Theme as EmojiTheme,
-} from "emoji-picker-react";
 import React, { useMemo } from "react";
+import dynamic from "next/dynamic";
 
 import { ModelType } from "../store";
 
@@ -20,29 +16,43 @@ import BotIconQwen from "../icons/llm-icons/qwen.svg";
 import BotIconGrok from "../icons/llm-icons/grok.svg";
 import BotIconOllama from "../icons/llm-icons/ollama.svg";
 
-export function getEmojiUrl(unified: string, style: EmojiStyle) {
+export const EMOJI_STYLE = "apple";
+
+export function getEmojiUrl(unified: string) {
   // Whoever owns this Content Delivery Network (CDN), I am using your CDN to serve emojis
   // Old CDN broken, so I had to switch to this one
   // Author: https://github.com/H0llyW00dzZ
   // 浏览器会自动缓存这个 CDN 图片（Cache-Control: public, max-age=31536000, immutable）
-  return `https://fastly.jsdelivr.net/npm/emoji-datasource-apple/img/${style}/64/${unified}.png`;
+  return `https://fastly.jsdelivr.net/npm/emoji-datasource-apple/img/${EMOJI_STYLE}/64/${unified}.png`;
 }
 
-export function AvatarPicker(props: {
-  onEmojiClick: (emojiId: string) => void;
-}) {
-  return (
-    <EmojiPicker
-      width={"100%"}
-      lazyLoadEmojis
-      theme={EmojiTheme.AUTO}
-      getEmojiUrl={getEmojiUrl}
-      onEmojiClick={(e) => {
-        props.onEmojiClick(e.unified);
-      }}
-    />
-  );
-}
+// AvatarPicker 仅存在于设置页 / 面具页（动态加载页面）中，因此整个
+// emoji-picker-react 包（约 490KB）只在打开选择器时才被按需加载，
+// 不再进入首屏主包。
+export const AvatarPicker = dynamic(
+  async () => {
+    const mod = await import("emoji-picker-react");
+    const EmojiPicker = mod.default;
+    return function AvatarPickerImpl(props: {
+      onEmojiClick: (emojiId: string) => void;
+    }) {
+      return (
+        <EmojiPicker
+          width={"100%"}
+          lazyLoadEmojis
+          theme={mod.Theme.AUTO}
+          getEmojiUrl={getEmojiUrl}
+          onEmojiClick={(e) => {
+            props.onEmojiClick(e.unified);
+          }}
+        />
+      );
+    };
+  },
+  {
+    loading: () => <div style={{ minHeight: 320 }} />,
+  },
+);
 
 // 模型图标映射表 - 更易维护和扩展
 const MODEL_ICON_MAP: Array<{
@@ -145,15 +155,23 @@ export const Avatar = React.memo(function Avatar(props: {
 
 // 使用 React.memo 缓存 EmojiAvatar 组件，减少不必要的 DOM 操作
 // 注意：浏览器会自动缓存 CDN 图片，这里的优化主要是减少 React 重渲染
+// 直接渲染 <img>，避免引入 emoji-picker-react 完整包
 export const EmojiAvatar = React.memo(function EmojiAvatar(props: {
   avatar: string;
   size?: number;
 }) {
+  const size = props.size ?? 18;
+  // CDN 表情图片：已 immutable 缓存 + loading=lazy，export 模式下不经过 next/image 优化
   return (
-    <Emoji
-      unified={props.avatar}
-      size={props.size ?? 18}
-      getEmojiUrl={getEmojiUrl}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={getEmojiUrl(props.avatar)}
+      width={size}
+      height={size}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      style={{ width: size, height: size }}
     />
   );
 });

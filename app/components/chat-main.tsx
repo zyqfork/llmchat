@@ -93,7 +93,6 @@ import { isDesktopApp } from "@/app/utils/desktop";
 import dynamic from "next/dynamic";
 
 import { ChatControllerPool } from "../client/controller";
-import { markdownToTxt } from "markdown-to-txt";
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { usePromptStore } from "../store/prompt";
 import Locale from "../locales";
@@ -782,6 +781,8 @@ export function ChatMain() {
       setSpeechLoading(true);
       ttsPlayer.init();
       let audioBuffer: ArrayBuffer;
+      // markdown-to-txt 仅在 TTS 朗读时用到，按需加载避免进入主包
+      const { markdownToTxt } = await import("markdown-to-txt");
       const textContent = markdownToTxt(text);
 
       if (config.ttsConfig.engine !== DEFAULT_TTS_ENGINE) {

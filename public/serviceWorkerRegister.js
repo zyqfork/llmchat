@@ -12,26 +12,15 @@ if (!isTauriApp && !isFileProtocol && "serviceWorker" in navigator) {
       .register("/serviceWorker.js")
       .then(function (registration) {
       console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      const sw = registration.installing || registration.waiting
-      if (sw) {
-        sw.onstatechange = function() {
-          if (sw.state === 'installed') {
-            // SW installed.  Reload for SW intercept serving SW-enabled page.
-            console.log('ServiceWorker installed reload page');
-            window.location.reload();
-          }
-        }
-      }
-      registration.update().then(res => {
-        console.log('ServiceWorker registration update: ', res);
+      // 静默更新检查。SW 仅用于 /api/cache 文件缓存（见 serviceWorker.js），
+      // 新版安装后由 skipWaiting + controllerchange 自然接管，无需强制刷新页面，
+      // 避免首次访问时因 reload 打断用户。
+      registration.update().catch(function (err) {
+        console.error('ServiceWorker update check failed: ', err);
       });
       window._SW_ENABLED = true
     }, function (err) {
       console.error('ServiceWorker registration failed: ', err);
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', function() {
-      console.log('ServiceWorker controllerchange ');
-      window.location.reload(true);
     });
   });
 } else if (isTauriApp) {
