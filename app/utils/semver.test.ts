@@ -77,7 +77,7 @@ describe("semverCompare", () => {
 describe("removeThinkingContent", () => {
   // 函数正则匹配的标签是 <think>（t-h-i-n-k，无 ing）与 </redacted_reasoning>
   const open = "<think>";
-  const closeThink = " response";
+  const closeThink = "</think>";
   const closeRedacted = "</redacted_reasoning>";
 
   test("removes think block", () => {
