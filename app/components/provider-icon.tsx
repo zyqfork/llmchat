@@ -14,11 +14,15 @@ import {
   Grok,
   Claude,
   Gemini,
+  Gemma,
   Kimi,
+  Moonshot,
+  Mistral,
   Qwen,
   Wenxin,
   Meta,
   Ollama,
+  LobeHub,
 } from "@lobehub/icons";
 
 // 导入 Lobehub 图标工具函数
@@ -30,20 +34,6 @@ import {
   isSupportedLobehubIcon,
   ModelIconType,
 } from "../utils/lobehub-icons";
-
-// 导入项目自带的 SVG 图标
-import BotIconDefault from "../icons/llm-icons/default.svg";
-import BotIconOpenAI from "../icons/llm-icons/openai.svg";
-import BotIconGemini from "../icons/llm-icons/gemini.svg";
-import BotIconGemma from "../icons/llm-icons/gemma.svg";
-import BotIconClaude from "../icons/llm-icons/claude.svg";
-import BotIconMeta from "../icons/llm-icons/meta.svg";
-import BotIconMistral from "../icons/llm-icons/mistral.svg";
-import BotIconDeepseek from "../icons/llm-icons/deepseek.svg";
-import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
-import BotIconQwen from "../icons/llm-icons/qwen.svg";
-import BotIconGrok from "../icons/llm-icons/grok.svg";
-import BotIconOllama from "../icons/llm-icons/ollama.svg";
 
 // 动态图标组件，支持从ServiceProvider配置获取图标
 const DynamicProviderIcon = React.memo(function DynamicProviderIcon({
@@ -502,7 +492,7 @@ export const ProviderIcon = React.memo(function ProviderIcon({
   }
 });
 
-// 使用项目自带 SVG 图标的 Avatar 组件（用于模型管理器）
+// 使用 @lobehub/icons 图标的 Avatar 组件（用于模型管理器）
 const ModelAvatar = React.memo(function ModelAvatar({
   modelName,
   size = 32,
@@ -510,7 +500,7 @@ const ModelAvatar = React.memo(function ModelAvatar({
   modelName?: string;
   size?: number;
 }) {
-  let LlmIcon = BotIconDefault;
+  let LlmIcon: any = LobeHub.Color;
 
   if (modelName) {
     const lowerModelName = modelName.toLowerCase();
@@ -525,41 +515,41 @@ const ModelAvatar = React.memo(function ModelAvatar({
       lowerModelName.startsWith("o3") ||
       lowerModelName.startsWith("o4")
     ) {
-      LlmIcon = BotIconOpenAI;
+      LlmIcon = OpenAI.Avatar;
     } else if (
       lowerModelName.startsWith("gemini") ||
       lowerModelName.startsWith("learnlm")
     ) {
-      LlmIcon = BotIconGemini;
+      LlmIcon = Gemini.Color;
     } else if (lowerModelName.startsWith("gemma")) {
-      LlmIcon = BotIconGemma;
+      LlmIcon = Gemma.Color;
     } else if (lowerModelName.startsWith("claude")) {
-      LlmIcon = BotIconClaude;
+      LlmIcon = Claude.Color;
     } else if (lowerModelName.includes("llama")) {
-      LlmIcon = BotIconMeta;
+      LlmIcon = Meta.Color;
     } else if (
       lowerModelName.startsWith("mixtral") ||
       lowerModelName.startsWith("codestral") ||
       lowerModelName.startsWith("mistral")
     ) {
-      LlmIcon = BotIconMistral;
+      LlmIcon = Mistral.Color;
     } else if (lowerModelName.includes("deepseek")) {
-      LlmIcon = BotIconDeepseek;
+      LlmIcon = DeepSeek.Color;
     } else if (
       lowerModelName.startsWith("moonshot") ||
       lowerModelName.startsWith("kimi")
     ) {
-      LlmIcon = BotIconMoonshot;
+      LlmIcon = Moonshot;
     } else if (
       lowerModelName.startsWith("qwen") ||
       lowerModelName.startsWith("qwq") ||
       lowerModelName.startsWith("qvq")
     ) {
-      LlmIcon = BotIconQwen;
+      LlmIcon = Qwen.Color;
     } else if (lowerModelName.startsWith("grok")) {
-      LlmIcon = BotIconGrok;
+      LlmIcon = Grok;
     } else if (lowerModelName.startsWith("ollama")) {
-      LlmIcon = BotIconOllama;
+      LlmIcon = Ollama;
     }
   }
 
@@ -577,12 +567,10 @@ const ModelAvatar = React.memo(function ModelAvatar({
       }}
     >
       <LlmIcon
-        width={Math.max(size * 0.92, size - 2)}
-        height={Math.max(size * 0.92, size - 2)}
+        size={Math.max(size * 0.92, size - 2)}
         style={{
           maxWidth: "100%",
           maxHeight: "100%",
-          objectFit: "contain",
         }}
       />
     </div>

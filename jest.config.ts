@@ -13,10 +13,11 @@ const config: Config = {
   testMatch: ["**/*.test.js", "**/*.test.ts", "**/*.test.jsx", "**/*.test.tsx"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   transformIgnorePatterns: [
-    "[/\\\\]node_modules[/\\\\](?!(@earendil-works|@mariozechner)[/\\\\])",
+    "[/\\\\]node_modules[/\\\\](?!(@earendil-works|@mariozechner|@lobehub|antd-style|lucide-react|polished|es-toolkit)[/\\\\])",
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    "^@lobehub/icons$": "<rootDir>/app/test-shims/lobehub-icons.ts",
     "^@earendil-works/pi-web-ui/utils/format$":
       "<rootDir>/app/test-shims/pi-web-ui-format.ts",
     "^@earendil-works/pi-web-ui/utils/proxy-utils$":

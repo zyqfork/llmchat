@@ -3,18 +3,21 @@ import dynamic from "next/dynamic";
 
 import { ModelType } from "../store";
 
-import BotIconDefault from "../icons/llm-icons/default.svg";
-import BotIconOpenAI from "../icons/llm-icons/openai.svg";
-import BotIconGemini from "../icons/llm-icons/gemini.svg";
-import BotIconGemma from "../icons/llm-icons/gemma.svg";
-import BotIconClaude from "../icons/llm-icons/claude.svg";
-import BotIconMeta from "../icons/llm-icons/meta.svg";
-import BotIconMistral from "../icons/llm-icons/mistral.svg";
-import BotIconDeepseek from "../icons/llm-icons/deepseek.svg";
-import BotIconMoonshot from "../icons/llm-icons/moonshot.svg";
-import BotIconQwen from "../icons/llm-icons/qwen.svg";
-import BotIconGrok from "../icons/llm-icons/grok.svg";
-import BotIconOllama from "../icons/llm-icons/ollama.svg";
+// 统一使用 @lobehub/icons 提供的厂商图标（本地 llm-icons 已移除）
+import {
+  OpenAI,
+  Gemini,
+  Gemma,
+  Claude,
+  Meta,
+  Mistral,
+  DeepSeek,
+  Moonshot,
+  Qwen,
+  Grok,
+  Ollama,
+  LobeHub,
+} from "@lobehub/icons";
 
 export const EMOJI_STYLE = "apple";
 
@@ -55,6 +58,7 @@ export const AvatarPicker = dynamic(
 );
 
 // 模型图标映射表 - 更易维护和扩展
+// 统一使用 @lobehub/icons 的 Color 变体（无 Color 时用默认 Mono）
 const MODEL_ICON_MAP: Array<{
   test: (modelName: string) => boolean;
   icon: any;
@@ -68,57 +72,57 @@ const MODEL_ICON_MAP: Array<{
       name.startsWith("dalle") ||
       name.startsWith("o1") ||
       name.startsWith("o3"),
-    icon: BotIconOpenAI,
+    icon: OpenAI,
   },
   {
     // Google Gemini 系列
     test: (name) => name.startsWith("gemini"),
-    icon: BotIconGemini,
+    icon: Gemini.Color,
   },
   {
     // Google Gemma 系列
     test: (name) => name.startsWith("gemma"),
-    icon: BotIconGemma,
+    icon: Gemma.Color,
   },
   {
     // Anthropic Claude 系列
     test: (name) => name.startsWith("claude"),
-    icon: BotIconClaude,
+    icon: Claude.Color,
   },
   {
     // Meta Llama 系列
     test: (name) => name.includes("llama"),
-    icon: BotIconMeta,
+    icon: Meta.Color,
   },
   {
     // Mistral 系列
     test: (name) => name.startsWith("mixtral") || name.startsWith("codestral"),
-    icon: BotIconMistral,
+    icon: Mistral.Color,
   },
   {
     // DeepSeek 系列
     test: (name) => name.includes("deepseek"),
-    icon: BotIconDeepseek,
+    icon: DeepSeek.Color,
   },
   {
     // Moonshot/Kimi 系列
     test: (name) => name.startsWith("moonshot") || name.startsWith("kimi"),
-    icon: BotIconMoonshot,
+    icon: Moonshot,
   },
   {
     // Qwen 系列
     test: (name) => name.startsWith("qwen"),
-    icon: BotIconQwen,
+    icon: Qwen.Color,
   },
   {
     // xAI Grok 系列
     test: (name) => name.startsWith("grok"),
-    icon: BotIconGrok,
+    icon: Grok,
   },
   {
     // Ollama 系列
     test: (name) => name.startsWith("ollama") || name.includes("ollama"),
-    icon: BotIconOllama,
+    icon: Ollama,
   },
 ];
 
@@ -133,15 +137,15 @@ export const Avatar = React.memo(function Avatar(props: {
     if (props.model) {
       const modelName = props.model.toLowerCase();
       const match = MODEL_ICON_MAP.find((item) => item.test(modelName));
-      return match?.icon || props.defaultIcon || BotIconDefault;
+      return match?.icon || props.defaultIcon || LobeHub;
     }
-    return props.defaultIcon || BotIconDefault;
+    return props.defaultIcon || LobeHub;
   }, [props.model, props.defaultIcon]);
 
   if (props.model) {
     return (
       <div className="no-dark">
-        <LlmIcon className="user-avatar" width={30} height={30} />
+        <LlmIcon size={30} className="user-avatar" />
       </div>
     );
   }

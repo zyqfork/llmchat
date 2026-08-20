@@ -9,6 +9,21 @@ globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
 globalThis.TransformStream =
   TransformStream as unknown as typeof globalThis.TransformStream;
 
+// matchMedia 是 @lobehub/icons / antd-style 所需（jsdom 未实现）
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: jest.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
 global.fetch = (() =>
   Promise.resolve({
     ok: true,

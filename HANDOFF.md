@@ -2,7 +2,7 @@
 
 ## 项目状态：可继续开发
 
-所有更改已提交（最新 commit: `68cfada4`），当前工作区有未提交的优先级 2 改动（见下方表格）。以下按优先级列出已处理和待完成事项。
+所有更改已提交（最新 commit: `9bfb8524`），当前工作区有未提交的优先级 2 改动（2.1 `@lobehub/icons` 统一替换 + 测试兼容适配），见下方表格。以下按优先级列出已处理和待完成事项。
 
 ---
 
@@ -13,7 +13,7 @@
 | 🔴 发送按钮尺寸问题 | ✅ 已修复 | CSS 特异性冲突：`.chat-input-send` → `.chat-input-panel .chat-input-send` |
 | 🔴 思考过程样式不一致 | ✅ 已修复 | 完成后的 `PiThinkingBlock` 改为复用流式的 `ThinkCollapse`（antd Collapse），样式/行为完全统一 |
 | 🔴 思考内容展开溢出 | ✅ 已修复 | SCSS 嵌套类名与 JS 键不匹配（`pi-thinking-text` vs `pi-thinking-block-text`），`<pre>` 落到默认 `white-space: pre` 不换行；嵌套类移至顶层 |
-| 🟡 2.1 `@lobehub/icons` 替换 | ⏸ 进行中 | 31 图标类型仅 13 个有本地 SVG，替换范围较大 |
+| 🟡 2.1 `@lobehub/icons` 替换 | ✅ 已完成 | 本地 llm-icons SVG 已移除，`emoji.tsx`/`provider-icon.tsx` 统一使用 `@lobehub/icons`（Colored/Mono 变体），减少维护两套图标集的成本 |
 | 🟡 2.2 `estimateTokenLength` 精确化 | ✅ 已完成 | 改为词边界分组估算（字母 3.5/1 token、数字 3/1、Unicode 2/字符），测试同步更新 |
 | 🟡 2.3 `getModelCapabilities` 冗余 | ✅ 已完成 | 移除正则启发式后备 `getEnhancedModelCapabilities`，配置外模型默认无能力 |
 | 🟢 3.1 核心 Store 纯函数测试 | ✅ 完成 | 20 个测试（`chat-utils.test.ts`） |
@@ -38,17 +38,19 @@
 **验证**：
 - `yarn tsc --noEmit` ✅
 - `yarn export` 构建成功，编译后 CSS 中 selector 正确为双类选择器 ✅
-- 81 测试全部通过 ✅
+- 131 测试全部通过（13 个套件） ✅
 
 ---
 
 ## 🟡 优先级 2：代码库优化
 
-### 2.1 `@lobehub/icons` 替换（⏸ 进行中）
-- **现状**：引入了 860KB 的 `@lobehub/icons` 包，实际只用 ~12 个图标
-- **方案**：改用 `app/icons/llm-icons/` 中的直接 SVG 导入
-- **文件**：`app/utils/lobehub-icons.tsx`
-- **阻碍**：31 个 `ModelIconType` 仅 13 个有本地 SVG（claude/deepseek/doubao/gemini/gemma/grok/meta/mistral/moonshot/ollama/openai/qwen/default），需补齐 18+ 个 SVG 或为缺失的厂商提供回退图标
+### 2.1 `@lobehub/icons` 替换（✅ 已完成）
+- `app/icons/lm-icons/` 目录已删除（13 个本地 SVG）
+- `app/components/emoji.tsx`：MODEL_ICON_MAP 改用 `@lobehub/icons`（有 Color 变体的用 `.Color`，无的用默认 mono；OpenAI 用 `.Avatar`）
+- `app/components/provider-icon.tsx`：`ModelAvatar`（fallback 兜底）改用 `@lobehub/icons` 统一图标
+- 新增 `app/test-shims/lobehub-icons.ts` 作为 Jest mock（避免 ESM 模块兼容 + `matchMedia` 缺失）
+- `jest.config.ts` 增加 `@lobehub/icons` 的 `moduleNameMapper` 重定向
+- 图标外观从原来的 30px 圆角方块品牌标变为 lobehub 的 Color/Mono 品牌标（视觉风格统一、无需维护两套图标）
 
 ### 2.2 `estimateTokenLength` 精确化（✅ 已完成）
 - `app/utils/token.ts` 由逐字符启发式改为词边界分组估算：
@@ -82,29 +84,28 @@
 - `app/store/chat.ts` — 已有测试覆盖导出工具函数；`useChatStore` 核心流程（消息发送、流式接收）需模拟 `getClientApi`
 
 ### 已有测试（131 个，13 个套件）
-- `app/utils/token.test.ts` (34)
-- `app/client/pi-agent-bridge.test.ts` (119)
-- `app/client/llm-adapter.test.ts` (31, 新增)
-- `app/client/mcp-tool-executor.test.ts` (68)
-- `app/components/chat/PiContentBlock.test.tsx` (98)
-- `app/store/chat-mcp.test.ts` (168)
-- `app/store/chat-utils.test.ts` (180, 新增)
-- `utils/semver.test.ts`
-- `utils/merge.test.ts`
-- `utils/merge-with-update.test.ts`
-- `components/emoji.test.tsx`
-- `core/compaction/policy.test.ts`
+- `app/utils/token.test.ts` (6)
+- `app/client/pi-agent-bridge.test.ts` (4)
+- `app/client/llm-adapter.test.ts` (31)
+- `app/client/mcp-tool-executor.test.ts` (4)
+- `app/client/model-service.test.ts` (3)
+- `app/store/chat-mcp.test.ts` (14)
+- `app/store/chat-utils.test.ts` (20)
+- `app/utils/semver.test.ts` (25)
+- `app/utils/merge.test.ts` (7)
+- `app/utils/merge-with-update.test.ts` (5)
+- `app/components/emoji.test.tsx` (4)
+- `app/components/chat/PiContentBlock.test.tsx` (6)
+- `app/core/compaction/policy.test.ts` (3)
 
 ### 构建验证清单
 
 所有以下命令当前通过：
-- `yarn tsc --noEmit` — TypeScript 类型检查
+- `yarn tsc --noEmit` — 类型检查
 - `yarn test:ci --runInBand` — 131 个测试（13 个套件）
 - `yarn eslint` — ESLint
 - `yarn export` — 静态导出（46 页）
 - `yarn build` — Standalone 构建
-- `yarn electron-builder --win nsis` — Electron 桌面端（可选）
-- `yarn tauri build --bundles nsis` — Tauri 桌面端（NSIS 签名未配置，可选 `--no-bundle` 绕过）
 
 ---
 
@@ -123,6 +124,7 @@
 | `app/components/button.module.scss` | 按钮样式 |
 | `app/config/model-config.ts` | 模型配置（思考级别、能力） |
 | `app/utils/pi-ai-resolver.ts` | Pi AI 模型解析 |
+| `app/test-shims/lobehub-icons.ts` | `@lobehub/icons` Jest mock（ESM 兼容） |
 | `app/mcp/actions.client.ts` | MCP 客户端运行时 |
 
 ---
