@@ -2,7 +2,7 @@
 
 ## 项目状态：可继续开发
 
-所有更改已提交（最新 commit: `7ad54742`），工作树干净。以下按优先级列出已处理和待完成事项。
+所有更改已提交（最新 commit: `68cfada4`），当前工作区有未提交的优先级 2 改动（见下方表格）。以下按优先级列出已处理和待完成事项。
 
 ---
 
@@ -12,9 +12,10 @@
 |------|------|------|
 | 🔴 发送按钮尺寸问题 | ✅ 已修复 | CSS 特异性冲突：`.chat-input-send` → `.chat-input-panel .chat-input-send` |
 | 🔴 思考过程样式不一致 | ✅ 已修复 | 完成后的 `PiThinkingBlock` 改为复用流式的 `ThinkCollapse`（antd Collapse），样式/行为完全统一 |
-| 🟡 2.1 `@lobehub/icons` 替换 | ⏸ 保留 | 评估后 31 图标类型仅 13 个有本地 SVG，替换范围较大 |
-| 🟡 2.2 `estimateTokenLength` 精确化 | 评估后保留 | 当前启发式足以满足上下文管理需求 |
-| 🟡 2.3 `getModelCapabilities` 冗余 | 评估后保留 | 涉及 18+ 引用处，改动面大；已导出内部函数测试 |
+| 🔴 思考内容展开溢出 | ✅ 已修复 | SCSS 嵌套类名与 JS 键不匹配（`pi-thinking-text` vs `pi-thinking-block-text`），`<pre>` 落到默认 `white-space: pre` 不换行；嵌套类移至顶层 |
+| 🟡 2.1 `@lobehub/icons` 替换 | ⏸ 进行中 | 31 图标类型仅 13 个有本地 SVG，替换范围较大 |
+| 🟡 2.2 `estimateTokenLength` 精确化 | ✅ 已完成 | 改为词边界分组估算（字母 3.5/1 token、数字 3/1、Unicode 2/字符），测试同步更新 |
+| 🟡 2.3 `getModelCapabilities` 冗余 | ✅ 已完成 | 移除正则启发式后备 `getEnhancedModelCapabilities`，配置外模型默认无能力 |
 | 🟢 3.1 核心 Store 纯函数测试 | ✅ 完成 | 20 个测试（`chat-utils.test.ts`） |
 | 🟢 3.2 LLM Adapter 测试 | ✅ 完成 | 31 个测试（`llm-adapter.test.ts`） |
 
@@ -41,20 +42,27 @@
 
 ---
 
-## 🟡 优先级 2：代码库优化（已识别但未实施）
+## 🟡 优先级 2：代码库优化
 
-### 2.1 `@lobehub/icons` 替换
+### 2.1 `@lobehub/icons` 替换（⏸ 进行中）
 - **现状**：引入了 860KB 的 `@lobehub/icons` 包，实际只用 ~12 个图标
 - **方案**：改用 `app/icons/llm-icons/` 中的直接 SVG 导入
 - **文件**：`app/utils/lobehub-icons.tsx`
+- **阻碍**：31 个 `ModelIconType` 仅 13 个有本地 SVG（claude/deepseek/doubao/gemini/gemma/grok/meta/mistral/moonshot/ollama/openai/qwen/default），需补齐 18+ 个 SVG 或为缺失的厂商提供回退图标
 
-### 2.2 `estimateTokenLength` 精确化
-- **现状**：`app/utils/token.ts` 使用粗略字符启发式（0.25 字母 / 0.5 ASCII / 1.5 Unicode）
-- **方案**：可选引入 `tiktoken`（~3MB bundle），或使用 Pi SDK 内置的 token 计数
+### 2.2 `estimateTokenLength` 精确化（✅ 已完成）
+- `app/utils/token.ts` 由逐字符启发式改为词边界分组估算：
+  - 英文字母词：`length / 3.5 + 0.5`（约每 3.5 字母 1 token）
+  - 数字串：`length / 3.0 + 0.25`
+  - 中文/日文等 Unicode：`2.0 / 字符`
+  - 标点：`0.2 / 字符`，结果向上取整
+- `app/utils/token.test.ts` 同步更新为 6 个测试（单调性、CJK > ASCII、非空 > 0 等）
+- 未引入 `tiktoken`（+3MB bundle 不划算，启发式已足够上下文管理使用）
 
-### 2.3 `getModelCapabilities` 冗余
-- **现状**：`app/config/model-config.ts` 中的 `getModelCapabilities` 复制了 Pi `Model` 类型字段（`reasoning`, `input`, `cost`, `contextWindow`, `maxTokens`）
-- **方案**：直接使用 Pi 提供的 `Model` 信息
+### 2.3 `getModelCapabilities` 冗余（✅ 已完成）
+- 移除 `getEnhancedModelCapabilities` 的正则启发式后备（`/vision|o1|claude-3/` 等易脆弱的模式匹配）
+- 配置中找不到模型时默认返回空能力（`{}`），不再凭模型名猜测
+- 函数本身仍保留（读取 Pi 目录 `reasoning`/`tool_call`/`input` 字段 + localStorage 用户覆盖），改动面小、行为更可预测
 
 ---
 
@@ -73,7 +81,7 @@
 - `app/client/llm-adapter.ts` — 新增 31 个测试覆盖纯函数，`streamText`/`generateText` 流程测试需模拟 Pi SDK
 - `app/store/chat.ts` — 已有测试覆盖导出工具函数；`useChatStore` 核心流程（消息发送、流式接收）需模拟 `getClientApi`
 
-### 已有测试（132 个，13 个套件）
+### 已有测试（131 个，13 个套件）
 - `app/utils/token.test.ts` (34)
 - `app/client/pi-agent-bridge.test.ts` (119)
 - `app/client/llm-adapter.test.ts` (31, 新增)
@@ -91,7 +99,7 @@
 
 所有以下命令当前通过：
 - `yarn tsc --noEmit` — TypeScript 类型检查
-- `yarn test:ci --runInBand` — 132 个测试（13 个套件）
+- `yarn test:ci --runInBand` — 131 个测试（13 个套件）
 - `yarn eslint` — ESLint
 - `yarn export` — 静态导出（46 页）
 - `yarn build` — Standalone 构建

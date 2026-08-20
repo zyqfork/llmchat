@@ -158,41 +158,15 @@ function findModelInConfig(
 // 模型能力相关函数
 // ============================================================================
 
-/**
- * 获取增强的模型能力（包含基于正则的检测）
- * 用于配置中不存在的模型
- */
-export function getEnhancedModelCapabilities(
+function getEnhancedModelCapabilities(
   modelName: string,
 ): ModelCapabilities {
-  const capabilities: ModelCapabilities = {};
-
-  // 视觉能力检测
-  if (/vision|vl|gpt-4o|claude-3|gemini|qwen.*vl|dall-e/i.test(modelName)) {
-    capabilities.vision = true;
-  }
-
-  // 推理能力检测
-  if (
-    /o1|o3|o4|reasoning|thinking|qwq|qvq|deepseek-r1|gemini-2\.5|claude-3-7|claude-4|claude-opus-4/i.test(
-      modelName,
-    )
-  ) {
-    if (!/image/i.test(modelName)) {
-      capabilities.reasoning = true;
-    }
-  }
-
-  // 工具调用能力检测（大部分现代模型都支持）
-  if (!/dall-e|o1|o3-mini(?!-high)|instruct/i.test(modelName)) {
-    capabilities.tools = true;
-  }
-
-  return capabilities;
+  // 配置中不存在的模型默认无检测到的能力（原启发式正则已被移除）
+  return {};
 }
 
 /**
- * 获取模型能力（基于生成的配置）
+ * 获取模型能力（基于生成的配置与 Pi 目录信息）
  * @param modelName 模型名称
  * @param providerName 可选的厂商名称，如果提供则优先在该厂商下查找
  */

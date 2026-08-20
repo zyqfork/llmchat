@@ -2144,37 +2144,35 @@
       background-color: rgba(168, 85, 247, 0.12);
     }
   }
+}
 
-  &-title {
-    font-weight: 600;
-    color: #7c3aed;
-  }
+// 注意：以下类必须定义在顶层（而非嵌套在 .pi-thinking-block 下），
+// 否则 CSS Modules 编译后的键为 "pi-thinking-block-text" 等，
+// 与 JS 中的 styles["pi-thinking-text"] 不匹配，样式失效。
+.pi-thinking-title {
+  font-weight: 600;
+  color: #7c3aed;
+}
 
-  &-count {
-    font-size: 12px;
-    opacity: 0.6;
-  }
+.pi-thinking-body {
+  padding: 12px;
+  border-top: 1px solid rgba(168, 85, 247, 0.1);
+}
 
-  &-body {
-    padding: 12px;
-    border-top: 1px solid rgba(168, 85, 247, 0.1);
-  }
+.pi-thinking-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  // 颜色跟随主题（--black），与流式 thinkcollapse 内容样式保持一致，
+  // 并自动适配暗色模式
+}
 
-  &-text {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 13px;
-    line-height: 1.6;
-    margin: 0;
-    // 颜色跟随主题（--black），与流式 thinkcollapse 内容样式保持一致，
-    // 并自动适配暗色模式
-  }
-
-  &-notice {
-    font-size: 12px;
-    color: #a855f7;
-    font-style: italic;
-  }
+.pi-thinking-notice {
+  font-size: 12px;
+  color: #a855f7;
+  font-style: italic;
 }
 
 .pi-content-image {
@@ -2239,18 +2237,18 @@
         background-color: rgba(167, 139, 250, 0.18);
       }
     }
+  }
 
-    &-title {
-      color: #c4b5fd;
-    }
+  .pi-thinking-title {
+    color: #c4b5fd;
+  }
 
-    &-text {
-      color: #d1d5db;
-    }
+  .pi-thinking-text {
+    color: #d1d5db;
+  }
 
-    &-notice {
-      color: #c4b5fd;
-    }
+  .pi-thinking-notice {
+    color: #c4b5fd;
   }
 }
 
