@@ -1767,7 +1767,11 @@
 
 // 输入框焦点样式由父容器处理
 
-.chat-input-send {
+// 注意：必须使用比 .icon-button（button.module.scss）更高的特异性，
+// 否则当 button 模块样式后于本文件加载时，其 position: relative 会覆盖
+// 这里的 position: absolute，导致发送按钮脱离绝对定位、在 flex 容器中
+// 被拉伸成占满整个输入面板高度的超大按钮。
+.chat-input-panel .chat-input-send {
   background-color: var(--primary);
   color: white;
 
@@ -1781,7 +1785,7 @@
     font-size: 16px;
   }
 
-  .chat-input-send {
+  .chat-input-panel .chat-input-send {
     bottom: 30px;
   }
 }

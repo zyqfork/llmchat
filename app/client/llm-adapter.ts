@@ -110,13 +110,13 @@ function installErrorCaptureFetch() {
   _errorCaptureFetchInstalled = true;
 }
 
-function getFetchUrl(input: RequestInfo | URL): string {
+export function getFetchUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
   return input.url;
 }
 
-function shouldRouteThroughTauriFetch(url: string): boolean {
+export function shouldRouteThroughTauriFetch(url: string): boolean {
   if (!/^https?:\/\//i.test(url)) return false;
   for (const baseUrl of tauriFetchBaseUrls) {
     if (url.startsWith(baseUrl)) return true;
@@ -175,7 +175,7 @@ function installTauriFetchOverride(baseUrl?: string) {
   logger.debug("[LLM Adapter] Installed scoped Tauri fetch override for pi-ai");
 }
 
-function extractSystemPrompt(messages: any[]) {
+export function extractSystemPrompt(messages: any[]) {
   const systemChunks: string[] = [];
   const remaining: any[] = [];
 
@@ -193,7 +193,7 @@ function extractSystemPrompt(messages: any[]) {
   };
 }
 
-function dataUrlToPiImageContent(url: string): ImageContent | undefined {
+export function dataUrlToPiImageContent(url: string): ImageContent | undefined {
   const match = url.match(/^data:([^;,]+);base64,(.*)$/i);
   if (!match) return undefined;
 
@@ -213,7 +213,7 @@ function isPiUserContentPart(
   return !!part;
 }
 
-function toPiUserContent(
+export function toPiUserContent(
   content: any,
 ): string | (TextContent | ImageContent)[] {
   if (typeof content === "string") return content;
@@ -235,7 +235,7 @@ function toPiUserContent(
   return parts.length > 0 ? parts : "";
 }
 
-function toTextContent(content: any): string {
+export function toTextContent(content: any): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     const text = content
@@ -376,7 +376,7 @@ function getProviderRuntimeConfig(providerId: string) {
   }
 }
 
-function isOpenAIProtocolSdk(sdkType: string): boolean {
+export function isOpenAIProtocolSdk(sdkType: string): boolean {
   const normalized = String(sdkType || "").toLowerCase();
   return (
     normalized === "openai" ||
@@ -385,7 +385,7 @@ function isOpenAIProtocolSdk(sdkType: string): boolean {
   );
 }
 
-function resolvePiApiType(runtimeCfg: any): string {
+export function resolvePiApiType(runtimeCfg: any): string {
   const sdkType = String(runtimeCfg?.sdkType || "").toLowerCase();
   if (isOpenAIProtocolSdk(sdkType)) {
     return runtimeCfg?.apiType === "response"
@@ -397,7 +397,7 @@ function resolvePiApiType(runtimeCfg: any): string {
   return "openai-completions";
 }
 
-function resolveCompat(
+export function resolveCompat(
   runtimeCfg: any,
   providerId: string,
   builtinCompat?: any,

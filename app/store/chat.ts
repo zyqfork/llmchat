@@ -335,7 +335,7 @@ function countMessages(msgs: ChatMessage[]) {
   );
 }
 
-function countUserMessages(messages: ChatMessage[]) {
+export function countUserMessages(messages: ChatMessage[]) {
   let count = 0;
   for (const msg of messages) {
     if (msg.isError || msg.role !== "user") {
@@ -349,7 +349,7 @@ function countUserMessages(messages: ChatMessage[]) {
   return count;
 }
 
-function countUserTokens(messages: ChatMessage[]) {
+export function countUserTokens(messages: ChatMessage[]) {
   let total = 0;
   for (const msg of messages) {
     if (msg.isError || msg.role !== "user") {
@@ -363,7 +363,7 @@ function countUserTokens(messages: ChatMessage[]) {
   return total;
 }
 
-function buildConversationTranscript(
+export function buildConversationTranscript(
   messages: ChatMessage[],
   includeSystem: boolean,
 ) {
@@ -414,7 +414,7 @@ export function formatChatErrorCodeBlock(message: string): string {
   return `⚠️ ${content}`;
 }
 
-function buildUserMessagesText(messages: ChatMessage[]) {
+export function buildUserMessagesText(messages: ChatMessage[]) {
   const lines: string[] = [];
 
   for (const msg of messages) {
@@ -431,7 +431,7 @@ function buildUserMessagesText(messages: ChatMessage[]) {
   return lines.join("\n");
 }
 
-function buildTopicPrompt(
+export function buildTopicPrompt(
   instruction: string,
   userMessages: string,
   assistantMessage: string,
@@ -453,7 +453,7 @@ function buildTopicPrompt(
   return output;
 }
 
-function buildTopicRequestMessages(
+export function buildTopicRequestMessages(
   topicPrompt: string,
   messages: ChatMessage[],
 ) {
@@ -473,7 +473,7 @@ function buildTopicRequestMessages(
   ];
 }
 
-function fillTemplateWith(input: string, modelConfig: ModelConfig) {
+export function fillTemplateWith(input: string, modelConfig: ModelConfig) {
   const cutoff =
     KnowledgeCutOffDate[modelConfig.model] ?? KnowledgeCutOffDate.default;
   // Find the model in the DEFAULT_MODELS array that matches the modelConfig.model
