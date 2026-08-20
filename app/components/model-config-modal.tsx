@@ -9,6 +9,12 @@ import {
   getModelStreamConfig,
   saveModelStreamConfig,
 } from "../config/model-stream";
+import { getModelThinkingOptions } from "../config/model-config";
+import {
+  getModelThinkingBudget,
+  saveModelThinkingBudget,
+} from "../config/model-thinking";
+import Locale from "../locales";
 
 interface ModelConfigModalProps {
   modelName: string;
@@ -50,6 +56,8 @@ export function ModelConfigModal({
   );
   const [category, setCategory] = useState(initialCategory);
   const [stream, setStream] = useState<boolean>(true);
+  const [thinkingBudget, setThinkingBudget] = useState<number>(-1);
+  const thinkingOptions = getModelThinkingOptions(modelName);
 
   useEffect(() => {
     // 获取当前模型能力配置
@@ -67,11 +75,18 @@ export function ModelConfigModal({
     // 获取当前流式配置
     const currentStreamConfig = getModelStreamConfig(modelName);
     setStream(currentStreamConfig);
+
+    // 获取当前思考深度配置
+    const currentThinkingBudget = getModelThinkingBudget(modelName);
+    setThinkingBudget(currentThinkingBudget ?? -1);
   }, [modelName]);
 
   const handleSave = () => {
     // 保存流式配置
     saveModelStreamConfig(modelName, stream);
+
+    // 保存思考深度配置
+    saveModelThinkingBudget(modelName, thinkingBudget);
 
     const config = {
       capabilities,
@@ -193,6 +208,32 @@ export function ModelConfigModal({
                 切换响应模式：流式模式会实时显示响应内容，非流式模式会等待完整响应后一次性显示
               </small>
             </div>
+
+            {thinkingOptions.length > 0 && (
+              <div className={styles["form-group"]}>
+                <label>{Locale.Settings.ThinkingDepth.Title}</label>
+                <select
+                  value={thinkingBudget}
+                  onChange={(e) =>
+                    setThinkingBudget(parseInt(e.target.value, 10))
+                  }
+                  className={styles["form-input"]}
+                >
+                  {thinkingOptions.map((option) => (
+                    <option key={option.level} value={option.value}>
+                      {option.level === "dynamic"
+                        ? Locale.Chat.Thinking.Dynamic
+                        : option.level === "off"
+                          ? Locale.Chat.Thinking.Off
+                          : option.level}
+                    </option>
+                  ))}
+                </select>
+                <small className={styles["form-hint"]}>
+                  {Locale.Settings.ThinkingDepth.SubTitle}
+                </small>
+              </div>
+            )}
           </div>
 
           {/* 模型能力 */}

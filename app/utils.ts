@@ -275,11 +275,12 @@ export function removeThinkingContent(text: string): string {
   // 移除 <think> 和 </think> 标签及其之间的内容（某些模型可能使用这种格式）
   cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
 
-  // 移除可能残留的不完整思考标签
+  // 移除可能残留的不完整思考标签：
+  // 未闭合的 <think>（其后均为思考内容）从标签处删到末尾
   cleaned = cleaned.replace(/<think>[\s\S]*$/gi, "");
-  cleaned = cleaned.replace(/^[\s\S]*?<\/redacted_reasoning>/gi, "");
-  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, "");
-  cleaned = cleaned.replace(/^[\s\S]*?<\/think>/gi, "");
+  // 孤立的闭合标签只移除标签本身，避免误删标签外的正文
+  cleaned = cleaned.replace(/<\/redacted_reasoning>/gi, "");
+  cleaned = cleaned.replace(/<\/think>/gi, "");
 
   // 清理多余的空白行（保留单个换行）
   cleaned = cleaned.replace(/\n\s*\n\s*\n+/g, "\n\n");

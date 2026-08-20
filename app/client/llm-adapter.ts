@@ -2,19 +2,37 @@ import { logger } from "../utils/logger";
 import { applyProxyIfNeeded } from "@earendil-works/pi-web-ui/utils/proxy-utils";
 import { fetch as tauriFetch, FetchType, isTauriApp } from "../utils/fetch";
 import { getAllProviders } from "../constant";
-import { resolvePiProviderId } from "../utils/pi-ai-resolver";
+import {
+  findPiModelByIdAsync,
+  resolvePiProviderId,
+} from "../utils/pi-ai-resolver";
 import { useAccessStore } from "../store/access";
-import { executeMcpToolCall } from "./mcp-tool-executor";
-import { completeSimple, getModel, streamSimple } from "@earendil-works/pi-ai/compat";
-import type {
-  Context,
-  ImageContent,
-  Message,
-  TextContent,
+import {
+  agentEventToUnifiedPart,
+  createPiAgentRun,
+  lastAssistantMessage,
+  toAgentTools,
+} from "./pi-agent-bridge";
+import {
+  createModels,
+  createProvider,
+  type Api,
+  type Context,
+  type ImageContent,
+  type Message,
+  type Model,
+  type ProviderStreams,
+  type TextContent,
+  type ThinkingLevel,
 } from "@earendil-works/pi-ai";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
+import { azureOpenAIResponsesApi } from "@earendil-works/pi-ai/api/azure-openai-responses.lazy";
+import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
+import { googleGenerativeAIApi } from "@earendil-works/pi-ai/api/google-generative-ai.lazy";
 import { transformMessages } from "@earendil-works/pi-ai/api/transform-messages";
 import { applyStatefulResponsesPayload } from "../utils/response-api";
-import { agentLoop, runAgentLoop } from "@earendil-works/pi-agent-core";
+import { getModelThinkingBudget } from "../config/model-thinking";
 
 export interface LLMAdapterRequest {
   providerId: string;
@@ -46,7 +64,6 @@ const EMPTY_USAGE = {
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-const passthroughConvertToLlm = async (messages: any[]) => messages as any[];
 let originalFetch: typeof globalThis.fetch | null = null;
 let tauriFetchOverrideInstalled = false;
 const tauriFetchBaseUrls = new Set<string>();
@@ -262,14 +279,17 @@ function toPiContext(
 
     if (msg?.role === "assistant") {
       const text = toTextContent(msg.content);
+      const structuredContent = Array.isArray(msg.contentBlocks)
+        ? msg.contentBlocks
+        : [{ type: "text", text: text ?? "" }];
       piMessages.push({
         role: "assistant",
-        content: [{ type: "text", text: text ?? "" }],
-        api: "openai-completions",
-        provider: "openai",
-        model: "compat-history",
-        usage: EMPTY_USAGE,
-        stopReason: "stop",
+        content: structuredContent,
+        api: msg.piApi || "openai-completions",
+        provider: msg.piProvider || "openai",
+        model: msg.piModel || "legacy-history",
+        usage: msg.usage || EMPTY_USAGE,
+        stopReason: msg.stopReason || "stop",
         timestamp: Date.now(),
       });
     }
@@ -397,19 +417,20 @@ function resolveCompat(
   };
 }
 
-function toPiModel(
+async function toPiModel(
   providerId: string,
   modelId: string,
   cfg?: any,
   knownProvider?: string,
-): any | null {
+): Promise<any | null> {
   const runtimeCfg = cfg || getProviderRuntimeConfig(providerId);
   if (!runtimeCfg?.apiKey) return null;
   const api = resolvePiApiType(runtimeCfg);
 
   if (knownProvider) {
     try {
-      const builtin = getModel(knownProvider as any, modelId as any);
+      const builtin = await findPiModelByIdAsync(modelId, knownProvider);
+      if (!builtin) throw new Error("Unknown pi-ai model");
       const compat = resolveCompat(runtimeCfg, providerId, builtin.compat);
       return {
         ...builtin,
@@ -431,12 +452,57 @@ function toPiModel(
     provider: providerId,
     baseUrl: runtimeCfg.baseUrl,
     reasoning: true,
+    // 自建兼容服务（vLLM 等）常见的 reasoning_effort 取值映射。
+    // vLLM/Qwen 仅支持 low/medium/xhigh，把 minimal/high/max 收敛到合法档位，
+    // 避免上游 400（例如 vLLM 拒绝 reasoning_effort=high）
+    thinkingLevelMap: {
+      off: null,
+      minimal: "low",
+      low: "low",
+      medium: "medium",
+      high: "xhigh",
+      xhigh: "xhigh",
+      max: "xhigh",
+    },
     input: ["text", "image"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128000,
     maxTokens: 32768,
     compat: resolveCompat(runtimeCfg, providerId),
   } as any;
+}
+
+function createRequestModels(requestModel: Model<Api>) {
+  const models = createModels();
+  const apiFactories: Record<string, () => ProviderStreams> = {
+    "openai-completions": openAICompletionsApi,
+    "openai-responses": openAIResponsesApi,
+    "azure-openai-responses": azureOpenAIResponsesApi,
+    "anthropic-messages": anthropicMessagesApi,
+    "google-generative-ai": googleGenerativeAIApi,
+  };
+  const apiFactory = apiFactories[requestModel.api];
+  if (!apiFactory) {
+    throw new Error(`Unsupported pi-ai API: ${requestModel.api}`);
+  }
+
+  models.setProvider(
+    createProvider({
+      id: requestModel.provider,
+      name: requestModel.provider,
+      baseUrl: requestModel.baseUrl,
+      // 浏览器端 API key 由每次请求显式传入；provider 仍需声明认证语义。
+      auth: {
+        apiKey: {
+          name: requestModel.provider,
+          resolve: async () => ({ auth: {} }),
+        },
+      },
+      models: [requestModel],
+      api: apiFactory(),
+    }),
+  );
+  return models;
 }
 
 function getNormalizedProxyUrl(proxyUrl?: string): string | undefined {
@@ -471,53 +537,19 @@ function withProxyModel(model: any, cfg: any): any {
   return applyProxyIfNeeded(model, cfg.apiKey, proxyUrl);
 }
 
-function toAgentTools(openAiTools: any[] = []) {
-  return openAiTools
-    .map((tool: any) => {
-      const fn = tool?.function;
-      if (!fn?.name) return null;
-      return {
-        name: fn.name,
-        label: fn.name,
-        description: fn.description || `Tool ${fn.name}`,
-        parameters: fn.parameters || {
-          type: "object",
-          properties: {},
-        },
-        execute: async (toolCallId: string, args: any) => {
-          const toolExec = await executeMcpToolCall(
-            {
-              id: toolCallId,
-              name: fn.name,
-              arguments: args,
-            },
-            openAiTools,
-          );
-          if (toolExec.isError) {
-            throw new Error(toolExec.content);
-          }
-          return {
-            content: [{ type: "text", text: toolExec.content }],
-            details: {
-              text: toolExec.content,
-              args,
-              mcpPayload: toolExec.mcpPayload,
-              mcpMeta: toolExec.mcpMeta,
-            },
-          };
-        },
-      };
-    })
-    .filter(Boolean);
-}
-
 function assistantMessageToProviderMetadata(message: any) {
-  if (message?.api !== "openai-responses") {
-    return {};
-  }
+  if (!message) return {};
 
+  // pi-ai 已统一不同供应商的 token、缓存和费用字段，直接保留结构化数据，
+  // 避免 UI 再按供应商重复解析。
   return {
-    responseId: message?.responseId,
+    ...(message.responseId ? { responseId: message.responseId } : {}),
+    stopReason: message.stopReason,
+    usage: message.usage,
+    content: message.content,
+    api: message.api,
+    provider: message.provider,
+    model: message.model,
   };
 }
 
@@ -531,7 +563,10 @@ function assistantMessageToResult(message: any, debugCapture: DebugCapture) {
     usage: {
       promptTokens: message?.usage?.input ?? 0,
       completionTokens: message?.usage?.output ?? 0,
+      cacheReadTokens: message?.usage?.cacheRead ?? 0,
+      cacheWriteTokens: message?.usage?.cacheWrite ?? 0,
       totalTokens: message?.usage?.totalTokens ?? 0,
+      cost: message?.usage?.cost,
     },
     finishReason: message?.stopReason,
     providerMetadata: assistantMessageToProviderMetadata(message),
@@ -551,54 +586,6 @@ function assistantEventToUnifiedPart(event: any) {
     default:
       return undefined;
   }
-}
-
-function extractToolCallArgs(payload: any): any {
-  if (!payload || typeof payload !== "object") return undefined;
-  const candidates = [
-    payload.arguments,
-    payload.args,
-    payload.input,
-    payload.parameters,
-    payload.toolArguments,
-    payload.tool_args,
-    payload.tool_input,
-  ];
-  return candidates.find((item) => item !== undefined);
-}
-
-function agentEventToUnifiedPart(event: any) {
-  if (event?.type === "message_update") {
-    return assistantEventToUnifiedPart(event.assistantMessageEvent);
-  }
-
-  if (event?.type === "tool_execution_end") {
-    const rawToolCall = event.toolCall || {};
-    const resultDetails = event.result?.details;
-    const mergedArgs =
-      extractToolCallArgs(rawToolCall) ??
-      extractToolCallArgs(event) ??
-      resultDetails?.args ??
-      resultDetails?.mcpPayload?.params?.arguments ??
-      event.result?.args ??
-      event.result?.arguments;
-
-    return {
-      type: "tool-result",
-      toolCall: {
-        id: event.toolCallId || rawToolCall.id,
-        name: event.toolName || rawToolCall.name,
-        arguments: mergedArgs,
-        mcpPayload: resultDetails?.mcpPayload,
-        mcpMeta: resultDetails?.mcpMeta,
-      },
-      result:
-        event.result?.content?.[0]?.text ?? JSON.stringify(event.result ?? {}),
-      isError: !!event.isError,
-    };
-  }
-
-  return undefined;
 }
 
 async function* toUnifiedFullStream(piStream: any) {
@@ -625,34 +612,17 @@ async function* mapStreamParts(stream: any, toPart: (event: any) => any) {
       throw new Error(errorMsg);
     }
     const part = toPart(event);
+    if (part?.type === "error") {
+      const errorCapture = getLastErrorDebugCapture();
+      throw new Error(
+        errorCapture.body ||
+          part.error?.errorMessage ||
+          part.reason ||
+          "Unknown agent streaming error",
+      );
+    }
     if (part) yield part;
   }
-}
-
-function lastAssistantMessage(messages: any[] = []) {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i];
-    if (message?.role === "assistant") {
-      return message;
-    }
-  }
-  return undefined;
-}
-
-function buildAgentContext(context: any, tools: any) {
-  return {
-    systemPrompt: context.systemPrompt || "",
-    messages: context.messages || [],
-    tools,
-  };
-}
-
-function buildAgentRunOptions(requestModel: any, streamOptions: any) {
-  return {
-    model: requestModel,
-    convertToLlm: passthroughConvertToLlm,
-    ...streamOptions,
-  };
 }
 
 function buildDebugGetters(debugCapture: DebugCapture) {
@@ -671,7 +641,34 @@ function buildPiStreamOptions(
   installTauriFetchOverride(requestModel?.baseUrl);
   installErrorCaptureFetch();
 
+  // 思考深度 → pi-ai 的思考档位：
+  // -1=动态（不传参，使用服务端默认），0=关闭思考，>0=按档位映射
+  // 仅当会话未设置（undefined）时，回退到模型配置弹窗中的模型级默认值
+  const sessionBudget = req.options?.thinkingBudget;
+  // undefined 表示会话未设置，继承模型默认值；-1 是用户明确选择的动态模式，
+  // 不能再被模型默认值覆盖。
+  const thinkingBudget =
+    sessionBudget === undefined
+      ? getModelThinkingBudget(req.model)
+      : sessionBudget;
+  let reasoning: ThinkingLevel | undefined;
+  if (typeof thinkingBudget === "number" && thinkingBudget > 0) {
+    reasoning =
+      thinkingBudget <= 1024
+        ? "low"
+        : thinkingBudget <= 4096
+          ? "medium"
+          : thinkingBudget <= 8192
+            ? "high"
+            : "xhigh";
+  }
+  // thinkingBudget === 0（关闭思考）：不传 reasoning，由下方 onPayload 注入
+  // chat_template_kwargs.enable_thinking=false 实现关闭
+
+  const isCustomProvider = String(req.providerId || "").startsWith("custom_");
+
   return {
+    reasoning,
     temperature: req.options?.temperature,
     maxTokens: req.options?.maxTokens,
     signal: req.options?.abortSignal,
@@ -680,11 +677,26 @@ function buildPiStreamOptions(
       const errorCapture = getLastErrorDebugCapture();
       let nextPayload = payload;
       if (
+        thinkingBudget === 0 &&
+        isCustomProvider &&
+        usedModel?.api === "openai-completions"
+      ) {
+        // reasoning_effort 无法表达“关闭思考”；vLLM/Qwen 需通过
+        // chat_template_kwargs.enable_thinking=false 关闭（顶层 enable_thinking 会被忽略）
+        nextPayload = {
+          ...nextPayload,
+          chat_template_kwargs: {
+            ...(nextPayload.chat_template_kwargs || {}),
+            enable_thinking: false,
+          },
+        };
+      }
+      if (
         cfg.apiType === "response" &&
         cfg.responseStateful &&
         !req.options?.disableResponseStateful
       ) {
-        nextPayload = applyStatefulResponsesPayload(payload, {
+        nextPayload = applyStatefulResponsesPayload(nextPayload, {
           previousResponseId: req.options?.previousResponseId,
           hasTools: Array.isArray(payload?.tools) && payload.tools.length > 0,
         });
@@ -733,7 +745,12 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
   const cfg = getProviderRuntimeConfig(req.providerId) as any;
   const knownProvider = resolvePiProviderId(req.providerId);
 
-  const model = toPiModel(req.providerId, req.model, cfg, knownProvider);
+  const model = await toPiModel(
+    req.providerId,
+    req.model,
+    cfg,
+    knownProvider,
+  );
   if (!cfg?.apiKey || !model) {
     throw new Error(
       `[LLM Adapter] pi-ai missing runtime config for provider ${req.providerId}`,
@@ -742,12 +759,8 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
 
   const debugCapture: DebugCapture = req.debugCapture || {};
   const context = toPiContext(req.options?.messages ?? [], model);
-  const openAiTools = Array.isArray(req.options?.tools)
-    ? req.options.tools
-    : [];
+  const openAiTools = Array.isArray(req.options?.tools) ? req.options.tools : [];
   const agentTools = toAgentTools(openAiTools);
-  const normalizedTools =
-    agentTools.length > 0 ? (agentTools as any) : undefined;
   const requestModel = withProxyModel(model, cfg);
   const streamOptions = buildPiStreamOptions(
     req,
@@ -758,7 +771,7 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
 
   return {
     context,
-    normalizedTools,
+    agentTools,
     requestModel,
     streamOptions,
     debugCapture,
@@ -767,43 +780,39 @@ async function prepareAdapterRequest(req: LLMAdapterRequest) {
 
 export function streamText(req: LLMAdapterRequest) {
   return (async () => {
-    const {
-      context,
-      normalizedTools,
-      requestModel,
-      streamOptions,
-      debugCapture,
-    } = await prepareAdapterRequest(req);
+    const { context, agentTools, requestModel, streamOptions, debugCapture } =
+      await prepareAdapterRequest(req);
 
-    if (!normalizedTools) {
-      const piStream = streamSimple(requestModel, context, streamOptions);
+    if (agentTools.length > 0) {
+      const models = createRequestModels(requestModel);
+      const agentStream = createPiAgentRun({
+        context,
+        model: requestModel,
+        streamOptions,
+        tools: agentTools,
+        streamFn: models.streamSimple.bind(models),
+        abortSignal: req.options?.abortSignal,
+        sessionId: req.options?.sessionId,
+      });
       return {
-        fullStream: toUnifiedFullStream(piStream),
-        providerMetadata: piStream
+        fullStream: toUnifiedAgentStream(agentStream),
+        providerMetadata: agentStream
           .result()
-          .then(assistantMessageToProviderMetadata)
+          .then((messages) =>
+            assistantMessageToProviderMetadata(lastAssistantMessage(messages)),
+          )
           .catch(() => ({})),
         ...buildDebugGetters(debugCapture),
       };
     }
 
-    const agentContext = buildAgentContext(context, normalizedTools);
-    const agentOptions = buildAgentRunOptions(requestModel, streamOptions);
-    const agentStream = agentLoop(
-      [],
-      agentContext,
-      agentOptions,
-      req.options?.abortSignal,
-      streamSimple as any,
-    );
-
+    const models = createRequestModels(requestModel);
+    const piStream = models.streamSimple(requestModel, context, streamOptions);
     return {
-      fullStream: toUnifiedAgentStream(agentStream),
-      providerMetadata: agentStream
+      fullStream: toUnifiedFullStream(piStream),
+      providerMetadata: piStream
         .result()
-        .then((messages: any[]) =>
-          assistantMessageToProviderMetadata(lastAssistantMessage(messages)),
-        )
+        .then(assistantMessageToProviderMetadata)
         .catch(() => ({})),
       ...buildDebugGetters(debugCapture),
     };
@@ -811,40 +820,30 @@ export function streamText(req: LLMAdapterRequest) {
 }
 
 export async function generateText(req: LLMAdapterRequest) {
-  const {
-    context,
-    normalizedTools,
-    requestModel,
-    streamOptions,
-    debugCapture,
-  } = await prepareAdapterRequest(req);
+  const { context, agentTools, requestModel, streamOptions, debugCapture } =
+    await prepareAdapterRequest(req);
 
-  let result: any = null;
-
-  if (!normalizedTools) {
-    const message = await completeSimple(requestModel, context, streamOptions);
-
+  if (agentTools.length > 0) {
+    const models = createRequestModels(requestModel);
+    const messages = await createPiAgentRun({
+      context,
+      model: requestModel,
+      streamOptions,
+      tools: agentTools,
+      streamFn: models.streamSimple.bind(models),
+      abortSignal: req.options?.abortSignal,
+      sessionId: req.options?.sessionId,
+    }).result();
+    const message = lastAssistantMessage(messages);
+    if (!message) throw new Error("[LLM Adapter] Agent returned no response");
     return assistantMessageToResult(message, debugCapture);
   }
 
-  const agentContext = buildAgentContext(context, normalizedTools);
-  const agentOptions = buildAgentRunOptions(requestModel, streamOptions);
-  await runAgentLoop(
-    [],
-    agentContext,
-    agentOptions,
-    async (event: any) => {
-      if (event.type === "message_end" && event.message?.role === "assistant") {
-        result = event.message;
-      }
-    },
-    req.options?.abortSignal,
-    streamSimple as any,
+  const models = createRequestModels(requestModel);
+  const message = await models.completeSimple(
+    requestModel,
+    context,
+    streamOptions,
   );
-
-  if (!result) {
-    throw new Error("[LLM Adapter] No assistant result generated");
-  }
-
-  return assistantMessageToResult(result, debugCapture);
+  return assistantMessageToResult(message, debugCapture);
 }

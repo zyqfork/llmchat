@@ -7,7 +7,7 @@ import {
 import { type CustomProvider, useAccessStore } from "../store/access";
 import { fetch as appFetch } from "../utils/fetch";
 import { logger } from "../utils/logger";
-import { getPiModelsByProvider } from "../utils/pi-ai-resolver";
+import { loadPiModelsByProvider } from "../utils/pi-ai-resolver";
 import type { LLMModel } from "./api";
 
 const CUSTOM_PROVIDER_AUTH_HEADER: Record<string, string> = {
@@ -94,9 +94,9 @@ function getLocalCatalogModels(
   }));
 }
 
-function getPiCatalogModels(providerId: string): LLMModel[] {
+async function getPiCatalogModels(providerId: string): Promise<LLMModel[]> {
   try {
-    return getPiModelsByProvider(providerId).map((model, index: number) => {
+    return (await loadPiModelsByProvider(providerId)).map((model, index: number) => {
       const name = String(model.id);
       return {
         ...toLlmModel(name, index, providerId, providerId),
@@ -237,13 +237,15 @@ async function fetchCustomProviderModels(
   }
 }
 
-function fetchBuiltinProviderModels(provider: string): ModelFetchResponse {
+async function fetchBuiltinProviderModels(
+  provider: string,
+): Promise<ModelFetchResponse> {
   const providerConfig = resolveProviderConfig(provider);
   if (!providerConfig) {
     return modelFetchFailureWithMessage(`Unsupported provider ${provider}`);
   }
 
-  const modelsFromPi = getPiCatalogModels(providerConfig.id);
+  const modelsFromPi = await getPiCatalogModels(providerConfig.id);
   const models =
     modelsFromPi.length > 0
       ? modelsFromPi
@@ -270,7 +272,7 @@ export async function fetchModels(
       }
       return fetchCustomProviderModels(customProvider);
     }
-    return fetchBuiltinProviderModels(provider);
+    return await fetchBuiltinProviderModels(provider);
   } catch (error) {
     logger.error(`[ModelFetch] Failed to fetch models for ${provider}:`, error);
     return modelFetchFailure(error);

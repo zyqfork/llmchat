@@ -13,6 +13,7 @@ import {
   formatTokenCount,
   getModelCompressThreshold,
 } from "../../config/model-config";
+import { getModelThinkingBudget } from "../../config/model-thinking";
 import Locale from "../../locales";
 import {
   Selector,
@@ -358,7 +359,13 @@ export function ChatActions(props: {
       const modelCapabilities = getModelCapabilities(
         session.mask.modelConfig.model,
       );
-      if (
+      // 优先应用模型级思考深度默认值
+      const modelBudget = getModelThinkingBudget(
+        session.mask.modelConfig.model,
+      );
+      if (modelBudget !== undefined) {
+        session.mask.modelConfig.thinkingBudget = modelBudget;
+      } else if (
         modelCapabilities.reasoning &&
         modelCapabilities.reasoningField &&
         session.mask.modelConfig.thinkingBudget === undefined
@@ -505,8 +512,7 @@ export function ChatActions(props: {
         const currentModel = session.mask.modelConfig.model;
         const modelCapabilities = getModelCapabilities(currentModel);
         return (
-          modelCapabilities.reasoning &&
-          modelCapabilities.reasoningField && (
+          modelCapabilities.reasoning && (
             <ChatAction
               onClick={() =>
                 props.setShowThinkingPanel(!props.showThinkingPanel)

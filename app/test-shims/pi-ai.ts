@@ -29,6 +29,26 @@ export function isContextOverflow() {
   return false;
 }
 
+export function getSupportedThinkingLevels() {
+  return ["off", "low", "medium", "high"];
+}
+
+export function createProvider(config: any) {
+  return config;
+}
+
+export function createModels() {
+  return {
+    setProvider() {},
+    streamSimple(): never {
+      throw new Error("streamSimple is not available in Jest shim");
+    },
+    completeSimple(): never {
+      throw new Error("completeSimple is not available in Jest shim");
+    },
+  };
+}
+
 export function completeSimple(): never {
   throw new Error("completeSimple is not available in Jest shim");
 }

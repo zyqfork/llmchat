@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useChatStore } from "../../store";
 import { getModelCapabilities } from "../../constant";
+import { getModelThinkingOptions } from "../../config/model-config";
 import Locale from "../../locales";
 import CloseIcon from "../../icons/close.svg";
 import styles from "../chat.module.scss";
@@ -17,80 +18,48 @@ export function ThinkingPanel(props: {
   const currentModel = session.mask.modelConfig.model;
   const modelCapabilities = getModelCapabilities(currentModel);
 
-  const getThinkingOptions = () => {
-    const isClaudeType =
-      modelCapabilities.reasoningField === "reasoning_content";
-
-    if (isClaudeType) {
-      return [
-        {
-          value: -1,
-          label: Locale.Chat.Thinking.Dynamic,
-          description: Locale.Chat.Thinking.ClaudeDynamicDesc,
-        },
-        {
-          value: 0,
-          label: Locale.Chat.Thinking.Off,
-          description: Locale.Chat.Thinking.OffDesc,
-        },
-        {
-          value: 5000,
-          label: Locale.Chat.Thinking.ClaudeLight,
-          description: Locale.Chat.Thinking.ClaudeLightDesc,
-        },
-        {
-          value: 10000,
-          label: Locale.Chat.Thinking.ClaudeMedium,
-          description: Locale.Chat.Thinking.ClaudeMediumDesc,
-        },
-        {
-          value: 20000,
-          label: Locale.Chat.Thinking.ClaudeDeep,
-          description: Locale.Chat.Thinking.ClaudeDeepDesc,
-        },
-        {
-          value: 32000,
-          label: Locale.Chat.Thinking.ClaudeVeryDeep,
-          description: Locale.Chat.Thinking.ClaudeVeryDeepDesc,
-        },
-      ];
-    } else {
-      return [
-        {
-          value: -1,
-          label: Locale.Chat.Thinking.Dynamic,
-          description: Locale.Chat.Thinking.DynamicDesc,
-        },
-        {
-          value: 0,
-          label: Locale.Chat.Thinking.Off,
-          description: Locale.Chat.Thinking.OffDesc,
-        },
-        {
-          value: 1024,
-          label: Locale.Chat.Thinking.Light,
-          description: Locale.Chat.Thinking.LightDesc,
-        },
-        {
-          value: 4096,
-          label: Locale.Chat.Thinking.Medium,
-          description: Locale.Chat.Thinking.MediumDesc,
-        },
-        {
-          value: 8192,
-          label: Locale.Chat.Thinking.Deep,
-          description: Locale.Chat.Thinking.DeepDesc,
-        },
-        {
-          value: 16384,
-          label: Locale.Chat.Thinking.VeryDeep,
-          description: Locale.Chat.Thinking.VeryDeepDesc,
-        },
-      ];
+  const labels = Locale.Chat.Thinking;
+  const thinkingOptions = getModelThinkingOptions(
+    currentModel,
+    session.mask.modelConfig.providerName,
+  ).map((option) => {
+    switch (option.level) {
+      case "dynamic":
+        return {
+          ...option,
+          label: labels.Dynamic,
+          description: labels.DynamicDesc,
+        };
+      case "off":
+        return { ...option, label: labels.Off, description: labels.OffDesc };
+      case "minimal":
+      case "low":
+        return {
+          ...option,
+          label: labels.Light,
+          description: labels.LightDesc,
+        };
+      case "medium":
+        return {
+          ...option,
+          label: labels.Medium,
+          description: labels.MediumDesc,
+        };
+      case "high":
+        return {
+          ...option,
+          label: labels.Deep,
+          description: labels.DeepDesc,
+        };
+      case "xhigh":
+      case "max":
+        return {
+          ...option,
+          label: labels.VeryDeep,
+          description: labels.VeryDeepDesc,
+        };
     }
-  };
-
-  const thinkingOptions = getThinkingOptions();
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

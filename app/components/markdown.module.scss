@@ -87,7 +87,13 @@
 }
 
 .copy-think-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-size: var(--text-sm);
+  line-height: 1;
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.3s ease;

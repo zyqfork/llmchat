@@ -46,6 +46,8 @@ export interface LLMConfig {
   size?: ModelSize;
   quality?: "standard" | "hd";
   style?: "vivid" | "natural";
+  /** 思考深度：-1=动态（默认），0=关闭思考，>0=指定档位 */
+  thinkingBudget?: number;
 }
 
 export interface SpeechOptions {
@@ -62,6 +64,8 @@ export interface ChatOptions {
   config: LLMConfig;
   tools?: any[]; // MCP tools in OpenAI function call format
   previousResponseId?: string;
+  /** Stable ID forwarded to pi-agent/provider caches. */
+  sessionId?: string;
   /** 辅助请求（压缩/标题/优化等）应设为 true，避免走有状态 Responses 链 */
   disableResponseStateful?: boolean;
 
@@ -306,10 +310,12 @@ class UnifiedClientApi {
         model: options.config.model,
         temperature: options.config.temperature,
         maxTokens: options.config.max_tokens,
+        thinkingBudget: options.config.thinkingBudget,
         stream: options.config.stream,
         tools: options.tools,
         providerName: options.config.providerName,
         previousResponseId: options.previousResponseId,
+        sessionId: options.sessionId,
         disableResponseStateful: options.disableResponseStateful,
       };
       const providerId = resolveProviderId(
@@ -333,12 +339,16 @@ class UnifiedClientApi {
           let reasoningContent = ""; // 推理/思考内容
 
           // 构建用于 UI 显示的完整内容（推理内容用 <think> 标签包裹，与 markdown 渲染约定一致）
-          // 输出过程中仅收到推理内容时使用未闭合标签，保持“正在思考中”并默认展开
-          const buildDisplayContent = () =>
+          // 输出过程中仅收到推理内容时使用未闭合标签，保持"正在思考中"并默认展开；
+          // 流结束后（final）必须闭合标签，避免最终存储的消息带有未闭合 <think>，
+          // 否则 markdown 会把整条消息渲染为思考块、复制/导出/历史重发时还会误删全部内容
+          const buildDisplayContent = (final = false) =>
             reasoningContent
               ? mainContent
                 ? `<think>\n${reasoningContent}\n</think>\n\n${mainContent}`
-                : `<think>\n${reasoningContent}`
+                : final
+                  ? `<think>\n${reasoningContent}\n</think>`
+                  : `<think>\n${reasoningContent}`
               : mainContent;
 
           const pushUpdate = (displayContent: string) => {
@@ -471,7 +481,7 @@ class UnifiedClientApi {
               );
             }
 
-            const fullContent = buildDisplayContent();
+            const fullContent = buildDisplayContent(true);
 
             let providerMetadata: any = undefined;
             try {

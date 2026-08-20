@@ -43,6 +43,7 @@ import {
   getModelContextTokens,
   saveCustomContextTokens,
 } from "../config/model-config";
+import { getModelThinkingBudget } from "../config/model-thinking";
 import { ModelConfigModal } from "./model-config-modal";
 
 import { IconButton } from "./button";
@@ -1989,7 +1990,7 @@ export function Settings() {
           navigate(Path.Home);
         } catch (error) {
           logger.error("Navigation error:", error);
-          window.location.href = "/";
+          window.location.hash = "#/";
         }
       }
     };
@@ -3564,6 +3565,11 @@ export function Settings() {
                 );
                 config.modelConfig.compressMessageLengthThreshold =
                   autoThreshold;
+                // 优先应用模型级思考深度默认值
+                const modelBudget = getModelThinkingBudget(model);
+                if (modelBudget !== undefined) {
+                  config.modelConfig.thinkingBudget = modelBudget;
+                }
               });
               window.dispatchEvent(
                 new CustomEvent("modelConfigUpdated", {
@@ -3683,8 +3689,8 @@ export function Settings() {
                   navigate(Path.Home);
                 } catch (e) {
                   logger.error("Navigation error:", e);
-                  // 如果导航失败，尝试强制刷新
-                  window.location.href = "/";
+                  // HashRouter 回退，不触发整页刷新。
+                  window.location.hash = "#/";
                 }
               }}
               bordered

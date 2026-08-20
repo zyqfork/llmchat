@@ -2103,6 +2103,87 @@
   }
 }
 
+// Pi 结构化内容块容器
+.pi-content-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// Pi 结构化内容块样式
+.pi-thinking-block {
+  border: none;
+  border-radius: 6px;
+  background-color: rgba(168, 85, 247, 0.05);
+  box-shadow: 0 1px 3px rgba(168, 85, 247, 0.12);
+  overflow: hidden;
+  margin: 8px 0;
+
+  summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    background-color: rgba(168, 85, 247, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+
+    &:hover {
+      background-color: rgba(168, 85, 247, 0.15);
+    }
+  }
+
+  &[open] {
+    box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2);
+
+    summary {
+      background-color: rgba(168, 85, 247, 0.12);
+    }
+  }
+
+  &-title {
+    font-weight: 600;
+    color: #7c3aed;
+  }
+
+  &-count {
+    font-size: 12px;
+    opacity: 0.6;
+  }
+
+  &-body {
+    padding: 12px;
+    border-top: 1px solid rgba(168, 85, 247, 0.1);
+  }
+
+  &-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0;
+    max-height: 400px;
+    overflow-y: auto;
+    color: #57534e;
+  }
+
+  &-notice {
+    font-size: 12px;
+    color: #a855f7;
+    font-style: italic;
+  }
+}
+
+.pi-content-image {
+  margin: 8px 0;
+
+  img {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
 // 深色模式适配
 .dark {
   .mcp-tool-call {
@@ -2135,6 +2216,39 @@
   .mcp-tool-call-desc,
   .mcp-tool-call-key {
     color: var(--white);
+  }
+
+  .pi-thinking-block {
+    background-color: rgba(167, 139, 250, 0.08);
+    box-shadow: 0 1px 3px rgba(167, 139, 250, 0.15);
+
+    summary {
+      background-color: rgba(167, 139, 250, 0.12);
+
+      &:hover {
+        background-color: rgba(167, 139, 250, 0.2);
+      }
+    }
+
+    &[open] {
+      box-shadow: 0 2px 6px rgba(167, 139, 250, 0.25);
+
+      summary {
+        background-color: rgba(167, 139, 250, 0.18);
+      }
+    }
+
+    &-title {
+      color: #c4b5fd;
+    }
+
+    &-text {
+      color: #d1d5db;
+    }
+
+    &-notice {
+      color: #c4b5fd;
+    }
   }
 }
 

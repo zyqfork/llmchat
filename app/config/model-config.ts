@@ -4,6 +4,10 @@ import {
   formatModelCost,
   formatUsage,
 } from "@earendil-works/pi-web-ui/utils/format";
+import {
+  getSupportedThinkingLevels,
+  type ModelThinkingLevel,
+} from "@earendil-works/pi-ai";
 import { findPiModelById } from "../utils/pi-ai-resolver";
 import { MODELS_DEV_CONFIG as GENERATED_MODELS_DEV_CONFIG } from "./generated/models-config";
 import type {
@@ -40,6 +44,45 @@ export interface ModelContextConfig {
   contextTokens: number; // 上下文窗口大小（输入+输出）
   maxOutputTokens?: number; // 最大输出Token数
   description?: string; // 模型描述
+}
+
+export interface ModelThinkingOption {
+  level: "dynamic" | ModelThinkingLevel;
+  value: number;
+}
+
+const THINKING_LEVEL_BUDGETS: Record<ModelThinkingLevel, number> = {
+  off: 0,
+  minimal: 512,
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+  xhigh: 16384,
+  max: 32768,
+};
+
+/**
+ * 根据 pi-ai 模型元数据返回实际支持的思考档位。
+ * dynamic 表示不传 reasoning，让供应商使用模型默认策略。
+ */
+export function getModelThinkingOptions(
+  modelName: string,
+  providerName?: string,
+): ModelThinkingOption[] {
+  const model = findPiModelById(modelName, providerName);
+  const configuredModel = model || findModelInConfig(modelName, providerName);
+  if (!configuredModel?.reasoning) return [];
+
+  const levels: ModelThinkingLevel[] = model
+    ? getSupportedThinkingLevels(model)
+    : ["off", "low", "medium", "high"];
+  return [
+    { level: "dynamic", value: -1 },
+    ...levels.map((level) => ({
+      level,
+      value: THINKING_LEVEL_BUDGETS[level],
+    })),
+  ];
 }
 
 // ============================================================================

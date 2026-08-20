@@ -69,6 +69,7 @@ import { getModelProvider } from "../utils/model";
 import { useAccessStore } from "../store/access";
 import { groupBy } from "lodash-es";
 import { getModelCompressThreshold } from "../config/model-config";
+import { getModelThinkingBudget } from "../config/model-thinking";
 import { useEnabledModels } from "../utils/hooks";
 
 // drag and drop helper function
@@ -406,6 +407,11 @@ export function MaskConfig(props: {
                         mask.modelConfig.model = model as any;
                         if (providerName) {
                           mask.modelConfig.providerName = providerName as any;
+                        }
+                        // 优先应用模型级思考深度默认值
+                        const modelBudget = getModelThinkingBudget(model);
+                        if (modelBudget !== undefined) {
+                          mask.modelConfig.thinkingBudget = modelBudget;
                         }
                         // 根据新模型自动更新压缩阈值
                         const autoThreshold = getModelCompressThreshold(

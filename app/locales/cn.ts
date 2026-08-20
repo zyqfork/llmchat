@@ -1092,6 +1092,10 @@ const cn = {
       Title: "单次回复限制 (max_tokens)",
       SubTitle: "单次交互所用的最大 Token 数",
     },
+    ThinkingDepth: {
+      Title: "思考深度",
+      SubTitle: "控制模型的思考强度，仅在支持推理的模型上生效（vLLM/Qwen 等）",
+    },
     PresencePenalty: {
       Title: "话题新鲜度 (presence_penalty)",
       SubTitle: "值越大，越有可能扩展到新话题",

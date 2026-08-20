@@ -23,6 +23,7 @@ import {
   isThinkingModel,
   wrapThinkingPart,
 } from "../../utils";
+import { PiContentBlock } from "./PiContentBlock";
 import { ChatControllerPool } from "../../client/controller";
 
 import styles from "../chat.module.scss";
@@ -269,6 +270,30 @@ export function SingleMessage(props: SingleMessageProps) {
   );
 
   const renderTimelineContent = () => {
+    // 优先使用 Pi 原生结构化内容块
+    const contentBlocks = (message as any).contentBlocks;
+    if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
+      const isStreamDone = !message.streaming && !message.preview;
+      return (
+        <div className={styles["pi-content-blocks"]}>
+          {contentBlocks.map((block: any, idx: number) => (
+            <PiContentBlock
+              key={block.id || `block:${idx}`}
+              block={block}
+              isStreamFinished={isStreamDone}
+              fontSize={fontSize}
+              fontFamily={fontFamily}
+              scrollRef={scrollRef}
+              index={index}
+              totalMessages={totalMessages}
+              isUserMessage={isUser}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // 降级：使用传统文本 + MCP 工具卡片渲染
     const rawContent =
       typeof message.content === "string"
         ? message.content

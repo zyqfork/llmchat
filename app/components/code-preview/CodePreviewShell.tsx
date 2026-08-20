@@ -240,7 +240,20 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
             <button
               type="button"
               onPointerDown={(e) => {
-                if (e.button === 0) copyToClipboard(code);
+                // 流式更新可能让 click 丢失，因此鼠标按下时立即复制；触摸滑动仍交给 click。
+                if (e.pointerType === "mouse" && e.button === 0) {
+                  copyToClipboard(code);
+                }
+              }}
+              onClick={(e) => {
+                // 鼠标已由 pointerdown 处理；保留键盘和触摸设备的 click。
+                if (
+                  e.detail === 0 ||
+                  (typeof TouchEvent !== "undefined" &&
+                    e.nativeEvent instanceof TouchEvent)
+                ) {
+                  copyToClipboard(code);
+                }
               }}
               title="复制当前源码"
             >

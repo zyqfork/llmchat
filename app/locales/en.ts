@@ -1112,6 +1112,11 @@ Keep each section concise. Preserve exact file paths, function names, and error 
       Title: "Max Tokens",
       SubTitle: "Maximum length of input tokens and generated tokens",
     },
+    ThinkingDepth: {
+      Title: "Thinking Depth",
+      SubTitle:
+        "Controls how much the model thinks; only takes effect on models with reasoning support (e.g. vLLM/Qwen)",
+    },
     PresencePenalty: {
       Title: "Presence Penalty",
       SubTitle:

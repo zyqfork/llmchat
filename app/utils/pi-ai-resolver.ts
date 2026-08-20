@@ -1,6 +1,30 @@
-import { getModels, getProviders } from "@earendil-works/pi-ai/compat";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import { MODELS_DEV_CONFIG } from "../config/generated/models-config";
 
-type PiModel = ReturnType<typeof getModels>[number];
+type PiModel = Model<Api>;
+type ModelCatalog = Record<string, PiModel>;
+type CatalogModule = Record<string, unknown>;
+
+const PROVIDER_ALIASES: Record<string, string> = {
+  azure: "azure-openai-responses",
+};
+
+// Keep catalogs out of the initial web bundle. Provider JSON is loaded only
+// when its model list or runtime metadata is actually requested.
+const CATALOG_LOADERS: Record<string, () => Promise<CatalogModule>> = {
+  openai: () => import("@earendil-works/pi-ai/providers/openai.models"),
+  anthropic: () => import("@earendil-works/pi-ai/providers/anthropic.models"),
+  google: () => import("@earendil-works/pi-ai/providers/google.models"),
+  deepseek: () => import("@earendil-works/pi-ai/providers/deepseek.models"),
+  moonshotai: () => import("@earendil-works/pi-ai/providers/moonshotai.models"),
+  xai: () => import("@earendil-works/pi-ai/providers/xai.models"),
+  zai: () => import("@earendil-works/pi-ai/providers/zai.models"),
+  "azure-openai-responses": () =>
+    import("@earendil-works/pi-ai/providers/azure-openai-responses.models"),
+};
+
+const catalogCache = new Map<string, ModelCatalog>();
+const loadingCache = new Map<string, Promise<ModelCatalog>>();
 
 function normalize(value: string): string {
   return String(value || "")
@@ -8,88 +32,102 @@ function normalize(value: string): string {
     .toLowerCase();
 }
 
-let providersCache: Set<string> | null = null;
-let providerModelsCache: Map<string, PiModel[]> | null = null;
-let modelToProviderCache: Map<string, string> | null = null;
-
-function getModelId(model: PiModel): string {
-  return normalize(String(model?.id || ""));
+function canonicalProvider(providerId: string): string {
+  const normalized = normalize(providerId);
+  return PROVIDER_ALIASES[normalized] || normalized;
 }
 
-function getProvidersNormalized(): Set<string> {
-  if (providersCache) return providersCache;
-  providersCache = new Set(
-    getProviders().map((provider) => normalize(String(provider))),
+function extractCatalog(module: CatalogModule): ModelCatalog {
+  const value = Object.values(module).find(
+    (candidate) =>
+      candidate && typeof candidate === "object" && !Array.isArray(candidate),
   );
-  return providersCache;
-}
-
-function getProviderModels(): Map<string, PiModel[]> {
-  if (providerModelsCache) return providerModelsCache;
-  const cache = new Map<string, PiModel[]>();
-  for (const provider of getProviders()) {
-    const providerId = normalize(String(provider));
-    if (!providerId) continue;
-    cache.set(providerId, getModels(provider as any));
-  }
-  providerModelsCache = cache;
-  return cache;
-}
-
-function getModelToProviderMap(): Map<string, string> {
-  if (modelToProviderCache) return modelToProviderCache;
-  const cache = new Map<string, string>();
-  for (const [providerId, models] of getProviderModels().entries()) {
-    for (const model of models) {
-      const modelId = getModelId(model);
-      if (!modelId || cache.has(modelId)) continue;
-      cache.set(modelId, providerId);
-    }
-  }
-  modelToProviderCache = cache;
-  return cache;
+  return (value || {}) as ModelCatalog;
 }
 
 export function resolvePiProviderId(providerId: string): string | undefined {
-  const normalizedProvider = normalize(providerId);
-  if (!normalizedProvider) return undefined;
-  return getProvidersNormalized().has(normalizedProvider)
-    ? normalizedProvider
-    : undefined;
+  const provider = canonicalProvider(providerId);
+  return provider in CATALOG_LOADERS ? provider : undefined;
 }
 
+export async function loadPiModelsByProvider(
+  providerId: string,
+): Promise<PiModel[]> {
+  const provider = resolvePiProviderId(providerId);
+  if (!provider) return [];
+
+  let catalog = catalogCache.get(provider);
+  if (!catalog) {
+    let loading = loadingCache.get(provider);
+    if (!loading) {
+      loading = CATALOG_LOADERS[provider]().then(extractCatalog);
+      loadingCache.set(provider, loading);
+    }
+    try {
+      catalog = await loading;
+      catalogCache.set(provider, catalog);
+    } finally {
+      loadingCache.delete(provider);
+    }
+  }
+  return Object.values(catalog);
+}
+
+/** Return an already loaded catalog without triggering asynchronous I/O. */
 export function getPiModelsByProvider(providerId: string): PiModel[] {
-  const normalizedProvider = normalize(providerId);
-  if (!normalizedProvider) return [];
-  return getProviderModels().get(normalizedProvider) || [];
+  const provider = resolvePiProviderId(providerId);
+  return provider ? Object.values(catalogCache.get(provider) || {}) : [];
 }
 
 export function findPiProviderByModel(modelId: string): string | undefined {
-  const normalizedModelId = normalize(modelId);
-  if (!normalizedModelId) return undefined;
-  return getModelToProviderMap().get(normalizedModelId);
+  const id = normalize(modelId);
+  if (!id) return undefined;
+  for (const [provider, catalog] of catalogCache) {
+    if (Object.values(catalog).some((model) => normalize(model.id) === id)) {
+      return provider;
+    }
+  }
+
+  // Provider inference is synchronous in the chat API. Use the generated local
+  // index until a Pi catalog has been loaded asynchronously.
+  for (const [provider, config] of Object.entries(MODELS_DEV_CONFIG)) {
+    const models = (config as any)?.models || {};
+    if (
+      Object.entries(models).some(
+        ([key, model]: [string, any]) =>
+          normalize(key) === id || normalize(model?.id) === id,
+      )
+    ) {
+      return resolvePiProviderId(provider) || normalize(provider);
+    }
+  }
+  return undefined;
 }
 
 export function findPiModelById(
   modelId: string,
   providerId?: string,
 ): PiModel | null {
-  const normalizedModelId = normalize(modelId);
-  if (!normalizedModelId) return null;
-
-  if (providerId) {
-    return (
-      getPiModelsByProvider(providerId).find(
-        (model) => getModelId(model) === normalizedModelId,
-      ) || null
-    );
-  }
-
-  const provider = findPiProviderByModel(normalizedModelId);
+  const id = normalize(modelId);
+  if (!id) return null;
+  const provider = providerId
+    ? resolvePiProviderId(providerId)
+    : findPiProviderByModel(id);
   if (!provider) return null;
+
+  const catalog = catalogCache.get(provider);
   return (
-    getPiModelsByProvider(provider).find(
-      (model) => getModelId(model) === normalizedModelId,
-    ) || null
+    catalog?.[modelId] ||
+    Object.values(catalog || {}).find((model) => normalize(model.id) === id) ||
+    null
   );
+}
+
+export async function findPiModelByIdAsync(
+  modelId: string,
+  providerId: string,
+): Promise<PiModel | null> {
+  const models = await loadPiModelsByProvider(providerId);
+  const id = normalize(modelId);
+  return models.find((model) => normalize(model.id) === id) || null;
 }

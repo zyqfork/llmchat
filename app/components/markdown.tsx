@@ -174,10 +174,14 @@ function formatThinkText(
   remainText: string;
 } {
   text = text.trimStart();
-  if (text.startsWith("<think>") && !text.includes("</think>")) {
-    const thinkContent = text.slice("<think>".length);
+  if (text.includes("<think>") && !text.includes("</think>")) {
+    // 未闭合的 <think>：仅当标签出现在开头时才把全部内容当作思考；
+    // 若标签前面已有正文，保留正文部分，避免整个消息被吞进思考块
+    const thinkStart = text.indexOf("<think>");
+    const beforeText = text.slice(0, thinkStart).trim();
+    const thinkContent = text.slice(thinkStart + "<think>".length);
     const thinkText = `<thinkcollapse title="${Locale.NewChat.Thinking}">\n${thinkContent}\n\n</thinkcollapse>\n`;
-    return { thinkText, remainText: "" };
+    return { thinkText, remainText: beforeText };
   }
 
   const pattern = /^<think>([\s\S]*?)<\/think>/;

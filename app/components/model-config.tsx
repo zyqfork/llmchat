@@ -15,7 +15,9 @@ import {
   getModelContextTokens,
   formatTokenCount,
   getModelCompressThreshold,
+  getModelThinkingOptions,
 } from "../config/model-config";
+import { getModelThinkingBudget } from "../config/model-thinking";
 
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
@@ -187,6 +189,10 @@ export function ModelConfigList(props: {
   })();
 
   const disabled = !!props.readOnly;
+  const thinkingOptions = getModelThinkingOptions(
+    props.modelConfig.model,
+    props.modelConfig.providerName,
+  );
 
   return (
     <div className={disabled ? styles.readOnlyConfig : undefined}>
@@ -208,7 +214,11 @@ export function ModelConfigList(props: {
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
                 const modelCapabilities = getModelCapabilities(config.model);
-                if (
+                // 优先使用模型配置弹窗中设置的模型级思考深度
+                const modelBudget = getModelThinkingBudget(config.model);
+                if (modelBudget !== undefined) {
+                  config.thinkingBudget = modelBudget;
+                } else if (
                   modelCapabilities.reasoning &&
                   modelCapabilities.reasoningField &&
                   config.thinkingBudget === undefined
@@ -310,6 +320,36 @@ export function ModelConfigList(props: {
           }
         ></input>
       </ListItem>
+
+      {thinkingOptions.length > 0 && (
+        <ListItem
+          title={Locale.Settings.ThinkingDepth.Title}
+          subTitle={Locale.Settings.ThinkingDepth.SubTitle}
+        >
+          <Select
+            className={styles["select-default-model"]}
+            aria-label={Locale.Settings.ThinkingDepth.Title}
+            value={String(props.modelConfig.thinkingBudget ?? -1)}
+            align="left"
+            disabled={disabled}
+            onChange={(e) => {
+              props.updateConfig((config) => {
+                config.thinkingBudget = Number(e.currentTarget.value);
+              });
+            }}
+          >
+            {thinkingOptions.map((option) => (
+              <option key={option.level} value={option.value}>
+                {option.level === "dynamic"
+                  ? Locale.Chat.Thinking.Dynamic
+                  : option.level === "off"
+                    ? Locale.Chat.Thinking.Off
+                    : option.level}
+              </option>
+            ))}
+          </Select>
+        </ListItem>
+      )}
 
       {props.modelConfig?.providerName == ServiceProvider.Google.id ? null : (
         <>

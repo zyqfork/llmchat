@@ -1,6 +1,6 @@
 import { executeMcpAction } from "../mcp/actions.client";
 
-function parseMcpToolMeta(toolName: string, allTools: any[]) {
+export function parseMcpToolMeta(toolName: string, allTools: any[]) {
   const tool = allTools.find((t) => t?.function?.name === toolName);
   const byMeta = tool?._mcpMeta;
   if (byMeta?.clientId && byMeta?.toolName) {
@@ -9,7 +9,11 @@ function parseMcpToolMeta(toolName: string, allTools: any[]) {
   return null;
 }
 
-export async function executeMcpToolCall(toolCall: any, allTools: any[]) {
+export async function executeMcpToolCall(
+  toolCall: any,
+  allTools: any[],
+  executeAction: typeof executeMcpAction = executeMcpAction,
+) {
   const meta = parseMcpToolMeta(toolCall.name, allTools);
   if (!meta) {
     return {
@@ -34,7 +38,7 @@ export async function executeMcpToolCall(toolCall: any, allTools: any[]) {
         arguments: parsedArguments,
       },
     } as any;
-    const result = await executeMcpAction(meta.clientId, mcpPayload);
+    const result = await executeAction(meta.clientId, mcpPayload);
     return {
       isError: false,
       content:

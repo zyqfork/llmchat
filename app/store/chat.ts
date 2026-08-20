@@ -93,6 +93,11 @@ function isResponseApiDebugRequest(reqDebug: any): boolean {
   );
 }
 
+function extractPiResponseMetadata(responseRes: Response | undefined) {
+  const metadata = (responseRes as any)?.__providerMetadata;
+  return metadata && typeof metadata === "object" ? metadata : undefined;
+}
+
 function extractResponseApiConversationId(
   responseRes: Response | undefined,
   isResponseApiRequest: boolean,
@@ -171,6 +176,13 @@ export type ChatMessage = RequestMessage & {
   modelKey?: string; // 格式: "model@provider"
   // 是否为多模型模式下的消息
   isMultiModel?: boolean;
+  // pi-ai 原生结构化内容，content 保留为兼容现有渲染和导出逻辑的展示文本。
+  contentBlocks?: Array<Record<string, any>>;
+  stopReason?: string;
+  usage?: Record<string, any>;
+  piApi?: string;
+  piProvider?: string;
+  piModel?: string;
   // 统计信息
   statistic?: {
     singlePromptTokens?: number;
@@ -508,60 +520,39 @@ async function getMcpSystemPrompt(
   mcpEnabled: boolean = false,
   enabledClients?: Record<string, boolean>,
 ): Promise<string> {
-  // 如果 MCP 功能未启用，返回空字符串
-  if (!mcpEnabled) {
-    return "";
-  }
+  if (!mcpEnabled) return "";
 
-  // 获取配置
   const { getMcpConfigFromFile } = await import("../mcp/actions.client");
   const config = await getMcpConfigFromFile();
-
-  // 如果使用 Function Call 模式，不注入系统提示词
-  if (config.callMode === "function_call") {
-    return "";
-  }
+  if (config.callMode === "function_call") return "";
 
   const tools = await getAllTools();
-
-  // 获取自定义提示词模板（仅在 prompt 模式下使用）
   const toolsTemplate = config.customToolsPrompt || MCP_TOOLS_TEMPLATE;
   const systemTemplate = config.customSystemPrompt || MCP_SYSTEM_TEMPLATE;
-
   let toolsStr = "";
   let totalToolCount = 0;
 
-  tools.forEach((i) => {
-    // error client has no tools
-    if (!i.tools) return;
-
-    // 如果提供了启用状态配置，则检查该客户端是否启用
-    if (enabledClients && enabledClients[i.clientId] === false) {
-      return;
-    }
-
-    // 统计工具数量
-    totalToolCount += i.tools.tools.length;
-
+  tools.forEach((client) => {
+    if (!client.tools || enabledClients?.[client.clientId] === false) return;
+    totalToolCount += client.tools.tools.length;
     toolsStr += toolsTemplate
-      .replace(/\{\{ clientId \}\}/g, i.clientId)
+      .replace(/\{\{ clientId \}\}/g, client.clientId)
       .replace(
         "{{ tools }}",
-        i.tools.tools.map((p: object) => JSON.stringify(p, null, 2)).join("\n"),
+        client.tools.tools
+          .map((tool: object) => JSON.stringify(tool, null, 2))
+          .join("\n"),
       );
   });
 
-  // 根据工具数量决定是否使用强化模式
-  let finalSystemTemplate = systemTemplate;
+  let finalTemplate = systemTemplate;
   if (totalToolCount > 0 && systemTemplate.includes("## Tool Use Rules")) {
-    // 对于少量工具，使用更强化的提示词
-    finalSystemTemplate = systemTemplate.replace(
+    finalTemplate = systemTemplate.replace(
       "## Tool Use Rules",
       `## Tool Use Rules (${totalToolCount} tools available)\n**IMPORTANT: You have ${totalToolCount} powerful tools available. Use them actively to help users!**`,
     );
   }
-
-  return finalSystemTemplate.replace("{{ MCP_TOOLS }}", toolsStr);
+  return finalTemplate.replace("{{ MCP_TOOLS }}", toolsStr);
 }
 
 const DEFAULT_CHAT_STATE = {
@@ -1011,7 +1002,6 @@ export const useChatStore = createPersistStore(
           modelConfig.providerName || "OpenAI",
         );
 
-        // 获取 MCP 工具（如果启用了 Function Call 模式）
         const mcpTools = await get().getMcpTools();
         const accessState = useAccessStore.getState();
         const responseStateful = isResponseStatefulEnabled(
@@ -1028,6 +1018,7 @@ export const useChatStore = createPersistStore(
           config: { ...modelConfig, stream: shouldStream },
           tools: mcpTools.length > 0 ? mcpTools : undefined,
           previousResponseId,
+          sessionId: session.id,
           onUpdate(message) {
             // 只有在流式模式下才更新 streaming 状态
             if (shouldStream) {
@@ -1127,10 +1118,17 @@ export const useChatStore = createPersistStore(
               }
 
               if (messageIndex > -1) {
+                const piMetadata = extractPiResponseMetadata(responseRes);
                 const finalBotMessage = {
                   ...session.messages[messageIndex],
                   streaming: false,
                   content: message,
+                  contentBlocks: piMetadata?.content,
+                  stopReason: piMetadata?.stopReason,
+                  usage: piMetadata?.usage,
+                  piApi: piMetadata?.api,
+                  piProvider: piMetadata?.provider,
+                  piModel: piMetadata?.model,
                   date: new Date().toLocaleString(),
                   debug: {
                     request: reqDebug,
@@ -1415,7 +1413,6 @@ export const useChatStore = createPersistStore(
             modelConfig.providerName || "OpenAI",
           );
 
-          // 获取 MCP 工具（如果启用了 Function Call 模式）
           const mcpTools = await get().getMcpTools();
           const accessState = useAccessStore.getState();
           const responseStateful = isResponseStatefulEnabled(
@@ -1435,6 +1432,7 @@ export const useChatStore = createPersistStore(
               config: { ...modelConfig, stream: shouldStream },
               tools: mcpTools.length > 0 ? mcpTools : undefined,
               previousResponseId,
+              sessionId: `${session.id}:${modelKey}`,
               onUpdate(message) {
                 botMessage.streaming = true;
                 if (message) {
@@ -1504,7 +1502,14 @@ export const useChatStore = createPersistStore(
                 }
 
                 if (message) {
+                  const piMetadata = extractPiResponseMetadata(responseRes);
                   botMessage.content = message;
+                  botMessage.contentBlocks = piMetadata?.content;
+                  botMessage.stopReason = piMetadata?.stopReason;
+                  botMessage.usage = piMetadata?.usage;
+                  botMessage.piApi = piMetadata?.api;
+                  botMessage.piProvider = piMetadata?.provider;
+                  botMessage.piModel = piMetadata?.model;
                   botMessage.date = new Date().toLocaleString();
 
                   // 调试信息
@@ -1707,23 +1712,14 @@ export const useChatStore = createPersistStore(
 
       async getMcpTools() {
         const session = get().currentSession();
+        if (!session.mcpEnabled) return [];
 
-        // 如果 MCP 未启用，返回空数组
-        if (!session.mcpEnabled) {
-          return [];
-        }
-
-        // 获取配置
         const { getMcpConfigFromFile, getMcpToolsForFunctionCall } =
           await import("../mcp/actions.client");
         const config = await getMcpConfigFromFile();
-
-        // 仅在 Function Call 模式下返回工具定义
-        if (config.callMode === "function_call") {
-          return await getMcpToolsForFunctionCall();
-        }
-
-        return [];
+        return config.callMode === "function_call"
+          ? await getMcpToolsForFunctionCall()
+          : [];
       },
 
       async getMessagesWithMemory() {
@@ -1746,7 +1742,6 @@ export const useChatStore = createPersistStore(
           session.mcpEnabled ?? false,
           session.mcpEnabledClients,
         );
-
         var systemPrompts: ChatMessage[] = [];
 
         if (shouldInjectSystemPrompts) {
@@ -1761,15 +1756,10 @@ export const useChatStore = createPersistStore(
             }),
           ];
         } else if (mcpSystemPrompt) {
-          // 只在 mcpSystemPrompt 不為空時才創建 system message
           systemPrompts = [
-            createMessage({
-              role: "system",
-              content: mcpSystemPrompt,
-            }),
+            createMessage({ role: "system", content: mcpSystemPrompt }),
           ];
         }
-        // 如果兩者都沒有，systemPrompts 保持為空數組
 
         if (shouldInjectSystemPrompts || mcpSystemPrompt) {
           logger.debug(
@@ -2520,9 +2510,12 @@ export const useChatStore = createPersistStore(
 
         // 发送请求
         try {
+          const mcpTools = await get().getMcpTools();
           await api.llm.chat({
             messages: sendMessages,
             config: { ...modelConfig, stream: shouldStream },
+            tools: mcpTools.length > 0 ? mcpTools : undefined,
+            sessionId: session.id,
             onUpdate(message) {
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];
@@ -2547,8 +2540,15 @@ export const useChatStore = createPersistStore(
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];
                 if (currentMessage) {
+                  const piMetadata = extractPiResponseMetadata(responseRes);
                   currentMessage.streaming = false;
                   currentMessage.content = message;
+                  currentMessage.contentBlocks = piMetadata?.content;
+                  currentMessage.stopReason = piMetadata?.stopReason;
+                  currentMessage.usage = piMetadata?.usage;
+                  currentMessage.piApi = piMetadata?.api;
+                  currentMessage.piProvider = piMetadata?.provider;
+                  currentMessage.piModel = piMetadata?.model;
                   // 调试信息
                   const reqDebug = (responseRes as any)?.__requestDebug;
                   const respHeaders: Record<string, string> = {};
@@ -2635,29 +2635,24 @@ export const useChatStore = createPersistStore(
       /** check if the message contains MCP JSON and execute the MCP action */
       checkMcpJson(message: ChatMessage) {
         const content = getMessageTextContent(message);
-        if (isMcpJson(content)) {
-          try {
-            const mcpRequest = extractMcpJson(content);
-            if (mcpRequest) {
-              executeMcpAction(mcpRequest.clientId, mcpRequest.mcp)
-                .then((result: any) => {
-                  const mcpResponse =
-                    typeof result === "object"
-                      ? JSON.stringify(result)
-                      : String(result);
-                  get().onUserInput(
-                    `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
-                    [],
-                    true,
-                  );
-                })
-                .catch((error: any) =>
-                  showToast("MCP execution failed", error),
-                );
-            }
-          } catch (error) {
-            // MCP JSON 检查失败，静默处理
-          }
+        if (!isMcpJson(content)) return;
+
+        try {
+          const mcpRequest = extractMcpJson(content);
+          if (!mcpRequest) return;
+          executeMcpAction(mcpRequest.clientId, mcpRequest.mcp)
+            .then((result: any) => {
+              const mcpResponse =
+                typeof result === "object" ? JSON.stringify(result) : String(result);
+              get().onUserInput(
+                `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
+                [],
+                true,
+              );
+            })
+            .catch((error: any) => showToast("MCP execution failed", error));
+        } catch {
+          // Ignore malformed MCP blocks.
         }
       },
 

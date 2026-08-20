@@ -81,7 +81,7 @@ function ThinkCollapse({ title, children }: ThinkCollapseProps) {
     }
   }, [title]);
 
-  const handleCopyContent = (e: React.PointerEvent) => {
+  const handleCopyContent = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const getTextContent = (node: React.ReactNode): string => {
@@ -120,15 +120,28 @@ function ThinkCollapse({ title, children }: ThinkCollapseProps) {
               <div className={styles["think-collapse-header"]}>
                 <span>{title}</span>
                 {!disabled && (
-                  <span
+                  <button
+                    type="button"
                     className={styles["copy-think-button"]}
                     onPointerDown={(e) => {
-                      if (e.button === 0) handleCopyContent(e);
+                      if (e.pointerType === "mouse" && e.button === 0) {
+                        handleCopyContent(e);
+                      }
+                    }}
+                    onClick={(e) => {
+                      if (
+                        e.detail === 0 ||
+                        (typeof TouchEvent !== "undefined" &&
+                          e.nativeEvent instanceof TouchEvent)
+                      ) {
+                        handleCopyContent(e);
+                      }
                     }}
                     title={Locale.Chat.Actions.Copy}
+                    aria-label={Locale.Chat.Actions.Copy}
                   >
                     📋
-                  </span>
+                  </button>
                 )}
               </div>
             ),
@@ -314,7 +327,18 @@ function createMarkdownComponents(options: {
                 <button
                   type="button"
                   onPointerDown={(e) => {
-                    if (e.button === 0) copyToClipboard(codeText);
+                    if (e.pointerType === "mouse" && e.button === 0) {
+                      copyToClipboard(codeText);
+                    }
+                  }}
+                  onClick={(e) => {
+                    if (
+                      e.detail === 0 ||
+                      (typeof TouchEvent !== "undefined" &&
+                        e.nativeEvent instanceof TouchEvent)
+                    ) {
+                      copyToClipboard(codeText);
+                    }
                   }}
                   style={{
                     border: "var(--border-in-light)",

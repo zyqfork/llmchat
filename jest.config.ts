@@ -27,10 +27,14 @@ const config: Config = {
       "<rootDir>/app/test-shims/pi-web-ui-settings-store.ts",
     "^@earendil-works/pi-ai$": "<rootDir>/app/test-shims/pi-ai.ts",
     "^@earendil-works/pi-ai/compat$": "<rootDir>/app/test-shims/pi-ai.ts",
+    "^@earendil-works/pi-ai/api/(openai-completions|openai-responses|azure-openai-responses|anthropic-messages|google-generative-ai)\\.lazy$":
+      "<rootDir>/app/test-shims/pi-ai-lazy-api.ts",
     "^@earendil-works/pi-ai/api/transform-messages$":
       "<rootDir>/app/test-shims/pi-ai-transform-messages.ts",
     "^@earendil-works/pi-ai/providers/transform-messages$":
       "<rootDir>/app/test-shims/pi-ai-transform-messages.ts",
+    "^@earendil-works/pi-ai/providers/.+\\.models$":
+      "<rootDir>/app/test-shims/pi-ai-model-catalogs.ts",
     "^@earendil-works/pi-agent-core$":
       "<rootDir>/app/test-shims/pi-agent-core.ts",
     "^nanoid$": "<rootDir>/app/test-shims/nanoid.ts",

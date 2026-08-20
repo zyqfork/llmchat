@@ -94,6 +94,15 @@ describe("removeThinkingContent", () => {
     expect(removeThinkingContent("answer " + open + "partial")).toBe("answer");
   });
 
+  test("removes orphan closing tags without deleting surrounding text", () => {
+    expect(removeThinkingContent("answer" + closeThink + " tail")).toBe(
+      "answer tail",
+    );
+    expect(removeThinkingContent("answer" + closeRedacted + " tail")).toBe(
+      "answer tail",
+    );
+  });
+
   test("empty input returns empty", () => {
     expect(removeThinkingContent("")).toBe("");
     expect(removeThinkingContent(null as unknown as string)).toBe("");

@@ -368,6 +368,8 @@ function ErrorFallback(props: { message: string }) {
 function PlantUmlImagePreview(props: { code: string }) {
   const encoded = encode(props.code);
   const src = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+  // 动态 PlantUML SVG 不适合 Next Image 的静态优化和域名白名单。
+  // eslint-disable-next-line @next/next/no-img-element
   return <img className={styles["preview-image"]} src={src} alt="PlantUML" />;
 }
 
