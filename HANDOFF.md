@@ -11,6 +11,7 @@
 | 事项 | 状态 | 说明 |
 |------|------|------|
 | 🔴 发送按钮尺寸问题 | ✅ 已修复 | CSS 特异性冲突：`.chat-input-send` → `.chat-input-panel .chat-input-send` |
+| 🔴 思考过程样式不一致 | ✅ 已修复 | 完成后的 `PiThinkingBlock` 改为复用流式的 `ThinkCollapse`（antd Collapse），样式/行为完全统一 |
 | 🟡 2.1 `@lobehub/icons` 替换 | ⏸ 保留 | 评估后 31 图标类型仅 13 个有本地 SVG，替换范围较大 |
 | 🟡 2.2 `estimateTokenLength` 精确化 | 评估后保留 | 当前启发式足以满足上下文管理需求 |
 | 🟡 2.3 `getModelCapabilities` 冗余 | 评估后保留 | 涉及 18+ 引用处，改动面大；已导出内部函数测试 |

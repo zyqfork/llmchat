@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { LLMMessageContent } from "./LLMMessageContent";
+import { ThinkCollapse } from "../markdown-content";
+import Locale from "../../locales";
 import styles from "../chat.module.scss";
 
 interface PiContentBlockProps {
@@ -123,24 +125,12 @@ function PiThinkingBlock({
     );
   }
 
+  // 复用流式渲染的 ThinkCollapse（antd Collapse），确保思考过程
+  // 在流式输出和输出完成后的样式与交互行为完全一致。
   return (
-    <details className={styles["pi-thinking-block"]} open={expanded}>
-      <summary
-        className={styles["pi-thinking-summary"]}
-        onClick={(e) => {
-          e.preventDefault();
-          onToggle();
-        }}
-      >
-        <span className={styles["pi-thinking-title"]}>🤔 思考过程</span>
-        <span className={styles["pi-thinking-count"]}>
-          {thinking.length > 0 ? `${thinking.length} 字符` : ""}
-        </span>
-      </summary>
-      <div className={styles["pi-thinking-body"]}>
-        <pre className={styles["pi-thinking-text"]}>{thinking}</pre>
-      </div>
-    </details>
+    <ThinkCollapse title={Locale.NewChat.Think}>
+      <pre className={styles["pi-thinking-text"]}>{thinking}</pre>
+    </ThinkCollapse>
   );
 }
 

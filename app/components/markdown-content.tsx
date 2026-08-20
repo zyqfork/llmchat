@@ -65,7 +65,9 @@ interface ThinkCollapseProps {
   children: React.ReactNode;
 }
 
-function ThinkCollapse({ title, children }: ThinkCollapseProps) {
+// 思考过程折叠组件：流式 Markdown 渲染（<thinkcollapse>）与
+// 完成后的 Pi 结构化 thinking 块共用，保证思考过程样式一致。
+export function ThinkCollapse({ title, children }: ThinkCollapseProps) {
   const defaultActive = title === Locale.NewChat.Thinking ? ["1"] : [];
   const disabled = title === Locale.NewChat.NoThink;
   const [activeKeys, setActiveKeys] = useState(defaultActive);

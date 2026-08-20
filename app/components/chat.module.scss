@@ -2163,13 +2163,11 @@
   &-text {
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: monospace;
     font-size: 13px;
     line-height: 1.6;
     margin: 0;
-    max-height: 400px;
-    overflow-y: auto;
-    color: #57534e;
+    // 颜色跟随主题（--black），与流式 thinkcollapse 内容样式保持一致，
+    // 并自动适配暗色模式
   }
 
   &-notice {

@@ -35,16 +35,20 @@ describe("PiContentBlock", () => {
     expect(container.textContent).toContain("Hello");
   });
 
-  test("renders thinking block as collapsible details", () => {
+  test("renders thinking block with think collapse style", () => {
     const { container } = render(
       <PiContentBlock
         {...baseProps}
         block={{ type: "thinking", thinking: "reasoning..." }}
       />,
     );
-    const details = container.querySelector("details");
-    expect(details).toBeInTheDocument();
-    expect(container.textContent).toContain("reasoning...");
+    // 与流式 Markdown 渲染一致：使用 antd Collapse（think-collapse）而非 details
+    const collapse = container.querySelector(".ant-collapse");
+    expect(collapse).toBeInTheDocument();
+    // 默认折叠：标题可见，思考正文在展开后渲染（antd Collapse 懒渲染）
+    expect(container.textContent).toContain("Content of Thought");
+    const header = collapse?.querySelector(".ant-collapse-header");
+    expect(header).toBeInTheDocument();
   });
 
   test("renders toolCall block with name and arguments", () => {
