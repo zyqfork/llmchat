@@ -380,10 +380,11 @@ function buildConversationTranscript(
     .join("\n");
 }
 
-function isLikelyContextOverflowError(error: Error): boolean {
+export function isLikelyContextOverflowError(error: Error | null | undefined): boolean {
+  if (!error || typeof error !== 'object' || !('message' in error)) return false;
   return isContextOverflow({
     stopReason: "error",
-    errorMessage: error.message || "",
+    errorMessage: String(error.message || ""),
     usage: {
       input: 0,
       output: 0,
@@ -395,7 +396,7 @@ function isLikelyContextOverflowError(error: Error): boolean {
   } as any);
 }
 
-function formatChatErrorCodeBlock(message: string): string {
+export function formatChatErrorCodeBlock(message: string): string {
   const content = (message || "").trim();
   try {
     const obj = JSON.parse(content);
@@ -516,7 +517,7 @@ function fillTemplateWith(input: string, modelConfig: ModelConfig) {
   return output;
 }
 
-async function getMcpSystemPrompt(
+export async function getMcpSystemPrompt(
   mcpEnabled: boolean = false,
   enabledClients?: Record<string, boolean>,
 ): Promise<string> {

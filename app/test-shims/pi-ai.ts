@@ -25,8 +25,27 @@ export function getModel(provider: string, modelId: string) {
   return getModels(provider).find((model) => model.id === modelId);
 }
 
-export function isContextOverflow() {
-  return false;
+export function isContextOverflow(message: any): boolean {
+  if (!message || message.stopReason !== "error" || !message.errorMessage) {
+    return false;
+  }
+  const msg = String(message.errorMessage);
+  const overflowPatterns = [
+    /exceeds the context window/i,
+    /prompt is too long/i,
+    /maximum context length/i,
+    /token limit exceeded/i,
+    /context window exceeds limit/i,
+    /exceeds the available context size/i,
+    /too many tokens/i,
+    /request_too_large/i,
+  ];
+  const nonOverflowPatterns = [
+    /rate limit/i,
+    /too many requests/i,
+  ];
+  if (nonOverflowPatterns.some((p) => p.test(msg))) return false;
+  return overflowPatterns.some((p) => p.test(msg));
 }
 
 export function getSupportedThinkingLevels() {
