@@ -4,7 +4,7 @@
 
 所有更改已提交（最新 commit: `a9fa8d9` — fix(config): correct export mode detection and dev command setup），工作区干净。以下按优先级列出已处理和待完成事项。
 
-**测试覆盖**: 185 tests / 15 suites ✅
+**测试覆盖**: 212 tests / 15 suites ✅
 **TypeScript**: clean ✅
 **ESLint**: clean ✅
 **Export build**: 46 pages ✅
@@ -101,19 +101,29 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 - `app/client/llm-adapter.test.ts` — 测试 `getFetchUrl`、`extractSystemPrompt`、`dataUrlToPiImageContent`、`toPiUserContent`、`toTextContent`、`isOpenAIProtocolSdk`、`resolvePiApiType`、`resolveCompat`
 - 已将上述辅助函数从 `function` 改为 `export function` 以便测试
 
-### 3.3 剩余待测试文件
-- `app/client/pi-agent-bridge.ts` — 已有 4 个测试，可扩展覆盖更多失败路径
-- `app/client/llm-adapter.ts` — 新增 31 个测试覆盖纯函数，`streamText`/`generateText` 流程测试需模拟 Pi SDK
-- `app/store/chat.ts` — 已有测试覆盖导出工具函数；`useChatStore` 核心流程（消息发送、流式接收）需模拟 `getClientApi`
+### 3.3 剩余待测试文件（✅ 全部完成）
 
-### 已有测试（164 个，14 个套件）
+**新增 27 个测试**（总计 212 个，15 个套件）：
+
+- `app/client/llm-adapter.ts` — export `assistantEventToUnifiedPart`、`assistantMessageToResult`、`assistantMessageToProviderMetadata`，新增测试覆盖：
+  - `shouldRouteThroughTauriFetch`（非 http 路径 / 浏览器环境默认 false）
+  - `assistantEventToUnifiedPart`（text_delta / thinking_delta / toolcall_end / unknown → undefined）
+  - `assistantMessageToProviderMetadata`（null 返回空对象 / responseId 有无 / api+provider+model 字段）
+  - `assistantMessageToResult`（文本拼接 / 非文本块过滤 / usage 映射 / debug capture 透传）
+- `app/client/pi-agent-bridge.ts` — 新增 3 个 `createPiAgentRun` 测试：
+  - streamFn 抛错时 stream 仍可创建（不挂起）
+  - abort 信号触发时不抛同步异常
+  - 无 abortSignal / sessionId 时正常工作
+- `app/store/chat.ts` — 新增 `isLikelyContextOverflowError` 和 `formatChatErrorCodeBlock` 的 10 个测试（非 JSON 文本、JSON error.message / message / string error 字段、空字符串、trim）
+
+### 已有测试（212 个，15 个套件）
 - `app/utils/token.test.ts` (6)
-- `app/client/pi-agent-bridge.test.ts` (4)
-- `app/client/llm-adapter.test.ts` (31)
+- `app/client/pi-agent-bridge.test.ts` (12)
+- `app/client/llm-adapter.test.ts` (47)
 - `app/client/mcp-tool-executor.test.ts` (4)
 - `app/client/model-service.test.ts` (3)
 - `app/store/chat-mcp.test.ts` (14)
-- `app/store/chat-utils.test.ts` (20)
+- `app/store/chat-utils.test.ts` (27)
 - `app/utils/semver.test.ts` (25)
 - `app/utils/merge.test.ts` (7)
 - `app/utils/merge-with-update.test.ts` (5)
@@ -125,7 +135,7 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 
 所有以下命令当前通过：
 - `yarn tsc --noEmit` — 类型检查 ✅
-- `yarn test:ci --runInBand` — 185 个测试（15 个套件）✅
+- `yarn test:ci --runInBand` — 212 个测试（15 个套件）✅
 - `yarn eslint` — ESLint ✅
 - `yarn export` — 静态导出（46 页）✅
 - `yarn build` — Standalone 构建 ✅
