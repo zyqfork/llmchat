@@ -2,7 +2,20 @@
 
 ## 项目状态：可继续开发
 
-所有更改已提交（最新 commit: `9bfb8524`），当前工作区有未提交的优先级 2 改动（2.1 `@lobehub/icons` 统一替换 + 测试兼容适配），见下方表格。以下按优先级列出已处理和待完成事项。
+所有更改已提交（最新 commit: `638d4f9e` — 图标库统一），工作区干净。以下按优先级列出已处理和待完成事项。
+
+---
+
+## 🔧 Tauri 构建签名 workaround
+
+NSIS 安装程序签名需要 `TAURI_SIGNING_PRIVATE_KEY` 环境变量。未配置时构建失败。
+
+**绕过方案**：使用 `--no-sign` 跳过签名：
+powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\rustup-gnu\\current\\.cargo\\bin;" + $env:PATH; yarn tauri build --bundles nsis --no-sign'
+
+或者设置 `certificateThumbprint` 为 `null`（已在 `tauri.conf.json` 中配置）。
+
+---
 
 ---
 
