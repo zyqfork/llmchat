@@ -38,14 +38,13 @@ function tagToSemver(raw) {
 }
 
 function replaceJsonVersion(content, semver) {
-  const next = content.replace(
+  if (!/"version"\s*:\s*"[^"]*"/.test(content)) {
+    throw new Error("未找到 JSON 中的 version 字段");
+  }
+  return content.replace(
     /("version"\s*:\s*")[^"]*(")/,
     `$1${semver}$2`,
   );
-  if (next === content) {
-    throw new Error("未找到 JSON 中的 version 字段");
-  }
-  return next;
 }
 
 function replaceCargoPackageVersion(content, semver) {
