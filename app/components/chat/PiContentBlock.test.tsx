@@ -11,6 +11,40 @@ jest.mock("./LLMMessageContent", () => ({
   ),
 }));
 
+jest.mock("../../locales", () => ({
+  __esModule: true,
+  default: {
+    NewChat: {
+      Think: "Content of Thought",
+    },
+    Chat: {
+      Thinking: {
+        Title: "Content of Thought",
+        Redacted: "已屏蔽",
+      },
+    },
+  },
+}));
+
+jest.mock("../markdown-content", () => {
+  const React = require("react");
+  const { Collapse } = require("antd");
+  return {
+    ThinkCollapse: ({ thinking }: { thinking: string }) => (
+      <Collapse
+        className="think-collapse"
+        items={[
+          {
+            key: "1",
+            label: "Content of Thought",
+            children: <div>{thinking}</div>,
+          },
+        ]}
+      />
+    ),
+  };
+});
+
 jest.mock("next/image", () => ({
   __esModule: true,
   default: (props: any) => <img alt="" {...props} />,
