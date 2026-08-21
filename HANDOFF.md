@@ -37,6 +37,8 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 | 🟡 2.3 `getModelCapabilities` 冗余 | ✅ 已完成 | 移除正则启发式后备 `getEnhancedModelCapabilities`，配置外模型默认无能力 |
 | 🟢 3.1 核心 Store 纯函数测试 | ✅ 完成 | 20 个测试（`chat-utils.test.ts`） |
 | 🟢 3.2 LLM Adapter 测试 | ✅ 完成 | 31 个测试（`llm-adapter.test.ts`） |
+| 🗑️ 死代码清理 | ✅ 已完成 | 移除未引用的 `app/components/chat/ChatInput.tsx` |
+| 🏷️ 版本同步 | ✅ 已完成 | 同步应用版本至 `v2.29.0`（`package.json`, `tauri.conf.json`, `Cargo.toml`） |
 
 ---
 
