@@ -56,6 +56,56 @@ export function createProvider(config: any) {
   return config;
 }
 
+export class EventStream<T = any, R = any> {
+  private queue: T[] = [];
+  private resolvers: Array<(value: IteratorResult<T, R>) => void> = [];
+  private isEnded = false;
+  private endResult?: R;
+
+  constructor(
+    private isEnd?: (event: T) => boolean,
+    private getResult?: (event: T) => R,
+  ) {}
+
+  push(event: T) {
+    if (this.isEnded) return;
+    if (this.isEnd && this.isEnd(event)) {
+      this.isEnded = true;
+      this.endResult = this.getResult ? this.getResult(event) : undefined;
+      const res = this.resolvers.shift();
+      if (res) res({ done: true, value: this.endResult as any });
+      return;
+    }
+    const res = this.resolvers.shift();
+    if (res) {
+      res({ done: false, value: event });
+    } else {
+      this.queue.push(event);
+    }
+  }
+
+  end(result?: R) {
+    this.isEnded = true;
+    this.endResult = result;
+    const res = this.resolvers.shift();
+    if (res) res({ done: true, value: result as any });
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<T, R> {
+    return {
+      next: () => {
+        if (this.queue.length > 0) {
+          return Promise.resolve({ done: false, value: this.queue.shift()! });
+        }
+        if (this.isEnded) {
+          return Promise.resolve({ done: true, value: this.endResult as any });
+        }
+        return new Promise((resolve) => this.resolvers.push(resolve));
+      },
+    };
+  }
+}
+
 export function createModels() {
   return {
     setProvider() {},
