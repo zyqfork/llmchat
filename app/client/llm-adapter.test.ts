@@ -11,6 +11,7 @@ import {
   assistantEventToUnifiedPart,
   assistantMessageToResult,
   assistantMessageToProviderMetadata,
+  normalizeContentBlocks,
 } from "./llm-adapter";
 
 describe("getFetchUrl", () => {
@@ -295,6 +296,55 @@ describe("assistantMessageToProviderMetadata", () => {
     expect(result.api).toBe("openai-completions");
     expect(result.provider).toBe("openai");
     expect(result.model).toBe("gpt-4o");
+  });
+
+  test("normalizes and dedupes identical text blocks in content", () => {
+    const result = assistantMessageToProviderMetadata({
+      api: "openai-completions",
+      provider: "openai",
+      model: "gpt-4o",
+      content: [
+        { type: "text", text: "君不见，黄河之水天上来" },
+        { type: "text", text: "君不见，黄河之水天上来" },
+      ],
+    }) as any;
+    expect(result.content).toHaveLength(1);
+    expect(result.content[0].text).toBe("君不见，黄河之水天上来");
+  });
+});
+
+describe("normalizeContentBlocks", () => {
+  test("returns empty array for non-array inputs", () => {
+    expect(normalizeContentBlocks(null as any)).toEqual([]);
+    expect(normalizeContentBlocks(undefined as any)).toEqual([]);
+    expect(normalizeContentBlocks([] as any)).toEqual([]);
+  });
+
+  test("deduplicates identical text blocks", () => {
+    const blocks = [
+      { type: "text", text: "Hello world" },
+      { type: "text", text: "Hello world" },
+    ];
+    expect(normalizeContentBlocks(blocks)).toEqual([
+      { type: "text", text: "Hello world" },
+    ]);
+  });
+
+  test("preserves distinct text blocks", () => {
+    const blocks = [
+      { type: "text", text: "Part 1" },
+      { type: "text", text: "Part 2" },
+    ];
+    expect(normalizeContentBlocks(blocks)).toHaveLength(2);
+  });
+
+  test("preserves thinking, toolCall, and image blocks", () => {
+    const blocks = [
+      { type: "thinking", thinking: "reasoning" },
+      { type: "text", text: "answer" },
+      { type: "toolCall", name: "search" },
+    ];
+    expect(normalizeContentBlocks(blocks)).toHaveLength(3);
   });
 });
 

@@ -537,6 +537,43 @@ function withProxyModel(model: any, cfg: any): any {
   return applyProxyIfNeeded(model, cfg.apiKey, proxyUrl);
 }
 
+export function normalizeContentBlocks(blocks: any[]): any[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) return [];
+
+  const result: any[] = [];
+  const seenText = new Set<string>();
+
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+
+    if (block.type === "text") {
+      const text = typeof block.text === "string" ? block.text.trim() : "";
+      if (!text) continue;
+      
+      let isDuplicate = false;
+      for (const seen of seenText) {
+        if (seen === text || seen.includes(text) || text.includes(seen)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (isDuplicate) continue;
+      
+      seenText.add(text);
+      result.push(block);
+    } else if (block.type === "thinking") {
+      const thinking =
+        typeof block.thinking === "string" ? block.thinking.trim() : "";
+      if (!thinking && !block.redacted) continue;
+      result.push(block);
+    } else {
+      result.push(block);
+    }
+  }
+
+  return result;
+}
+
 export function assistantMessageToProviderMetadata(message: any) {
   if (!message) return {};
 
@@ -546,7 +583,9 @@ export function assistantMessageToProviderMetadata(message: any) {
     ...(message.responseId ? { responseId: message.responseId } : {}),
     stopReason: message.stopReason,
     usage: message.usage,
-    content: message.content,
+    content: Array.isArray(message.content)
+      ? normalizeContentBlocks(message.content)
+      : message.content,
     api: message.api,
     provider: message.provider,
     model: message.model,

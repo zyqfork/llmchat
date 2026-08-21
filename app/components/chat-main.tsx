@@ -845,6 +845,7 @@ export function ChatMain() {
         ? [
             {
               ...createMessage({
+                id: "user-input-preview-bubble",
                 role: "user",
                 content: debouncedPreviewInput,
               }),

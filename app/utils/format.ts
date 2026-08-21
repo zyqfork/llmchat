@@ -3,6 +3,9 @@ export function prettyObject(msg: any) {
   if (typeof msg !== "string") {
     msg = JSON.stringify(msg, null, "  ");
   }
+  if (msg === undefined) {
+    return String(obj);
+  }
   if (msg === "{}") {
     return obj.toString();
   }

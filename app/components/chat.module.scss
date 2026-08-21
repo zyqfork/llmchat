@@ -702,14 +702,6 @@
 .chat-message {
   display: flex;
   flex-direction: row;
-
-  &:last-child {
-    animation: slide-in ease 0.3s;
-  }
-
-  &.streaming:last-child {
-    animation: none;
-  }
 }
 
 .chat-message-user {

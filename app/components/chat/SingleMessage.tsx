@@ -69,6 +69,46 @@ type SingleMessageProps = {
   onShowImageModal: (src: string) => void;
 };
 
+function normalizeMessageContentBlocks(blocks: any[]): any[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) return [];
+
+  const result: any[] = [];
+  const seenText = new Set<string>();
+
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+
+    if (block.type === "text") {
+      const text = typeof block.text === "string" ? block.text.trim() : "";
+      if (!text) continue;
+      
+      // 更严格的去重：如果新文本完全包含已存在的文本，或者已存在的文本完全包含新文本，
+      // 说明是由于流式块或重放导致的重复/递增块，我们只保留最长的一个。
+      let isDuplicate = false;
+      for (const seen of seenText) {
+        if (seen === text || seen.includes(text) || text.includes(seen)) {
+          isDuplicate = true;
+          // 如果新文本更长，我们应该替换旧的（但在当前简单逻辑中，我们依赖 rawContent，所以干脆忽略）
+          break;
+        }
+      }
+      if (isDuplicate) continue;
+      
+      seenText.add(text);
+      result.push(block);
+    } else if (block.type === "thinking") {
+      const thinking =
+        typeof block.thinking === "string" ? block.thinking.trim() : "";
+      if (!thinking && !block.redacted) continue;
+      result.push(block);
+    } else {
+      result.push(block);
+    }
+  }
+
+  return result;
+}
+
 export function SingleMessage(props: SingleMessageProps) {
   const {
     message,
@@ -270,27 +310,38 @@ export function SingleMessage(props: SingleMessageProps) {
   );
 
   const renderTimelineContent = () => {
-    // 优先使用 Pi 原生结构化内容块
-    const contentBlocks = (message as any).contentBlocks;
+    // 优先使用 Pi 原生结构化内容块（当存在思考过程、工具调用或图片等特殊结构时）
+    const rawContentBlocks = (message as any).contentBlocks;
+    const contentBlocks = Array.isArray(rawContentBlocks)
+      ? normalizeMessageContentBlocks(rawContentBlocks)
+      : undefined;
+
     if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
-      const isStreamDone = !message.streaming && !message.preview;
-      return (
-        <div className={styles["pi-content-blocks"]}>
-          {contentBlocks.map((block: any, idx: number) => (
-            <PiContentBlock
-              key={block.id || `block:${idx}`}
-              block={block}
-              isStreamFinished={isStreamDone}
-              fontSize={fontSize}
-              fontFamily={fontFamily}
-              scrollRef={scrollRef}
-              index={index}
-              totalMessages={totalMessages}
-              isUserMessage={isUser}
-            />
-          ))}
-        </div>
+      const hasSpecialBlocks = contentBlocks.some(
+        (b: any) =>
+          b.type === "thinking" || b.type === "toolCall" || b.type === "image",
       );
+
+      if (hasSpecialBlocks) {
+        const isStreamDone = !message.streaming && !message.preview;
+        return (
+          <div className={styles["pi-content-blocks"]}>
+            {contentBlocks.map((block: any, idx: number) => (
+              <PiContentBlock
+                key={block.id || `block:${idx}`}
+                block={block}
+                isStreamFinished={isStreamDone}
+                fontSize={fontSize}
+                fontFamily={fontFamily}
+                scrollRef={scrollRef}
+                index={index}
+                totalMessages={totalMessages}
+                isUserMessage={isUser}
+              />
+            ))}
+          </div>
+        );
+      }
     }
 
     // 降级：使用传统文本 + MCP 工具卡片渲染

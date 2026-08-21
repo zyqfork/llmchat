@@ -405,6 +405,7 @@ function createMarkdownComponents(options: {
   } as any;
 }
 
+const remarkPlugins = [RemarkMath, RemarkGfm, RemarkBreaks];
 const rehypePlugins = [
   RehypeRaw,
   RehypeKatex as any,
@@ -421,14 +422,18 @@ export function MarkdownContent(props: {
   const enableArtifacts =
     session.mask?.enableArtifacts !== false && config.enableArtifacts;
 
+  const components = React.useMemo(() => {
+    return createMarkdownComponents({
+      enableArtifacts,
+      isStreaming: props.isStreaming,
+    });
+  }, [enableArtifacts, props.isStreaming]);
+
   return (
     <ReactMarkdown
-      remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
+      remarkPlugins={remarkPlugins as any}
       rehypePlugins={rehypePlugins}
-      components={createMarkdownComponents({
-        enableArtifacts,
-        isStreaming: props.isStreaming,
-      })}
+      components={components}
     >
       {props.content}
     </ReactMarkdown>
