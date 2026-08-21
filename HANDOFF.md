@@ -2,12 +2,13 @@
 
 ## 项目状态：可继续开发
 
-所有更改已提交（最新 commit: `4f32add` — test(store): add 33 tests for chat core utility functions），工作区干净。以下按优先级列出已处理和待完成事项。
+所有更改已提交（最新 commit: `a9fa8d9` — fix(config): correct export mode detection and dev command setup），工作区干净。以下按优先级列出已处理和待完成事项。
 
 **测试覆盖**: 164 tests / 14 suites ✅
 **TypeScript**: clean ✅
 **ESLint**: clean ✅
 **Export build**: 46 pages ✅
+**所有检查通过**: tsc / lint / tests / export ✅
 
 ---
 
@@ -103,7 +104,7 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 - `app/client/llm-adapter.ts` — 新增 31 个测试覆盖纯函数，`streamText`/`generateText` 流程测试需模拟 Pi SDK
 - `app/store/chat.ts` — 已有测试覆盖导出工具函数；`useChatStore` 核心流程（消息发送、流式接收）需模拟 `getClientApi`
 
-### 已有测试（131 个，13 个套件）
+### 已有测试（164 个，14 个套件）
 - `app/utils/token.test.ts` (6)
 - `app/client/pi-agent-bridge.test.ts` (4)
 - `app/client/llm-adapter.test.ts` (31)
@@ -121,11 +122,11 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 ### 构建验证清单
 
 所有以下命令当前通过：
-- `yarn tsc --noEmit` — 类型检查
-- `yarn test:ci --runInBand` — 131 个测试（13 个套件）
-- `yarn eslint` — ESLint
-- `yarn export` — 静态导出（46 页）
-- `yarn build` — Standalone 构建
+- `yarn tsc --noEmit` — 类型检查 ✅
+- `yarn test:ci --runInBand` — 164 个测试（14 个套件）✅
+- `yarn eslint` — ESLint ✅
+- `yarn export` — 静态导出（46 页）✅
+- `yarn build` — Standalone 构建 ✅
 
 ---
 
