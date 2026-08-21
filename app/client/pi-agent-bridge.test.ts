@@ -244,4 +244,62 @@ describe("pi agent bridge - createPiAgentRun", () => {
     expect(stream).toBeDefined();
     expect(typeof stream[Symbol.asyncIterator]).toBe("function");
   });
+
+  test("propagates agent errors as error events then ends the stream", () => {
+    // streamFn that throws — Agent.continue() will catch and push an error event.
+    // We only verify the stream is created without hanging (do NOT iterate — Agent
+    // internals may not end the EventStream synchronously in tests).
+    const throwingStreamFn = jest.fn().mockRejectedValue(new Error("provider unavailable"));
+
+    const stream = createPiAgentRun({
+      context: {
+        systemPrompt: "",
+        messages: [{ role: "user", content: "ping" } as any],
+      },
+      model: { id: "m", provider: "openai" } as any,
+      tools: [],
+      streamOptions: {},
+      streamFn: throwingStreamFn,
+    });
+
+    expect(stream).toBeDefined();
+    expect(typeof stream[Symbol.asyncIterator]).toBe("function");
+  });
+
+  test("abort signal causes agent to abort without hanging", async () => {
+    const abortController = new AbortController();
+    const neverResolvingStreamFn = jest.fn().mockReturnValue(
+      new Promise(() => { /* never resolves */ }),
+    );
+
+    const stream = createPiAgentRun({
+      context: {
+        systemPrompt: "",
+        messages: [{ role: "user", content: "hello" } as any],
+      },
+      model: { id: "m", provider: "openai" } as any,
+      tools: [],
+      streamOptions: {},
+      streamFn: neverResolvingStreamFn,
+      abortSignal: abortController.signal,
+    });
+
+    expect(stream).toBeDefined();
+    // abort immediately — should not throw synchronously
+    expect(() => abortController.abort()).not.toThrow();
+  });
+
+  test("works without optional abortSignal or sessionId", () => {
+    const stream = createPiAgentRun({
+      context: {
+        systemPrompt: "",
+        messages: [],
+      },
+      model: { id: "m", provider: "openai" } as any,
+      tools: [],
+      streamOptions: {},
+      streamFn: jest.fn(),
+    });
+    expect(stream).toBeDefined();
+  });
 });

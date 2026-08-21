@@ -203,6 +203,36 @@ jobs:
           git-fetch-with-cli = true
           EOF
 
+      - name: delete existing release assets for this arch (safe rerun)
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          ARCH: ${{ matrix.config.arch }}
+          RUST_TARGET: ${{ matrix.config.rust_target }}
+        with:
+          script: |
+            const releaseId = Number(process.env.RELEASE_ID)
+            const arch = process.env.ARCH
+            const rustTarget = process.env.RUST_TARGET
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              per_page: 100,
+            })
+            const keywords = rustTarget.split(',').flatMap(t => t.split('-').filter(s => s.length > 3))
+            keywords.push(arch)
+            for (const asset of assets) {
+              if (keywords.some(k => asset.name.toLowerCase().includes(k.toLowerCase()))) {
+                console.log(`Deleting old asset: ${asset.name}`)
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: asset.id,
+                })
+              }
+            }
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

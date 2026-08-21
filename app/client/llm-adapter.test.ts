@@ -7,6 +7,10 @@ import {
   isOpenAIProtocolSdk,
   resolvePiApiType,
   resolveCompat,
+  shouldRouteThroughTauriFetch,
+  assistantEventToUnifiedPart,
+  assistantMessageToResult,
+  assistantMessageToProviderMetadata,
 } from "./llm-adapter";
 
 describe("getFetchUrl", () => {
@@ -220,5 +224,141 @@ describe("resolveCompat", () => {
       builtin,
     );
     expect(result).toEqual(builtin);
+  });
+});
+
+describe("shouldRouteThroughTauriFetch", () => {
+  test("returns false for non-http URLs", () => {
+    expect(shouldRouteThroughTauriFetch("file:///local/path")).toBe(false);
+    expect(shouldRouteThroughTauriFetch("/relative")).toBe(false);
+    expect(shouldRouteThroughTauriFetch("")).toBe(false);
+  });
+
+  test("returns false for http URLs not in tauriFetchBaseUrls", () => {
+    // 默认 tauriFetchBaseUrls 为空（浏览器环境），所以任何 http URL 都返回 false
+    expect(shouldRouteThroughTauriFetch("https://api.openai.com/v1")).toBe(false);
+  });
+});
+
+describe("assistantEventToUnifiedPart", () => {
+  test("maps text_delta to text-delta", () => {
+    expect(assistantEventToUnifiedPart({ type: "text_delta", delta: "hello" })).toEqual(
+      { type: "text-delta", text: "hello" },
+    );
+  });
+
+  test("maps thinking_delta to reasoning-delta", () => {
+    expect(
+      assistantEventToUnifiedPart({ type: "thinking_delta", delta: "think" }),
+    ).toEqual({ type: "reasoning-delta", delta: "think" });
+  });
+
+  test("maps toolcall_end to tool-call", () => {
+    const toolCall = { id: "tc1", name: "calc", arguments: {} };
+    expect(
+      assistantEventToUnifiedPart({ type: "toolcall_end", toolCall }),
+    ).toEqual({ type: "tool-call", toolCall });
+  });
+
+  test("returns undefined for unknown event type", () => {
+    expect(assistantEventToUnifiedPart({ type: "unknown" })).toBeUndefined();
+    expect(assistantEventToUnifiedPart(null)).toBeUndefined();
+    expect(assistantEventToUnifiedPart(undefined)).toBeUndefined();
+  });
+});
+
+describe("assistantMessageToProviderMetadata", () => {
+  test("returns empty object for null/undefined message", () => {
+    expect(assistantMessageToProviderMetadata(null)).toEqual({});
+    expect(assistantMessageToProviderMetadata(undefined)).toEqual({});
+  });
+
+  test("includes responseId only when present", () => {
+    const withId = assistantMessageToProviderMetadata({
+      responseId: "resp-1",
+      stopReason: "end",
+      usage: { input: 10, output: 5 },
+    }) as any;
+    expect(withId.responseId).toBe("resp-1");
+    expect(withId.stopReason).toBe("end");
+
+    const withoutId = assistantMessageToProviderMetadata({ stopReason: "end" });
+    expect(withoutId).not.toHaveProperty("responseId");
+  });
+
+  test("preserves api, provider, model fields", () => {
+    const result = assistantMessageToProviderMetadata({
+      api: "openai-completions",
+      provider: "openai",
+      model: "gpt-4o",
+    }) as any;
+    expect(result.api).toBe("openai-completions");
+    expect(result.provider).toBe("openai");
+    expect(result.model).toBe("gpt-4o");
+  });
+});
+
+describe("assistantMessageToResult", () => {
+  const emptyDebug = {};
+
+  test("extracts text from content array", () => {
+    const msg = {
+      content: [
+        { type: "text", text: "Hello " },
+        { type: "text", text: "world" },
+      ],
+    };
+    const result = assistantMessageToResult(msg, emptyDebug);
+    expect(result.text).toBe("Hello world");
+  });
+
+  test("ignores non-text content blocks", () => {
+    const msg = {
+      content: [
+        { type: "image", data: "abc" },
+        { type: "text", text: "only me" },
+      ],
+    };
+    expect(assistantMessageToResult(msg, emptyDebug).text).toBe("only me");
+  });
+
+  test("maps usage fields correctly", () => {
+    const msg = {
+      content: [],
+      usage: {
+        input: 100,
+        output: 50,
+        cacheRead: 20,
+        cacheWrite: 10,
+        totalTokens: 150,
+        cost: { total: 0.01 },
+      },
+      stopReason: "end_turn",
+    };
+    const result = assistantMessageToResult(msg, emptyDebug);
+    expect(result.usage.promptTokens).toBe(100);
+    expect(result.usage.completionTokens).toBe(50);
+    expect(result.usage.cacheReadTokens).toBe(20);
+    expect(result.usage.cacheWriteTokens).toBe(10);
+    expect(result.usage.totalTokens).toBe(150);
+    expect(result.usage.cost).toEqual({ total: 0.01 });
+    expect(result.finishReason).toBe("end_turn");
+  });
+
+  test("returns zero usage for missing fields", () => {
+    const result = assistantMessageToResult({ content: [] }, emptyDebug);
+    expect(result.usage.promptTokens).toBe(0);
+    expect(result.usage.completionTokens).toBe(0);
+    expect(result.usage.totalTokens).toBe(0);
+  });
+
+  test("attaches debug captures from debugCapture", () => {
+    const debug = {
+      request: { url: "https://api.example.com", method: "POST", body: {} },
+      response: { status: 200, headers: {}, body: "ok" },
+    };
+    const result = assistantMessageToResult({ content: [] }, debug);
+    expect(result.requestDebug).toBe(debug.request);
+    expect(result.responseDebug).toBe(debug.response);
   });
 });

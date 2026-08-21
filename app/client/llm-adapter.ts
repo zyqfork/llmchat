@@ -537,7 +537,7 @@ function withProxyModel(model: any, cfg: any): any {
   return applyProxyIfNeeded(model, cfg.apiKey, proxyUrl);
 }
 
-function assistantMessageToProviderMetadata(message: any) {
+export function assistantMessageToProviderMetadata(message: any) {
   if (!message) return {};
 
   // pi-ai 已统一不同供应商的 token、缓存和费用字段，直接保留结构化数据，
@@ -553,7 +553,7 @@ function assistantMessageToProviderMetadata(message: any) {
   };
 }
 
-function assistantMessageToResult(message: any, debugCapture: DebugCapture) {
+export function assistantMessageToResult(message: any, debugCapture: DebugCapture) {
   const text = (message?.content || [])
     .filter((c: any) => c?.type === "text")
     .map((c: any) => c.text)
@@ -575,7 +575,7 @@ function assistantMessageToResult(message: any, debugCapture: DebugCapture) {
   };
 }
 
-function assistantEventToUnifiedPart(event: any) {
+export function assistantEventToUnifiedPart(event: any) {
   switch (event?.type) {
     case "text_delta":
       return { type: "text-delta", text: event.delta };
