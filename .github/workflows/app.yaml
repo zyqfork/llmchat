@@ -90,7 +90,7 @@ jobs:
                 body:
                   `Desktop release for \`${tag}\` at [` +
                   `\`${sha.slice(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}).`,
-                draft: true,
+                draft: false,
                 prerelease: false,
               })
               return created.data
