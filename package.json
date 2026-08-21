@@ -1,6 +1,6 @@
 {
   "name": "llmchat",
-  "version": "2.29.0",
+  "version": "2.30.0",
   "description": "Cross-platform AI chat application with Next.js and desktop runtimes.",
   "author": "zyqfork",
   "main": "electron/main.cjs",
