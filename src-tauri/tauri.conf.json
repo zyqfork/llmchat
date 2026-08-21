@@ -4,7 +4,7 @@
   "version": "2.18.0",
   "identifier": "com.github.zyqfork.llmchat",
   "build": {
-    "beforeDevCommand": "yarn export:dev",
+    "beforeDevCommand": "yarn dev",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "yarn export",
     "frontendDist": "../out"

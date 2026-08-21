@@ -7,8 +7,9 @@ const mode = process.env.BUILD_MODE === "export" ? "export" : "standalone";
 // 检查是否是调试构建
 const isDebugBuild = process.env.DEBUG_BUILD === "true";
 // Electron / 本地 file:// 打开静态包时，绝对路径 `/_next/...` 会指向磁盘根目录，必须用相对资源前缀
+const isProd = process.env.NODE_ENV === "production";
 const isAppExport =
-  mode === "export" && process.env.BUILD_APP === "1";
+  isProd && mode === "export" && process.env.BUILD_APP === "1";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

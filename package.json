@@ -7,7 +7,7 @@
   "private": true,
   "license": "mit",
   "scripts": {
-    "dev": "node scripts/clean-stale-dev-cache.mjs && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "dev": "node scripts/ensure-pi-web-ui-exports.mjs && node scripts/ensure-pi-ai-exports.mjs && node scripts/clean-stale-dev-cache.mjs && cross-env NODE_OPTIONS=--no-deprecation next dev",
     "build": "node scripts/ensure-pi-web-ui-exports.mjs && node scripts/ensure-pi-ai-exports.mjs && cross-env BUILD_MODE=standalone next build && node scripts/copy-standalone.js",
     "start": "node scripts/start-prod.js",
     "lint": "eslint . --cache",
