@@ -2,7 +2,12 @@
 
 ## 项目状态：可继续开发
 
-所有更改已提交（最新 commit: `638d4f9e` — 图标库统一），工作区干净。以下按优先级列出已处理和待完成事项。
+所有更改已提交（最新 commit: `4f32add` — test(store): add 33 tests for chat core utility functions），工作区干净。以下按优先级列出已处理和待完成事项。
+
+**测试覆盖**: 164 tests / 14 suites ✅
+**TypeScript**: clean ✅
+**ESLint**: clean ✅
+**Export build**: 46 pages ✅
 
 ---
 
@@ -51,7 +56,7 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 **验证**：
 - `yarn tsc --noEmit` ✅
 - `yarn export` 构建成功，编译后 CSS 中 selector 正确为双类选择器 ✅
-- 131 测试全部通过（13 个套件） ✅
+- 164 测试全部通过（14 个套件） ✅
 
 ---
 
@@ -83,9 +88,11 @@ powershell.exe -NoProfile -Command '$env:PATH = "C:\\Users\\zyq\\scoop\\apps\\ru
 
 ## 🟢 优先级 3：测试覆盖扩展
 
-### 3.1 核心 Store 纯函数测试（✅ 已添加，20 个测试）
-- `app/store/chat-utils.test.ts` — 测试 `createMessage`、`buildUserMessagesText`、`buildTopicPrompt`、`buildTopicRequestMessages`、`countUserMessages`、`countUserTokens`、`buildConversationTranscript`、`fillTemplateWith`
+### 3.1 核心 Store 纯函数测试（✅ 已添加，33 个测试）
+- `app/store/chat-core.test.ts` — 测试 `createMessage`、`countUserMessages`、`countUserTokens`、`buildConversationTranscript`、`buildUserMessagesText`、`buildTopicPrompt`、`buildTopicRequestMessages`、`fillTemplateWith`
 - 已将上述函数从 `function` 改为 `export function` 以便测试
+- 额外的 `app/store/chat-utils.test.ts` 有 20 个测试
+- 额外的 `app/store/chat-mcp.test.ts` 有 14 个测试
 
 ### 3.2 LLM Adapter 测试（✅ 已添加，31 个测试）
 - `app/client/llm-adapter.test.ts` — 测试 `getFetchUrl`、`extractSystemPrompt`、`dataUrlToPiImageContent`、`toPiUserContent`、`toTextContent`、`isOpenAIProtocolSdk`、`resolvePiApiType`、`resolveCompat`
