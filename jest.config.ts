@@ -39,6 +39,13 @@ const config: Config = {
     "^@earendil-works/pi-agent-core$":
       "<rootDir>/app/test-shims/pi-agent-core.ts",
     "^nanoid$": "<rootDir>/app/test-shims/nanoid.ts",
+    "^react-markdown$": "<rootDir>/app/test-shims/react-markdown.tsx",
+    "^rehype-raw$": "<rootDir>/app/shims/empty-module.ts",
+    "^rehype-katex$": "<rootDir>/app/shims/empty-module.ts",
+    "^rehype-sanitize$": "<rootDir>/app/test-shims/rehype-sanitize.ts",
+    "^remark-breaks$": "<rootDir>/app/shims/empty-module.ts",
+    "^remark-gfm$": "<rootDir>/app/shims/empty-module.ts",
+    "^remark-math$": "<rootDir>/app/shims/empty-module.ts",
     "^@modelcontextprotocol/sdk/client/(index|sse|streamableHttp)\\.js$":
       "<rootDir>/app/test-shims/mcp-sdk.ts",
   },
