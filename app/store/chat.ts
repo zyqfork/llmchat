@@ -51,6 +51,7 @@ import {
   getSessionTopicModelConfig,
 } from "../utils/model-resolver";
 import { getModelStreamConfig } from "../config/model-stream";
+import { applyModelThinkingDefault } from "../config/model-thinking";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
@@ -268,6 +269,9 @@ export const BOT_HELLO: ChatMessage = createMessage({
 });
 
 function createEmptySession(): ChatSession {
+  const mask = createDefaultMask();
+  mask.modelConfig = applyModelThinkingDefault(mask.modelConfig);
+
   return {
     id: nanoid(),
     topic: DEFAULT_TOPIC,
@@ -283,7 +287,7 @@ function createEmptySession(): ChatSession {
     lastUpdate: Date.now(),
     lastSummarizeIndex: 0,
 
-    mask: createDefaultMask(), // 使用默认助手
+    mask, // 使用默认助手，并应用当前模型的全局思考设置
     mcpEnabledClients: {}, // 初始化 MCP 启用状态
     multiModelMode: {
       enabled: false,
@@ -774,6 +778,9 @@ export const useChatStore = createPersistStore(
             newMask.syncGlobalConfig = false;
           }
 
+          newMask.modelConfig = applyModelThinkingDefault(
+            newMask.modelConfig,
+          );
           session.mask = newMask;
         }
 

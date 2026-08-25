@@ -1,4 +1,10 @@
 import { useChatStore, createMessage } from "./chat";
+import { useAppConfig } from "./config";
+import { createDefaultMask } from "./mask";
+import {
+  removeModelThinkingBudget,
+  saveModelThinkingBudget,
+} from "../config/model-thinking";
 
 describe("useChatStore state management", () => {
   beforeEach(() => {
@@ -23,6 +29,44 @@ describe("useChatStore state management", () => {
 
     expect(nextState.sessions.length).toBe(initialCount + 1);
     expect(nextState.currentSessionIndex).toBe(0);
+  });
+
+  test("new sessions use the model default without changing an existing session override", () => {
+    const model = "o1-pro";
+    const previousConfig = { ...useAppConfig.getState().modelConfig };
+
+    try {
+      useAppConfig.setState({
+        modelConfig: {
+          ...previousConfig,
+          model: model as any,
+          providerName: "openai",
+          thinkingBudget: -1,
+        },
+      });
+      saveModelThinkingBudget(model, 0);
+
+      const store = useChatStore.getState();
+      store.newSession(createDefaultMask());
+      const firstSession = useChatStore.getState().currentSession();
+      expect(firstSession.mask.modelConfig.thinkingBudget).toBe(0);
+
+      store.updateTargetSession(firstSession, (session) => {
+        session.mask.modelConfig.thinkingBudget = 4096;
+        session.mask.syncGlobalConfig = false;
+      });
+
+      useChatStore.getState().newSession(createDefaultMask());
+      const state = useChatStore.getState();
+      expect(state.currentSession().mask.modelConfig.thinkingBudget).toBe(0);
+      expect(
+        state.sessions.find((session) => session.id === firstSession.id)?.mask
+          .modelConfig.thinkingBudget,
+      ).toBe(4096);
+    } finally {
+      removeModelThinkingBudget(model);
+      useAppConfig.setState({ modelConfig: previousConfig });
+    }
   });
 
   test("selects a session by index", () => {

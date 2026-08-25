@@ -213,7 +213,10 @@ export function ModelConfigList(props: {
                 config.providerName = providerName!;
 
                 // 检查新模型是否支持thinking功能，如果支持且thinkingBudget未设置，则设置默认值
-                const modelCapabilities = getModelCapabilities(config.model);
+                const modelCapabilities = getModelCapabilities(
+                  config.model,
+                  config.providerName,
+                );
                 // 优先使用模型配置弹窗中设置的模型级思考深度
                 const modelBudget = getModelThinkingBudget(config.model);
                 if (modelBudget !== undefined) {

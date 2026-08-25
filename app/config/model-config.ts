@@ -68,10 +68,15 @@ const THINKING_LEVEL_BUDGETS: Record<ModelThinkingLevel, number> = {
 export function getModelThinkingOptions(
   modelName: string,
   providerName?: string,
+  reasoningOverride?: boolean,
 ): ModelThinkingOption[] {
   const model = findPiModelById(modelName, providerName);
-  const configuredModel = model || findModelInConfig(modelName, providerName);
-  if (!configuredModel?.reasoning) return [];
+  // 能力面板中手动开启的推理能力也应立即生效；这对 models.dev / pi-ai
+  // 目录中尚未收录的自定义模型尤其重要。
+  const supportsReasoning =
+    reasoningOverride ??
+    (getModelCapabilities(modelName, providerName).reasoning === true);
+  if (!supportsReasoning) return [];
 
   const levels: ModelThinkingLevel[] = model
     ? getSupportedThinkingLevels(model)

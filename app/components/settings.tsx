@@ -1930,6 +1930,7 @@ export function Settings() {
   const [showModelConfig, setShowModelConfig] = useState<string | null>(null);
   const [modelConfigForm, setModelConfigForm] = useState({
     modelId: "",
+    provider: "",
     category: "",
     capabilities: {
       vision: false,
@@ -3621,14 +3622,15 @@ export function Settings() {
 
   // 打开模型配置弹窗
   const openModelConfig = (provider: string, modelName: string) => {
-    const currentCapabilities = getModelCapabilities(modelName);
+    const currentCapabilities = getModelCapabilities(modelName, provider);
 
     // 获取当前上下文Token数配置
-    const currentContextConfig = getModelContextTokens(modelName);
+    const currentContextConfig = getModelContextTokens(modelName, provider);
     const currentContextTokens = currentContextConfig?.contextTokens;
 
     setModelConfigForm({
       modelId: modelName,
+      provider,
       category: "", // 在设置页面中不显示分组
       capabilities: {
         vision: currentCapabilities.vision || false,
@@ -3745,6 +3747,7 @@ export function Settings() {
       {showModelConfig && (
         <ModelConfigModal
           modelName={modelConfigForm.modelId}
+          provider={modelConfigForm.provider}
           category=""
           showCategory={false}
           showDelete={false}

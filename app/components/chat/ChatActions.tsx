@@ -358,6 +358,7 @@ export function ChatActions(props: {
 
       const modelCapabilities = getModelCapabilities(
         session.mask.modelConfig.model,
+        session.mask.modelConfig.providerName,
       );
       // 优先应用模型级思考深度默认值
       const modelBudget = getModelThinkingBudget(
@@ -510,7 +511,10 @@ export function ChatActions(props: {
       )}
       {(() => {
         const currentModel = session.mask.modelConfig.model;
-        const modelCapabilities = getModelCapabilities(currentModel);
+        const modelCapabilities = getModelCapabilities(
+          currentModel,
+          session.mask.modelConfig.providerName,
+        );
         return (
           modelCapabilities.reasoning && (
             <ChatAction
@@ -661,8 +665,12 @@ export function ChatActions(props: {
 
                 const modelCapabilities = getModelCapabilities(
                   session.mask.modelConfig.model,
+                  session.mask.modelConfig.providerName,
                 );
-                if (
+                const modelBudget = getModelThinkingBudget(model);
+                if (modelBudget !== undefined) {
+                  session.mask.modelConfig.thinkingBudget = modelBudget;
+                } else if (
                   modelCapabilities.reasoning &&
                   modelCapabilities.reasoningField &&
                   session.mask.modelConfig.thinkingBudget === undefined

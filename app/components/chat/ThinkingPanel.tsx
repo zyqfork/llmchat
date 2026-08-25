@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import { useChatStore } from "../../store";
-import { getModelCapabilities } from "../../constant";
 import { getModelThinkingOptions } from "../../config/model-config";
 import Locale from "../../locales";
 import CloseIcon from "../../icons/close.svg";
@@ -16,12 +15,12 @@ export function ThinkingPanel(props: {
   const session = chatStore.currentSession();
 
   const currentModel = session.mask.modelConfig.model;
-  const modelCapabilities = getModelCapabilities(currentModel);
+  const currentProvider = session.mask.modelConfig.providerName;
 
   const labels = Locale.Chat.Thinking;
   const thinkingOptions = getModelThinkingOptions(
     currentModel,
-    session.mask.modelConfig.providerName,
+    currentProvider,
   ).map((option) => {
     switch (option.level) {
       case "dynamic":
@@ -98,9 +97,7 @@ export function ThinkingPanel(props: {
       </div>
       <div className={styles["shortcut-panel-content"]}>
         <div className={styles["thinking-notice"]}>
-          {modelCapabilities.reasoningField === "reasoning_content"
-            ? Locale.Chat.Thinking.ClaudeNotice
-            : Locale.Chat.Thinking.GeminiNotice}
+          {Locale.Chat.Thinking.Notice}
         </div>
         <div className={styles["shortcut-key-list"]}>
           {thinkingOptions.map((option, index) => (
@@ -114,6 +111,9 @@ export function ThinkingPanel(props: {
               onClick={() => {
                 chatStore.updateTargetSession(session, (session) => {
                   session.mask.modelConfig.thinkingBudget = option.value;
+                  // 思考深度是当前会话的显式配置。若继续同步全局配置，
+                  // 下一次消息更新时会被全局默认值（通常为动态思考）覆盖。
+                  session.mask.syncGlobalConfig = false;
                 });
                 onClose();
               }}

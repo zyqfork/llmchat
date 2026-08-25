@@ -57,11 +57,15 @@ export function ModelConfigModal({
   const [category, setCategory] = useState(initialCategory);
   const [stream, setStream] = useState<boolean>(true);
   const [thinkingBudget, setThinkingBudget] = useState<number>(-1);
-  const thinkingOptions = getModelThinkingOptions(modelName);
+  const thinkingOptions = getModelThinkingOptions(
+    modelName,
+    provider,
+    capabilities.reasoning,
+  );
 
   useEffect(() => {
     // 获取当前模型能力配置
-    const currentCapabilities = getModelCapabilities(modelName);
+    const currentCapabilities = getModelCapabilities(modelName, provider);
     setCapabilities({
       vision: currentCapabilities.vision || false,
       reasoning: currentCapabilities.reasoning || false,
@@ -69,7 +73,7 @@ export function ModelConfigModal({
     });
 
     // 获取当前上下文Token数配置
-    const currentContextConfig = getModelContextTokens(modelName);
+    const currentContextConfig = getModelContextTokens(modelName, provider);
     setContextTokens(currentContextConfig?.contextTokens);
 
     // 获取当前流式配置
@@ -79,7 +83,7 @@ export function ModelConfigModal({
     // 获取当前思考深度配置
     const currentThinkingBudget = getModelThinkingBudget(modelName);
     setThinkingBudget(currentThinkingBudget ?? -1);
-  }, [modelName]);
+  }, [modelName, provider]);
 
   const handleSave = () => {
     // 保存流式配置

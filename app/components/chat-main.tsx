@@ -68,6 +68,7 @@ import {
   getModelCompressThreshold,
 } from "../config/model-config";
 import { estimateTokenLength } from "../utils/token";
+import { applyModelThinkingDefault } from "../config/model-thinking";
 
 import {
   autoGrowTextArea,
@@ -571,7 +572,9 @@ export function ChatMain() {
 
       // auto sync mask config from global config
       if (session.mask.syncGlobalConfig) {
-        session.mask.modelConfig = { ...config.modelConfig };
+        session.mask.modelConfig = applyModelThinkingDefault(
+          config.modelConfig,
+        );
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

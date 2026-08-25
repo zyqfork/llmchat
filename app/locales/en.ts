@@ -196,19 +196,8 @@ const en: LocaleType = {
       DeepDesc: "8192 tokens",
       VeryDeep: "Very Deep Thinking",
       VeryDeepDesc: "16384 tokens",
-      Notice: "Only models supporting thinkingBudget can adjust thinking depth",
-      ClaudeNotice: "Only Claude series models can adjust thinking depth",
-      GeminiNotice: "Only Gemini series models can adjust thinking depth",
-      ClaudeLight: "Think",
-      ClaudeLightDesc: "5000 tokens",
-      ClaudeMedium: "Think hard",
-      ClaudeMediumDesc: "10000 tokens",
-      ClaudeDeep: "Think Harder",
-      ClaudeDeepDesc: "20000 tokens",
-      ClaudeVeryDeep: "Ultrathink",
-      ClaudeVeryDeepDesc: "32000 tokens",
-      ClaudeDynamicDesc:
-        "Automatically adjust thinking depth (default 10000 tokens)",
+      Notice:
+        "Models with reasoning controls can adjust thinking depth; available levels and whether thinking can be disabled depend on the model and provider",
     },
     ProviderTooltip: {
       Provider: "Provider",
