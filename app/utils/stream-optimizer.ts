@@ -12,13 +12,11 @@ export class StreamUpdateOptimizer {
     }
   >();
 
-  private updateTimer: NodeJS.Timeout | null = null;
-  // 批量延迟：流式期间把相邻 token 合并到同一个 50ms 窗口内一次性 flush，
-  // 避免每 token 一次 setState 触发整棵组件树重渲染。
-  private readonly BATCH_DELAY = 50;
-  private lastFlushTime = 0;
-  // 为每个模型维护独立的更新队列
-  private modelUpdateQueues = new Map<string, any[]>();
+  private updateTimer: ReturnType<typeof setTimeout> | null = null;
+  // 固定刷新窗口：约 30 FPS。使用 throttle 而非 debounce，避免高速 token
+  // 持续到达时计时器被反复重置，导致 UI 长时间不更新后突然跳出整段内容。
+  private readonly FLUSH_INTERVAL = 32;
+  private lastFlushTime = Number.NEGATIVE_INFINITY;
 
   constructor(private onBatchUpdate: (updates: Map<string, any>) => void) {}
 
@@ -39,40 +37,42 @@ export class StreamUpdateOptimizer {
       lastUpdate: Date.now(),
     });
 
-    // 合并到最近的批量窗口：先清掉上一个定时器，保证同一窗口内只有一个 flush。
-    // 慢速流（>20 token/s 间隔）仍会在 50ms 内显示新内容，感知延迟可忽略。
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
-    }
-    this.updateTimer = setTimeout(() => {
+    // 首个 chunk 立即显示；之后只安排一次尾随刷新。新 token 只更新
+    // pendingUpdates 中的最新快照，不会推迟已经安排好的刷新时间。
+    const elapsed = Date.now() - this.lastFlushTime;
+    if (elapsed >= this.FLUSH_INTERVAL) {
       this.flushUpdates();
-    }, this.BATCH_DELAY);
+    } else {
+      this.scheduleFlush(this.FLUSH_INTERVAL - elapsed);
+    }
   }
 
-  // 立即刷新更新（在流结束时调用）
-  flushUpdates() {
-    if (this.pendingUpdates.size === 0) return;
+  private scheduleFlush(delay: number) {
+    if (this.updateTimer) return;
 
+    this.updateTimer = setTimeout(() => {
+      this.updateTimer = null;
+      this.flushUpdates();
+    }, Math.max(0, delay));
+  }
+
+  // 立即刷新更新（流结束、停止或报错时调用）
+  flushUpdates() {
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
       this.updateTimer = null;
     }
+    if (this.pendingUpdates.size === 0) return;
 
-    const currentTime = Date.now();
-    const timeSinceLastFlush = currentTime - this.lastFlushTime;
+    // 先清空共享队列再回调，避免回调期间进入的新更新被误清除。
+    const updates = new Map(this.pendingUpdates);
+    this.pendingUpdates.clear();
+    this.lastFlushTime = Date.now();
+    this.onBatchUpdate(updates);
 
-    // 关键修复：确保更新能够及时执行，避免界面延迟
-    if (timeSinceLastFlush < 30) {
-      // 减少延迟时间，确保关键更新能够及时反映
-      setTimeout(() => {
-        this.onBatchUpdate(new Map(this.pendingUpdates));
-        this.pendingUpdates.clear();
-        this.lastFlushTime = Date.now();
-      }, 30 - timeSinceLastFlush);
-    } else {
-      this.onBatchUpdate(new Map(this.pendingUpdates));
-      this.pendingUpdates.clear();
-      this.lastFlushTime = currentTime;
+    // 回调期间若产生了新内容，继续按固定窗口安排，不丢失更新。
+    if (this.pendingUpdates.size > 0) {
+      this.scheduleFlush(this.FLUSH_INTERVAL);
     }
   }
 
@@ -80,8 +80,10 @@ export class StreamUpdateOptimizer {
   destroy() {
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
+      this.updateTimer = null;
     }
     this.pendingUpdates.clear();
+    this.lastFlushTime = Number.NEGATIVE_INFINITY;
   }
 }
 

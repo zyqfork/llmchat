@@ -1452,10 +1452,6 @@ export const useChatStore = createPersistStore(
                     message,
                     session,
                   );
-                  // 优化：减少立即刷新的频率，使用批量更新
-                  if (message.length > 0 && message.length % 200 < 50) {
-                    streamOptimizer.flushUpdates();
-                  }
                 }
               },
               async onFinish(message, responseRes) {
