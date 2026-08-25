@@ -13,9 +13,9 @@ export class StreamUpdateOptimizer {
   >();
 
   private updateTimer: ReturnType<typeof setTimeout> | null = null;
-  // 固定刷新窗口：约 30 FPS。使用 throttle 而非 debounce，避免高速 token
-  // 持续到达时计时器被反复重置，导致 UI 长时间不更新后突然跳出整段内容。
-  private readonly FLUSH_INTERVAL = 32;
+  // 固定刷新窗口：约 60 FPS，尽量与浏览器绘制节奏一致。使用 throttle
+  // 而非 debounce，既避免高速 token 饿死刷新，也减少 30 FPS 的顿挫感。
+  private readonly FLUSH_INTERVAL = 16;
   private lastFlushTime = Number.NEGATIVE_INFINITY;
 
   constructor(private onBatchUpdate: (updates: Map<string, any>) => void) {}

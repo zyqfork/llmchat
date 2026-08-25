@@ -32,13 +32,13 @@ describe("StreamUpdateOptimizer", () => {
     const optimizer = new StreamUpdateOptimizer(onBatchUpdate);
 
     optimizer.updateStreamingMessage("session-1", "message-1", "A", session);
-    jest.advanceTimersByTime(10);
+    jest.advanceTimersByTime(5);
     optimizer.updateStreamingMessage("session-1", "message-1", "AB", session);
-    jest.advanceTimersByTime(10);
+    jest.advanceTimersByTime(5);
     optimizer.updateStreamingMessage("session-1", "message-1", "ABC", session);
 
     expect(onBatchUpdate).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(12);
+    jest.advanceTimersByTime(6);
 
     expect(onBatchUpdate).toHaveBeenCalledTimes(2);
     expect(contents(onBatchUpdate.mock.calls[1][0])).toEqual(["ABC"]);
@@ -68,7 +68,7 @@ describe("StreamUpdateOptimizer", () => {
     jest.advanceTimersByTime(5);
     optimizer.updateStreamingMessage("session-1", "message-1", "one", session);
     optimizer.updateStreamingMessage("session-1", "message-2", "two", session);
-    jest.advanceTimersByTime(27);
+    jest.advanceTimersByTime(11);
 
     expect(onBatchUpdate).toHaveBeenCalledTimes(2);
     expect(contents(onBatchUpdate.mock.calls[1][0]).sort()).toEqual([
@@ -96,8 +96,8 @@ describe("StreamUpdateOptimizer", () => {
     optimizer.updateStreamingMessage("session-1", "message-1", "A", session);
     jest.advanceTimersByTime(5);
     optimizer.updateStreamingMessage("session-1", "message-1", "AB", session);
-    jest.advanceTimersByTime(27);
-    jest.advanceTimersByTime(32);
+    jest.advanceTimersByTime(11);
+    jest.advanceTimersByTime(16);
 
     expect(onBatchUpdate).toHaveBeenCalledTimes(3);
     expect(contents(onBatchUpdate.mock.calls[2][0])).toEqual(["ABC"]);
