@@ -1,6 +1,6 @@
 [package]
 name = "llmchat"
-version = "2.32.0"
+version = "2.33.0"
 description = "A cross platform app for LLM ChatBot."
 authors = ["zyq"]
 license = "mit"
