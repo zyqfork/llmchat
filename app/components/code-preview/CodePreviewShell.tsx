@@ -8,7 +8,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { HighlightedCodeView } from "./HighlightedCodeView";
-import { copyToClipboard } from "../../utils";
+import { activateCopyToClipboard } from "../../utils";
 import { showModal } from "../ui-lib";
 import styles from "./code-preview-shell.module.scss";
 
@@ -239,10 +239,11 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
           <div className={styles["toolbar-right"]}>
             <button
               type="button"
+              className="copy-code-button"
               onPointerDown={(e) => {
                 // 流式更新可能让 click 丢失，因此鼠标按下时立即复制；触摸滑动仍交给 click。
                 if (e.pointerType === "mouse" && e.button === 0) {
-                  copyToClipboard(code);
+                  activateCopyToClipboard(e, code);
                 }
               }}
               onClick={(e) => {
@@ -252,7 +253,7 @@ export function CodePreviewShell(props: CodePreviewShellProps) {
                   (typeof TouchEvent !== "undefined" &&
                     e.nativeEvent instanceof TouchEvent)
                 ) {
-                  copyToClipboard(code);
+                  activateCopyToClipboard(e, code);
                 }
               }}
               title="复制当前源码"

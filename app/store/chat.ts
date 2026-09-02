@@ -56,7 +56,7 @@ import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createDefaultMask, DEFAULT_MASK_ID, Mask } from "./mask";
 import { executeMcpAction, getAllTools } from "../mcp/actions.client";
-import { extractMcpJson, isMcpJson } from "../mcp/utils";
+import { extractMcpJson, extractAllMcpJson } from "../mcp/utils";
 import { logger } from "../utils/logger";
 import {
   executeSummaryStream,
@@ -892,9 +892,7 @@ export const useChatStore = createPersistStore(
 
         get().updateStat(message, targetSession);
 
-        get().checkMcpJson(message);
-
-        // 压缩统一由 onUserInput 在发送用户消息前处理，以确保压缩消息始终出现在用户消息之前。
+        void get().checkMcpJson(message);
         // 此处只做自动标题生成，不触发压缩（forceCompress=false 且不走到压缩分支）。
         const latestSession =
           get().sessions.find((s) => s.id === targetSession.id) ??
@@ -2637,26 +2635,45 @@ export const useChatStore = createPersistStore(
       },
 
       /** check if the message contains MCP JSON and execute the MCP action */
-      checkMcpJson(message: ChatMessage) {
-        const content = getMessageTextContent(message);
-        if (!isMcpJson(content)) return;
+      async checkMcpJson(message: ChatMessage) {
+        const session = get().currentSession();
+        if (!session.mcpEnabled) return;
 
-        try {
-          const mcpRequest = extractMcpJson(content);
-          if (!mcpRequest) return;
-          executeMcpAction(mcpRequest.clientId, mcpRequest.mcp)
-            .then((result: any) => {
-              const mcpResponse =
-                typeof result === "object" ? JSON.stringify(result) : String(result);
-              get().onUserInput(
-                `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
-                [],
-                true,
-              );
-            })
-            .catch((error: any) => showToast("MCP execution failed", error));
-        } catch {
-          // Ignore malformed MCP blocks.
+        const { getMcpConfigFromFile } = await import("../mcp/actions.client");
+        const config = await getMcpConfigFromFile();
+        if (config.callMode !== "prompt") return;
+
+        const content = getMessageTextContent(message);
+        const mcpRequests = extractAllMcpJson(content);
+        if (mcpRequests.length === 0) {
+          const fallback = extractMcpJson(content);
+          if (!fallback) return;
+          mcpRequests.push(fallback);
+        }
+
+        for (const mcpRequest of mcpRequests) {
+          try {
+            const result = await executeMcpAction(
+              mcpRequest.clientId,
+              mcpRequest.mcp as import("../mcp/types").McpRequestMessage,
+            );
+            const mcpResponse =
+              typeof result === "object"
+                ? JSON.stringify(result)
+                : String(result);
+            await get().onUserInput(
+              `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
+              [],
+              true,
+            );
+          } catch (error: unknown) {
+            showToast(
+              `MCP execution failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+            break;
+          }
         }
       },
 

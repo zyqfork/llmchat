@@ -1110,6 +1110,11 @@ Use ONLY this format:
 3. TOOL_NAME = actual tool name from available tools
 4. One tool call per message
 5. Call tools immediately when needed
+6. After a tool runs, you will receive results in this format — read them and continue (answer the user or call more tools if needed):
+
+\`\`\`json:mcp-response:{SERVER_ID}
+{tool result JSON}
+\`\`\`
 
 ## Examples
 

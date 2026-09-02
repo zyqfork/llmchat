@@ -9,7 +9,7 @@ import RemarkGfm from "remark-gfm";
 import RehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { Collapse } from "antd";
-import { copyToClipboard } from "../utils";
+import { activateCopyToClipboard } from "../utils";
 import Locale from "../locales";
 import { showImageModal } from "./ui-lib";
 import { useAppConfig } from "../store/config";
@@ -83,26 +83,25 @@ export function ThinkCollapse({ title, children }: ThinkCollapseProps) {
     }
   }, [title]);
 
+  const getTextContent = (node: React.ReactNode): string => {
+    if (typeof node === "string") return node;
+    if (typeof node === "number") return String(node);
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+      }>;
+      if (element.props?.children) {
+        return getTextContent(element.props.children);
+      }
+    }
+    if (Array.isArray(node)) {
+      return node.map(getTextContent).join("");
+    }
+    return "";
+  };
+
   const handleCopyContent = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const getTextContent = (node: React.ReactNode): string => {
-      if (typeof node === "string") return node;
-      if (typeof node === "number") return String(node);
-      if (React.isValidElement(node)) {
-        const element = node as React.ReactElement<{
-          children?: React.ReactNode;
-        }>;
-        if (element.props?.children) {
-          return getTextContent(element.props.children);
-        }
-      }
-      if (Array.isArray(node)) {
-        return node.map(getTextContent).join("");
-      }
-      return "";
-    };
-    copyToClipboard(getTextContent(children));
+    activateCopyToClipboard(e, getTextContent(children));
   };
 
   return (
@@ -328,9 +327,10 @@ function createMarkdownComponents(options: {
               <div style={{ marginLeft: "auto" }}>
                 <button
                   type="button"
+                  className="copy-code-button"
                   onPointerDown={(e) => {
                     if (e.pointerType === "mouse" && e.button === 0) {
-                      copyToClipboard(codeText);
+                      activateCopyToClipboard(e, codeText);
                     }
                   }}
                   onClick={(e) => {
@@ -339,7 +339,7 @@ function createMarkdownComponents(options: {
                       (typeof TouchEvent !== "undefined" &&
                         e.nativeEvent instanceof TouchEvent)
                     ) {
-                      copyToClipboard(codeText);
+                      activateCopyToClipboard(e, codeText);
                     }
                   }}
                   style={{

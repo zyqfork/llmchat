@@ -28,7 +28,33 @@ export function trimTopic(topic: string) {
   );
 }
 
+function copyTextWithExecCommand(text: string): boolean {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  textArea.setSelectionRange(0, text.length);
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  return copied;
+}
+
 export async function copyToClipboard(text: string) {
+  const selection = window.getSelection();
+  const savedRanges: Range[] = [];
+  if (selection) {
+    for (let i = 0; i < selection.rangeCount; i++) {
+      savedRanges.push(selection.getRangeAt(i).cloneRange());
+    }
+    selection.removeAllRanges();
+  }
+
   try {
     if (window.__TAURI__) {
       const { writeText } =
@@ -39,20 +65,31 @@ export async function copyToClipboard(text: string) {
     }
 
     showToast(Locale.Copy.Success);
-  } catch (error) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
+    return;
+  } catch {
     try {
-      document.execCommand("copy");
+      if (!copyTextWithExecCommand(text)) {
+        throw new Error("execCommand copy failed");
+      }
       showToast(Locale.Copy.Success);
-    } catch (error) {
+    } catch {
+      if (selection && savedRanges.length > 0) {
+        selection.removeAllRanges();
+        savedRanges.forEach((range) => selection.addRange(range));
+      }
       showToast(Locale.Copy.Failed);
     }
-    document.body.removeChild(textArea);
   }
+}
+
+/** 复制按钮：拦截默认行为，避免误复制页面选区 */
+export function activateCopyToClipboard(
+  event: { preventDefault: () => void; stopPropagation: () => void },
+  text: string,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  void copyToClipboard(text);
 }
 
 export async function downloadAs(text: string, filename: string) {
@@ -302,8 +339,28 @@ export function getMessageTextContentWithoutThinking(message: RequestMessage) {
     }
   }
 
-  // 使用通用的移除思考内容函数
-  return removeThinkingContent(content);
+  return message.role === "assistant"
+    ? getAssistantMessageTextForApi(content)
+    : removeThinkingContent(content);
+}
+
+const MCP_PROMPT_BLOCK_RE = /```json:mcp:[\s\S]*?```/g;
+
+/**
+ * 移除思考标签，但保留 MCP 提示词模式下的工具调用代码块。
+ * 部分模型会把 ```json:mcp:``` 放在 reasoning 字段，直接 strip 会导致
+ * 后续轮次 API 上下文丢失工具调用记录。
+ */
+export function getAssistantMessageTextForApi(content: string): string {
+  const mcpBlocks = [...content.matchAll(MCP_PROMPT_BLOCK_RE)].map((m) => m[0]);
+  const cleaned = removeThinkingContent(content);
+  if (mcpBlocks.length === 0) return cleaned;
+  if (MCP_PROMPT_BLOCK_RE.test(cleaned)) {
+    MCP_PROMPT_BLOCK_RE.lastIndex = 0;
+    return cleaned;
+  }
+  const parts = [cleaned.trim(), ...mcpBlocks].filter(Boolean);
+  return parts.join("\n\n");
 }
 
 export function getMessageImages(message: RequestMessage): string[] {
