@@ -12,7 +12,45 @@ import {
   assistantMessageToResult,
   assistantMessageToProviderMetadata,
   normalizeContentBlocks,
+  mapThinkingBudgetToLevel,
+  resolveResponsesOffEffort,
 } from "./llm-adapter";
+
+describe("mapThinkingBudgetToLevel", () => {
+  test("maps session budget to pi thinking levels", () => {
+    expect(mapThinkingBudgetToLevel(0)).toBe("off");
+    expect(mapThinkingBudgetToLevel(-1)).toBeUndefined();
+    expect(mapThinkingBudgetToLevel(undefined)).toBeUndefined();
+    expect(mapThinkingBudgetToLevel(512)).toBe("minimal");
+    expect(mapThinkingBudgetToLevel(1024)).toBe("low");
+    expect(mapThinkingBudgetToLevel(4096)).toBe("medium");
+    expect(mapThinkingBudgetToLevel(8192)).toBe("high");
+    expect(mapThinkingBudgetToLevel(16384)).toBe("xhigh");
+  });
+});
+
+describe("resolveResponsesOffEffort", () => {
+  test("uses minimal when model cannot disable thinking (gpt-5 / o3)", () => {
+    expect(
+      resolveResponsesOffEffort({
+        thinkingLevelMap: { off: null, high: "high" },
+      }),
+    ).toBe("minimal");
+  });
+
+  test("uses model-declared off value when supported", () => {
+    expect(
+      resolveResponsesOffEffort({
+        thinkingLevelMap: { off: "none" },
+      }),
+    ).toBe("none");
+  });
+
+  test("defaults to none when thinkingLevelMap is missing", () => {
+    expect(resolveResponsesOffEffort({})).toBe("none");
+    expect(resolveResponsesOffEffort(undefined)).toBe("none");
+  });
+});
 
 describe("getFetchUrl", () => {
   test("returns string input as-is", () => {

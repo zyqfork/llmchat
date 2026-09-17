@@ -206,6 +206,67 @@ function getDebugResponseFromResult(result: any): any {
   return result?.responseDebug;
 }
 
+/**
+ * pi-ai 的 onResponse 只回调 {status, headers}，拿不到 HTTP body；
+ * 成功的流式请求也不会被 fetch 错误拦截器捕获 body。
+ * 这里用最终 assistant 结果重建一份可读的调试响应体。
+ */
+export function synthesizeDebugResponseBody(
+  responseId: string | undefined,
+  providerMetadata: any,
+  resultText?: string,
+): any {
+  const meta =
+    providerMetadata && typeof providerMetadata === "object"
+      ? providerMetadata
+      : {};
+  const contentBlocks = Array.isArray(meta.content) ? meta.content : undefined;
+  const textFromBlocks = contentBlocks
+    ? contentBlocks
+        .filter((b: any) => b?.type === "text")
+        .map((b: any) => b?.text ?? "")
+        .join("")
+    : undefined;
+  const text = resultText ?? textFromBlocks;
+
+  const body: any = {
+    _debug_note:
+      "Raw HTTP body was not captured (streaming/SSE). Reconstructed from the final assistant message.",
+  };
+  if (responseId) body.id = responseId;
+  if (meta.model) body.model = meta.model;
+  if (meta.provider) body.provider = meta.provider;
+  if (meta.api) body.api = meta.api;
+  if (meta.stopReason) body.stop_reason = meta.stopReason;
+  if (typeof text === "string" && text.length > 0) {
+    body.output_text = text;
+    body.choices = [
+      {
+        index: 0,
+        message: { role: "assistant", content: text },
+        finish_reason: meta.stopReason,
+      },
+    ];
+  }
+  if (contentBlocks) body.content = contentBlocks;
+  if (meta.usage) body.usage = meta.usage;
+  return body;
+}
+
+function isMeaningfulRawResponseBody(body: any): boolean {
+  if (body === undefined || body === null) return false;
+  // 仅有 { id } 的占位体（Responses API 有状态模式）不算真实响应内容
+  if (
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    Object.keys(body).length === 1 &&
+    typeof body.id === "string"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function buildResponseFromResult(
   result: any,
   providerName: string | undefined,
@@ -219,11 +280,19 @@ function buildResponseFromResult(
     requestBody,
   );
   const responseDebug = getDebugResponseFromResult(result);
+  const rawBody = responseDebug?.body;
+  const body = isMeaningfulRawResponseBody(rawBody)
+    ? rawBody
+    : synthesizeDebugResponseBody(responseId, providerMetadata, result?.text);
   return buildResponseWithMetadata(
     responseId,
     providerMetadata,
     requestDebug,
-    responseDebug,
+    {
+      status: responseDebug?.status ?? 200,
+      headers: responseDebug?.headers ?? {},
+      body,
+    },
   );
 }
 

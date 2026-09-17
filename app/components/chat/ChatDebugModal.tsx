@@ -84,7 +84,21 @@ export function ChatDebugModal({
 
   const responseBody = (() => {
     const res = (debugMessage as any)?.debug?.response;
-    return res ? JSON.stringify(res, null, 2) : "<empty>";
+    if (!res) return "<empty>";
+    // body 可能是重建后的对象、原始 JSON，或纯文本；统一格式化便于阅读
+    let displayRes = res;
+    const body = (res as any).body;
+    if (typeof body === "string") {
+      const trimmed = body.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try {
+          displayRes = { ...res, body: JSON.parse(body) };
+        } catch {
+          /* 原样显示 */
+        }
+      }
+    }
+    return JSON.stringify(displayRes, null, 2);
   })();
 
   const preStyle = {

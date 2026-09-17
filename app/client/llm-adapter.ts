@@ -24,6 +24,7 @@ import {
   type ProviderStreams,
   type TextContent,
   type ThinkingLevel,
+  type ModelThinkingLevel,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
@@ -455,8 +456,10 @@ async function toPiModel(
     // 自建兼容服务（vLLM 等）常见的 reasoning_effort 取值映射。
     // vLLM/Qwen 仅支持 low/medium/xhigh，把 minimal/high/max 收敛到合法档位，
     // 避免上游 400（例如 vLLM 拒绝 reasoning_effort=high）
+    // off 用 "none"：Responses API 需要显式 effort 才能真正关闭思考；
+    // null 表示“不支持关闭”，SDK 不会注入 off，用户选了关闭也会无效。
     thinkingLevelMap: {
-      off: null,
+      off: "none",
       minimal: "low",
       low: "low",
       medium: "medium",
@@ -671,6 +674,38 @@ function buildDebugGetters(debugCapture: DebugCapture) {
   };
 }
 
+/**
+ * 会话 thinkingBudget → pi-ai ThinkingLevel。
+ * -1/undefined = 动态（不传）；0 = off；>0 按 token 档位映射。
+ */
+export function mapThinkingBudgetToLevel(
+  thinkingBudget: number | undefined,
+): ModelThinkingLevel | undefined {
+  if (thinkingBudget === 0) return "off";
+  if (typeof thinkingBudget !== "number" || thinkingBudget < 0) {
+    return undefined;
+  }
+  if (thinkingBudget <= 512) return "minimal";
+  if (thinkingBudget <= 1024) return "low";
+  if (thinkingBudget <= 4096) return "medium";
+  if (thinkingBudget <= 8192) return "high";
+  return "xhigh";
+}
+
+/**
+ * Responses API「关闭思考」时应写入的 reasoning.effort。
+ * - thinkingLevelMap.off === null：模型本身不支持关闭（gpt-5 / o3 等），
+ *   官方 API 不接受 effort:"none"，降到最低档 minimal。
+ * - thinkingLevelMap.off === 字符串：用模型声明的关闭值（常见 "none"）。
+ * - 无 thinkingLevelMap：自建/兼容端默认 "none"。
+ */
+export function resolveResponsesOffEffort(usedModel: any): string {
+  const offMap = usedModel?.thinkingLevelMap?.off;
+  if (offMap === null) return "minimal";
+  if (typeof offMap === "string" && offMap.length > 0) return offMap;
+  return "none";
+}
+
 function buildPiStreamOptions(
   req: LLMAdapterRequest,
   cfg: any,
@@ -690,19 +725,14 @@ function buildPiStreamOptions(
     sessionBudget === undefined
       ? getModelThinkingBudget(req.model)
       : sessionBudget;
-  let reasoning: ThinkingLevel | undefined;
-  if (typeof thinkingBudget === "number" && thinkingBudget > 0) {
-    reasoning =
-      thinkingBudget <= 1024
-        ? "low"
-        : thinkingBudget <= 4096
-          ? "medium"
-          : thinkingBudget <= 8192
-            ? "high"
-            : "xhigh";
-  }
-  // thinkingBudget === 0（关闭思考）：不传 reasoning，由下方 onPayload 注入
-  // chat_template_kwargs.enable_thinking=false 实现关闭
+  // Responses API 下 pi-ai 在 reasoningEffort 为空时会强制注入 effort:"none"，
+  // 导致「动态」被当成「关闭」。这里显式区分：
+  // - off → 不传 reasoning（SDK 的 SimpleStreamOptions 不含 "off"），
+  //   由 onPayload 按模型 thinkingLevelMap 注入 effort
+  // - dynamic/-1/undefined → 不传 reasoning，并在 onPayload 剥离 SDK 误注入的 off
+  const level = mapThinkingBudgetToLevel(thinkingBudget);
+  const reasoning: ThinkingLevel | undefined =
+    level === "off" || level === undefined ? undefined : level;
 
   const isCustomProvider = String(req.providerId || "").startsWith("custom_");
 
@@ -715,6 +745,62 @@ function buildPiStreamOptions(
     onPayload: (payload: any, usedModel: any) => {
       const errorCapture = getLastErrorDebugCapture();
       let nextPayload = payload;
+      const apiType = String(usedModel?.api || "");
+
+      if (
+        apiType === "openai-responses" ||
+        apiType === "azure-openai-responses"
+      ) {
+        if (thinkingBudget === 0) {
+          // 用户明确关闭思考。
+          // 不能一律写 effort:"none"：gpt-5/o3 等官方模型 thinkingLevelMap.off===null，
+          // API 不接受 "none"，应降到 minimal；自建端则用模型声明的 off 值（通常 none）。
+          const effort = resolveResponsesOffEffort(usedModel);
+          nextPayload = {
+            ...nextPayload,
+            reasoning: {
+              ...(nextPayload.reasoning && typeof nextPayload.reasoning === "object"
+                ? nextPayload.reasoning
+                : {}),
+              effort,
+            },
+          };
+        } else if (thinkingBudget === -1 || thinkingBudget === undefined) {
+          // 动态：让服务端决定。剥离 pi-ai 在无 effort 时自动写入的 off。
+          const effort = nextPayload.reasoning?.effort;
+          if (effort === "none") {
+            const { reasoning: _drop, ...rest } = nextPayload;
+            // include 可能因 reasoning 一起被加过，无 reasoning 时一并去掉
+            if (Array.isArray(rest.include)) {
+              rest.include = rest.include.filter(
+                (x: string) => x !== "reasoning.encrypted_content",
+              );
+              if (rest.include.length === 0) delete rest.include;
+            }
+            nextPayload = rest;
+          }
+        } else {
+          // 用户选了具体档位：确保 effort 与会话设置一致（SDK clamp 后仍可能偏移）
+          const level = mapThinkingBudgetToLevel(thinkingBudget);
+          if (level && level !== "off") {
+            const mapped =
+              usedModel?.thinkingLevelMap?.[level] ?? level;
+            if (typeof mapped === "string" && mapped.length > 0) {
+              nextPayload = {
+                ...nextPayload,
+                reasoning: {
+                  ...(nextPayload.reasoning &&
+                  typeof nextPayload.reasoning === "object"
+                    ? nextPayload.reasoning
+                    : {}),
+                  effort: mapped,
+                },
+              };
+            }
+          }
+        }
+      }
+
       if (
         thinkingBudget === 0 &&
         isCustomProvider &&

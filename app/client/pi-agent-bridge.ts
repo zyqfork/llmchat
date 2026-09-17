@@ -107,7 +107,7 @@ export function createPiAgentRun(options: PiAgentRunOptions) {
     initialState: {
       systemPrompt: options.context.systemPrompt || "",
       model: options.model,
-      thinkingLevel: options.streamOptions.reasoning || "off",
+      thinkingLevel: options.streamOptions.reasoning ?? "off",
       messages: options.context.messages,
       tools: options.tools,
     },
