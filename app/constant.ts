@@ -796,7 +796,7 @@ export const ServiceProvider: Record<string, ProviderConfig> = {
     id: "moonshotai",
     name: "MoonshotAI",
     modelProvider: "MoonshotAI",
-    iconUrl: "/logos/moonshot.svg",
+    iconUrl: "/logos/moonshotai.svg",
     sdkType: "openai-compatible",
     defaultBaseUrl: "https://api.moonshot.cn/v1",
     apiPath: "/api/moonshotai",
