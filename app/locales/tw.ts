@@ -63,6 +63,7 @@ const tw = {
         EstimatedTokens: (estimated: number) =>
           `預估Token: ${estimated.toLocaleString()}`,
         ContextTokens: (tokens: string) => `上下文: ${tokens} tokens`,
+        ContextNotConfigured: "未配置上下文 · 自動壓縮已停用",
       },
     },
     SubTitle: (count: number) => `您已經與 ChatGPT 進行了 ${count} 則對話`,
@@ -155,6 +156,8 @@ const tw = {
       CurrentToken: "目前Token",
       EstimatedToken: "預估Token",
       Unknown: "未知",
+      ContextUnknownWarning:
+        "模型上下文未配置，已停用自動壓縮。請先在模型管理中設定上下文 Token。",
     },
     Config: {
       Reset: "重設",
@@ -506,6 +509,8 @@ const tw = {
     CompressThreshold: {
       Title: "歷史訊息長度壓縮閾值",
       SubTitle: "當未壓縮的歷史訊息超過該值時，將進行壓縮",
+      ContextUnknown:
+        "模型上下文未配置，已停用自動壓縮。請先在模型管理中設定上下文 Token。",
     },
 
     AccessCode: {

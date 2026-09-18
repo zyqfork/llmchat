@@ -22,6 +22,7 @@ import {
   saveCustomContextTokens,
   saveCustomModelCapabilities,
 } from "../config/model-config";
+import { applyCompressThresholdSyncForModel } from "../utils/compress-threshold-sync";
 import { saveModelStreamConfig } from "../config/model-stream";
 import { logger } from "../utils/logger";
 
@@ -729,6 +730,7 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
     // 保存上下文Token数配置
     if (modelConfigForm.contextTokens !== undefined) {
       saveCustomContextTokens(modelName, modelConfigForm.contextTokens);
+      applyCompressThresholdSyncForModel(modelName);
     }
 
     // 如果是自定义模型且分组发生变化，更新 customModels
@@ -1109,7 +1111,10 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                                   const contextConfig = getModelContextTokens(
                                     model.name,
                                   );
-                                  if (contextConfig) {
+                                  if (
+                                    contextConfig?.contextTokens != null &&
+                                    contextConfig.contextTokens > 0
+                                  ) {
                                     return (
                                       <span
                                         className={
@@ -1124,7 +1129,15 @@ export function ModelManager({ provider, onClose }: ModelManagerProps) {
                                       </span>
                                     );
                                   }
-                                  return null;
+                                  return (
+                                    <span
+                                      style={{ color: "#ef4444" }}
+                                      title="自动压缩已禁用，请配置上下文 Token"
+                                    >
+                                      {" • "}
+                                      未配置上下文
+                                    </span>
+                                  );
                                 })()}
                               </div>
                             </div>

@@ -270,27 +270,36 @@ export function findLastCompressedMessageIndex<T extends SummaryInputMessage>(
 export function getCompactionBoundaryStartIndex<T extends SummaryInputMessage>(
   state: CompactionCursorState<T>,
 ): number {
-  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
-  if (lastCompressedIndex >= 0) return lastCompressedIndex;
+  const clear = state.clearContextIndex ?? 0;
+  // 摘要边界（keep-recent 起点）优先：增量压缩从这里开始，而不是从末尾摘要消息
+  const summarizeBoundary = state.lastSummarizeIndex ?? 0;
+  if (summarizeBoundary > clear) return summarizeBoundary;
 
   const compressedContextIndex = state.compressedContextIndex ?? -1;
-  if (compressedContextIndex >= 0) return compressedContextIndex;
+  if (compressedContextIndex >= 0) return Math.max(clear, compressedContextIndex);
 
-  return Math.max(state.lastSummarizeIndex ?? 0, state.clearContextIndex ?? 0);
+  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
+  if (lastCompressedIndex >= 0) return Math.max(clear, lastCompressedIndex);
+
+  return clear;
 }
 
 export function getActiveContextStartIndex<T extends SummaryInputMessage>(
   state: CompactionCursorState<T>,
 ): number {
-  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
-  const compressedOrSummarizedIndex =
-    lastCompressedIndex >= 0
-      ? lastCompressedIndex
-      : (state.compressedContextIndex ?? -1) >= 0
-      ? state.compressedContextIndex!
-      : state.lastSummarizeIndex ?? 0;
+  const clear = state.clearContextIndex ?? 0;
+  // 压缩后仍从 lastSummarizeIndex（keep-recent 起点）计入上下文，
+  // 使保留的近期消息 + memoryPrompt 摘要都参与发送/计数
+  const summarizeBoundary = state.lastSummarizeIndex ?? 0;
+  if (summarizeBoundary > clear) return summarizeBoundary;
 
-  return Math.max(state.clearContextIndex ?? 0, compressedOrSummarizedIndex);
+  const lastCompressedIndex = findLastCompressedMessageIndex(state.messages);
+  if (lastCompressedIndex >= 0) return Math.max(clear, lastCompressedIndex);
+
+  const compressedContextIndex = state.compressedContextIndex ?? -1;
+  if (compressedContextIndex >= 0) return Math.max(clear, compressedContextIndex);
+
+  return clear;
 }
 
 export function getPreviousSummaryText<T extends SummaryInputMessage>(
@@ -338,47 +347,75 @@ function findValidCutPoints<T extends SummaryInputMessage>(
   return cutPoints;
 }
 
+export interface CompactionSlice {
+  /** 摘要应覆盖的起始下标（通常为压缩边界） */
+  summarizeFromIndex: number;
+  /** 保留为原始消息的起始下标；等于 messages.length 表示全部摘要 */
+  firstKeptIndex: number;
+  isSplitTurn: boolean;
+  turnStartIndex: number;
+}
+
+/**
+ * 切分压缩范围：摘要 [startIndex, firstKeptIndex)，保留 firstKeptIndex 之后的近期消息为原文。
+ * keepRecentTokens 表示希望保留的近期窗口大小；窗口不足时摘要全部活跃历史。
+ */
 export function collectCompactionSlice<T extends SummaryInputMessage>(
   messages: T[],
   startIndex: number,
   keepRecentTokens: number,
   getContent: (message: T) => string,
-) {
-  const validCutPoints = findValidCutPoints(messages, startIndex, getContent);
+): CompactionSlice {
+  const from = Math.max(0, startIndex);
+  const validCutPoints = findValidCutPoints(messages, from, getContent);
   if (validCutPoints.length === 0) {
     return {
-      summaryStartIndex: Math.max(0, startIndex),
-      firstKeptIndex: Math.max(0, startIndex),
+      summarizeFromIndex: from,
+      firstKeptIndex: messages.length,
       isSplitTurn: false,
       turnStartIndex: -1,
     };
   }
 
   let accumulatedTokens = 0;
-  let cutIndex = validCutPoints[0];
+  let firstKeptIndex = messages.length;
+  let foundKeepStart = false;
 
-  for (let i = messages.length - 1; i >= startIndex; i--) {
+  for (let i = messages.length - 1; i >= from; i--) {
     const msg = messages[i];
     if (!msg || msg.isError || msg.role === "system") continue;
     accumulatedTokens += estimateMessageTokens(msg, getContent);
     if (accumulatedTokens >= keepRecentTokens) {
       const found = validCutPoints.find((point) => point >= i);
-      cutIndex = found ?? validCutPoints[validCutPoints.length - 1];
+      firstKeptIndex = found ?? validCutPoints[validCutPoints.length - 1];
+      foundKeepStart = true;
       break;
     }
   }
 
+  // 活跃历史不足 keepRecentTokens：全部摘要，不保留原文窗口
+  if (!foundKeepStart) {
+    firstKeptIndex = messages.length;
+  }
+
   const isSplitTurn =
-    messages[cutIndex]?.role === "assistant" &&
-    findTurnStartIndex(messages, cutIndex, startIndex) >= startIndex;
+    firstKeptIndex < messages.length &&
+    messages[firstKeptIndex]?.role === "assistant" &&
+    findTurnStartIndex(messages, firstKeptIndex, from) >= from;
   const turnStartIndex = isSplitTurn
-    ? findTurnStartIndex(messages, cutIndex, startIndex)
+    ? findTurnStartIndex(messages, firstKeptIndex, from)
     : -1;
-  const summaryStartIndex = isSplitTurn ? turnStartIndex : cutIndex;
+  if (isSplitTurn && turnStartIndex >= from) {
+    // 整轮保留，避免拆开 user/assistant
+    firstKeptIndex = turnStartIndex;
+  }
 
   return {
-    summaryStartIndex: Math.max(startIndex, summaryStartIndex),
-    firstKeptIndex: Math.max(startIndex, cutIndex),
+    summarizeFromIndex: from,
+    firstKeptIndex: Math.min(
+      messages.length,
+      Math.max(from, firstKeptIndex),
+    ),
     isSplitTurn,
     turnStartIndex,
   };

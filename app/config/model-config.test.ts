@@ -1,4 +1,34 @@
-import { getModelThinkingOptions } from "./model-config";
+import {
+  getModelCompressThreshold,
+  getModelThinkingOptions,
+  isModelContextConfigured,
+} from "./model-config";
+
+describe("getModelCompressThreshold", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("returns null instead of silent 8192 when context is unknown", () => {
+    expect(isModelContextConfigured("qwen3.8-27b-local")).toBe(false);
+    expect(getModelCompressThreshold("qwen3.8-27b-local", 0.9)).toBeNull();
+  });
+
+  test("computes threshold from custom context tokens without hard cap", () => {
+    window.localStorage.setItem(
+      "model_context_tokens_qwen3.8-27b",
+      JSON.stringify({ contextTokens: 256000 }),
+    );
+    expect(isModelContextConfigured("qwen3.8-27b")).toBe(true);
+    // 256000 * 0.9 = 230400（不再封顶 128000）
+    expect(getModelCompressThreshold("qwen3.8-27b", 0.9)).toBe(230400);
+    expect(getModelCompressThreshold("qwen3.8-27b", 0.5)).toBe(128000);
+  });
+
+  test("computes threshold for catalog models with known context", () => {
+    expect(getModelCompressThreshold("gpt-4o-mini", 0.5)).toBe(64000);
+  });
+});
 
 describe("getModelThinkingOptions", () => {
   afterEach(() => {

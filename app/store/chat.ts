@@ -43,6 +43,11 @@ import Locale, { getLang } from "../locales";
 import { prettyObject } from "../utils/format";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
+import {
+  resolveHistoryMessageCount,
+  resolveHistorySendBudget,
+  isStaleSilentCompressThreshold,
+} from "../config/model-config";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import {
   getSessionModelConfig,
@@ -77,9 +82,9 @@ const localStorage = safeLocalStorage();
 const DEFAULT_AUTO_TITLE_MIN_USER_TOKENS = 20;
 const DEFAULT_AUTO_TITLE_MIN_USER_MESSAGES = 1;
 const DEFAULT_AUTO_TITLE_REFRESH_INTERVAL = 4;
-const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 1;
+const DEFAULT_SUMMARY_MIN_USER_MESSAGES = 3;
 const TITLE_MAX_OUTPUT_TOKENS = 128;
-const SUMMARY_MAX_OUTPUT_TOKENS = 2048;
+const SUMMARY_MAX_OUTPUT_TOKENS = 4096;
 
 function isResponseApiDebugRequest(reqDebug: any): boolean {
   const url = String(reqDebug?.url || "").toLowerCase();
@@ -1780,27 +1785,21 @@ export const useChatStore = createPersistStore(
           shouldSendLongTermMemory && memoryPrompt ? [memoryPrompt] : [];
         const longTermMemoryStartIndex = session.lastSummarizeIndex;
 
-        // short term memory
+        // 上下文已知时：历史按 token 预算发送，不被 historyMessageCount/max_tokens 卡成小窗口
+        const historyMessageCount = resolveHistoryMessageCount(modelConfig);
+        const maxTokenThreshold = resolveHistorySendBudget(modelConfig);
         const shortTermMemoryStartIndex = Math.max(
           0,
-          totalMessageCount - modelConfig.historyMessageCount,
+          totalMessageCount - historyMessageCount,
         );
 
-        // lets concat send messages, including 4 parts:
-        // 0. system prompt: to get close to OpenAI Web ChatGPT
-        // 1. long term memory: summarized memory messages
-        // 2. pre-defined in-context prompts
-        // 3. short term memory: latest n messages
-        // 4. newest input message
         const memoryStartIndex = shouldSendLongTermMemory
           ? Math.min(longTermMemoryStartIndex, shortTermMemoryStartIndex)
           : shortTermMemoryStartIndex;
-        // and if user has cleared history messages, we should exclude the memory too.
         const contextStartIndex = Math.max(
           getActiveContextStartIndex(session),
           memoryStartIndex,
         );
-        const maxTokenThreshold = modelConfig.max_tokens;
 
         // get recent messages as much as possible
         const reversedRecentMessages = [];
@@ -2104,9 +2103,8 @@ export const useChatStore = createPersistStore(
           return false;
         }
 
-        // 第二次及以后压缩：从「最后一条」压缩结果开始，只压缩「该摘要 + 后续消息」（保留历史压缩消息后可能有多条）
+        // 第二次及以后压缩：从「摘要边界」开始，只压缩边界之后的活跃历史
         const boundaryStartIndex = getCompactionBoundaryStartIndex(session);
-        const lastSummarizeIndex = session.messages.length;
 
         // 先用完整未压缩边界统计压缩条件，之后再按 keepRecentTokens 切 summary slice
         const { userMessageCount } = collectSummaryInputs(
@@ -2146,11 +2144,24 @@ export const useChatStore = createPersistStore(
           reserveTokens,
           keepRecentTokens,
           dynamicThreshold,
+          contextTokensKnown,
           reachedFixedThreshold,
           reachedDynamicThreshold,
           shouldCompress,
           approachingThreshold,
+          effectiveThreshold,
         } = compactionDecision;
+
+        // 旧会话：陈旧 8192 且动态阈值可用时，回写为自动阈值
+        if (
+          contextTokensKnown &&
+          dynamicThreshold != null &&
+          isStaleSilentCompressThreshold(fixedThreshold, dynamicThreshold)
+        ) {
+          get().updateTargetSession(session, (s) => {
+            s.mask.modelConfig.compressMessageLengthThreshold = dynamicThreshold;
+          });
+        }
 
         // 添加详细的调试日志
         logger.debug("[Summarize] Compression check:", {
@@ -2160,6 +2171,8 @@ export const useChatStore = createPersistStore(
           keepRecentTokens,
           fixedThreshold,
           dynamicThreshold,
+          effectiveThreshold,
+          contextTokensKnown,
           reachedFixedThreshold,
           reachedDynamicThreshold,
           userMessageCount,
@@ -2171,6 +2184,14 @@ export const useChatStore = createPersistStore(
           uncompressedMessagesCount: uncompressedMessages.length,
           shouldCompress,
         });
+
+        if (!contextTokensKnown && !forceCompress && modelConfig.sendMemory) {
+          logger.warn(
+            "[Summarize] Auto-compaction disabled: model context tokens not configured for",
+            modelConfig.model,
+            "- configure context in Model Manager first",
+          );
+        }
 
         if (!refreshTitle && approachingThreshold && !session.isSummarizing) {
           logger.debug(
@@ -2192,23 +2213,27 @@ export const useChatStore = createPersistStore(
             (msg: ChatMessage) =>
               getMessageTextContentWithoutThinking(msg).trim(),
           );
-          const summaryStartIndex = compactionSlice.summaryStartIndex;
+          // 摘要覆盖 [summarizeFromIndex, firstKeptIndex)，保留 firstKeptIndex 之后原文
+          const summaryStartIndex = compactionSlice.summarizeFromIndex;
+          const firstKeptIndex = compactionSlice.firstKeptIndex;
           logger.debug("[Summarize] Compaction slice:", {
             boundaryStartIndex,
             summaryStartIndex,
-            firstKeptIndex: compactionSlice.firstKeptIndex,
+            firstKeptIndex,
             isSplitTurn: compactionSlice.isSplitTurn,
             turnStartIndex: compactionSlice.turnStartIndex,
           });
 
           const { userMessages, userTokens } = collectSummaryInputs(
-            messages,
-            summaryStartIndex,
+            messages.slice(summaryStartIndex, firstKeptIndex),
+            0,
             (msg: ChatMessage) =>
               getMessageTextContentWithoutThinking(msg).trim(),
             estimateTokenLength,
           );
           const summaryTokens = userTokens;
+          // 压缩后上下文从 keep-recent 起点计入
+          const lastSummarizeIndex = firstKeptIndex;
 
           /** Destruct max_tokens while summarizing
            * this param is just shit
@@ -2234,14 +2259,19 @@ export const useChatStore = createPersistStore(
             maxCompletionTokens,
             ...modelcfg
           } = modelConfig as any;
+          // 超长历史时放宽摘要输出预算，避免结构化摘要被截断
+          const summaryOutputBudget = Math.min(
+            16384,
+            Math.max(SUMMARY_MAX_OUTPUT_TOKENS, Math.floor(summaryTokens * 0.12)),
+          );
           const summaryModelConfig = {
             ...modelcfg,
-            max_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
+            max_tokens: summaryOutputBudget,
           };
           const forceUserMessages =
             forceCompress && !userMessages
               ? buildConversationTranscript(
-                  messages.slice(summaryStartIndex),
+                  messages.slice(summaryStartIndex, firstKeptIndex),
                   false,
                 )
               : userMessages;
@@ -2307,13 +2337,22 @@ export const useChatStore = createPersistStore(
             onSuccess: (filteredMessage, responseRes) => {
               const candidateSummary = (filteredMessage || "").trim();
               const candidateLength = estimateTokenLength(candidateSummary);
+              // 宽松守卫：超长历史允许更长摘要；避免弱模型被误判为「压了等于没压」
+              const emptySummary = candidateSummary.length === 0;
+              const minAcceptable =
+                summaryTokens > 8000
+                  ? Math.min(300, Math.floor(summaryTokens * 0.01))
+                  : summaryTokens > 2000
+                    ? 80
+                    : 0;
+              const tooShort =
+                !forceCompress &&
+                minAcceptable > 0 &&
+                candidateLength < minAcceptable;
               const tooLong =
                 !forceCompress &&
-                summaryTokens > 0 &&
-                candidateLength > summaryTokens * 0.8;
-              const tooShort =
-                !forceCompress && summaryTokens > 1000 && candidateLength < 50;
-              const emptySummary = candidateSummary.length === 0;
+                summaryTokens > 8000 &&
+                candidateLength > summaryTokens * 0.9;
               const guardTriggered = tooLong || tooShort || emptySummary;
               const hasPreviousSummary =
                 !!previousSummary && previousSummary.trim().length > 0;
@@ -2330,6 +2369,7 @@ export const useChatStore = createPersistStore(
                   tooLong,
                   candidateLength,
                   summaryTokens,
+                  minAcceptable,
                   fallbackToPreviousSummary: hasPreviousSummary,
                 });
               }

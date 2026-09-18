@@ -66,6 +66,7 @@ const en: LocaleType = {
         EstimatedTokens: (estimated: number) =>
           `Estimated tokens: ${estimated.toLocaleString()}`,
         ContextTokens: (tokens: string) => `Context: ${tokens} tokens`,
+        ContextNotConfigured: "Context not set · auto-compaction disabled",
       },
     },
     SubTitle: (count: number) => `${count} messages`,
@@ -164,6 +165,8 @@ const en: LocaleType = {
       CurrentToken: "Current Token",
       EstimatedToken: "Estimated Token",
       Unknown: "Unknown",
+      ContextUnknownWarning:
+        "Model context is not configured; auto-compaction is disabled. Set context tokens in Model Manager first.",
     },
     StartSpeak: "Start Speak",
     StopSpeak: "Stop Speak",
@@ -602,15 +605,18 @@ Keep each section concise. Preserve exact file paths, function names, and error 
       Title: "Fixed Compression Threshold",
       SubTitle:
         "Triggers compression when uncompressed messages exceed this fixed value (independent condition)",
+      ContextUnknown:
+        "Model context is not configured; auto-compaction is disabled. Set context tokens in Model Manager first.",
     },
     CompressThresholdRatio: {
       Title: "Dynamic Compression Threshold Ratio",
       SubTitle:
-        "Calculates dynamic threshold based on model context window (independent condition, 10%-90%)",
+        "Calculates dynamic threshold based on model context window (0%=off, 10%–95%)",
     },
     SummaryMinUserMessages: {
       Title: "Summary Min User Messages",
-      SubTitle: "Minimum user messages required to trigger summarization",
+      SubTitle:
+        "Minimum user messages required to trigger summarization (3–5 recommended for agent/tool chats)",
     },
 
     Access: {

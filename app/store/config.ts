@@ -81,12 +81,12 @@ export const DEFAULT_CONFIG = {
     frequency_penalty: 0,
     sendMemory: true,
     historyMessageCount: 4,
-    compressMessageLengthThreshold: 8192, // 默认8K tokens
-    compressThresholdRatio: 0.9, // 上下文窗口压缩比例，默认90%
+    compressMessageLengthThreshold: 0, // 0=未指定；有上下文时用动态阈值
+    compressThresholdRatio: 0.9, // 上下文窗口压缩比例；0=关闭动态阈值
     autoTitleMinUserTokens: 20,
     autoTitleMinUserMessages: 1,
     autoTitleRefreshInterval: 4,
-    summaryMinUserMessages: 1,
+    summaryMinUserMessages: 3,
     compressModel: "",
     compressProviderName: "",
     topicModel: "",
@@ -215,20 +215,11 @@ export const ModalConfigValidator = {
     );
   },
   summaryMinUserMessages(x: number) {
-    return limitNumber(
-      x,
-      1,
-      50,
-      DEFAULT_CONFIG.modelConfig.summaryMinUserMessages,
-    );
+    return limitNumber(x, 1, 50, 3);
   },
   compressThresholdRatio(x: number) {
-    return limitNumber(
-      x,
-      0.1,
-      0.9,
-      DEFAULT_CONFIG.modelConfig.compressThresholdRatio,
-    );
+    // 0 = 关闭动态阈值；上限 0.95
+    return limitNumber(x, 0, 0.95, 0.9);
   },
 };
 
@@ -266,7 +257,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 5.0,
+    version: 5.1,
 
     // 模型全集会随 API 拉取频繁变化，体积大且可重新获取，不持久化到本地
     partialize(state) {
@@ -344,13 +335,17 @@ export const useAppConfig = createPersistStore(
       }
 
       if (version < 4.3) {
-        // 根据当前模型更新压缩阈值
-        state.modelConfig.compressMessageLengthThreshold =
-          getModelCompressThreshold(
-            state.modelConfig.model,
-            state.modelConfig.compressThresholdRatio ??
-              DEFAULT_CONFIG.modelConfig.compressThresholdRatio,
-          );
+        // 根据当前模型更新压缩阈值；上下文未知时不静默写入 8192
+        const autoThreshold = getModelCompressThreshold(
+          state.modelConfig.model,
+          state.modelConfig.compressThresholdRatio ??
+            DEFAULT_CONFIG.modelConfig.compressThresholdRatio,
+        );
+        if (autoThreshold != null) {
+          state.modelConfig.compressMessageLengthThreshold = autoThreshold;
+        } else if (!state.modelConfig.compressMessageLengthThreshold) {
+          state.modelConfig.compressMessageLengthThreshold = 0;
+        }
       }
 
       if (version < 4.4) {
@@ -404,6 +399,26 @@ export const useAppConfig = createPersistStore(
             !rtc.qwen.model.includes("realtime"))
         ) {
           rtc.qwen.model = DEFAULT_CONFIG.realtimeConfig.qwen.model;
+        }
+      }
+
+      if (version < 5.1) {
+        // 摘要触发：默认从 1 条用户消息提高到 3，避免 agent 长回复被压得过碎
+        if (
+          !state.modelConfig.summaryMinUserMessages ||
+          state.modelConfig.summaryMinUserMessages < 3
+        ) {
+          state.modelConfig.summaryMinUserMessages = 3;
+        }
+        // 陈旧固定阈值 8192：改为未指定，交给动态阈值
+        if (state.modelConfig.compressMessageLengthThreshold === 8192) {
+          state.modelConfig.compressMessageLengthThreshold = 0;
+        }
+        if (
+          state.modelConfig.compressThresholdRatio != null &&
+          state.modelConfig.compressThresholdRatio > 0.95
+        ) {
+          state.modelConfig.compressThresholdRatio = 0.95;
         }
       }
 

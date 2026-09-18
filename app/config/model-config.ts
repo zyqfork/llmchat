@@ -380,26 +380,91 @@ export function formatTokenCount(tokens: number): string {
 /** 与 pi-web-ui 同源的费用/用量格式化 */
 export { formatCost, formatModelCost, formatUsage };
 
+/** 历史上曾静默回退的默认阈值；上下文未知时不再使用 */
+export const LEGACY_SILENT_COMPRESS_THRESHOLD = 8192;
+
+/** 未配置上下文时的历史发送预算兜底 */
+export const FALLBACK_HISTORY_SEND_BUDGET = 8192;
+
 /**
- * 根据模型的上下文Token数自动计算压缩阈值
+ * 模型上下文是否已配置（目录命中或用户自定义均可）。
+ */
+export function isModelContextConfigured(modelName: string): boolean {
+  const contextTokens = getModelContextTokens(modelName)?.contextTokens;
+  return typeof contextTokens === "number" && contextTokens > 0;
+}
+
+/**
+ * 根据模型的上下文Token数自动计算压缩阈值。
+ * - 上下文未知：返回 null（不静默 8192）
+ * - ratio === 0：关闭动态阈值，返回 null（仅固定阈值/手动/溢出压缩）
+ * - 不做绝对值硬上限：256k × 0.9 = 230400
  */
 export function getModelCompressThreshold(
   modelName: string,
   ratio: number = 0.5,
-): number {
-  const DEFAULT_THRESHOLD = 8192;
-
+): number | null {
   const contextConfig = getModelContextTokens(modelName);
   if (!contextConfig?.contextTokens) {
-    return DEFAULT_THRESHOLD;
+    return null;
+  }
+  if (ratio === 0) {
+    return null;
   }
 
-  const safeRatio = Math.min(0.9, Math.max(0.1, ratio || 0.5));
-  const threshold = Math.floor(contextConfig.contextTokens * safeRatio);
+  const safeRatio = Math.min(0.95, Math.max(0.1, ratio));
+  return Math.floor(contextConfig.contextTokens * safeRatio);
+}
 
-  // 限制最大值为 128k，避免超大模型的压缩阈值过高
-  // 移除最小值限制，允许用户设置较小的压缩阈值用于测试
-  return Math.min(threshold, 128000);
+/**
+ * 解析「发给模型的历史消息」token 预算。
+ * 上下文已知时按窗口扣减输出/系统开销，不再沿用 max_tokens（那是输出上限）。
+ */
+export function resolveHistorySendBudget(modelConfig: {
+  model: string;
+  max_tokens?: number;
+}): number {
+  const contextConfig = getModelContextTokens(modelConfig.model);
+  const contextTokens = contextConfig?.contextTokens ?? 0;
+  const configuredOutput =
+    typeof modelConfig.max_tokens === "number" && modelConfig.max_tokens > 0
+      ? modelConfig.max_tokens
+      : 0;
+  const outputReserve = contextConfig?.maxOutputTokens ?? configuredOutput;
+
+  if (contextTokens > 0) {
+    // 预留输出 + 至少 5% 或 8k 的系统/工具开销
+    const outputAllowance = Math.max(outputReserve || 4096, 4096);
+    const overhead = Math.max(2048, Math.floor(contextTokens * 0.05));
+    return Math.max(4096, contextTokens - outputAllowance - overhead);
+  }
+
+  return configuredOutput > 0 ? configuredOutput : FALLBACK_HISTORY_SEND_BUDGET;
+}
+
+/**
+ * 上下文已知时，历史消息按 token 预算裁剪，不再受 historyMessageCount 过紧限制。
+ */
+export function resolveHistoryMessageCount(modelConfig: {
+  model: string;
+  historyMessageCount?: number;
+}): number {
+  if (isModelContextConfigured(modelConfig.model)) {
+    // 完全交给 token 预算；给一个足够大的上界避免异常
+    return 10_000;
+  }
+  return modelConfig.historyMessageCount ?? 4;
+}
+
+export function isStaleSilentCompressThreshold(
+  fixedThreshold: number,
+  dynamicThreshold: number | null,
+): boolean {
+  return (
+    dynamicThreshold != null &&
+    fixedThreshold === LEGACY_SILENT_COMPRESS_THRESHOLD &&
+    dynamicThreshold > LEGACY_SILENT_COMPRESS_THRESHOLD
+  );
 }
 
 /**

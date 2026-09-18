@@ -63,6 +63,7 @@ const cn = {
         EstimatedTokens: (estimated: number) =>
           `预估Token: ${estimated.toLocaleString()}`,
         ContextTokens: (tokens: string) => `上下文: ${tokens} tokens`,
+        ContextNotConfigured: "未配置上下文 · 自动压缩已禁用",
       },
     },
     SubTitle: (count: number) => `共 ${count} 条对话`,
@@ -158,6 +159,8 @@ const cn = {
       CurrentToken: "当前Token",
       EstimatedToken: "预估Token",
       Unknown: "未知",
+      ContextUnknownWarning:
+        "模型上下文未配置，已禁用自动压缩。请先在模型管理中设置上下文 Token。",
     },
     StartSpeak: "说话",
     StopSpeak: "停止",
@@ -586,14 +589,16 @@ const cn = {
     CompressThreshold: {
       Title: "固定压缩阈值",
       SubTitle: "当未压缩的历史消息超过该固定值时触发压缩（独立条件）",
+      ContextUnknown:
+        "模型上下文未配置，已禁用自动压缩。请先在模型管理中设置上下文 Token。",
     },
     CompressThresholdRatio: {
       Title: "动态压缩阈值比例",
-      SubTitle: "基于模型上下文窗口计算动态阈值（独立条件，10%-90%）",
+      SubTitle: "基于模型上下文窗口计算动态阈值（独立条件，0%=关闭，10%-95%）",
     },
     SummaryMinUserMessages: {
       Title: "压缩最小用户消息数",
-      SubTitle: "满足该数量后才会触发语义状态压缩",
+      SubTitle: "满足该数量后才会触发语义状态压缩（建议 3–5，避免 agent 长回复被压得过碎）",
     },
 
     Access: {

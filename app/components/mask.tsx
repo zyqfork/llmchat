@@ -413,13 +413,13 @@ export function MaskConfig(props: {
                         if (modelBudget !== undefined) {
                           mask.modelConfig.thinkingBudget = modelBudget;
                         }
-                        // 根据新模型自动更新压缩阈值
+                        // 根据新模型自动更新压缩阈值；上下文未知时置 0
                         const autoThreshold = getModelCompressThreshold(
                           model,
                           mask.modelConfig.compressThresholdRatio,
                         );
                         mask.modelConfig.compressMessageLengthThreshold =
-                          autoThreshold;
+                          autoThreshold ?? 0;
                       }
                     }
                   });

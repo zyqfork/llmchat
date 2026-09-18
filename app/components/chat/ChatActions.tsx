@@ -265,7 +265,7 @@ export function ChatActions(props: {
       }
 
       const contextConfig = getModelContextTokens(model.name);
-      const contextTokensDisplay = contextConfig
+      const contextTokensDisplay = contextConfig?.contextTokens
         ? formatTokenCount(contextConfig.contextTokens)
         : null;
 
@@ -273,7 +273,7 @@ export function ChatActions(props: {
         title: model.displayName,
         subTitle: contextTokensDisplay
           ? Locale.Chat.UI.ContextTooltip.ContextTokens(contextTokensDisplay)
-          : undefined,
+          : Locale.Chat.UI.ContextTooltip.ContextNotConfigured,
         searchText: model.displayName,
         value: `${model.name}@${providerId}`,
         icon: <Avatar model={model.name} />,
@@ -376,7 +376,9 @@ export function ChatActions(props: {
 
       const ratio = session.mask.modelConfig.compressThresholdRatio;
       const autoThreshold = getModelCompressThreshold(nextModel.name, ratio);
-      session.mask.modelConfig.compressMessageLengthThreshold = autoThreshold;
+      // 上下文未知时不要写入 8192；置 0 表示不启用固定阈值自动压缩
+      session.mask.modelConfig.compressMessageLengthThreshold =
+        autoThreshold ?? 0;
     });
     showToast(nextModel.name);
   }, 100);
@@ -681,7 +683,7 @@ export function ChatActions(props: {
                 const ratio = session.mask.modelConfig.compressThresholdRatio;
                 const autoThreshold = getModelCompressThreshold(model, ratio);
                 session.mask.modelConfig.compressMessageLengthThreshold =
-                  autoThreshold;
+                  autoThreshold ?? 0;
               });
 
               const selectedModel = models.find(

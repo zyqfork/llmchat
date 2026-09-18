@@ -648,9 +648,10 @@ export function ModelSelectorModal<T>(props: {
         // 获取最新的模型能力配置
         const capabilities = getModelCapabilities(modelName);
         const contextConfig = getModelContextTokens(modelName);
-        const contextTokensDisplay = contextConfig
-          ? formatTokenCount(contextConfig.contextTokens)
-          : null;
+        const contextTokensDisplay =
+          contextConfig?.contextTokens != null && contextConfig.contextTokens > 0
+            ? formatTokenCount(contextConfig.contextTokens)
+            : null;
 
         return {
           ...item,
@@ -668,7 +669,7 @@ export function ModelSelectorModal<T>(props: {
           ),
           subTitle: contextTokensDisplay
             ? Locale.Chat.UI.ContextTooltip.ContextTokens(contextTokensDisplay)
-            : undefined,
+            : Locale.Chat.UI.ContextTooltip.ContextNotConfigured,
         };
       }),
     }));

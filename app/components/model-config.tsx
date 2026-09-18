@@ -539,7 +539,17 @@ export function ModelConfigList(props: {
           );
           const currentThreshold =
             props.modelConfig.compressMessageLengthThreshold;
-          const isAuto = currentThreshold === autoThreshold;
+          if (autoThreshold == null) {
+            return (
+              <span style={{ color: "#ef4444" }}>
+                {Locale.Settings.CompressThreshold.ContextUnknown}
+              </span>
+            );
+          }
+          const isAuto =
+            currentThreshold === autoThreshold ||
+            !currentThreshold ||
+            currentThreshold === 0;
           return `${Locale.Settings.CompressThreshold.SubTitle}${
             isAuto
               ? ` (当前: 自动 - ${formatTokenCount(autoThreshold)} Token)`
@@ -553,10 +563,12 @@ export function ModelConfigList(props: {
           min={500}
           max={10000000}
           value={props.modelConfig.compressMessageLengthThreshold}
-          placeholder={getModelCompressThreshold(
-            props.modelConfig.model,
-            props.modelConfig.compressThresholdRatio,
-          ).toString()}
+          placeholder={
+            getModelCompressThreshold(
+              props.modelConfig.model,
+              props.modelConfig.compressThresholdRatio,
+            )?.toString() ?? ""
+          }
           disabled={disabled}
           onChange={(e) =>
             props.updateConfig(
@@ -570,18 +582,22 @@ export function ModelConfigList(props: {
 
       <ListItem
         title={Locale.Settings.CompressThresholdRatio.Title}
-        subTitle={Locale.Settings.CompressThresholdRatio.SubTitle}
+        subTitle={`${Locale.Settings.CompressThresholdRatio.SubTitle} · 0%=关闭动态`}
       >
         <InputRange
           aria={Locale.Settings.CompressThresholdRatio.Title}
-          title={`${Math.round(
-            (props.modelConfig.compressThresholdRatio ?? 0.5) * 100,
-          )}%`}
+          title={
+            (props.modelConfig.compressThresholdRatio ?? 0.9) === 0
+              ? "关闭"
+              : `${Math.round(
+                  (props.modelConfig.compressThresholdRatio ?? 0.9) * 100,
+                )}%`
+          }
           value={Math.round(
-            (props.modelConfig.compressThresholdRatio ?? 0.5) * 100,
+            (props.modelConfig.compressThresholdRatio ?? 0.9) * 100,
           )}
-          min="10"
-          max="90"
+          min="0"
+          max="95"
           step="5"
           disabled={disabled}
           onChange={(e) =>
@@ -590,8 +606,6 @@ export function ModelConfigList(props: {
                 e.target.valueAsNumber / 100,
               );
               config.compressThresholdRatio = ratio;
-              // 不自动更新 compressMessageLengthThreshold
-              // 让用户可以独立设置这两个值
             })
           }
         ></InputRange>
@@ -603,8 +617,8 @@ export function ModelConfigList(props: {
       >
         <InputRange
           aria={Locale.Settings.SummaryMinUserMessages.Title}
-          title={(props.modelConfig.summaryMinUserMessages ?? 1).toString()}
-          value={props.modelConfig.summaryMinUserMessages ?? 1}
+          title={(props.modelConfig.summaryMinUserMessages ?? 3).toString()}
+          value={props.modelConfig.summaryMinUserMessages ?? 3}
           min="1"
           max="20"
           step="1"

@@ -128,6 +128,7 @@ export function TokenCounter(props: {
         effectiveStartIndex,
         usedTokens,
         maxTokens,
+        contextConfigured: !!maxTokens && maxTokens > 0,
         currentContextCount,
         maxContextCount,
         multiModelStats,
@@ -151,6 +152,7 @@ export function TokenCounter(props: {
   const {
     usedTokens,
     maxTokens,
+    contextConfigured,
     currentContextCount,
     maxContextCount,
     multiModelStats,
@@ -171,6 +173,9 @@ export function TokenCounter(props: {
     ? []
     : [
         `${Locale.Chat.TokenTooltip.Context}: ${currentContextCount} / ${maxContextCount}`,
+        !contextConfigured
+          ? Locale.Chat.TokenTooltip.ContextUnknownWarning
+          : null,
         maxTokens
           ? `${
               Locale.Chat.TokenTooltip.CurrentToken
@@ -212,7 +217,13 @@ export function TokenCounter(props: {
         type="button"
         title={Locale.Chat.InputActions.Reset}
       >
-        <span className={styles["token-counter-text"]}>{displayText}</span>
+        <span
+          className={clsx(styles["token-counter-text"], {
+            [styles["token-counter-text-warning"]]: !isMultiModel && !contextConfigured,
+          })}
+        >
+          {displayText}
+        </span>
         {!isMultiModel && maxTokens && (
           <div className={styles["token-counter-progress"]}>
             <div

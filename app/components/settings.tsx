@@ -43,6 +43,7 @@ import {
   getModelContextTokens,
   saveCustomContextTokens,
 } from "../config/model-config";
+import { applyCompressThresholdSyncForModel } from "../utils/compress-threshold-sync";
 import { getModelThinkingBudget } from "../config/model-thinking";
 import { ModelConfigModal } from "./model-config-modal";
 
@@ -3559,13 +3560,13 @@ export function Settings() {
                 config.modelConfig.model = model as any;
                 // 保留原始 provider id，避免自定义 provider 在刷新后被错误归一化
                 config.modelConfig.providerName = providerName!;
-                // 根据新模型自动更新压缩阈值
+                // 根据新模型自动更新压缩阈值；上下文未知时置 0 禁用固定阈值
                 const autoThreshold = getModelCompressThreshold(
                   model,
                   config.modelConfig.compressThresholdRatio,
                 );
                 config.modelConfig.compressMessageLengthThreshold =
-                  autoThreshold;
+                  autoThreshold ?? 0;
                 // 优先应用模型级思考深度默认值
                 const modelBudget = getModelThinkingBudget(model);
                 if (modelBudget !== undefined) {
@@ -3751,19 +3752,20 @@ export function Settings() {
           category=""
           showCategory={false}
           showDelete={false}
-          onSave={(config) => {
+          onSave={(modelCfg) => {
             const modelName = modelConfigForm.modelId;
 
             // 保存能力配置到本地存储
             const capabilitiesKey = `model_capabilities_${modelName}`;
             localStorage.setItem(
               capabilitiesKey,
-              JSON.stringify(config.capabilities),
+              JSON.stringify(modelCfg.capabilities),
             );
 
             // 保存上下文Token数配置
-            if (config.contextTokens !== undefined) {
-              saveCustomContextTokens(modelName, config.contextTokens);
+            if (modelCfg.contextTokens !== undefined) {
+              saveCustomContextTokens(modelName, modelCfg.contextTokens);
+              applyCompressThresholdSyncForModel(modelName);
             }
 
             // 关闭配置面板
